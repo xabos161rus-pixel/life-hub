@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-bg: var(--app-bg);
+  --color-surface: var(--app-surface);
+  --color-surface-2: var(--app-surface-2);
+  --color-border: var(--app-border);
+  --color-text: var(--app-text);
+  --color-muted: var(--app-muted);
+  --color-accent: var(--app-accent);
+  --color-danger: var(--app-danger);
+  --color-success: var(--app-success);
+  --color-warning: var(--app-warning);
+}
+
+:root {
+  --app-bg: #0c0e12;
+  --app-surface: #151a23;
+  --app-surface-2: #1e2430;
+  --app-border: #2a3040;
+  --app-text: #e9ebf2;
+  --app-muted: #8b91a7;
+  --app-accent: #7c9aff;
+  --app-danger: #f87171;
+  --app-success: #4ade80;
+  --app-warning: #fbbf24;
+  color-scheme: dark;
+}
+
+:root.light {
+  --app-bg: #f3f4f8;
+  --app-surface: #ffffff;
+  --app-surface-2: #eceef4;
+  --app-border: #dcdfe8;
+  --app-text: #1a1d28;
+  --app-muted: #6b7186;
+  --app-accent: #4f6ef7;
+  --app-danger: #dc2626;
+  --app-success: #16a34a;
+  --app-warning: #d97706;
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* iOS зумит поля с шрифтом < 16px */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-sheet-up {
+  animation: sheet-up 0.25s cubic-bezier(0.32, 0.72, 0.3, 1);
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease;
+}
