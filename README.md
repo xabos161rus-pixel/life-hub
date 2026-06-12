@@ -1,73 +1,37 @@
-# React + TypeScript + Vite
+# Life Hub
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Личный центр управления жизнью: задачи, цели, привычки, заметки, обучение. PWA для iPhone — устанавливается на экран «Домой» из Safari, работает полностью офлайн.
 
-Currently, two official plugins are available:
+## Архитектура
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **React 19 + TypeScript + Vite 8**, Tailwind CSS 4 (CSS-first, токены в `src/index.css`)
+- **Dexie.js (IndexedDB)** — все данные локально на устройстве; `useLiveQuery` как слой состояния
+- **PWA** через vite-plugin-pwa: precache всего билда, `autoUpdate`
+- Хостинг: GitHub Pages (`.github/workflows/deploy.yml`), base path `/life-hub/`
 
-## React Compiler
+### Слой данных (sync-ready)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Каждая запись наследует `BaseEntity` (`id` uuid, `createdAt`, `updatedAt`, `deletedAt` — мягкое удаление). Все записи идут **только** через `src/db/repo.ts` (`create`/`update`/`remove`). Это позволяет добавить облачную синхронизацию в v2: outbox-таблица в Dexie `version(2)` + хук в repo, UI не меняется.
 
-## Expanding the ESLint configuration
+Календарные даты — локальные строки `YYYY-MM-DD` (`src/lib/dates.ts`), чтобы отметка в 23:30 МСК не уезжала на другой день.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Бэкап
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Данные живут только в IndexedDB устройства. Экспорт/импорт JSON — в Настройках. Бейдж на табе «Ещё» напоминает, если бэкапа не было больше 7 дней.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Разработка
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev      # http://localhost:5173/life-hub/
+npm run build    # tsc + vite build + service worker
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Деплой
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Push в `main` → GitHub Actions собирает и публикует на GitHub Pages (~2 мин). На iPhone: перезапустить приложение, обновление подтянется автоматически.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## v2 (не реализовано, по плану)
+
+- Push-напоминания: нужен крошечный push-сервер (Cloudflare Worker cron + Web Push VAPID). iOS 16.4+ поддерживает web push только для установленных PWA.
+- Облачная синхронизация: outbox в repo.ts + любой лёгкий бэкенд (Supabase free tier).
