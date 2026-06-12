@@ -3,8 +3,9 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-export default defineConfig({
-  base: '/life-hub/',
+export default defineConfig(({ command }) => ({
+  // в dev — корень (удобнее для предпросмотра), в проде — путь GitHub Pages
+  base: command === 'build' ? '/life-hub/' : '/',
   plugins: [
     react(),
     tailwindcss(),
@@ -33,4 +34,4 @@ export default defineConfig({
       },
     }),
   ],
-})
+}))

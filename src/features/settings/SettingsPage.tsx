@@ -44,7 +44,10 @@ export function SettingsPage() {
     const json = JSON.stringify(backup, null, 2);
     const file = new File([json], backupFilename(), { type: 'application/json' });
 
-    if (navigator.canShare?.({ files: [file] })) {
+    // share-шит — только на iOS (там это путь в «Файлы»); на десктопе
+    // системный share-диалог блокирует страницу, качаем напрямую
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS && navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({ files: [file] });
       } catch (err) {
