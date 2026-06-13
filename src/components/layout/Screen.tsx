@@ -16,7 +16,7 @@ interface Props {
 /** Каркас страницы: липкая шапка с safe-area + контент с отступом под таб-бар. */
 export function Screen({ title, backTo, right, subtitle, children }: Props) {
   return (
-    <div className="min-h-dvh pb-[calc(env(safe-area-inset-bottom)+100px)]">
+    <div className="min-h-full pb-24">
       <header className="sticky top-0 z-30 border-b border-hairline bg-bg/70 px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 backdrop-blur-xl">
         <div className="flex items-center gap-2">
           {backTo && (

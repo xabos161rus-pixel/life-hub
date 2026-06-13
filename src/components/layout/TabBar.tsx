@@ -23,7 +23,7 @@ export function TabBar() {
   if (/^\/notes\/.+/.test(pathname)) return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-elevated/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
+    <nav className="z-30 shrink-0 border-t border-hairline bg-elevated pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto flex max-w-lg px-1">
         {tabs.map(({ to, label, icon: Icon, end }) => (
           <NavLink
@@ -35,19 +35,27 @@ export function TabBar() {
             {({ isActive }) => (
               <>
                 <span
-                  className={`flex h-8 w-14 items-center justify-center rounded-full transition-colors duration-200 ${
-                    isActive ? 'bg-accent/15 text-accent' : 'text-muted'
+                  className={`flex h-9 w-16 items-center justify-center rounded-2xl transition-all duration-200 ${
+                    isActive
+                      ? 'bg-accent/15 text-accent shadow-[0_5px_18px_-7px_var(--app-accent)]'
+                      : 'text-muted'
                   }`}
                 >
                   <span className="relative">
-                    <Icon size={22} strokeWidth={isActive ? 2.4 : 1.9} />
+                    <Icon
+                      size={22}
+                      strokeWidth={isActive ? 2.5 : 1.9}
+                      style={
+                        isActive ? { filter: 'drop-shadow(0 0 6px var(--app-accent))' } : undefined
+                      }
+                    />
                     {label === 'Ещё' && backupStale && (
                       <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-elevated" />
                     )}
                   </span>
                 </span>
                 <span
-                  className={`text-[11px] font-medium transition-colors ${
+                  className={`text-[11px] font-semibold transition-colors ${
                     isActive ? 'text-accent' : 'text-muted'
                   }`}
                 >

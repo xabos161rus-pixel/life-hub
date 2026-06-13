@@ -16,8 +16,10 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={`flex-1 rounded-lg px-2 py-1.5 text-sm font-medium transition-colors ${
-            value === o.value ? 'bg-accent text-white' : 'text-muted'
+          className={`flex-1 rounded-lg px-2 py-1.5 text-sm font-medium transition-all duration-200 ${
+            value === o.value
+              ? 'bg-accent text-white shadow-[0_2px_10px_-3px_var(--app-accent)]'
+              : 'text-muted active:text-text'
           }`}
         >
           {o.label}

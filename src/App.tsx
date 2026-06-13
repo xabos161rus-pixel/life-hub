@@ -66,20 +66,27 @@ export default function App() {
       <ToastProvider>
         <ThemeApplier />
         <ErrorBoundary>
-          <Routes>
-            <Route path="/" element={<TodayPage />} />
-            <Route path="/tasks" element={<TasksPage />} />
-            <Route path="/notes" element={<NotesPage />} />
-            <Route path="/notes/:id" element={<NoteEditorPage />} />
-            <Route path="/goals" element={<GoalsPage />} />
-            <Route path="/goals/:id" element={<GoalDetailPage />} />
-            <Route path="/more" element={<MorePage />} />
-            <Route path="/more/learning" element={<LearningPage />} />
-            <Route path="/more/settings" element={<SettingsPage />} />
-            <Route path="/more/settings/install" element={<InstallInstructionsPage />} />
-          </Routes>
-          <InstallBanner />
-          <TabBar />
+          {/* Каркас: корень фиксированной высоты, скроллится только контент,
+              таб-бар — обычный flex-элемент. Так клавиатура не оставляет
+              «дыру» внизу (баг fixed bottom-0 на iOS). */}
+          <div className="flex h-dvh flex-col overflow-hidden">
+            <div className="flex-1 overflow-x-hidden overflow-y-auto">
+              <Routes>
+                <Route path="/" element={<TodayPage />} />
+                <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/notes" element={<NotesPage />} />
+                <Route path="/notes/:id" element={<NoteEditorPage />} />
+                <Route path="/goals" element={<GoalsPage />} />
+                <Route path="/goals/:id" element={<GoalDetailPage />} />
+                <Route path="/more" element={<MorePage />} />
+                <Route path="/more/learning" element={<LearningPage />} />
+                <Route path="/more/settings" element={<SettingsPage />} />
+                <Route path="/more/settings/install" element={<InstallInstructionsPage />} />
+              </Routes>
+            </div>
+            <InstallBanner />
+            <TabBar />
+          </div>
         </ErrorBoundary>
       </ToastProvider>
     </BrowserRouter>
