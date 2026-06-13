@@ -8,10 +8,12 @@ interface Props {
 
 export function EmptyState({ icon: Icon, title, hint }: Props) {
   return (
-    <div className="flex flex-col items-center gap-2 py-14 text-center">
-      <Icon size={40} className="text-muted/60" strokeWidth={1.5} />
-      <p className="font-semibold text-muted">{title}</p>
-      {hint && <p className="max-w-60 text-sm text-muted/70">{hint}</p>}
+    <div className="flex flex-col items-center gap-3 py-20 text-center">
+      <div className="card flex size-16 items-center justify-center text-muted">
+        <Icon size={28} strokeWidth={1.75} />
+      </div>
+      <p className="text-base font-semibold">{title}</p>
+      {hint && <p className="max-w-64 text-sm leading-relaxed text-muted">{hint}</p>}
     </div>
   );
 }

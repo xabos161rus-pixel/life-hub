@@ -68,7 +68,7 @@ function NoteRow({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl">
+    <div className="relative overflow-hidden rounded-[1.15rem] shadow-[var(--shadow-card)]">
       <button
         type="button"
         onClick={onDelete}
@@ -77,7 +77,7 @@ function NoteRow({
         Удалить
       </button>
       <div
-        className="relative flex touch-pan-y items-start gap-2 border border-border bg-surface p-3.5"
+        className="relative flex touch-pan-y items-start gap-2 border border-hairline bg-surface p-3.5"
         style={{
           transform: `translateX(${dx}px)`,
           transition: dragging ? 'none' : 'transform 0.2s',

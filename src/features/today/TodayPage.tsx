@@ -27,9 +27,7 @@ function TaskList({
 }) {
   return (
     <div
-      className={`divide-y divide-border rounded-2xl border border-border bg-surface px-4 ${
-        muted ? 'opacity-60' : ''
-      }`}
+      className={`card divide-y divide-hairline px-4 ${muted ? 'opacity-60' : ''}`}
     >
       {tasks.map((t) => (
         <TaskItem

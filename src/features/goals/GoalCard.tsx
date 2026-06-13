@@ -35,7 +35,7 @@ export function GoalCard({ goal }: { goal: Goal }) {
   return (
     <Link
       to={`/goals/${goal.id}`}
-      className="flex items-center gap-3.5 rounded-2xl border border-border bg-surface p-4 active:opacity-80"
+      className="card flex items-center gap-3.5 p-4 transition-transform active:scale-[0.99]"
     >
       <ProgressRing value={value} color={goal.color} />
       <div className="min-w-0 flex-1">

@@ -24,8 +24,10 @@ export function InstallBanner() {
   if (dismissed || isStandalone()) return null;
 
   return (
-    <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+76px)] z-40 flex items-center gap-3 rounded-2xl border border-border bg-surface-2 p-3 shadow-lg shadow-black/30">
-      <Share size={22} className="shrink-0 text-accent" />
+    <div className="card fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+78px)] z-30 flex items-center gap-3 p-3">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+        <Share size={18} />
+      </span>
       <Link to="/more/settings/install" className="min-w-0 flex-1 text-sm">
         <span className="font-semibold">Установите на экран «Домой»</span>
         <span className="block text-muted">

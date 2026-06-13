@@ -18,7 +18,7 @@ export function TaskCheck({ checked, onChange, color, size = 26 }: Props) {
         onChange();
       }}
       aria-label={checked ? 'Снять отметку' : 'Выполнить'}
-      className="shrink-0 rounded-full border-2 transition-colors flex items-center justify-center"
+      className="flex shrink-0 items-center justify-center rounded-full border-2 transition-transform duration-150 active:scale-90"
       style={{
         width: size,
         height: size,
