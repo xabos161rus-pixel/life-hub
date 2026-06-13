@@ -13,14 +13,14 @@ import { formatRu, toKey } from '../../lib/dates';
 
 /** HTML заметки → плоский текст для превью/поиска (с переносами на блоках). */
 function htmlToText(html: string): string {
-  return html
+  const withBreaks = html
     .replace(/<\/?(?:div|p|li|h1|h2|ul|ol|blockquote)[^>]*>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+    .replace(/<[^>]+>/g, '');
+  // Все HTML-сущности декодируем корректно через textarea (а не вручную).
+  const ta = document.createElement('textarea');
+  ta.innerHTML = withBreaks;
+  return ta.value
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{2,}/g, '\n')
     .trim();
@@ -37,6 +37,7 @@ function NoteRow({
   onDelete: () => void;
 }) {
   const [dx, setDx] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const drag = useRef({ x: 0, dx: 0, moved: false });
 
   const text = useMemo(() => htmlToText(note.content), [note.content]);
@@ -45,6 +46,7 @@ function NoteRow({
 
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
     drag.current = { x: e.clientX, dx, moved: false };
+    setDragging(true);
   };
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
     if (e.buttons === 0) return;
@@ -52,7 +54,10 @@ function NoteRow({
     if (Math.abs(d) > 6) drag.current.moved = true;
     setDx(Math.max(-88, Math.min(0, drag.current.dx + d)));
   };
-  const onUp = () => setDx((cur) => (cur < -44 ? -88 : 0));
+  const onUp = () => {
+    setDragging(false);
+    setDx((cur) => (cur < -44 ? -88 : 0));
+  };
   const onClick = () => {
     if (drag.current.moved) return; // это был свайп, не тап
     if (dx !== 0) {
@@ -75,7 +80,7 @@ function NoteRow({
         className="relative flex touch-pan-y items-start gap-2 border border-border bg-surface p-3.5"
         style={{
           transform: `translateX(${dx}px)`,
-          transition: drag.current.moved ? 'none' : 'transform 0.2s',
+          transition: dragging ? 'none' : 'transform 0.2s',
         }}
         onPointerDown={onDown}
         onPointerMove={onMove}
@@ -101,17 +106,29 @@ export function NotesPage() {
   const [query, setQuery] = useState('');
 
   const rows = useLiveQuery(() => db.notes.toArray(), []);
-  const notes = alive(rows ?? []);
+  const notes = useMemo(() => alive(rows ?? []), [rows]);
+
+  // Индекс поиска считаем один раз на изменение заметок, а не на каждый ввод.
+  const index = useMemo(
+    () =>
+      notes.map((n) => ({
+        note: n,
+        haystack: `${n.title}\n${htmlToText(n.content)}`.toLowerCase(),
+      })),
+    [notes],
+  );
 
   const q = query.trim().toLowerCase();
-  const filtered = notes
-    .filter(
-      (n) =>
-        !q ||
-        n.title.toLowerCase().includes(q) ||
-        htmlToText(n.content).toLowerCase().includes(q),
-    )
-    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt));
+  const filtered = useMemo(
+    () =>
+      index
+        .filter((x) => !q || x.haystack.includes(q))
+        .map((x) => x.note)
+        .sort(
+          (a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt),
+        ),
+    [index, q],
+  );
 
   const pinned = filtered.filter((n) => n.pinned);
   const rest = filtered.filter((n) => !n.pinned);

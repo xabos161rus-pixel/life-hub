@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
+import { marked } from 'marked';
 import { Bold, Italic, List, ListOrdered, Pin, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
@@ -59,6 +60,7 @@ export function NoteEditorPage() {
   const initializedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pinnedRef = useRef(false);
+  const savingRef = useRef(false);
 
   const [pinned, setPinned] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -81,7 +83,22 @@ export function NoteEditorPage() {
       initializedRef.current = true;
       savedIdRef.current = n.id;
       setPinned(n.pinned);
-      if (editorRef.current) editorRef.current.innerHTML = n.content || '';
+      if (editorRef.current) {
+        const raw = n.content || '';
+        // Заметки v1 хранили markdown, новый редактор работает с HTML. Старый
+        // контент (без HTML-тегов) конвертируем в HTML и помечаем dirty — он
+        // один раз пересохранится в новом формате, а не сломается при правке.
+        const looksHtml = /<\/?[a-z][^>]*>/i.test(raw);
+        if (looksHtml || !raw) {
+          editorRef.current.innerHTML = raw;
+        } else {
+          editorRef.current.innerHTML = DOMPurify.sanitize(
+            marked.parse(raw, { async: false }) as string,
+            SANITIZE,
+          );
+          dirtyRef.current = true;
+        }
+      }
     });
     return () => {
       cancelled = true;
@@ -90,25 +107,34 @@ export function NoteEditorPage() {
 
   const flush = useCallback(async () => {
     const el = editorRef.current;
-    if (deletedRef.current || !dirtyRef.current || !el) return;
+    if (deletedRef.current || !dirtyRef.current || !el || savingRef.current) return;
     dirtyRef.current = false;
-    const html = DOMPurify.sanitize(el.innerHTML, SANITIZE);
-    const plain = (el.innerText ?? '').trim();
-    const title = deriveTitle(el.innerText ?? '');
-    if (savedIdRef.current) {
-      await update(db.notes, savedIdRef.current, { title, content: html, pinned: pinnedRef.current });
-    } else if (plain) {
-      // Пустую новую заметку не сохраняем (как в iOS).
-      const created = await create(db.notes, {
-        title,
-        content: html,
-        tags: [],
-        pinned: pinnedRef.current,
-      });
-      savedIdRef.current = created.id;
-      navigate(`/notes/${created.id}`, { replace: true });
+    savingRef.current = true; // in-flight guard: не создаём дубль новой заметки
+    try {
+      const html = DOMPurify.sanitize(el.innerHTML, SANITIZE);
+      const plain = (el.innerText ?? '').trim();
+      const title = deriveTitle(el.innerText ?? '');
+      if (savedIdRef.current) {
+        await update(db.notes, savedIdRef.current, {
+          title,
+          content: html,
+          pinned: pinnedRef.current,
+        });
+      } else if (plain) {
+        // Пустую новую заметку не сохраняем (как в iOS).
+        const created = await create(db.notes, {
+          title,
+          content: html,
+          tags: [],
+          pinned: pinnedRef.current,
+        });
+        savedIdRef.current = created.id;
+        navigate(`/notes/${created.id}`, { replace: true });
+      }
+      setSaved(true);
+    } finally {
+      savingRef.current = false;
     }
-    setSaved(true);
   }, [navigate]);
 
   const touch = useCallback(() => {
@@ -128,6 +154,9 @@ export function NoteEditorPage() {
   );
 
   const exec = (command: string) => {
+    // тег-based разметка (<b>/<i>), иначе на Gecko execCommand даёт
+    // <span style> и наш санитайзер срезал бы форматирование
+    document.execCommand('styleWithCSS', false, 'false');
     document.execCommand(command);
     editorRef.current?.focus();
     touch();
@@ -176,7 +205,10 @@ export function NoteEditorPage() {
         suppressContentEditableWarning
         data-placeholder="Заголовок"
         onInput={touch}
-        onBlur={() => void flush()}
+        onBlur={() => {
+          clearTimeout(timerRef.current);
+          void flush();
+        }}
       />
 
       {/* Панель форматирования над клавиатурой (таб-бар на этом экране скрыт). */}
