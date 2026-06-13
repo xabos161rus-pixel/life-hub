@@ -1,13 +1,13 @@
 import { NavLink, useLocation } from 'react-router';
-import { Sun, ListChecks, StickyNote, Target, Menu } from 'lucide-react';
+import { House, ListTodo, NotebookPen, Trophy, LayoutGrid } from 'lucide-react';
 import { useSettings } from '../../hooks/useSettings';
 
 const tabs = [
-  { to: '/', label: 'Сегодня', icon: Sun, end: true },
-  { to: '/tasks', label: 'Задачи', icon: ListChecks, end: false },
-  { to: '/notes', label: 'Заметки', icon: StickyNote, end: false },
-  { to: '/goals', label: 'Цели', icon: Target, end: false },
-  { to: '/more', label: 'Ещё', icon: Menu, end: false },
+  { to: '/', label: 'Сегодня', icon: House, end: true },
+  { to: '/tasks', label: 'Задачи', icon: ListTodo, end: false },
+  { to: '/notes', label: 'Заметки', icon: NotebookPen, end: false },
+  { to: '/goals', label: 'Цели', icon: Trophy, end: false },
+  { to: '/more', label: 'Ещё', icon: LayoutGrid, end: false },
 ];
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
