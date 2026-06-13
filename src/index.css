@@ -27,8 +27,8 @@
   --app-hairline: oklch(1 0 0 / 0.06);
   --app-text: oklch(0.965 0.006 286);
   --app-muted: oklch(0.675 0.022 282);
-  --app-accent: oklch(0.74 0.142 266);
-  --app-accent-2: oklch(0.70 0.16 292);
+  --app-accent: oklch(0.72 0.18 264);
+  --app-accent-2: oklch(0.67 0.21 300);
   --app-danger: oklch(0.70 0.185 20);
   --app-success: oklch(0.80 0.16 158);
   --app-warning: oklch(0.83 0.135 80);
@@ -67,12 +67,12 @@ body,
 body {
   margin: 0;
   background-color: var(--app-bg);
-  /* Очень мягкое свечение сверху — глубина без глассморфизма. */
-  background-image: radial-gradient(
-    125% 62% at 50% -8%,
-    oklch(0.235 0.03 286 / 0.55),
-    transparent 64%
-  );
+  /* Мягкая «аврора» сверху — два цветных всполоха в акцентах. Глубина и
+     характер без глассморфизма; зафиксирована, не скроллится. */
+  background-image:
+    radial-gradient(78% 48% at 12% -6%, oklch(0.6 0.2 266 / 0.2), transparent 58%),
+    radial-gradient(72% 46% at 96% -2%, oklch(0.6 0.22 304 / 0.16), transparent 56%),
+    radial-gradient(130% 75% at 50% -12%, oklch(0.26 0.04 288 / 0.5), transparent 72%);
   background-attachment: fixed;
   color: var(--app-text);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
