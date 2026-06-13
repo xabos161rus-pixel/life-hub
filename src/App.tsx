@@ -69,7 +69,7 @@ export default function App() {
           {/* Каркас: корень фиксированной высоты, скроллится только контент,
               таб-бар — обычный flex-элемент. Так клавиатура не оставляет
               «дыру» внизу (баг fixed bottom-0 на iOS). */}
-          <div className="flex h-dvh flex-col overflow-hidden">
+          <div className="fixed inset-0 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-x-hidden overflow-y-auto">
               <Routes>
                 <Route path="/" element={<TodayPage />} />
