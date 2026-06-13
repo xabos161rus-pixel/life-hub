@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router';
+import { NavLink, useLocation } from 'react-router';
 import { Sun, ListChecks, StickyNote, Target, Menu } from 'lucide-react';
 import { useSettings } from '../../hooks/useSettings';
 
@@ -14,9 +14,13 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function TabBar() {
   const settings = useSettings();
+  const { pathname } = useLocation();
   const backupStale =
     !settings.lastBackupAt ||
     Date.now() - new Date(settings.lastBackupAt).getTime() > WEEK_MS;
+
+  // На экране редактора заметки таб-бар скрыт — внизу панель форматирования.
+  if (/^\/notes\/.+/.test(pathname)) return null;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">

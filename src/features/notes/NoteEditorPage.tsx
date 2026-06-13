@@ -1,54 +1,49 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ChangeEvent,
-} from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
-import { Pin, Trash2 } from 'lucide-react';
-import { marked } from 'marked';
+import { Bold, Italic, List, ListOrdered, Pin, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
-import { Input, Textarea } from '../../components/ui/Input';
-import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
 
-const AUTOSAVE_MS = 800;
+const AUTOSAVE_MS = 600;
 
-type EditorMode = 'edit' | 'preview';
+// Содержимое — это HTML из contentEditable. Чистим перед записью: заметки
+// свои, не импортированные, но санитайз защищает от вставленного из буфера.
+const SANITIZE = {
+  ALLOWED_TAGS: ['p', 'div', 'br', 'b', 'strong', 'i', 'em', 'u', 'ul', 'ol', 'li', 'h1', 'h2', 'span'],
+  ALLOWED_ATTR: [],
+};
 
-/** Ручная стилизация markdown-вывода — плагина typography в проекте нет. */
-const PROSE_CLASS =
-  'text-[15px] leading-relaxed ' +
-  '[&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:text-2xl [&_h1]:font-bold ' +
-  '[&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold ' +
-  '[&_h3]:mt-3 [&_h3]:mb-1.5 [&_h3]:text-lg [&_h3]:font-semibold ' +
-  '[&_p]:my-2 ' +
-  '[&_a]:text-accent [&_a]:underline ' +
-  '[&_strong]:font-bold [&_em]:italic ' +
-  '[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 ' +
-  '[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 ' +
-  '[&_li]:my-0.5 ' +
-  '[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-accent ' +
-  '[&_blockquote]:pl-3 [&_blockquote]:text-muted ' +
-  '[&_code]:rounded [&_code]:bg-surface-2 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[13px] ' +
-  '[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:bg-surface-2 [&_pre]:p-3 ' +
-  '[&_pre_code]:bg-transparent [&_pre_code]:p-0 ' +
-  '[&_hr]:my-4 [&_hr]:border-border ' +
-  '[&_img]:max-w-full [&_img]:rounded-xl ' +
-  '[&_table]:my-2 [&_table]:w-full [&_th]:border [&_th]:border-border [&_th]:p-1.5 ' +
-  '[&_td]:border [&_td]:border-border [&_td]:p-1.5';
+/** Заголовок заметки = первая непустая строка её текста (как в iOS). */
+function deriveTitle(text: string): string {
+  for (const line of text.split('\n')) {
+    const t = line.trim();
+    if (t) return t.slice(0, 140);
+  }
+  return '';
+}
 
-function parseTags(input: string): string[] {
-  return Array.from(
-    new Set(
-      input
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
-    ),
+function ToolBtn({
+  onClick,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      // не отдаём фокус из редактора — иначе пропадёт выделение
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className="flex size-10 items-center justify-center rounded-lg text-text active:bg-surface-2"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -57,40 +52,36 @@ export function NoteEditorPage() {
   const navigate = useNavigate();
   const isNew = routeId === 'new';
 
-  const [title, setTitle] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
-  const [content, setContent] = useState('');
-  const [pinned, setPinned] = useState(false);
-  const [mode, setMode] = useState<EditorMode>('edit');
-  const [saved, setSaved] = useState(false);
-
-  // Актуальные значения полей для flush из таймера/cleanup.
-  const stateRef = useRef({ title, tagsInput, content, pinned });
-  useEffect(() => {
-    stateRef.current = { title, tagsInput, content, pinned };
-  });
-
+  const editorRef = useRef<HTMLDivElement>(null);
   const savedIdRef = useRef<string | null>(null);
   const dirtyRef = useRef(false);
   const deletedRef = useRef(false);
   const initializedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const pinnedRef = useRef(false);
 
-  // Одноразовая загрузка заметки в форму. Live-binding редактору вреден:
-  // автосохранение перетирало бы поля под руками пользователя.
+  const [pinned, setPinned] = useState(false);
+  const [saved, setSaved] = useState(false);
+
   useEffect(() => {
-    // savedIdRef-guard: после создания new-заметки и replace URL эффект
-    // перезапустится — не перетираем форму уже устаревшим состоянием из БД.
-    if (isNew || !routeId || initializedRef.current || savedIdRef.current) return;
+    pinnedRef.current = pinned;
+  }, [pinned]);
+
+  // Одноразовая загрузка в редактор: live-binding вреден — автосейв перетёр бы
+  // поле под руками. Удалённую по URL заметку трактуем как ненайденную.
+  useEffect(() => {
+    if (isNew) {
+      editorRef.current?.focus();
+      return;
+    }
+    if (!routeId || initializedRef.current || savedIdRef.current) return;
     let cancelled = false;
     void db.notes.get(routeId).then((n) => {
       if (cancelled || !n || n.deletedAt || initializedRef.current) return;
       initializedRef.current = true;
       savedIdRef.current = n.id;
-      setTitle(n.title);
-      setTagsInput(n.tags.join(', '));
-      setContent(n.content);
       setPinned(n.pinned);
+      if (editorRef.current) editorRef.current.innerHTML = n.content || '';
     });
     return () => {
       cancelled = true;
@@ -98,19 +89,22 @@ export function NoteEditorPage() {
   }, [routeId, isNew]);
 
   const flush = useCallback(async () => {
-    if (deletedRef.current || !dirtyRef.current) return;
+    const el = editorRef.current;
+    if (deletedRef.current || !dirtyRef.current || !el) return;
     dirtyRef.current = false;
-    const s = stateRef.current;
-    const data = {
-      title: s.title.trim(),
-      content: s.content,
-      tags: parseTags(s.tagsInput),
-      pinned: s.pinned,
-    };
+    const html = DOMPurify.sanitize(el.innerHTML, SANITIZE);
+    const plain = (el.innerText ?? '').trim();
+    const title = deriveTitle(el.innerText ?? '');
     if (savedIdRef.current) {
-      await update(db.notes, savedIdRef.current, data);
-    } else {
-      const created = await create(db.notes, data);
+      await update(db.notes, savedIdRef.current, { title, content: html, pinned: pinnedRef.current });
+    } else if (plain) {
+      // Пустую новую заметку не сохраняем (как в iOS).
+      const created = await create(db.notes, {
+        title,
+        content: html,
+        tags: [],
+        pinned: pinnedRef.current,
+      });
       savedIdRef.current = created.id;
       navigate(`/notes/${created.id}`, { replace: true });
     }
@@ -121,12 +115,10 @@ export function NoteEditorPage() {
     dirtyRef.current = true;
     setSaved(false);
     clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      void flush();
-    }, AUTOSAVE_MS);
+    timerRef.current = setTimeout(() => void flush(), AUTOSAVE_MS);
   }, [flush]);
 
-  // Сохранение при размонтировании (уход со страницы).
+  // Сохранение при уходе со страницы.
   useEffect(
     () => () => {
       clearTimeout(timerRef.current);
@@ -134,6 +126,17 @@ export function NoteEditorPage() {
     },
     [flush],
   );
+
+  const exec = (command: string) => {
+    document.execCommand(command);
+    editorRef.current?.focus();
+    touch();
+  };
+
+  const togglePin = () => {
+    setPinned((p) => !p);
+    touch();
+  };
 
   const handleDelete = async () => {
     if (!window.confirm('Удалить заметку?')) return;
@@ -143,19 +146,9 @@ export function NoteEditorPage() {
     navigate('/notes');
   };
 
-  const togglePin = () => {
-    setPinned((p) => !p);
-    touch();
-  };
-
-  const previewHtml =
-    mode === 'preview'
-      ? DOMPurify.sanitize(marked.parse(content, { async: false }) as string)
-      : '';
-
   return (
     <Screen
-      title={isNew ? 'Новая заметка' : 'Заметка'}
+      title="Заметка"
       backTo="/notes"
       right={
         <div className="flex items-center gap-1">
@@ -176,56 +169,37 @@ export function NoteEditorPage() {
         </div>
       }
     >
-      <div className="space-y-3">
-        <Input
-          value={title}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => {
-            setTitle(e.target.value);
-            touch();
-          }}
-          placeholder="Заголовок"
-          className="text-lg font-semibold"
-        />
-        <Input
-          value={tagsInput}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => {
-            setTagsInput(e.target.value);
-            touch();
-          }}
-          placeholder="Теги через запятую"
-        />
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <SegmentedControl<EditorMode>
-              options={[
-                { value: 'edit', label: 'Редактор' },
-                { value: 'preview', label: 'Просмотр' },
-              ]}
-              value={mode}
-              onChange={setMode}
-            />
-          </div>
-          <span
-            className={`shrink-0 text-xs text-muted transition-opacity ${saved ? 'opacity-100' : 'opacity-0'}`}
-          >
-            Сохранено
-          </span>
-        </div>
-        {mode === 'edit' ? (
-          <Textarea
-            value={content}
-            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
-              setContent(e.target.value);
-              touch();
-            }}
-            placeholder="Текст заметки… поддерживается Markdown"
-            className="min-h-[50dvh]"
-          />
-        ) : content.trim() ? (
-          <div className={PROSE_CLASS} dangerouslySetInnerHTML={{ __html: previewHtml }} />
-        ) : (
-          <p className="py-8 text-center text-sm text-muted">Нет текста для просмотра</p>
-        )}
+      <div
+        ref={editorRef}
+        className="note-editor"
+        contentEditable
+        suppressContentEditableWarning
+        data-placeholder="Заголовок"
+        onInput={touch}
+        onBlur={() => void flush()}
+      />
+
+      {/* Панель форматирования над клавиатурой (таб-бар на этом экране скрыт). */}
+      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 border-t border-border bg-surface/95 px-2 pt-1 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+        <ToolBtn onClick={() => exec('bold')} label="Жирный">
+          <Bold size={19} />
+        </ToolBtn>
+        <ToolBtn onClick={() => exec('italic')} label="Курсив">
+          <Italic size={19} />
+        </ToolBtn>
+        <ToolBtn onClick={() => exec('insertUnorderedList')} label="Маркированный список">
+          <List size={19} />
+        </ToolBtn>
+        <ToolBtn onClick={() => exec('insertOrderedList')} label="Нумерованный список">
+          <ListOrdered size={19} />
+        </ToolBtn>
+        <span
+          className={`ml-auto pr-2 text-xs text-muted transition-opacity ${
+            saved ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          Сохранено
+        </span>
       </div>
     </Screen>
   );
