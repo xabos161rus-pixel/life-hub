@@ -84,7 +84,7 @@ export function NotesPage() {
     );
 
   return (
-    <Screen title="Заметки" backTo="/more">
+    <Screen title="Заметки">
       <div className="space-y-3">
         <div className="relative">
           <Search
@@ -133,13 +133,13 @@ export function NotesPage() {
               <NoteCard
                 key={note.id}
                 note={note}
-                onOpen={() => navigate(`/more/notes/${note.id}`)}
+                onOpen={() => navigate(`/notes/${note.id}`)}
               />
             ))}
           </div>
         )}
       </div>
-      <Fab onClick={() => navigate('/more/notes/new')} />
+      <Fab onClick={() => navigate('/notes/new')} />
     </Screen>
   );
 }

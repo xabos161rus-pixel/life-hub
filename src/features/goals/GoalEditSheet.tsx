@@ -90,14 +90,12 @@ export function GoalEditSheet({
   async function handleDelete() {
     if (!goal) return;
     if (!window.confirm(`Удалить цель «${goal.title}»?`)) return;
-    const [tasks, habits, items] = await Promise.all([
+    const [tasks, items] = await Promise.all([
       db.tasks.where('goalId').equals(goal.id).toArray(),
-      db.habits.where('goalId').equals(goal.id).toArray(),
       db.learningItems.where('goalId').equals(goal.id).toArray(),
     ]);
     await Promise.all([
       ...alive(tasks).map((t) => update(db.tasks, t.id, { goalId: null })),
-      ...alive(habits).map((h) => update(db.habits, h.id, { goalId: null })),
       ...alive(items).map((li) => update(db.learningItems, li.id, { goalId: null })),
       remove(db.goals, goal.id),
     ]);

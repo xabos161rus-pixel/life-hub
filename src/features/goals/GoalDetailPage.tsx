@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, update } from '../../db/repo';
-import type { Habit, LearningItem, LearningKind, Task } from '../../db/types';
+import type { LearningItem, LearningKind, Task } from '../../db/types';
 import { formatRu } from '../../lib/dates';
 import { goalProgress, goalProgressLabel } from '../../lib/progress';
 import { Screen } from '../../components/layout/Screen';
@@ -71,14 +71,12 @@ export function GoalDetailPage() {
         id ? db.tasks.where('goalId').equals(id).toArray().then(alive) : Promise.resolve<Task[]>([]),
       [id],
     ) ?? [];
-  const allHabits = useLiveQuery(() => db.habits.toArray().then(alive), []) ?? [];
   const allLearning = useLiveQuery(() => db.learningItems.toArray().then(alive), []) ?? [];
   const projects = useLiveQuery(() => db.projects.toArray().then(alive), []) ?? [];
 
   const [editOpen, setEditOpen] = useState(false);
   const [taskSheetOpen, setTaskSheetOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [linkHabitOpen, setLinkHabitOpen] = useState(false);
   const [linkLearningOpen, setLinkLearningOpen] = useState(false);
   // Черновик ввода числового прогресса строкой (null = поле не редактируется).
   const [valueDraft, setValueDraft] = useState<string | null>(null);
@@ -101,8 +99,6 @@ export function GoalDetailPage() {
   }
 
   const progress = goalProgress(goal, goalTasks);
-  const linkedHabits = allHabits.filter((h) => h.goalId === goal.id);
-  const availableHabits = allHabits.filter((h) => h.goalId !== goal.id);
   const linkedLearning = allLearning.filter((li) => li.goalId === goal.id);
   const availableLearning = allLearning.filter((li) => li.goalId !== goal.id);
   const sortedTasks = [...goalTasks].sort(
@@ -258,36 +254,6 @@ export function GoalDetailPage() {
 
       <section className="mt-6">
         <SectionHeader
-          title="Привычки"
-          actionLabel="Привязать"
-          onAction={() => setLinkHabitOpen(true)}
-        />
-        {linkedHabits.length === 0 && (
-          <p className="px-1 text-sm text-muted">Нет привязанных привычек.</p>
-        )}
-        <div className="flex flex-col gap-2">
-          {linkedHabits.map((h: Habit) => (
-            <div
-              key={h.id}
-              className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3.5"
-            >
-              <span className="text-xl">{h.emoji}</span>
-              <span className="min-w-0 flex-1 truncate font-medium">{h.name}</span>
-              <button
-                type="button"
-                aria-label="Отвязать"
-                onClick={() => update(db.habits, h.id, { goalId: null })}
-                className="p-1.5 text-muted"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-6">
-        <SectionHeader
           title="Обучение"
           actionLabel="Привязать"
           onAction={() => setLinkLearningOpen(true)}
@@ -342,33 +308,6 @@ export function GoalDetailPage() {
         task={editingTask}
         defaults={{ goalId: goal.id }}
       />
-
-      <Sheet
-        open={linkHabitOpen}
-        onClose={() => setLinkHabitOpen(false)}
-        title="Привязать привычку"
-      >
-        {availableHabits.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">Нет привычек для привязки.</p>
-        ) : (
-          <div className="flex flex-col gap-2 pb-2">
-            {availableHabits.map((h) => (
-              <button
-                key={h.id}
-                type="button"
-                onClick={async () => {
-                  await update(db.habits, h.id, { goalId: goal.id });
-                  setLinkHabitOpen(false);
-                }}
-                className="flex items-center gap-3 rounded-xl bg-surface-2 px-3.5 py-3 text-left active:opacity-70"
-              >
-                <span className="text-xl">{h.emoji}</span>
-                <span className="min-w-0 flex-1 truncate font-medium">{h.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </Sheet>
 
       <Sheet
         open={linkLearningOpen}

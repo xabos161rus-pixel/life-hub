@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronRight, GraduationCap, Settings as SettingsIcon, StickyNote } from 'lucide-react';
+import { ChevronRight, GraduationCap, Settings as SettingsIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
@@ -7,14 +7,6 @@ import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 
 const BACKUP_STALE_MS = 7 * 24 * 60 * 60 * 1000;
-
-function pluralRu(n: number, one: string, few: string, many: string): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-}
 
 interface MenuCardProps {
   to: string;
@@ -51,7 +43,6 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
 }
 
 export function MorePage() {
-  const notes = useLiveQuery(() => db.notes.toArray(), []);
   const learning = useLiveQuery(
     () => db.learningItems.where('status').equals('inProgress').toArray(),
     [],
@@ -67,18 +58,11 @@ export function MorePage() {
       );
     }, []) ?? false;
 
-  const notesCount = alive(notes ?? []).length;
   const learningCount = alive(learning ?? []).length;
 
   return (
     <Screen title="Ещё">
       <div className="space-y-3">
-        <MenuCard
-          to="/more/notes"
-          icon={StickyNote}
-          title="Заметки"
-          subtitle={`${notesCount} ${pluralRu(notesCount, 'заметка', 'заметки', 'заметок')}`}
-        />
         <MenuCard
           to="/more/learning"
           icon={GraduationCap}

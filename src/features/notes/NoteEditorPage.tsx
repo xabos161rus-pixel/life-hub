@@ -112,7 +112,7 @@ export function NoteEditorPage() {
     } else {
       const created = await create(db.notes, data);
       savedIdRef.current = created.id;
-      navigate(`/more/notes/${created.id}`, { replace: true });
+      navigate(`/notes/${created.id}`, { replace: true });
     }
     setSaved(true);
   }, [navigate]);
@@ -140,7 +140,7 @@ export function NoteEditorPage() {
     deletedRef.current = true;
     clearTimeout(timerRef.current);
     if (savedIdRef.current) await remove(db.notes, savedIdRef.current);
-    navigate('/more/notes');
+    navigate('/notes');
   };
 
   const togglePin = () => {
@@ -156,7 +156,7 @@ export function NoteEditorPage() {
   return (
     <Screen
       title={isNew ? 'Новая заметка' : 'Заметка'}
-      backTo="/more/notes"
+      backTo="/notes"
       right={
         <div className="flex items-center gap-1">
           <button

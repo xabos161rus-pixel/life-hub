@@ -6,7 +6,6 @@ import { ToastProvider } from './components/ui/Toast';
 import { useSettings } from './hooks/useSettings';
 import { TodayPage } from './features/today/TodayPage';
 import { TasksPage } from './features/tasks/TasksPage';
-import { HabitsPage } from './features/habits/HabitsPage';
 import { GoalsPage } from './features/goals/GoalsPage';
 import { GoalDetailPage } from './features/goals/GoalDetailPage';
 import { MorePage } from './features/more/MorePage';
@@ -70,12 +69,11 @@ export default function App() {
           <Routes>
             <Route path="/" element={<TodayPage />} />
             <Route path="/tasks" element={<TasksPage />} />
-            <Route path="/habits" element={<HabitsPage />} />
+            <Route path="/notes" element={<NotesPage />} />
+            <Route path="/notes/:id" element={<NoteEditorPage />} />
             <Route path="/goals" element={<GoalsPage />} />
             <Route path="/goals/:id" element={<GoalDetailPage />} />
             <Route path="/more" element={<MorePage />} />
-            <Route path="/more/notes" element={<NotesPage />} />
-            <Route path="/more/notes/:id" element={<NoteEditorPage />} />
             <Route path="/more/learning" element={<LearningPage />} />
             <Route path="/more/settings" element={<SettingsPage />} />
             <Route path="/more/settings/install" element={<InstallInstructionsPage />} />

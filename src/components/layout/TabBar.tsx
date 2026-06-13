@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router';
-import { Sun, ListChecks, Flame, Target, Menu } from 'lucide-react';
+import { Sun, ListChecks, StickyNote, Target, Menu } from 'lucide-react';
 import { useSettings } from '../../hooks/useSettings';
 
 const tabs = [
   { to: '/', label: 'Сегодня', icon: Sun, end: true },
   { to: '/tasks', label: 'Задачи', icon: ListChecks, end: false },
-  { to: '/habits', label: 'Привычки', icon: Flame, end: false },
+  { to: '/notes', label: 'Заметки', icon: StickyNote, end: false },
   { to: '/goals', label: 'Цели', icon: Target, end: false },
   { to: '/more', label: 'Ещё', icon: Menu, end: false },
 ];
