@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Check } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, create, remove, update } from '../../db/repo';
@@ -53,31 +53,38 @@ export function GoalEditSheet({
     setStatus(goal?.status ?? 'active');
   }, [open, goal]);
 
+  const savingRef = useRef(false);
   async function handleSave() {
     const t = title.trim();
     if (!t) return;
-    const tvRaw = targetValue.trim() === '' ? NaN : Number(targetValue);
-    const data = {
-      title: t,
-      description: description.trim(),
-      color,
-      targetDate: targetDate || null,
-      progressMode: mode,
-      targetValue: Number.isFinite(tvRaw) && tvRaw > 0 ? tvRaw : null,
-      unitLabel: unitLabel.trim(),
-    };
-    if (goal) {
-      await update(db.goals, goal.id, { ...data, status });
-    } else {
-      await create(db.goals, {
-        ...data,
-        status: 'active',
-        progressManual: 0,
-        currentValue: mode === 'numeric' ? 0 : null,
-        sortOrder: Date.now(),
-      });
+    if (savingRef.current) return; // защита от дабл-тапа
+    savingRef.current = true;
+    try {
+      const tvRaw = targetValue.trim() === '' ? NaN : Number(targetValue);
+      const data = {
+        title: t,
+        description: description.trim(),
+        color,
+        targetDate: targetDate || null,
+        progressMode: mode,
+        targetValue: Number.isFinite(tvRaw) && tvRaw > 0 ? tvRaw : null,
+        unitLabel: unitLabel.trim(),
+      };
+      if (goal) {
+        await update(db.goals, goal.id, { ...data, status });
+      } else {
+        await create(db.goals, {
+          ...data,
+          status: 'active',
+          progressManual: 0,
+          currentValue: mode === 'numeric' ? 0 : null,
+          sortOrder: Date.now(),
+        });
+      }
+      onClose();
+    } finally {
+      savingRef.current = false;
     }
-    onClose();
   }
 
   async function handleDelete() {

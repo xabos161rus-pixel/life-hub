@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Component, useEffect, type ReactNode } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { InstallBanner } from './components/layout/InstallBanner';
 import { TabBar } from './components/layout/TabBar';
@@ -33,26 +33,56 @@ function ThemeApplier() {
   return null;
 }
 
+/** Ловит throw при рендере любой страницы — вместо белого экрана показывает
+ *  fallback с кнопкой перезагрузки. Данные в IndexedDB при этом целы. */
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
+          <p className="text-lg font-semibold">Что-то пошло не так</p>
+          <p className="text-sm text-muted">
+            Перезагрузите приложение — данные сохранены на устройстве.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-xl bg-accent px-5 py-3 font-semibold text-white active:opacity-80"
+          >
+            Перезагрузить
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <ToastProvider>
         <ThemeApplier />
-        <Routes>
-          <Route path="/" element={<TodayPage />} />
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/habits" element={<HabitsPage />} />
-          <Route path="/goals" element={<GoalsPage />} />
-          <Route path="/goals/:id" element={<GoalDetailPage />} />
-          <Route path="/more" element={<MorePage />} />
-          <Route path="/more/notes" element={<NotesPage />} />
-          <Route path="/more/notes/:id" element={<NoteEditorPage />} />
-          <Route path="/more/learning" element={<LearningPage />} />
-          <Route path="/more/settings" element={<SettingsPage />} />
-          <Route path="/more/settings/install" element={<InstallInstructionsPage />} />
-        </Routes>
-        <InstallBanner />
-        <TabBar />
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<TodayPage />} />
+            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/habits" element={<HabitsPage />} />
+            <Route path="/goals" element={<GoalsPage />} />
+            <Route path="/goals/:id" element={<GoalDetailPage />} />
+            <Route path="/more" element={<MorePage />} />
+            <Route path="/more/notes" element={<NotesPage />} />
+            <Route path="/more/notes/:id" element={<NoteEditorPage />} />
+            <Route path="/more/learning" element={<LearningPage />} />
+            <Route path="/more/settings" element={<SettingsPage />} />
+            <Route path="/more/settings/install" element={<InstallInstructionsPage />} />
+          </Routes>
+          <InstallBanner />
+          <TabBar />
+        </ErrorBoundary>
       </ToastProvider>
     </BrowserRouter>
   );

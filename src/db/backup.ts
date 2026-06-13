@@ -64,15 +64,20 @@ export function previewBackup(b: BackupFile): ImportPreview {
   return { counts, exportedAt: b.exportedAt };
 }
 
-/** Полная замена данных содержимым бэкапа, в одной транзакции. */
+/** Замена данных содержимым бэкапа, в одной транзакции. */
 export async function importBackup(b: BackupFile): Promise<void> {
   const tables = TABLES.map((name) => db.table(name));
   await db.transaction('rw', tables, async () => {
     for (const name of TABLES) {
+      const rows = b.data[name];
+      // Таблицу, отсутствующую в файле, НЕ трогаем — иначе частичный или
+      // старый бэкап молча затёр бы её текущие данные без возможности отката.
+      if (rows === undefined) continue;
       const table = db.table(name);
       await table.clear();
-      const rows = b.data[name];
-      if (rows?.length) await table.bulkAdd(rows);
+      // bulkPut идемпотентен по первичному ключу id — переносит дубли id
+      // из файла, не роняя всю транзакцию (в отличие от bulkAdd).
+      if (rows.length) await table.bulkPut(rows);
     }
   });
 }

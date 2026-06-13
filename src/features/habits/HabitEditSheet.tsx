@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { alive, create, remove, update } from '../../db/repo';
@@ -71,23 +71,30 @@ export function HabitEditSheet({ open, onClose, habit }: Props) {
     );
   }
 
+  const savingRef = useRef(false);
   async function save() {
-    const schedule: HabitSchedule =
-      scheduleType === 'daily'
-        ? { type: 'daily' }
-        : scheduleType === 'weekdays'
-          ? { type: 'weekdays', weekdays: [...weekdays].sort((a, b) => a - b) }
-          : { type: 'timesPerWeek', times };
-    const data = {
-      name: name.trim(),
-      emoji: emoji.trim() || '✅',
-      color,
-      schedule,
-      goalId: goalId || null,
-    };
-    if (habit) await update(db.habits, habit.id, data);
-    else await create(db.habits, { ...data, archivedAt: null, sortOrder: Date.now() });
-    onClose();
+    if (savingRef.current) return; // защита от дабл-тапа
+    savingRef.current = true;
+    try {
+      const schedule: HabitSchedule =
+        scheduleType === 'daily'
+          ? { type: 'daily' }
+          : scheduleType === 'weekdays'
+            ? { type: 'weekdays', weekdays: [...weekdays].sort((a, b) => a - b) }
+            : { type: 'timesPerWeek', times };
+      const data = {
+        name: name.trim(),
+        emoji: emoji.trim() || '✅',
+        color,
+        schedule,
+        goalId: goalId || null,
+      };
+      if (habit) await update(db.habits, habit.id, data);
+      else await create(db.habits, { ...data, archivedAt: null, sortOrder: Date.now() });
+      onClose();
+    } finally {
+      savingRef.current = false;
+    }
   }
 
   async function del() {

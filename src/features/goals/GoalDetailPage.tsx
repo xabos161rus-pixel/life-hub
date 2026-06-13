@@ -80,6 +80,8 @@ export function GoalDetailPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [linkHabitOpen, setLinkHabitOpen] = useState(false);
   const [linkLearningOpen, setLinkLearningOpen] = useState(false);
+  // Черновик ввода числового прогресса строкой (null = поле не редактируется).
+  const [valueDraft, setValueDraft] = useState<string | null>(null);
 
   if (goal === undefined) {
     return <Screen title="Цель" backTo="/goals">{null}</Screen>;
@@ -183,7 +185,10 @@ export function GoalDetailPage() {
               <button
                 type="button"
                 aria-label="Уменьшить"
-                onClick={() => setCurrentValue(current - 1)}
+                onClick={() => {
+                  setValueDraft(null);
+                  void setCurrentValue(current - 1);
+                }}
                 className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 active:opacity-70"
               >
                 <Minus size={18} />
@@ -192,16 +197,23 @@ export function GoalDetailPage() {
                 type="number"
                 inputMode="decimal"
                 min={0}
-                value={current}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setCurrentValue(Number(e.target.value))
-                }
+                value={valueDraft ?? String(current)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setValueDraft(e.target.value)}
+                onBlur={() => {
+                  if (valueDraft === null) return;
+                  const n = Number(valueDraft);
+                  if (valueDraft.trim() !== '' && Number.isFinite(n)) void setCurrentValue(n);
+                  setValueDraft(null);
+                }}
                 className="text-center"
               />
               <button
                 type="button"
                 aria-label="Увеличить"
-                onClick={() => setCurrentValue(current + 1)}
+                onClick={() => {
+                  setValueDraft(null);
+                  void setCurrentValue(current + 1);
+                }}
                 className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 active:opacity-70"
               >
                 <Plus size={18} />

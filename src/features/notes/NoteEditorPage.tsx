@@ -84,7 +84,7 @@ export function NoteEditorPage() {
     if (isNew || !routeId || initializedRef.current || savedIdRef.current) return;
     let cancelled = false;
     void db.notes.get(routeId).then((n) => {
-      if (cancelled || !n || initializedRef.current) return;
+      if (cancelled || !n || n.deletedAt || initializedRef.current) return;
       initializedRef.current = true;
       savedIdRef.current = n.id;
       setTitle(n.title);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { db } from '../../db/db';
 import { alive, create, remove, update } from '../../db/repo';
 import type { Project } from '../../db/types';
@@ -29,14 +29,21 @@ export function ProjectEditSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  const savingRef = useRef(false);
   const handleSave = async () => {
-    const data = { name: name.trim(), emoji: emoji.trim() || '📁', color };
-    if (project) {
-      await update(db.projects, project.id, data);
-    } else {
-      await create(db.projects, { ...data, sortOrder: Date.now(), archivedAt: null });
+    if (savingRef.current) return; // защита от дабл-тапа
+    savingRef.current = true;
+    try {
+      const data = { name: name.trim(), emoji: emoji.trim() || '📁', color };
+      if (project) {
+        await update(db.projects, project.id, data);
+      } else {
+        await create(db.projects, { ...data, sortOrder: Date.now(), archivedAt: null });
+      }
+      onClose();
+    } finally {
+      savingRef.current = false;
     }
-    onClose();
   };
 
   const handleDelete = async () => {

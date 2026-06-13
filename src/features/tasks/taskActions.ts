@@ -22,7 +22,9 @@ export async function toggleTask(task: Task): Promise<string | null> {
       title: task.title,
       notes: task.notes,
       projectId: task.projectId,
-      goalId: task.goalId,
+      // goalId НЕ переносим: иначе каждое выполнение повторяющейся задачи
+      // плодило бы новую запись в прогрессе цели (знаменатель рос бы безгранично).
+      goalId: null,
       priority: task.priority,
       dueDate: nextDue,
       completedAt: null,

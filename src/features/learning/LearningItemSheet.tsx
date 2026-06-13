@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Button } from '../../components/ui/Button';
 import { Field, Input, Textarea } from '../../components/ui/Input';
@@ -50,37 +50,44 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
   );
   const goals = alive(goalRows ?? []);
 
+  const savingRef = useRef(false);
   const handleSave = async () => {
     const trimmed = title.trim();
     if (!trimmed) return;
-    const progressTarget = unit === 'percent' ? 100 : Math.max(1, Number(targetStr) || 1);
-    const base = {
-      title: trimmed,
-      author: author.trim(),
-      kind,
-      status,
-      goalId: goalId || null,
-      progressUnit: unit,
-      progressTarget,
-      notes: notes.trim(),
-    };
-    if (item) {
-      const changes: Partial<Omit<LearningItem, 'id' | 'createdAt'>> = {
-        ...base,
-        progressCurrent: Math.min(item.progressCurrent, progressTarget),
+    if (savingRef.current) return; // защита от дабл-тапа
+    savingRef.current = true;
+    try {
+      const progressTarget = unit === 'percent' ? 100 : Math.max(1, Number(targetStr) || 1);
+      const base = {
+        title: trimmed,
+        author: author.trim(),
+        kind,
+        status,
+        goalId: goalId || null,
+        progressUnit: unit,
+        progressTarget,
+        notes: notes.trim(),
       };
-      if (status === 'inProgress' && !item.startedAt) changes.startedAt = now();
-      if (status === 'done' && !item.finishedAt) changes.finishedAt = now();
-      await update(db.learningItems, item.id, changes);
-    } else {
-      await create(db.learningItems, {
-        ...base,
-        progressCurrent: 0,
-        startedAt: status !== 'planned' ? now() : null,
-        finishedAt: status === 'done' ? now() : null,
-      });
+      if (item) {
+        const changes: Partial<Omit<LearningItem, 'id' | 'createdAt'>> = {
+          ...base,
+          progressCurrent: Math.min(item.progressCurrent, progressTarget),
+        };
+        if (status === 'inProgress' && !item.startedAt) changes.startedAt = now();
+        if (status === 'done' && !item.finishedAt) changes.finishedAt = now();
+        await update(db.learningItems, item.id, changes);
+      } else {
+        await create(db.learningItems, {
+          ...base,
+          progressCurrent: 0,
+          startedAt: status !== 'planned' ? now() : null,
+          finishedAt: status === 'done' ? now() : null,
+        });
+      }
+      onClose();
+    } finally {
+      savingRef.current = false;
     }
-    onClose();
   };
 
   const handleDelete = async () => {

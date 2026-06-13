@@ -15,37 +15,54 @@ import { fromKey, toKey, WEEKDAY_LABELS } from './dates';
 
 /**
  * Следующая дата повторяющейся задачи после её выполнения.
- * База — максимум из срока и сегодняшнего дня: просроченная задача
- * не плодит «хвост» прошлых повторений.
+ * Результат не раньше, чем «после сегодня» (просроченная задача не плодит
+ * хвост прошлых повторений), но фаза цикла всегда привязана к исходному
+ * сроку (anchor) — иначе при interval>1 просрочка сбивала бы кадэнс.
  */
 export function nextOccurrence(rec: Recurrence, dueKey: string | null): string {
   const today = startOfDay(new Date());
-  const base = dueKey ? max([fromKey(dueKey), today]) : today;
+  const after = dueKey ? max([fromKey(dueKey), today]) : today;
+  const anchor = dueKey ? fromKey(dueKey) : today;
 
   switch (rec.type) {
-    case 'daily':
-      return toKey(addDays(base, Math.max(1, rec.interval)));
+    case 'daily': {
+      const step = Math.max(1, rec.interval);
+      let d = addDays(anchor, step);
+      while (d <= after) d = addDays(d, step);
+      return toKey(d);
+    }
 
     case 'weekly': {
+      const step = Math.max(1, rec.interval);
       const days = [...rec.weekdays].sort((a, b) => a - b);
-      if (days.length === 0) return toKey(addWeeks(base, Math.max(1, rec.interval)));
-      const baseWeek = startOfWeek(base, { weekStartsOn: 1 });
-      // ближайший выбранный день в текущей неделе, строго после base
-      for (const d of days) {
-        const cand = addDays(baseWeek, d - 1);
-        if (cand > base) return toKey(cand);
+      if (days.length === 0) {
+        let d = addWeeks(anchor, step);
+        while (d <= after) d = addWeeks(d, step);
+        return toKey(d);
       }
-      // иначе — первый выбранный день через interval недель
-      const nextWeek = addWeeks(baseWeek, Math.max(1, rec.interval));
-      return toKey(addDays(nextWeek, days[0] - 1));
+      // Идём по неделям кадэнса (anchor + k·interval) и берём первый
+      // выбранный день недели строго после `after`.
+      let weekStart = startOfWeek(anchor, { weekStartsOn: 1 });
+      for (let i = 0; i < 520; i++) {
+        for (const d of days) {
+          const cand = addDays(weekStart, d - 1);
+          if (cand > after) return toKey(cand);
+        }
+        weekStart = addWeeks(weekStart, step);
+      }
+      return toKey(addDays(weekStart, days[0] - 1));
     }
 
     case 'monthly': {
+      const step = Math.max(1, rec.interval);
       const clampDay = (m: Date) => Math.min(rec.dayOfMonth, getDaysInMonth(m));
-      const sameMonth = setDate(startOfMonth(base), clampDay(base));
-      if (sameMonth > base) return toKey(sameMonth);
-      const nextMonth = addMonths(startOfMonth(base), Math.max(1, rec.interval));
-      return toKey(setDate(nextMonth, clampDay(nextMonth)));
+      let m = startOfMonth(anchor);
+      for (let i = 0; i < 600; i++) {
+        const cand = setDate(m, clampDay(m));
+        if (cand > after) return toKey(cand);
+        m = addMonths(m, step);
+      }
+      return toKey(setDate(m, clampDay(m)));
     }
   }
 }

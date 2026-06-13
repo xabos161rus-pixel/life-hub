@@ -51,7 +51,7 @@ export function currentStreak(habit: Habit, doneDates: Set<string>): number {
 
   let streak = 0;
   let d = fromKey(today);
-  if (doneDates.has(today)) streak++;
+  if (isScheduledOn(habit.schedule, today) && doneDates.has(today)) streak++;
   d = subDays(d, 1);
   // 10 лет — практический предел глубины
   for (let i = 0; i < 3650; i++) {

@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { X } from 'lucide-react';
 import { db } from '../../db/db';
@@ -128,23 +128,30 @@ export function TaskEditSheet({
     }
   };
 
+  const savingRef = useRef(false);
   const handleSave = async () => {
-    const data = {
-      title: title.trim(),
-      notes: notes.trim(),
-      projectId,
-      goalId,
-      priority,
-      dueDate,
-      checklist,
-      recurrence: buildRecurrence(),
-    };
-    if (task) {
-      await update(db.tasks, task.id, data);
-    } else {
-      await create(db.tasks, { ...data, completedAt: null, sortOrder: Date.now() });
+    if (savingRef.current) return; // защита от дабл-тапа: не плодим дубликаты
+    savingRef.current = true;
+    try {
+      const data = {
+        title: title.trim(),
+        notes: notes.trim(),
+        projectId,
+        goalId,
+        priority,
+        dueDate,
+        checklist,
+        recurrence: buildRecurrence(),
+      };
+      if (task) {
+        await update(db.tasks, task.id, data);
+      } else {
+        await create(db.tasks, { ...data, completedAt: null, sortOrder: Date.now() });
+      }
+      onClose();
+    } finally {
+      savingRef.current = false;
     }
-    onClose();
   };
 
   const handleDelete = async () => {
