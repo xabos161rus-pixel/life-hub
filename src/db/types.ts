@@ -35,6 +35,7 @@ export interface Task extends BaseEntity {
   goalId: string | null;
   priority: Priority;
   dueDate: string | null; // 'YYYY-MM-DD' (локальная дата)
+  dueTime: string | null; // 'HH:mm' время дня, опционально (имеет смысл при dueDate)
   completedAt: string | null;
   checklist: ChecklistItem[];
   recurrence: Recurrence | null;

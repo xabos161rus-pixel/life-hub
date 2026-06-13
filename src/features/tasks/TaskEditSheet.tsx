@@ -70,6 +70,7 @@ export function TaskEditSheet({
   const [goalId, setGoalId] = useState<string | null>(null);
   const [priority, setPriority] = useState<Priority>(0);
   const [dueDate, setDueDate] = useState<string | null>(null);
+  const [dueTime, setDueTime] = useState<string | null>(null);
   const [recType, setRecType] = useState<RecType>('none');
   const [recInterval, setRecInterval] = useState('1');
   const [recWeekdays, setRecWeekdays] = useState<number[]>([]);
@@ -87,6 +88,7 @@ export function TaskEditSheet({
       setGoalId(task.goalId);
       setPriority(task.priority);
       setDueDate(task.dueDate);
+      setDueTime(task.dueTime ?? null);
       setChecklist(task.checklist.map((i) => ({ ...i })));
       const rec = task.recurrence;
       setRecType(rec?.type ?? 'none');
@@ -100,6 +102,7 @@ export function TaskEditSheet({
       setGoalId(defaults?.goalId ?? null);
       setPriority(0);
       setDueDate(defaults?.dueDate ?? null);
+      setDueTime(null);
       setChecklist([]);
       setRecType('none');
       setRecInterval('1');
@@ -140,6 +143,7 @@ export function TaskEditSheet({
         goalId,
         priority,
         dueDate,
+        dueTime: dueDate ? dueTime : null,
         checklist,
         recurrence: buildRecurrence(),
       };
@@ -238,11 +242,22 @@ export function TaskEditSheet({
 
         <div>
           <Field label="Срок">
-            <Input
-              type="date"
-              value={dueDate ?? ''}
-              onChange={(e) => setDueDate(e.target.value || null)}
-            />
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                value={dueDate ?? ''}
+                onChange={(e) => setDueDate(e.target.value || null)}
+                className="flex-1"
+              />
+              {dueDate && (
+                <Input
+                  type="time"
+                  value={dueTime ?? ''}
+                  onChange={(e) => setDueTime(e.target.value || null)}
+                  className="w-32"
+                />
+              )}
+            </div>
           </Field>
           <div className="mt-2">
             <ChipRow>
@@ -252,7 +267,14 @@ export function TaskEditSheet({
               <Chip active={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>
                 Завтра
               </Chip>
-              <Chip onClick={() => setDueDate(null)}>Убрать</Chip>
+              <Chip
+                onClick={() => {
+                  setDueDate(null);
+                  setDueTime(null);
+                }}
+              >
+                Убрать
+              </Chip>
             </ChipRow>
           </div>
         </div>

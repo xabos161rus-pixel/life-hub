@@ -44,7 +44,10 @@ export function TaskItem({
         {hasMeta && (
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
             {task.dueDate && (
-              <span className={overdue ? 'text-danger' : ''}>{formatDueDate(task.dueDate)}</span>
+              <span className={overdue ? 'text-danger' : ''}>
+                {formatDueDate(task.dueDate)}
+                {task.dueTime ? `, ${task.dueTime}` : ''}
+              </span>
             )}
             {task.recurrence && (
               <span className="flex items-center gap-0.5">

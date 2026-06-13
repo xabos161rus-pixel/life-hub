@@ -57,6 +57,9 @@ export function TodayPage() {
 
   const byPriorityThenOrder = (a: Task, b: Task) =>
     b.priority - a.priority || a.sortOrder - b.sortOrder;
+  // Внутри сегодняшнего дня — по времени (утренние выше), затем приоритет.
+  const byTimeThenPriority = (a: Task, b: Task) =>
+    (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99') || byPriorityThenOrder(a, b);
 
   const overdue = tasks
     .filter((t) => !t.completedAt && t.dueDate !== null && t.dueDate < today)
@@ -66,7 +69,7 @@ export function TodayPage() {
 
   const todayOpen = tasks
     .filter((t) => !t.completedAt && t.dueDate === today)
-    .sort(byPriorityThenOrder);
+    .sort(byTimeThenPriority);
   const todayDone = tasks
     .filter((t) => Boolean(t.completedAt) && t.dueDate === today)
     .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));

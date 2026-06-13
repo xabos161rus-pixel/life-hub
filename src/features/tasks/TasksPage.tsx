@@ -17,6 +17,11 @@ function byPriority(a: Task, b: Task): number {
   return b.priority - a.priority || a.sortOrder - b.sortOrder;
 }
 
+/** Внутри одного дня: по времени (с временем — раньше), затем по приоритету. */
+function byTimeThenPriority(a: Task, b: Task): number {
+  return (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99') || byPriority(a, b);
+}
+
 function TaskGroup({
   title,
   danger = false,
@@ -81,7 +86,7 @@ export function TasksPage() {
   const active = filtered.filter((t) => !t.completedAt);
 
   const overdue = active.filter((t) => t.dueDate && t.dueDate < today).sort(byPriority);
-  const dueToday = active.filter((t) => t.dueDate === today).sort(byPriority);
+  const dueToday = active.filter((t) => t.dueDate === today).sort(byTimeThenPriority);
   const upcoming = active
     .filter((t) => t.dueDate && t.dueDate > today)
     .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? '') || byPriority(a, b));
