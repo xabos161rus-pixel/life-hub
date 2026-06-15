@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
-import { Sun } from 'lucide-react';
+import { Search, Sun } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
@@ -9,6 +9,8 @@ import { formatHeaderDate, todayKey } from '../../lib/dates';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { ProgressRing } from '../../components/ui/ProgressRing';
+import { QuickAddBar } from '../tasks/QuickAddBar';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { GoalCard } from '../goals/GoalCard';
@@ -87,9 +89,37 @@ export function TodayPage() {
   }
 
   const noTasksAtAll = overdue.length === 0 && todayOpen.length === 0 && todayDone.length === 0;
+  const todayTotal = todayOpen.length + todayDone.length;
+  const todayPct = todayTotal === 0 ? 0 : Math.round((todayDone.length / todayTotal) * 100);
 
   return (
-    <Screen title="Сегодня" subtitle={formatHeaderDate()}>
+    <Screen
+      title="Сегодня"
+      subtitle={formatHeaderDate()}
+      right={
+        <Link to="/search" aria-label="Поиск" className="p-1 text-accent active:opacity-60">
+          <Search size={24} />
+        </Link>
+      }
+    >
+      {todayTotal > 0 && (
+        <section className="card mb-4 flex items-center gap-4 px-4 py-3.5">
+          <ProgressRing value={todayPct} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">
+              Сделано {todayDone.length} из {todayTotal}
+            </p>
+            {overdue.length > 0 && (
+              <p className="mt-0.5 text-xs font-medium text-danger">
+                Просрочено: {overdue.length}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
+      <QuickAddBar defaultDueDate={today} />
+
       {overdue.length > 0 && (
         <section className="mb-5">
           <h2 className="mb-2 text-sm font-semibold text-danger">Просрочено</h2>

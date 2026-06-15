@@ -6,6 +6,7 @@ import {
   Wallet,
   BatteryCharging,
   MapPin,
+  ChartColumnBig,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -71,6 +72,12 @@ export function MorePage() {
   return (
     <Screen title="Ещё">
       <div className="space-y-3">
+        <MenuCard
+          to="/stats"
+          icon={ChartColumnBig}
+          title="Статистика"
+          subtitle="Обзор продуктивности"
+        />
         <MenuCard
           to="/more/learning"
           icon={GraduationCap}

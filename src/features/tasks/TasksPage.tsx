@@ -8,6 +8,7 @@ import { Screen } from '../../components/layout/Screen';
 import { Fab } from '../../components/layout/Fab';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ProjectEditSheet } from './ProjectEditSheet';
+import { QuickAddBar } from './QuickAddBar';
 import { TaskEditSheet } from './TaskEditSheet';
 import { TaskItem } from './TaskItem';
 
@@ -173,6 +174,8 @@ export function TasksPage() {
 
   return (
     <Screen title="Задачи">
+      <QuickAddBar />
+
       {empty ? (
         <EmptyState
           icon={ListChecks}

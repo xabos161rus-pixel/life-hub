@@ -1,6 +1,7 @@
 import { Component, useEffect, type ReactNode } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { InstallBanner } from './components/layout/InstallBanner';
+import { ReloadPrompt } from './components/layout/ReloadPrompt';
 import { TabBar } from './components/layout/TabBar';
 import { ToastProvider } from './components/ui/Toast';
 import { useSettings } from './hooks/useSettings';
@@ -16,6 +17,8 @@ import { MetricsPage } from './features/metrics/MetricsPage';
 import { FinancePage } from './features/finance/FinancePage';
 import { EnergyPage } from './features/energy/EnergyPage';
 import { PlacesPage } from './features/places/PlacesPage';
+import { SearchPage } from './features/search/SearchPage';
+import { StatsPage } from './features/stats/StatsPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { InstallInstructionsPage } from './features/settings/InstallInstructionsPage';
 
@@ -77,6 +80,8 @@ export default function App() {
             <div className="flex-1 overflow-x-hidden overflow-y-auto">
               <Routes>
                 <Route path="/" element={<TodayPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/stats" element={<StatsPage />} />
                 <Route path="/tasks" element={<TasksPage />} />
                 <Route path="/notes" element={<NotesPage />} />
                 <Route path="/notes/:id" element={<NoteEditorPage />} />
@@ -93,6 +98,7 @@ export default function App() {
               </Routes>
             </div>
             <InstallBanner />
+            <ReloadPrompt />
             <TabBar />
           </div>
         </ErrorBoundary>
