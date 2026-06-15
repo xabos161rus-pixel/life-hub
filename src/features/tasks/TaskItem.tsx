@@ -35,7 +35,11 @@ export function TaskItem({
   const overdue = !done && task.dueDate !== null && task.dueDate < todayKey();
   const checklistDone = task.checklist.filter((i) => i.done).length;
   const hasMeta =
-    Boolean(task.dueDate) || Boolean(task.recurrence) || Boolean(project) || task.checklist.length > 0;
+    Boolean(task.dueDate) ||
+    Boolean(task.recurrence) ||
+    Boolean(project) ||
+    task.checklist.length > 0 ||
+    task.tags.length > 0;
 
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -145,6 +149,14 @@ export function TaskItem({
                   {checklistDone}/{task.checklist.length}
                 </span>
               )}
+              {task.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted"
+                >
+                  #{tag}
+                </span>
+              ))}
             </p>
           )}
         </div>

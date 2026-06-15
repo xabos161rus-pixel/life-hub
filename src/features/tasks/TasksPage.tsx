@@ -6,6 +6,7 @@ import { alive } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { Fab } from '../../components/layout/Fab';
+import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ProjectEditSheet } from './ProjectEditSheet';
 import { QuickAddBar } from './QuickAddBar';
@@ -111,13 +112,20 @@ export function TasksPage() {
   const [taskDefaultProject, setTaskDefaultProject] = useState<string | null>(null);
   const [projectSheetOpen, setProjectSheetOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   // По умолчанию свёрнут только блок «Выполненные».
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set([COMPLETED]));
 
   const tasksRaw = useLiveQuery(() => db.tasks.toArray(), []);
   const projectsRaw = useLiveQuery(() => db.projects.toArray(), []);
 
-  const tasks = alive(tasksRaw ?? []);
+  const allTasks = alive(tasksRaw ?? []);
+  // Уникальные теги из живых задач для фильтра.
+  const tagOptions = useMemo(
+    () => [...new Set(allTasks.flatMap((t) => t.tags))].sort((a, b) => a.localeCompare(b)),
+    [allTasks],
+  );
+  const tasks = activeTag ? allTasks.filter((t) => t.tags.includes(activeTag)) : allTasks;
   // Проекты сверху вниз в порядке создания (sortOrder растёт → новые ниже).
   const projects = alive(projectsRaw ?? [])
     .filter((p) => !p.archivedAt)
@@ -170,11 +178,30 @@ export function TasksPage() {
     setProjectSheetOpen(true);
   }
 
-  const empty = loaded && tasks.length === 0 && projects.length === 0;
+  const empty = loaded && allTasks.length === 0 && projects.length === 0;
 
   return (
     <Screen title="Задачи">
       <QuickAddBar />
+
+      {tagOptions.length > 0 && (
+        <div className="mb-4">
+          <ChipRow>
+            <Chip active={activeTag === null} onClick={() => setActiveTag(null)}>
+              Все теги
+            </Chip>
+            {tagOptions.map((tag) => (
+              <Chip
+                key={tag}
+                active={activeTag === tag}
+                onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+              >
+                #{tag}
+              </Chip>
+            ))}
+          </ChipRow>
+        </div>
+      )}
 
       {empty ? (
         <EmptyState

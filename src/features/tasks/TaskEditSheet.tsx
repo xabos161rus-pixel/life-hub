@@ -68,6 +68,7 @@ export function TaskEditSheet({
 
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const [tagsText, setTagsText] = useState('');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [goalId, setGoalId] = useState<string | null>(null);
   const [priority, setPriority] = useState<Priority>(0);
@@ -92,6 +93,7 @@ export function TaskEditSheet({
     if (task) {
       setTitle(task.title);
       setNotes(task.notes);
+      setTagsText(task.tags.join(', '));
       setProjectId(task.projectId);
       setGoalId(task.goalId);
       setPriority(task.priority);
@@ -106,6 +108,7 @@ export function TaskEditSheet({
     } else {
       setTitle('');
       setNotes('');
+      setTagsText('');
       setProjectId(defaults?.projectId ?? null);
       setGoalId(defaults?.goalId ?? null);
       setPriority(0);
@@ -158,6 +161,10 @@ export function TaskEditSheet({
         dueTime: dueDate ? dueTime : null,
         checklist,
         recurrence: buildRecurrence(),
+        tags: tagsText
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean),
       };
       if (task) {
         await update(db.tasks, task.id, data);
@@ -240,6 +247,14 @@ export function TaskEditSheet({
               onText={(t) => setNotes((prev) => (prev ? `${prev} ${t}` : t))}
             />
           </div>
+        </Field>
+
+        <Field label="Теги">
+          <Input
+            value={tagsText}
+            placeholder="через запятую: работа, дом"
+            onChange={(e) => setTagsText(e.target.value)}
+          />
         </Field>
 
         <div>

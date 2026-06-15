@@ -39,6 +39,7 @@ export function QuickAddBar({
       completedAt: null,
       checklist: [],
       recurrence: null,
+      tags: [],
       sortOrder: Date.now(),
     });
     setText('');

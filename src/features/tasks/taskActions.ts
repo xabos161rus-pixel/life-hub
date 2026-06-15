@@ -31,6 +31,7 @@ export async function toggleTask(task: Task): Promise<string | null> {
       completedAt: null,
       checklist: task.checklist.map((i) => ({ id: uid(), text: i.text, done: false })),
       recurrence: task.recurrence,
+      tags: [...task.tags],
       sortOrder: task.sortOrder,
     });
     return nextDue;

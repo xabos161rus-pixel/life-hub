@@ -39,6 +39,7 @@ export interface Task extends BaseEntity {
   completedAt: string | null;
   checklist: ChecklistItem[];
   recurrence: Recurrence | null;
+  tags: string[];
   sortOrder: number;
 }
 

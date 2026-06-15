@@ -16,7 +16,7 @@ import type {
   Settings,
 } from './types';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -56,6 +56,17 @@ export class LifeHubDB extends Dexie {
       metrics: 'id',
       metricLogs: 'id, metricId, date',
     });
+    // v3 — теги у задач (multiEntry-индекс *tags для фильтра).
+    this.version(3)
+      .stores({ tasks: 'id, projectId, goalId, dueDate, completedAt, *tags' })
+      .upgrade((tx) =>
+        tx
+          .table('tasks')
+          .toCollection()
+          .modify((t) => {
+            if (!Array.isArray(t.tags)) t.tags = [];
+          }),
+      );
   }
 }
 

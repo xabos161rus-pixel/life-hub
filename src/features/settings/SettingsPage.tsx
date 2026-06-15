@@ -1,6 +1,6 @@
 import { useRef, type ChangeEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Trash2 } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -164,6 +164,11 @@ export function SettingsPage() {
 
         <Section title="Приложение">
           <div className="rounded-2xl border border-border bg-surface">
+            <Link to="/more/trash" className="flex items-center gap-2 border-b border-border p-4">
+              <Trash2 size={20} className="shrink-0 text-muted" />
+              <span className="flex-1">Корзина</span>
+              <ChevronRight size={20} className="shrink-0 text-muted" />
+            </Link>
             <Link
               to="/more/settings/install"
               className="flex items-center justify-between gap-2 p-4"

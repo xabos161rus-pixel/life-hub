@@ -19,6 +19,8 @@ import { EnergyPage } from './features/energy/EnergyPage';
 import { PlacesPage } from './features/places/PlacesPage';
 import { SearchPage } from './features/search/SearchPage';
 import { StatsPage } from './features/stats/StatsPage';
+import { CalendarPage } from './features/calendar/CalendarPage';
+import { TrashPage } from './features/trash/TrashPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { InstallInstructionsPage } from './features/settings/InstallInstructionsPage';
 
@@ -82,7 +84,9 @@ export default function App() {
                 <Route path="/" element={<TodayPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/stats" element={<StatsPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/more/trash" element={<TrashPage />} />
                 <Route path="/notes" element={<NotesPage />} />
                 <Route path="/notes/:id" element={<NoteEditorPage />} />
                 <Route path="/goals" element={<GoalsPage />} />
