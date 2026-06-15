@@ -8,10 +8,15 @@ import type {
   Note,
   LearningItem,
   LearningLog,
+  ExpenseItem,
+  EnergyItem,
+  PlaceItem,
+  Metric,
+  MetricLog,
   Settings,
 } from './types';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -22,11 +27,16 @@ export class LifeHubDB extends Dexie {
   notes!: Table<Note, string>;
   learningItems!: Table<LearningItem, string>;
   learningLogs!: Table<LearningLog, string>;
+  expenseItems!: Table<ExpenseItem, string>;
+  energyItems!: Table<EnergyItem, string>;
+  placeItems!: Table<PlaceItem, string>;
+  metrics!: Table<Metric, string>;
+  metricLogs!: Table<MetricLog, string>;
   settings!: Table<Settings, string>;
 
   constructor() {
     super('life-hub');
-    this.version(SCHEMA_VERSION).stores({
+    this.version(1).stores({
       projects: 'id, sortOrder',
       tasks: 'id, projectId, goalId, dueDate, completedAt',
       goals: 'id, status',
@@ -36,6 +46,15 @@ export class LifeHubDB extends Dexie {
       learningItems: 'id, status, goalId',
       learningLogs: 'id, itemId, date',
       settings: 'id',
+    });
+    // v2 — новые разделы жизни (финансы, энергия, места, метрики).
+    // Существующие таблицы не меняются, поэтому upgrade-функция не нужна.
+    this.version(2).stores({
+      expenseItems: 'id, category, kind',
+      energyItems: 'id, category',
+      placeItems: 'id, kind, status',
+      metrics: 'id',
+      metricLogs: 'id, metricId, date',
     });
   }
 }

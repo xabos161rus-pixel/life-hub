@@ -1,5 +1,13 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronRight, GraduationCap, Settings as SettingsIcon } from 'lucide-react';
+import {
+  ChevronRight,
+  GraduationCap,
+  Gauge,
+  Wallet,
+  BatteryCharging,
+  MapPin,
+  Settings as SettingsIcon,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
@@ -68,6 +76,20 @@ export function MorePage() {
           icon={GraduationCap}
           title="Обучение"
           subtitle={`${learningCount} в процессе`}
+        />
+        <MenuCard to="/more/metrics" icon={Gauge} title="Метрики" subtitle="Измеримые показатели" />
+        <MenuCard to="/more/finance" icon={Wallet} title="Финансы" subtitle="Траты и доходы" />
+        <MenuCard
+          to="/more/energy"
+          icon={BatteryCharging}
+          title="Энергия"
+          subtitle="Что меня восстанавливает"
+        />
+        <MenuCard
+          to="/more/places"
+          icon={MapPin}
+          title="Места и путешествия"
+          subtitle="Советы, идеи, рекомендации"
         />
         <MenuCard
           to="/more/settings"

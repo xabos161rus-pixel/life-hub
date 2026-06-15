@@ -4,6 +4,7 @@ import { marked } from 'marked';
 import { Bold, Italic, List, ListOrdered, Pin, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
+import { MicButton } from '../../components/ui/MicButton';
 import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
 
@@ -153,6 +154,19 @@ export function NoteEditorPage() {
     [flush],
   );
 
+  // Голосовой ввод: дописываем распознанный текст в конец заметки и
+  // запускаем тот же автосейв, что и обычный набор (touch → flush).
+  const appendVoice = useCallback(
+    (text: string) => {
+      const el = editorRef.current;
+      if (!el) return;
+      const existing = (el.innerText ?? '').trim();
+      el.appendChild(document.createTextNode((existing ? ' ' : '') + text));
+      touch();
+    },
+    [touch],
+  );
+
   const exec = (command: string) => {
     // тег-based разметка (<b>/<i>), иначе на Gecko execCommand даёт
     // <span style> и наш санитайзер срезал бы форматирование
@@ -181,6 +195,7 @@ export function NoteEditorPage() {
       backTo="/notes"
       right={
         <div className="flex items-center gap-1">
+          <MicButton onText={appendVoice} />
           <button
             onClick={togglePin}
             aria-label={pinned ? 'Открепить' : 'Закрепить'}

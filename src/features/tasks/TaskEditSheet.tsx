@@ -10,7 +10,9 @@ import { Field, Input, Textarea } from '../../components/ui/Input';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TaskCheck } from '../../components/ui/Checkbox';
+import { MicButton } from '../../components/ui/MicButton';
 import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
+import { PRESET_COLORS } from '../../lib/colors';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly';
 type PriorityStr = '0' | '1' | '2' | '3';
@@ -78,6 +80,12 @@ export function TaskEditSheet({
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newItem, setNewItem] = useState('');
 
+  // Инлайн-создание проекта прямо из шита задачи (#1).
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectColor, setNewProjectColor] = useState(PRESET_COLORS[0]);
+  const [newProjectEmoji, setNewProjectEmoji] = useState('📁');
+
   // Инициализация формы при каждом открытии шита.
   useEffect(() => {
     if (!open) return;
@@ -110,6 +118,10 @@ export function TaskEditSheet({
       setRecDayOfMonth('1');
     }
     setNewItem('');
+    setShowNewProject(false);
+    setNewProjectName('');
+    setNewProjectColor(PRESET_COLORS[0]);
+    setNewProjectEmoji('📁');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -165,6 +177,23 @@ export function TaskEditSheet({
     onClose();
   };
 
+  const handleCreateProject = async () => {
+    const name = newProjectName.trim();
+    if (!name) return;
+    const project = await create(db.projects, {
+      name,
+      color: newProjectColor,
+      emoji: newProjectEmoji.trim() || '📁',
+      sortOrder: Date.now(),
+      archivedAt: null,
+    });
+    setProjectId(project.id);
+    setShowNewProject(false);
+    setNewProjectName('');
+    setNewProjectColor(PRESET_COLORS[0]);
+    setNewProjectEmoji('📁');
+  };
+
   const addChecklistItem = () => {
     const text = newItem.trim();
     if (!text) return;
@@ -185,37 +214,115 @@ export function TaskEditSheet({
     <Sheet open={open} onClose={onClose} title={task ? 'Задача' : 'Новая задача'}>
       <div className="flex flex-col gap-4 pb-2">
         <Field label="Название">
-          <Input
-            value={title}
-            autoFocus={!task}
-            placeholder="Что нужно сделать?"
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              value={title}
+              placeholder="Что нужно сделать?"
+              onChange={(e) => setTitle(e.target.value)}
+              className="flex-1"
+            />
+            <MicButton
+              onText={(t) => setTitle((prev) => (prev ? `${prev} ${t}` : t))}
+            />
+          </div>
         </Field>
 
         <Field label="Заметки">
-          <Textarea
-            rows={2}
-            value={notes}
-            placeholder="Детали…"
-            onChange={(e) => setNotes(e.target.value)}
-          />
+          <div className="flex items-start gap-2">
+            <Textarea
+              rows={2}
+              value={notes}
+              placeholder="Детали…"
+              onChange={(e) => setNotes(e.target.value)}
+              className="flex-1"
+            />
+            <MicButton
+              onText={(t) => setNotes((prev) => (prev ? `${prev} ${t}` : t))}
+            />
+          </div>
         </Field>
 
-        <Field label="Проект">
-          <select
-            className={selectClass}
-            value={projectId ?? ''}
-            onChange={(e) => setProjectId(e.target.value || null)}
-          >
-            <option value="">Без проекта</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.emoji} {p.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-sm font-medium text-muted">Проект</span>
+            {!showNewProject && (
+              <button
+                type="button"
+                className="text-sm font-medium text-accent"
+                onClick={() => setShowNewProject(true)}
+              >
+                + Новый
+              </button>
+            )}
+          </div>
+          {showNewProject ? (
+            <div className="flex flex-col gap-3 rounded-2xl border border-hairline bg-surface p-3">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newProjectEmoji}
+                  placeholder="📁"
+                  onChange={(e) => setNewProjectEmoji(e.target.value)}
+                  className="w-14! shrink-0 text-center"
+                />
+                <Input
+                  value={newProjectName}
+                  placeholder="Название проекта"
+                  autoFocus
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  className="min-w-0 flex-1"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2.5">
+                {PRESET_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={`Цвет ${c}`}
+                    onClick={() => setNewProjectColor(c)}
+                    className="size-7 rounded-full transition-transform active:scale-90"
+                    style={{
+                      backgroundColor: c,
+                      outline: newProjectColor === c ? `2px solid ${c}` : 'none',
+                      outlineOffset: '2px',
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowNewProject(false);
+                    setNewProjectName('');
+                  }}
+                >
+                  Отмена
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={!newProjectName.trim()}
+                  onClick={handleCreateProject}
+                >
+                  Создать
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <select
+              className={selectClass}
+              value={projectId ?? ''}
+              onChange={(e) => setProjectId(e.target.value || null)}
+            >
+              <option value="">Без проекта</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.emoji} {p.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
 
         <Field label="Цель">
           <select

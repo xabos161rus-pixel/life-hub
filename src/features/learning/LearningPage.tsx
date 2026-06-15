@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { BookOpen, FileText, GraduationCap, Video } from 'lucide-react';
+import { BookOpen, FileText, FlaskConical, GraduationCap, Languages, Video } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
@@ -20,6 +20,8 @@ const KIND_ICONS: Record<LearningKind, LucideIcon> = {
   course: GraduationCap,
   article: FileText,
   video: Video,
+  research: FlaskConical,
+  language: Languages,
 };
 
 const EMPTY_HINTS: Record<Filter, string> = {

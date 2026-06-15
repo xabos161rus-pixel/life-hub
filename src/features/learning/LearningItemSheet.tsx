@@ -50,6 +50,12 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
   );
   const goals = alive(goalRows ?? []);
 
+  // Для языка прогресс удобнее в процентах — подсказываем единицу при выборе.
+  const handleKindChange = (next: LearningKind) => {
+    setKind(next);
+    if (next === 'language') setUnit('percent');
+  };
+
   const savingRef = useRef(false);
   const handleSave = async () => {
     const trimmed = title.trim();
@@ -119,11 +125,21 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
               { value: 'book', label: 'Книга' },
               { value: 'course', label: 'Курс' },
               { value: 'article', label: 'Статья' },
-              { value: 'video', label: 'Видео' },
             ]}
             value={kind}
-            onChange={setKind}
+            onChange={handleKindChange}
           />
+          <div className="mt-2">
+            <SegmentedControl<LearningKind>
+              options={[
+                { value: 'video', label: 'Видео' },
+                { value: 'research', label: 'Исследование' },
+                { value: 'language', label: 'Язык' },
+              ]}
+              value={kind}
+              onChange={handleKindChange}
+            />
+          </div>
         </Field>
         <Field label="Статус">
           <SegmentedControl<EditableStatus>

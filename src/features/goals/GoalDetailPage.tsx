@@ -4,7 +4,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Book,
   FileText,
+  FlaskConical,
   GraduationCap,
+  Languages,
   Minus,
   Pencil,
   Plus,
@@ -31,6 +33,8 @@ const KIND_ICONS: Record<LearningKind, LucideIcon> = {
   course: GraduationCap,
   article: FileText,
   video: Video,
+  research: FlaskConical,
+  language: Languages,
 };
 
 /** Заголовок секции с кнопкой действия справа. */

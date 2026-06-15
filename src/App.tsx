@@ -12,6 +12,10 @@ import { MorePage } from './features/more/MorePage';
 import { NotesPage } from './features/notes/NotesPage';
 import { NoteEditorPage } from './features/notes/NoteEditorPage';
 import { LearningPage } from './features/learning/LearningPage';
+import { MetricsPage } from './features/metrics/MetricsPage';
+import { FinancePage } from './features/finance/FinancePage';
+import { EnergyPage } from './features/energy/EnergyPage';
+import { PlacesPage } from './features/places/PlacesPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { InstallInstructionsPage } from './features/settings/InstallInstructionsPage';
 
@@ -80,6 +84,10 @@ export default function App() {
                 <Route path="/goals/:id" element={<GoalDetailPage />} />
                 <Route path="/more" element={<MorePage />} />
                 <Route path="/more/learning" element={<LearningPage />} />
+                <Route path="/more/metrics" element={<MetricsPage />} />
+                <Route path="/more/finance" element={<FinancePage />} />
+                <Route path="/more/energy" element={<EnergyPage />} />
+                <Route path="/more/places" element={<PlacesPage />} />
                 <Route path="/more/settings" element={<SettingsPage />} />
                 <Route path="/more/settings/install" element={<InstallInstructionsPage />} />
               </Routes>
