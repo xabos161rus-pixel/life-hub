@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1d1d27" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- black, НЕ black-translucent: при translucent iOS standalone сдвигает
+         вьюпорт для position:fixed вверх на высоту статус-бара, из-за чего каркас
+         fixed inset-0 не достаёт до низа экрана (полоса под таб-баром). С black
+         контент-область считается корректно и панель доходит до нижнего края. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="LifeHub" />
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon.png" />
