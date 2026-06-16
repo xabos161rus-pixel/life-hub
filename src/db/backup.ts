@@ -69,6 +69,20 @@ export function previewBackup(b: BackupFile): ImportPreview {
   return { counts, exportedAt: b.exportedAt };
 }
 
+/** Нормализует строку из старого бэкапа: проставляет поля, добавленные после
+ *  той версии схемы. bulkPut пишет объекты вербатим и НЕ запускает Dexie
+ *  upgrade-хуки (db.ts version(3).upgrade), поэтому бэкфилл нужен здесь —
+ *  иначе у задач из бэкапа v3/v4 (schemaVersion 1/2) tags === undefined, и
+ *  первый же рендер падает на task.tags (TaskItem, TasksPage). */
+function normalizeRow(name: TableName, row: unknown): unknown {
+  if (name === 'tasks') {
+    const t = row as { tags?: unknown; checklist?: unknown };
+    if (!Array.isArray(t.tags)) t.tags = [];
+    if (!Array.isArray(t.checklist)) t.checklist = [];
+  }
+  return row;
+}
+
 /** Замена данных содержимым бэкапа, в одной транзакции. */
 export async function importBackup(b: BackupFile): Promise<void> {
   const tables = TABLES.map((name) => db.table(name));
@@ -82,7 +96,7 @@ export async function importBackup(b: BackupFile): Promise<void> {
       await table.clear();
       // bulkPut идемпотентен по первичному ключу id — переносит дубли id
       // из файла, не роняя всю транзакцию (в отличие от bulkAdd).
-      if (rows.length) await table.bulkPut(rows);
+      if (rows.length) await table.bulkPut(rows.map((r) => normalizeRow(name, r)));
     }
   });
 }

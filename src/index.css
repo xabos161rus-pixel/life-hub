@@ -82,6 +82,15 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Светлая тема: своя «аврора» — мягкие цветные всполохи на светлом фоне,
+   иначе тёмные градиенты тёмной темы грязнят белый фон. */
+:root.light body {
+  background-image:
+    radial-gradient(78% 48% at 12% -6%, oklch(0.7 0.16 266 / 0.14), transparent 60%),
+    radial-gradient(72% 46% at 96% -2%, oklch(0.72 0.17 304 / 0.1), transparent 58%),
+    radial-gradient(130% 80% at 50% -14%, oklch(0.95 0.02 285 / 0.6), transparent 74%);
+}
+
 /* Премиальная карточка: мягкая тень + тонкий верхний внутренний хайлайт. */
 .card {
   background-color: var(--app-surface);

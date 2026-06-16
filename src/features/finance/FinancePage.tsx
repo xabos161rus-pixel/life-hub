@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Wallet } from 'lucide-react';
+import { CalendarClock, Wallet } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -8,7 +8,8 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { ExpenseItem, ExpenseRecurrence } from '../../db/types';
-import { financeSummary, formatRub } from '../../lib/finance';
+import { financeSummary, formatRub, upcomingExpenses } from '../../lib/finance';
+import { formatRu, todayKey } from '../../lib/dates';
 import { ExpenseSheet } from './ExpenseSheet';
 
 const RECURRENCE_LABEL: Record<ExpenseRecurrence, string> = {
@@ -109,6 +110,7 @@ export function FinancePage() {
 
   const expenses = items.filter((i) => i.kind === 'expense');
   const incomes = items.filter((i) => i.kind === 'income');
+  const upcoming = upcomingExpenses(items, todayKey(), 14);
 
   const openCreate = () => {
     setEditing(null);
@@ -130,6 +132,35 @@ export function FinancePage() {
       ) : (
         <div className="space-y-5">
           <SummaryCard items={items} />
+
+          {upcoming.length > 0 && (
+            <section>
+              <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
+                <CalendarClock size={15} className="shrink-0" />
+                Ближайшие списания
+              </h2>
+              <div className="card divide-y divide-hairline px-4">
+                {upcoming.map(({ item, date, daysLeft }) => (
+                  <div key={item.id} className="flex items-baseline justify-between gap-3 py-3">
+                    <p className="truncate font-medium">{item.title}</p>
+                    <div className="shrink-0 text-right">
+                      <p className="font-semibold tabular-nums text-danger">
+                        {formatRub(item.amount)}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {daysLeft === 0
+                          ? 'сегодня'
+                          : daysLeft === 1
+                            ? 'завтра'
+                            : `через ${daysLeft} дн.`}{' '}
+                        ({formatRu(date)})
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {expenses.length > 0 && (
             <section>

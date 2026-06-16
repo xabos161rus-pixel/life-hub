@@ -51,6 +51,50 @@ export function formatRub(amount: number): string {
   return `${rounded.toLocaleString('ru-RU')} ₽`;
 }
 
+export interface UpcomingPayment {
+  item: ExpenseItem;
+  date: string; // 'YYYY-MM-DD' ближайшего списания
+  daysLeft: number;
+}
+
+/**
+ * Ближайшие ежемесячные списания (расходы с recurrence='monthly' и dayOfMonth)
+ * в пределах daysAhead дней. Для напоминаний на «Сегодня».
+ */
+export function upcomingExpenses(
+  items: ExpenseItem[],
+  todayKey: string,
+  daysAhead = 7,
+): UpcomingPayment[] {
+  const today = new Date(`${todayKey}T00:00:00`);
+  const result: UpcomingPayment[] = [];
+
+  for (const item of items) {
+    if (!item.active || item.kind !== 'expense') continue;
+    if (item.recurrence !== 'monthly' || !item.dayOfMonth) continue;
+
+    // ближайшая дата с этим днём месяца: этот месяц или следующий
+    for (let monthOffset = 0; monthOffset <= 1; monthOffset++) {
+      const y = today.getFullYear();
+      const m = today.getMonth() + monthOffset;
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const day = Math.min(item.dayOfMonth, daysInMonth);
+      const d = new Date(y, m, day);
+      const diff = Math.round((d.getTime() - today.getTime()) / 86_400_000);
+      if (diff >= 0 && diff <= daysAhead) {
+        const pad = (n: number) => String(n).padStart(2, '0');
+        result.push({
+          item,
+          date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+          daysLeft: diff,
+        });
+        break;
+      }
+    }
+  }
+  return result.sort((a, b) => a.daysLeft - b.daysLeft);
+}
+
 export const EXPENSE_CATEGORY_SUGGESTIONS = [
   'Жильё',
   'Еда',

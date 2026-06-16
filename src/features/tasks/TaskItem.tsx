@@ -2,6 +2,7 @@ import { useRef, useState, type PointerEvent } from 'react';
 import { Repeat } from 'lucide-react';
 import type { Project, Task } from '../../db/types';
 import { TaskCheck } from '../../components/ui/Checkbox';
+import { ProgressBar } from '../../components/ui/ProgressBar';
 import { useToast } from '../../components/ui/Toast';
 import { db } from '../../db/db';
 import { remove, update } from '../../db/repo';
@@ -34,6 +35,9 @@ export function TaskItem({
   const done = Boolean(task.completedAt);
   const overdue = !done && task.dueDate !== null && task.dueDate < todayKey();
   const checklistDone = task.checklist.filter((i) => i.done).length;
+  const checklistPct = task.checklist.length
+    ? (checklistDone / task.checklist.length) * 100
+    : 0;
   const hasMeta =
     Boolean(task.dueDate) ||
     Boolean(task.recurrence) ||
@@ -74,13 +78,15 @@ export function TaskItem({
   };
   const onUp = () => {
     setDragging(false);
-    setDx((cur) => {
-      if (cur > SWIPE_THRESHOLD) {
-        void handleToggle(); // свайп вправо — выполнить
-        return 0;
-      }
-      return cur < -SWIPE_THRESHOLD ? -ACTIONS_WIDTH : 0;
-    });
+    // Решение принимаем снаружи setState-апдейтера: побочный эффект внутри
+    // апдейтера в StrictMode вызывался бы дважды → дубль toggleTask.
+    if (dx > SWIPE_THRESHOLD) {
+      void handleToggle(); // свайп вправо — выполнить (handleToggle сам сбросит dx)
+    } else if (dx < -SWIPE_THRESHOLD) {
+      setDx(-ACTIONS_WIDTH);
+    } else {
+      setDx(0);
+    }
   };
   const onClick = () => {
     if (drag.current.moved) return; // это был свайп, не тап
@@ -145,8 +151,18 @@ export function TaskItem({
                 </span>
               )}
               {task.checklist.length > 0 && (
-                <span>
+                <span className="flex items-center gap-1.5">
                   {checklistDone}/{task.checklist.length}
+                  <span className="w-16">
+                    <ProgressBar
+                      value={checklistPct}
+                      color={
+                        checklistDone === task.checklist.length
+                          ? 'var(--app-success)'
+                          : undefined
+                      }
+                    />
+                  </span>
                 </span>
               )}
               {task.tags.map((tag) => (

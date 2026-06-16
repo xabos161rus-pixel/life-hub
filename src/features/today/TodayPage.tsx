@@ -14,6 +14,10 @@ import { QuickAddBar } from '../tasks/QuickAddBar';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { GoalCard } from '../goals/GoalCard';
+import { UpcomingTasksWidget } from './widgets/UpcomingTasksWidget';
+import { UpcomingPaymentsWidget } from './widgets/UpcomingPaymentsWidget';
+import { MetricsWidget } from './widgets/MetricsWidget';
+import { EnergyTipWidget } from './widgets/EnergyTipWidget';
 
 /** Список задач в карточке — как в TasksPage. */
 function TaskList({
@@ -160,6 +164,11 @@ export function TodayPage() {
           )}
         </section>
       )}
+
+      <UpcomingTasksWidget projectById={projectById} onEdit={openEdit} />
+      <UpcomingPaymentsWidget />
+      <MetricsWidget />
+      <EnergyTipWidget />
 
       <Fab
         onClick={() => {

@@ -87,6 +87,12 @@ export function TrashPage() {
 
   async function handlePurge(entry: TrashEntry) {
     if (!window.confirm('Удалить навсегда?')) return;
+    // Каскадно убираем дочерние логи, иначе они остаются мусором в БД и бэкапе.
+    if (entry.tableName === 'metrics') {
+      await db.metricLogs.where('metricId').equals(entry.id).delete();
+    } else if (entry.tableName === 'learningItems') {
+      await db.learningLogs.where('itemId').equals(entry.id).delete();
+    }
     await db.table(entry.tableName).delete(entry.id);
     toast('Удалено навсегда');
   }

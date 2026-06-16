@@ -5,9 +5,9 @@ import { Field, Input } from '../../components/ui/Input';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
-import { todayKey } from '../../lib/dates';
 import { PRESET_COLORS } from '../../lib/colors';
 import type { Metric } from '../../db/types';
+import { upsertMetricLog } from './metricLog';
 
 const UNIT_SUGGESTIONS = ['%', 'кг', 'км', 'шт'];
 
@@ -57,19 +57,11 @@ function MetricForm({ metric, onClose }: { metric: Metric | null; onClose: () =>
         await update(db.metrics, metric.id, base);
         // При заметном изменении текущего значения фиксируем точку истории.
         if (currentValue !== metric.currentValue) {
-          await create(db.metricLogs, {
-            metricId: metric.id,
-            date: todayKey(),
-            value: currentValue,
-          });
+          await upsertMetricLog(metric.id, currentValue);
         }
       } else {
         const created = await create(db.metrics, { ...base, sortOrder: Date.now() });
-        await create(db.metricLogs, {
-          metricId: created.id,
-          date: todayKey(),
-          value: currentValue,
-        });
+        await upsertMetricLog(created.id, currentValue);
       }
       onClose();
     } finally {

@@ -6,11 +6,11 @@ import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 import { db } from '../../db/db';
-import { alive, create, update } from '../../db/repo';
-import { todayKey } from '../../lib/dates';
+import { alive, update } from '../../db/repo';
 import type { Metric, MetricLog } from '../../db/types';
 import { MetricSheet } from './MetricSheet';
 import { MetricSparkline } from './MetricSparkline';
+import { upsertMetricLog } from './metricLog';
 
 const STEP_BTN_CLASS =
   'flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-text active:opacity-70';
@@ -34,7 +34,7 @@ function MetricCard({ metric, onOpen }: { metric: Metric; onOpen: () => void }) 
     const value = Math.max(0, next);
     if (value === metric.currentValue) return;
     await update(db.metrics, metric.id, { currentValue: value });
-    await create(db.metricLogs, { metricId: metric.id, date: todayKey(), value });
+    await upsertMetricLog(metric.id, value);
   };
 
   const ringLabel = `${fmt(metric.currentValue)}${isPercent ? '%' : ''}`;

@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChartColumnBig } from 'lucide-react';
+import { ChartColumnBig, Share2 } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Goal, LearningItem, Metric, Task } from '../../db/types';
@@ -8,9 +8,11 @@ import { addDaysKey, fromKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { getISODay } from 'date-fns';
 import { goalProgress, goalProgressLabel } from '../../lib/progress';
 import { financeSummary, formatRub } from '../../lib/finance';
+import { buildReport, reportFilename } from '../../lib/report';
 import { Screen } from '../../components/layout/Screen';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { useToast } from '../../components/ui/Toast';
 
 interface TaskStats {
   doneToday: number;
@@ -86,6 +88,38 @@ export function StatsPage() {
   const metrics = alive(useLiveQuery<Metric[]>(() => db.metrics.toArray(), []) ?? []);
   const learning = alive(useLiveQuery<LearningItem[]>(() => db.learningItems.toArray(), []) ?? []);
   const expenses = alive(useLiveQuery(() => db.expenseItems.toArray(), []) ?? []);
+  const toast = useToast();
+
+  async function handleShareReport() {
+    const md = await buildReport();
+    const file = new File([md], reportFilename(), { type: 'text/markdown' });
+
+    // share-шит — только на iOS (там это путь в «Файлы»); на десктопе
+    // системный share-диалог блокирует страницу, качаем напрямую
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file] });
+      } catch (err) {
+        // AbortError — пользователь закрыл шит шаринга, это не ошибка
+        if (!(err instanceof DOMException && err.name === 'AbortError')) {
+          alert('Не удалось поделиться отчётом');
+        }
+        return;
+      }
+    } else {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    toast('Отчёт готов');
+  }
 
   const taskStats = useMemo(() => computeTaskStats(tasks), [tasks]);
 
@@ -159,7 +193,19 @@ export function StatsPage() {
   }
 
   return (
-    <Screen title="Статистика" backTo="/more">
+    <Screen
+      title="Статистика"
+      backTo="/more"
+      right={
+        <button
+          onClick={() => void handleShareReport()}
+          aria-label="Поделиться отчётом"
+          className="-mr-2 p-1 text-accent active:opacity-60"
+        >
+          <Share2 size={22} />
+        </button>
+      }
+    >
       <div className="flex flex-col gap-4">
         {/* Задачи */}
         <StatCard title="Задачи">

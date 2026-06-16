@@ -90,7 +90,12 @@ export function SettingsPage() {
         `• отметок привычек: ${p.counts.habitLogs}\n` +
         `• заметок: ${p.counts.notes}\n` +
         `• материалов обучения: ${p.counts.learningItems}\n` +
-        `• записей прогресса: ${p.counts.learningLogs}\n\nПродолжить?`;
+        `• записей прогресса: ${p.counts.learningLogs}\n` +
+        `• расходов: ${p.counts.expenseItems}\n` +
+        `• энергозатрат: ${p.counts.energyItems}\n` +
+        `• мест: ${p.counts.placeItems}\n` +
+        `• метрик: ${p.counts.metrics}\n` +
+        `• замеров метрик: ${p.counts.metricLogs}\n\nПродолжить?`;
       if (!window.confirm(msg)) return;
       await importBackup(backup);
       toast('Данные восстановлены');
