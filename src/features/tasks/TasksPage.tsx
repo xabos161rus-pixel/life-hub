@@ -16,6 +16,21 @@ import { TaskItem } from './TaskItem';
 
 const NONE = '__none__';
 
+// Авто-скролл во время drag: зона у краёв скролл-контейнера и шаг за кадр.
+const SCROLL_EDGE = 72; // px от верх/низ края, где включается авто-скролл
+const SCROLL_STEP = 11; // px за кадр
+
+/** Ближайший прокручиваемый предок (overflow-y auto/scroll с переполнением). */
+function getScrollParent(node: HTMLElement | null): HTMLElement | null {
+  let el = node?.parentElement ?? null;
+  while (el) {
+    const oy = getComputedStyle(el).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
 /** Сортировка внутри секции: ближайший срок и время выше, затем приоритет. */
 function byDateTimePriority(a: Task, b: Task): number {
   return (
@@ -95,7 +110,7 @@ function TaskCard({
   onEdit: (t: Task) => void;
   muted?: boolean;
   /** Передаётся только в активных секциях — включает drag переноса. */
-  onDragStart?: (t: Task) => void;
+  onDragStart?: (t: Task, at: { x: number; y: number }) => void;
   /** id перетаскиваемой задачи для визуального сигнала источника. */
   draggingId?: string | null;
 }) {
@@ -178,6 +193,8 @@ export function TasksPage() {
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
   // Координаты пальца для «призрака» у курсора.
   const [pointer, setPointer] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // То же в ref — читается в RAF-цикле авто-скролла без устаревшего замыкания.
+  const pointerRef = useRef({ x: 0, y: 0 });
   // Ключ секции под пальцем (projectId | NONE) — для подсветки drop-зоны.
   const [dropKey, setDropKey] = useState<string | null>(null);
   // Реестр DOM-узлов секций для hit-теста по Y пальца (ключ = data-drop-key).
@@ -205,24 +222,56 @@ export function TasksPage() {
     return null;
   }, []);
 
-  const onDragStart = useCallback((t: Task) => {
+  const onDragStart = useCallback((t: Task, at: { x: number; y: number }) => {
     const key = t.projectId ?? NONE;
     dropKeyRef.current = key;
+    pointerRef.current = at; // стартовая позиция пальца — иначе «призрак» из угла
+    setPointer(at);
     setDraggingTask(t);
     setDropKey(key);
   }, []);
 
-  // Window-слушатели активны только во время drag. Перенос/тосты — здесь.
+  // Window-слушатели активны только во время drag. Перенос/тосты/авто-скролл — здесь.
   useEffect(() => {
     if (!draggingTask) return;
     const task = draggingTask; // фикс ссылки для замыкания finish
 
+    // Прокручиваемый контейнер берём от любой секции (все внутри одного скролла).
+    const anySection = sectionNodes.current.values().next().value ?? null;
+    const scroller = getScrollParent(anySection);
+
+    // Подсветка drop-зоны по Y пальца, без лишних setState на каждый кадр.
+    const refreshDrop = (y: number) => {
+      const key = hitTest(y);
+      if (key !== dropKeyRef.current) {
+        dropKeyRef.current = key;
+        setDropKey(key);
+      }
+    };
+
     const move = (e: PointerEvent) => {
       e.preventDefault(); // блокируем скролл, пока тащим
+      pointerRef.current = { x: e.clientX, y: e.clientY };
       setPointer({ x: e.clientX, y: e.clientY });
-      const key = hitTest(e.clientY);
-      dropKeyRef.current = key;
-      setDropKey(key);
+      refreshDrop(e.clientY);
+    };
+
+    // Авто-скролл, пока палец у края: крутим контейнер и переоцениваем drop-зону
+    // даже когда палец стоит на месте (move-события при этом не приходят).
+    let raf = 0;
+    const tick = () => {
+      const y = pointerRef.current.y;
+      if (scroller) {
+        const r = scroller.getBoundingClientRect();
+        const max = scroller.scrollHeight - scroller.clientHeight;
+        if (y < r.top + SCROLL_EDGE && scroller.scrollTop > 0) {
+          scroller.scrollTop -= SCROLL_STEP;
+        } else if (y > r.bottom - SCROLL_EDGE && scroller.scrollTop < max) {
+          scroller.scrollTop += SCROLL_STEP;
+        }
+      }
+      refreshDrop(y);
+      raf = requestAnimationFrame(tick);
     };
 
     const finish = () => {
@@ -247,14 +296,16 @@ export function TasksPage() {
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', finish);
     window.addEventListener('pointercancel', finish);
-    // На время drag глушим скролл страницы.
+    // На время drag глушим скролл страницы (свой авто-скролл — программный).
     const prevTouch = document.body.style.touchAction;
     document.body.style.touchAction = 'none';
+    if (scroller) raf = requestAnimationFrame(tick);
     return () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', finish);
       window.removeEventListener('pointercancel', finish);
       document.body.style.touchAction = prevTouch;
+      cancelAnimationFrame(raf);
     };
   }, [draggingTask, hitTest, toast]);
   // Свёрнутые группы (проекты/«Без проекта»). По умолчанию все развёрнуты.

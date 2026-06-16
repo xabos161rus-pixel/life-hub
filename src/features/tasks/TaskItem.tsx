@@ -36,14 +36,17 @@ export function TaskItem({
   task: Task;
   project?: Project | null;
   onEdit?: (t: Task) => void;
-  /** Опциональный: вызывается при long-press. Места без него (Today/Calendar/
-   *  GoalDetail) просто не получают drag. */
-  onDragStart?: (t: Task) => void;
+  /** Опциональный: вызывается при long-press со стартовыми координатами пальца.
+   *  Места без него (Today/Calendar/GoalDetail) просто не получают drag. */
+  onDragStart?: (t: Task, at: { x: number; y: number }) => void;
   /** Управляемый родителем визуальный сигнал «эта задача сейчас тащится». */
   isDragSource?: boolean;
 }) {
   const toast = useToast();
   const done = Boolean(task.completedAt);
+  // Где включён drag — глушим нативное выделение/лупу/callout iOS, иначе
+  // удержание шлёт строке pointercancel и перенос срывается.
+  const draggable = Boolean(onDragStart);
   const overdue = !done && task.dueDate !== null && task.dueDate < todayKey();
   const checklistDone = task.checklist.filter((i) => i.done).length;
   const checklistPct = task.checklist.length
@@ -105,7 +108,7 @@ export function TaskItem({
         drag.current.longPressed = true;
         setDragging(false); // прекращаем визуальный свайп: жест ушёл в drag
         setDx(0);
-        onDragStart(task);
+        onDragStart(task, { x: drag.current.x, y: drag.current.y });
       }, LONG_PRESS_MS);
     }
   };
@@ -165,8 +168,8 @@ export function TaskItem({
       </div>
       <div
         className={`relative flex touch-pan-y items-start gap-3 bg-surface px-4 py-3 ${
-          isDragSource ? 'scale-[0.97] opacity-40' : ''
-        }`}
+          draggable ? 'select-none [-webkit-user-select:none] [-webkit-touch-callout:none]' : ''
+        } ${isDragSource ? 'scale-[0.97] opacity-40' : ''}`}
         style={{
           transform: isDragSource ? undefined : `translateX(${dx}px)`,
           transition: dragging ? 'none' : 'transform 0.2s, opacity 0.15s',
