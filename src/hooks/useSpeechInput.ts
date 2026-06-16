@@ -77,5 +77,8 @@ export function useSpeechInput({ lang = 'ru-RU', onResult }: Options) {
 
   useEffect(() => () => recRef.current?.stop(), []);
 
-  return { listening, start, stop, supported: isSpeechSupported() };
+  // На iOS webkitSpeechRecognition формально присутствует, но в Safari/PWA не
+  // отдаёт результат (кнопка «краснеет», текста нет) — считаем неподдерживаемым,
+  // тогда MicButton покажет подсказку про микрофон системной клавиатуры.
+  return { listening, start, stop, supported: isSpeechSupported() && !isIOS() };
 }

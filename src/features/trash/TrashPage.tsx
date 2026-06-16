@@ -3,7 +3,6 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import {
   BatteryCharging,
   FolderKanban,
-  Gauge,
   GraduationCap,
   ListTodo,
   MapPin,
@@ -44,7 +43,6 @@ export function TrashPage() {
   const expenses = useLiveQuery<BaseEntity[]>(() => db.expenseItems.toArray(), []) ?? [];
   const energy = useLiveQuery<BaseEntity[]>(() => db.energyItems.toArray(), []) ?? [];
   const places = useLiveQuery<BaseEntity[]>(() => db.placeItems.toArray(), []) ?? [];
-  const metrics = useLiveQuery<BaseEntity[]>(() => db.metrics.toArray(), []) ?? [];
 
   const entries = useMemo<TrashEntry[]>(() => {
     const collect = (
@@ -76,9 +74,8 @@ export function TrashPage() {
       ...collect(db.expenseItems, 'expenseItems', Wallet, expenses, (r) => str(r.title)),
       ...collect(db.energyItems, 'energyItems', BatteryCharging, energy, (r) => str(r.title)),
       ...collect(db.placeItems, 'placeItems', MapPin, places, (r) => str(r.title)),
-      ...collect(db.metrics, 'metrics', Gauge, metrics, (r) => str(r.title)),
     ].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
-  }, [tasks, notes, goals, projects, learning, expenses, energy, places, metrics]);
+  }, [tasks, notes, goals, projects, learning, expenses, energy, places]);
 
   async function handleRestore(entry: TrashEntry) {
     await update(entry.table, entry.id, { deletedAt: null });
@@ -88,9 +85,7 @@ export function TrashPage() {
   async function handlePurge(entry: TrashEntry) {
     if (!window.confirm('Удалить навсегда?')) return;
     // Каскадно убираем дочерние логи, иначе они остаются мусором в БД и бэкапе.
-    if (entry.tableName === 'metrics') {
-      await db.metricLogs.where('metricId').equals(entry.id).delete();
-    } else if (entry.tableName === 'learningItems') {
+    if (entry.tableName === 'learningItems') {
       await db.learningLogs.where('itemId').equals(entry.id).delete();
     }
     await db.table(entry.tableName).delete(entry.id);

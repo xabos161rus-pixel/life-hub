@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { ChartColumnBig, Share2 } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
-import type { Goal, LearningItem, Metric, Task } from '../../db/types';
+import type { Goal, LearningItem, Task } from '../../db/types';
 import { addDaysKey, fromKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { getISODay } from 'date-fns';
 import { goalProgress, goalProgressLabel } from '../../lib/progress';
@@ -85,7 +85,6 @@ function StatNumber({ value, label, color }: { value: number; label: string; col
 export function StatsPage() {
   const tasks = alive(useLiveQuery<Task[]>(() => db.tasks.toArray(), []) ?? []);
   const goals = alive(useLiveQuery<Goal[]>(() => db.goals.toArray(), []) ?? []);
-  const metrics = alive(useLiveQuery<Metric[]>(() => db.metrics.toArray(), []) ?? []);
   const learning = alive(useLiveQuery<LearningItem[]>(() => db.learningItems.toArray(), []) ?? []);
   const expenses = alive(useLiveQuery(() => db.expenseItems.toArray(), []) ?? []);
   const toast = useToast();
@@ -176,7 +175,6 @@ export function StatsPage() {
   const noData =
     tasks.length === 0 &&
     goals.length === 0 &&
-    metrics.length === 0 &&
     learning.length === 0 &&
     expenses.length === 0;
 
@@ -269,7 +267,7 @@ export function StatsPage() {
         )}
 
         {/* Развитие */}
-        {(metrics.length > 0 || learning.length > 0) && (
+        {learning.length > 0 && (
           <StatCard title="Развитие">
             {learning.length > 0 && (
               <p className="mb-3 text-sm text-muted">
@@ -280,29 +278,6 @@ export function StatsPage() {
                   {learningStats.inProgress} в процессе
                 </span>
               </p>
-            )}
-            {metrics.length > 0 && (
-              <div className="flex flex-col gap-3">
-                {metrics.map((m) => {
-                  const value =
-                    m.targetValue && m.targetValue > 0
-                      ? Math.round((100 * m.currentValue) / m.targetValue)
-                      : 0;
-                  return (
-                    <div key={m.id}>
-                      <div className="mb-1 flex items-baseline justify-between gap-3">
-                        <span className="truncate text-sm font-medium">{m.title}</span>
-                        <span className="shrink-0 text-xs text-muted">
-                          {m.currentValue}
-                          {m.targetValue != null ? ` / ${m.targetValue}` : ''}
-                          {m.unit ? ` ${m.unit}` : ''}
-                        </span>
-                      </div>
-                      {m.targetValue != null && <ProgressBar value={value} color={m.color} />}
-                    </div>
-                  );
-                })}
-              </div>
             )}
           </StatCard>
         )}

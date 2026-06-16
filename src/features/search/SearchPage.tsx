@@ -2,7 +2,6 @@ import { useMemo, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   BatteryCharging,
-  Gauge,
   ListTodo,
   MapPin,
   Search,
@@ -66,7 +65,6 @@ export function SearchPage() {
   const goals = useLiveQuery(() => db.goals.toArray(), []);
   const places = useLiveQuery(() => db.placeItems.toArray(), []);
   const learning = useLiveQuery(() => db.learningItems.toArray(), []);
-  const metrics = useLiveQuery(() => db.metrics.toArray(), []);
   const energy = useLiveQuery(() => db.energyItems.toArray(), []);
   const expenses = useLiveQuery(() => db.expenseItems.toArray(), []);
 
@@ -106,10 +104,6 @@ export function SearchPage() {
       .filter((l) => `${l.title}\n${l.author}`.toLowerCase().includes(q))
       .map((l) => ({ id: l.id, to: '/more/learning', title: l.title, context: l.author }));
 
-    const metricHits: Hit[] = alive(metrics ?? [])
-      .filter((m) => m.title.toLowerCase().includes(q))
-      .map((m) => ({ id: m.id, to: '/more/metrics', title: m.title, context: m.unit }));
-
     const energyHits: Hit[] = alive(energy ?? [])
       .filter((e) => `${e.title}\n${e.description}`.toLowerCase().includes(q))
       .map((e) => ({ id: e.id, to: '/more/energy', title: e.title, context: e.description }));
@@ -124,11 +118,10 @@ export function SearchPage() {
       build('goals', 'Цели', Target, goalHits),
       build('places', 'Места', MapPin, placeHits),
       build('learning', 'Обучение', GraduationCap, learningHits),
-      build('metrics', 'Метрики', Gauge, metricHits),
       build('energy', 'Энергия', BatteryCharging, energyHits),
       build('expenses', 'Финансы', Wallet, expenseHits),
     ].filter((s) => s.total > 0);
-  }, [q, tasks, notes, goals, places, learning, metrics, energy, expenses]);
+  }, [q, tasks, notes, goals, places, learning, energy, expenses]);
 
   return (
     <Screen title="Поиск" backTo="/">

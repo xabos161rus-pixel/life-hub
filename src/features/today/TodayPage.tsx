@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
-import { Search, Sun } from 'lucide-react';
+import { ChevronDown, Search, Sun } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
@@ -16,7 +16,6 @@ import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { GoalCard } from '../goals/GoalCard';
 import { UpcomingTasksWidget } from './widgets/UpcomingTasksWidget';
 import { UpcomingPaymentsWidget } from './widgets/UpcomingPaymentsWidget';
-import { MetricsWidget } from './widgets/MetricsWidget';
 import { EnergyTipWidget } from './widgets/EnergyTipWidget';
 
 /** Список задач в карточке — как в TasksPage. */
@@ -51,6 +50,7 @@ function TaskList({
 export function TodayPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
+  const [inProgressCollapsed, setInProgressCollapsed] = useState(false);
   const today = todayKey();
 
   const tasks = alive(useLiveQuery(() => db.tasks.toArray(), []) ?? []);
@@ -157,8 +157,22 @@ export function TodayPage() {
 
       {inProgress.length > 0 && (
         <section className="mb-5">
-          <h2 className="mb-2 text-sm font-semibold text-muted">В работе</h2>
-          <TaskList tasks={inProgress} projectById={projectById} onEdit={openEdit} />
+          <button
+            onClick={() => setInProgressCollapsed((c) => !c)}
+            className="mb-2 flex w-full items-center gap-1.5 text-left active:opacity-70"
+          >
+            <ChevronDown
+              size={16}
+              className={`shrink-0 text-muted transition-transform ${
+                inProgressCollapsed ? '-rotate-90' : ''
+              }`}
+            />
+            <h2 className="text-sm font-semibold text-muted">В работе</h2>
+            <span className="text-xs text-muted">{inProgress.length}</span>
+          </button>
+          {!inProgressCollapsed && (
+            <TaskList tasks={inProgress} projectById={projectById} onEdit={openEdit} />
+          )}
         </section>
       )}
 
@@ -180,7 +194,6 @@ export function TodayPage() {
 
       <UpcomingTasksWidget projectById={projectById} onEdit={openEdit} />
       <UpcomingPaymentsWidget />
-      <MetricsWidget />
       <EnergyTipWidget />
 
       <Fab

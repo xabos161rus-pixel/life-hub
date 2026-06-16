@@ -13,10 +13,12 @@ interface Props {
   children: ReactNode;
 }
 
-/** Каркас страницы: липкая шапка с safe-area + контент с отступом под таб-бар. */
+/** Каркас страницы: липкая шапка с safe-area + контент с нижним отступом ровно
+ *  под клиренс FAB (таб-бар — отдельный flex-элемент, контент под него не уходит,
+ *  поэтому большой pb не нужен — он давал пустую полосу внизу в standalone). */
 export function Screen({ title, backTo, right, subtitle, children }: Props) {
   return (
-    <div className="min-h-full pb-24">
+    <div className="min-h-full pb-20">
       <header className="sticky top-0 z-30 border-b border-hairline bg-bg/70 px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 backdrop-blur-xl">
         <div className="flex items-center gap-2">
           {backTo && (

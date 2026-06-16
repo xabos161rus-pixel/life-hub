@@ -16,10 +16,9 @@ const STATUS_RU: Record<string, string> = {
 
 export async function buildReport(): Promise<string> {
   const today = todayKey();
-  const [tasks, goals, metrics, learning, expenses, places, energy] = await Promise.all([
+  const [tasks, goals, learning, expenses, places, energy] = await Promise.all([
     db.tasks.toArray().then(alive),
     db.goals.toArray().then(alive),
-    db.metrics.toArray().then(alive),
     db.learningItems.toArray().then(alive),
     db.expenseItems.toArray().then(alive),
     db.placeItems.toArray().then(alive),
@@ -56,15 +55,6 @@ export async function buildReport(): Promise<string> {
     for (const g of activeGoals) {
       const linked = tasksByGoal.get(g.id) ?? [];
       L.push(`- **${g.title}** — ${goalProgressLabel(g, linked)} (${goalProgress(g, linked)}%)`);
-    }
-    L.push('');
-  }
-
-  if (metrics.length) {
-    L.push(`## Метрики`);
-    for (const m of metrics) {
-      const target = m.targetValue ? ` / ${m.targetValue}` : '';
-      L.push(`- **${m.title}**: ${m.currentValue}${target} ${m.unit}`);
     }
     L.push('');
   }

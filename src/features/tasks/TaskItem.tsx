@@ -184,6 +184,9 @@ export function TaskItem({
         <TaskCheck checked={done} onChange={handleToggle} color={project?.color} />
         <div className="min-w-0 flex-1">
           <p className={`break-words ${done ? 'text-muted line-through' : ''}`}>{task.title}</p>
+          {task.notes && (
+            <p className="mt-0.5 line-clamp-2 break-words text-xs text-muted">{task.notes}</p>
+          )}
           {hasMeta && (
             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
               {task.dueDate && (

@@ -2,7 +2,6 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import {
   ChevronRight,
   GraduationCap,
-  Gauge,
   Wallet,
   BatteryCharging,
   MapPin,
@@ -84,7 +83,6 @@ export function MorePage() {
           title="Обучение"
           subtitle={`${learningCount} в процессе`}
         />
-        <MenuCard to="/more/metrics" icon={Gauge} title="Метрики" subtitle="Измеримые показатели" />
         <MenuCard to="/more/finance" icon={Wallet} title="Финансы" subtitle="Траты и доходы" />
         <MenuCard
           to="/more/energy"
