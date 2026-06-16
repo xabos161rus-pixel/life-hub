@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
-import { Copy, Repeat } from 'lucide-react';
+import { Bell, Copy, Repeat } from 'lucide-react';
 import type { Project, Task } from '../../db/types';
 import { TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressBar } from '../../components/ui/ProgressBar';
@@ -16,6 +16,13 @@ const PRIORITY_BAR: Record<number, string> = {
   1: 'bg-muted',
   0: 'bg-transparent',
 };
+
+/** Прибавляет минуты к 'HH:mm', сворачивая в пределах суток — для конца интервала. */
+function addMinutesToTime(hhmm: string, add: number): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const total = (((h * 60 + m + add) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
 
 const ACTIONS_WIDTH = 152; // ширина блока действий слева (две кнопки)
 const SWIPE_THRESHOLD = 40; // меньше — считается тапом
@@ -192,7 +199,16 @@ export function TaskItem({
               {task.dueDate && (
                 <span className={overdue ? 'text-danger' : ''}>
                   {formatDueDate(task.dueDate)}
-                  {task.dueTime ? `, ${task.dueTime}` : ''}
+                  {task.dueTime
+                    ? `, ${task.dueTime}${
+                        task.duration ? ` – ${addMinutesToTime(task.dueTime, task.duration)}` : ''
+                      }`
+                    : ''}
+                </span>
+              )}
+              {task.remindBefore != null && (
+                <span className="flex items-center" aria-label="Напоминание включено">
+                  <Bell size={11} />
                 </span>
               )}
               {task.recurrence && (

@@ -28,6 +28,8 @@ export async function toggleTask(task: Task): Promise<string | null> {
       priority: task.priority,
       dueDate: nextDue,
       dueTime: task.dueTime ?? null,
+      duration: task.duration ?? null,
+      remindBefore: task.remindBefore ?? null,
       completedAt: null,
       checklist: task.checklist.map((i) => ({ id: uid(), text: i.text, done: false })),
       recurrence: task.recurrence,

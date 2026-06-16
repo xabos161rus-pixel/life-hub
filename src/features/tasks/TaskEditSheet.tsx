@@ -46,6 +46,17 @@ const REC_INTERVAL_LABELS: Record<Exclude<RecType, 'none'>, string> = {
   monthly: 'Интервал (месяцев)',
 };
 
+const DURATION_PRESETS = [15, 30, 45, 60, 90, 120]; // минуты
+const REMIND_PRESETS = [5, 10, 15, 30, 60]; // минуты до начала
+
+/** Человекочитаемая длительность: «15м», «1ч», «1ч 30м». */
+function formatDuration(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h === 0) return `${m}м`;
+  return m === 0 ? `${h}ч` : `${h}ч ${m}м`;
+}
+
 /** Шит создания/редактирования задачи. task=null → создание с defaults. */
 export function TaskEditSheet({
   open,
@@ -83,6 +94,8 @@ export function TaskEditSheet({
   const [priority, setPriority] = useState<Priority>(0);
   const [dueDate, setDueDate] = useState<string | null>(null);
   const [dueTime, setDueTime] = useState<string | null>(null);
+  const [duration, setDuration] = useState<number | null>(null);
+  const [remindBefore, setRemindBefore] = useState<number | null>(null);
   const [recType, setRecType] = useState<RecType>('none');
   const [recInterval, setRecInterval] = useState('1');
   const [recWeekdays, setRecWeekdays] = useState<number[]>([]);
@@ -108,6 +121,8 @@ export function TaskEditSheet({
       setPriority(task.priority);
       setDueDate(task.dueDate);
       setDueTime(task.dueTime ?? null);
+      setDuration(task.duration ?? null);
+      setRemindBefore(task.remindBefore ?? null);
       setChecklist(task.checklist.map((i) => ({ ...i })));
       const rec = task.recurrence;
       setRecType(rec?.type ?? 'none');
@@ -123,6 +138,8 @@ export function TaskEditSheet({
       setPriority(0);
       setDueDate(defaults?.dueDate ?? null);
       setDueTime(null);
+      setDuration(null);
+      setRemindBefore(null);
       setChecklist([]);
       setRecType('none');
       setRecInterval('1');
@@ -177,6 +194,8 @@ export function TaskEditSheet({
         priority,
         dueDate,
         dueTime: dueDate ? dueTime : null,
+        duration: dueDate ? duration : null,
+        remindBefore: dueDate ? remindBefore : null,
         checklist,
         recurrence: buildRecurrence(),
         tags: tagsText
@@ -454,6 +473,42 @@ export function TaskEditSheet({
             </ChipRow>
           </div>
         </div>
+
+        {dueDate && (
+          <>
+            <Field label="Длительность">
+              <ChipRow>
+                <Chip active={duration === null} onClick={() => setDuration(null)}>
+                  Нет
+                </Chip>
+                {DURATION_PRESETS.map((m) => (
+                  <Chip key={m} active={duration === m} onClick={() => setDuration(m)}>
+                    {formatDuration(m)}
+                  </Chip>
+                ))}
+              </ChipRow>
+            </Field>
+            <Field label="Напоминание">
+              <ChipRow>
+                <Chip active={remindBefore === null} onClick={() => setRemindBefore(null)}>
+                  Выкл
+                </Chip>
+                <Chip active={remindBefore === 0} onClick={() => setRemindBefore(0)}>
+                  Вовремя
+                </Chip>
+                {REMIND_PRESETS.map((m) => (
+                  <Chip
+                    key={m}
+                    active={remindBefore === m}
+                    onClick={() => setRemindBefore(m)}
+                  >
+                    за {formatDuration(m)}
+                  </Chip>
+                ))}
+              </ChipRow>
+            </Field>
+          </>
+        )}
 
         <Field label="Повторение">
           <SegmentedControl options={REC_OPTIONS} value={recType} onChange={setRecType} />

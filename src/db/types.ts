@@ -36,6 +36,8 @@ export interface Task extends BaseEntity {
   priority: Priority;
   dueDate: string | null; // 'YYYY-MM-DD' (локальная дата)
   dueTime: string | null; // 'HH:mm' время дня, опционально (имеет смысл при dueDate)
+  duration: number | null; // длительность в минутах (интервал «09:30 – 10:15»)
+  remindBefore: number | null; // напомнить за N минут до dueTime; 0 = вовремя, null = выкл
   completedAt: string | null;
   checklist: ChecklistItem[];
   recurrence: Recurrence | null;

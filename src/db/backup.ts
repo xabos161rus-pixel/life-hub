@@ -76,9 +76,16 @@ export function previewBackup(b: BackupFile): ImportPreview {
  *  первый же рендер падает на task.tags (TaskItem, TasksPage). */
 function normalizeRow(name: TableName, row: unknown): unknown {
   if (name === 'tasks') {
-    const t = row as { tags?: unknown; checklist?: unknown };
+    const t = row as {
+      tags?: unknown;
+      checklist?: unknown;
+      duration?: unknown;
+      remindBefore?: unknown;
+    };
     if (!Array.isArray(t.tags)) t.tags = [];
     if (!Array.isArray(t.checklist)) t.checklist = [];
+    if (t.duration === undefined) t.duration = null;
+    if (t.remindBefore === undefined) t.remindBefore = null;
   }
   return row;
 }

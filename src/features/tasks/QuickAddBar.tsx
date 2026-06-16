@@ -36,6 +36,8 @@ export function QuickAddBar({
       priority: 0,
       dueDate: p.dueDate ?? defaultDueDate ?? null,
       dueTime: p.dueTime,
+      duration: null,
+      remindBefore: null,
       completedAt: null,
       checklist: [],
       recurrence: null,
