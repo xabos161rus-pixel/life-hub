@@ -75,10 +75,13 @@ export default function App() {
       <ToastProvider>
         <ThemeApplier />
         <ErrorBoundary>
-          {/* Каркас: корень фиксированной высоты, скроллится только контент,
-              таб-бар — обычный flex-элемент. Так клавиатура не оставляет
-              «дыру» внизу (баг fixed bottom-0 на iOS). */}
-          <div className="fixed inset-0 flex flex-col overflow-hidden">
+          {/* Каркас: корень динамической высоты (dvh, не vh — иначе на iOS
+              остаётся пустота при свёрнутой адресной строке), скроллится
+              только контент, таб-бар — обычный flex-элемент. bg-bg заливает
+              весь каркас, включая зону под таб-баром и safe-area, — без
+              просветов другого цвета. После закрытия клавиатуры дыры нет,
+              т.к. высота привязана к dvh, а не к fixed bottom-0. */}
+          <div className="fixed inset-x-0 top-0 flex h-dvh flex-col overflow-hidden bg-bg">
             <div className="flex-1 overflow-x-hidden overflow-y-auto">
               <Routes>
                 <Route path="/" element={<TodayPage />} />

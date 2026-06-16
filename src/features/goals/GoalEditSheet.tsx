@@ -110,7 +110,6 @@ export function GoalEditSheet({
             value={title}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
             placeholder="Например: Прочитать 20 книг"
-            autoFocus={!goal}
           />
         </Field>
 

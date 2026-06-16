@@ -64,7 +64,6 @@ export function ProjectEditSheet({
         <Field label="Название">
           <Input
             value={name}
-            autoFocus={!project}
             placeholder="Например, «Ремонт»"
             onChange={(e) => setName(e.target.value)}
           />

@@ -78,6 +78,12 @@ export function TodayPage() {
     .filter((t) => Boolean(t.completedAt) && t.dueDate === today)
     .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
 
+  // «В работе» — живые невыполненные задачи без срока.
+  const inProgress = tasks
+    .filter((t) => !t.completedAt && t.dueDate === null)
+    .sort(byPriorityThenOrder)
+    .slice(0, 10);
+
   const activeGoals = goals
     .filter((g) => g.status === 'active')
     .sort((a, b) => {
@@ -147,6 +153,13 @@ export function TodayPage() {
             )}
           </section>
         )
+      )}
+
+      {inProgress.length > 0 && (
+        <section className="mb-5">
+          <h2 className="mb-2 text-sm font-semibold text-muted">В работе</h2>
+          <TaskList tasks={inProgress} projectById={projectById} onEdit={openEdit} />
+        </section>
       )}
 
       {activeGoals.length > 0 && (

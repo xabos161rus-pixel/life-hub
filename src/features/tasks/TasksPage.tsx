@@ -1,20 +1,20 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronDown, FolderPlus, ListChecks, Pencil, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, FolderPlus, ListChecks, Pencil, Plus } from 'lucide-react';
 import { db } from '../../db/db';
-import { alive } from '../../db/repo';
+import { alive, update } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { Fab } from '../../components/layout/Fab';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { useToast } from '../../components/ui/Toast';
 import { ProjectEditSheet } from './ProjectEditSheet';
 import { QuickAddBar } from './QuickAddBar';
 import { TaskEditSheet } from './TaskEditSheet';
 import { TaskItem } from './TaskItem';
 
 const NONE = '__none__';
-const COMPLETED = '__completed__';
 
 /** Сортировка внутри секции: ближайший срок и время выше, затем приоритет. */
 function byDateTimePriority(a: Task, b: Task): number {
@@ -26,13 +26,18 @@ function byDateTimePriority(a: Task, b: Task): number {
   );
 }
 
-/** Сворачиваемая секция с заголовком, счётчиком и (опц.) карандашом. */
+/** Сворачиваемая секция с заголовком, счётчиком и (опц.) карандашом.
+ *  dropRef/dropKey/highlight — для drag-and-drop: вся секция служит drop-зоной,
+ *  ключ цели читается из data-drop-key узла. */
 function Section({
   title,
   count,
   collapsed,
   onToggle,
   onEdit,
+  dropRef,
+  dropKey,
+  highlight = false,
   children,
 }: {
   title: string;
@@ -40,10 +45,19 @@ function Section({
   collapsed: boolean;
   onToggle: () => void;
   onEdit?: () => void;
+  dropRef?: (el: HTMLElement | null) => void;
+  dropKey?: string;
+  highlight?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section className="mb-4">
+    <section
+      ref={dropRef}
+      data-drop-key={dropKey}
+      className={`mb-4 rounded-2xl transition-colors ${
+        highlight ? 'bg-accent/10 ring-2 ring-accent' : ''
+      }`}
+    >
       <div className="mb-2 flex items-center gap-1 px-1">
         <button onClick={onToggle} className="flex flex-1 items-center gap-1.5 text-left">
           <ChevronDown
@@ -73,11 +87,17 @@ function TaskCard({
   projectById,
   onEdit,
   muted,
+  onDragStart,
+  draggingId,
 }: {
   tasks: Task[];
   projectById: Map<string, Project>;
   onEdit: (t: Task) => void;
   muted?: boolean;
+  /** Передаётся только в активных секциях — включает drag переноса. */
+  onDragStart?: (t: Task) => void;
+  /** id перетаскиваемой задачи для визуального сигнала источника. */
+  draggingId?: string | null;
 }) {
   return (
     <div
@@ -89,8 +109,46 @@ function TaskCard({
           task={t}
           project={t.projectId ? (projectById.get(t.projectId) ?? null) : null}
           onEdit={onEdit}
+          onDragStart={onDragStart}
+          isDragSource={draggingId === t.id}
         />
       ))}
+    </div>
+  );
+}
+
+/** Свёрнутая по умолчанию под-секция выполненных задач внутри группы (#13). */
+function CompletedSubsection({
+  tasks,
+  projectById,
+  onEdit,
+  expanded,
+  onToggle,
+}: {
+  tasks: Task[];
+  projectById: Map<string, Project>;
+  onEdit: (t: Task) => void;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="mt-2">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-sm text-muted active:opacity-60"
+      >
+        <ChevronRight
+          size={14}
+          className={`shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
+        />
+        <span>Выполненные</span>
+        <span className="text-xs">{tasks.length}</span>
+      </button>
+      {expanded && (
+        <div className="mt-1 max-h-72 overflow-y-auto">
+          <TaskCard tasks={tasks} projectById={projectById} onEdit={onEdit} muted />
+        </div>
+      )}
     </div>
   );
 }
@@ -107,14 +165,102 @@ function AddTaskRow({ onClick }: { onClick: () => void }) {
 }
 
 export function TasksPage() {
+  const toast = useToast();
   const [taskSheetOpen, setTaskSheetOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskDefaultProject, setTaskDefaultProject] = useState<string | null>(null);
   const [projectSheetOpen, setProjectSheetOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  // По умолчанию свёрнут только блок «Выполненные».
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set([COMPLETED]));
+
+  // --- Drag-and-drop переноса задачи между секциями-проектами ---
+  // Задача, которую сейчас тащим (захвачена long-press внутри TaskItem).
+  const [draggingTask, setDraggingTask] = useState<Task | null>(null);
+  // Координаты пальца для «призрака» у курсора.
+  const [pointer, setPointer] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Ключ секции под пальцем (projectId | NONE) — для подсветки drop-зоны.
+  const [dropKey, setDropKey] = useState<string | null>(null);
+  // Реестр DOM-узлов секций для hit-теста по Y пальца (ключ = data-drop-key).
+  const sectionNodes = useRef<Map<string, HTMLElement>>(new Map());
+  // Актуальный dropKey для window-обработчика pointerup (обновляется в move).
+  const dropKeyRef = useRef<string | null>(null);
+  // Имена проектов по id — для тоста переноса. Синкается из projects в effect.
+  const projectNamesRef = useRef<Map<string, string>>(new Map());
+
+  // Единственный стабильный ref-колбэк: ключ берётся из data-drop-key самого
+  // узла, поэтому идентичность колбэка постоянна и React не дёргает его лишний раз.
+  const registerSection = useCallback((el: HTMLElement | null) => {
+    if (!el) return; // detach: чистим по значению ниже (узлы с тем же ключом перезапишутся)
+    const key = el.dataset.dropKey;
+    if (key) sectionNodes.current.set(key, el);
+  }, []);
+
+  // Какая секция под точкой Y. Узлы, выпавшие из DOM, отсеиваются по rect=0.
+  const hitTest = useCallback((y: number): string | null => {
+    for (const [key, el] of sectionNodes.current) {
+      if (!el.isConnected) continue;
+      const r = el.getBoundingClientRect();
+      if (y >= r.top && y <= r.bottom) return key;
+    }
+    return null;
+  }, []);
+
+  const onDragStart = useCallback((t: Task) => {
+    const key = t.projectId ?? NONE;
+    dropKeyRef.current = key;
+    setDraggingTask(t);
+    setDropKey(key);
+  }, []);
+
+  // Window-слушатели активны только во время drag. Перенос/тосты — здесь.
+  useEffect(() => {
+    if (!draggingTask) return;
+    const task = draggingTask; // фикс ссылки для замыкания finish
+
+    const move = (e: PointerEvent) => {
+      e.preventDefault(); // блокируем скролл, пока тащим
+      setPointer({ x: e.clientX, y: e.clientY });
+      const key = hitTest(e.clientY);
+      dropKeyRef.current = key;
+      setDropKey(key);
+    };
+
+    const finish = () => {
+      const target = dropKeyRef.current;
+      if (target) {
+        const nextProjectId = target === NONE ? null : target;
+        if (nextProjectId !== task.projectId) {
+          void update(db.tasks, task.id, { projectId: nextProjectId });
+          const name =
+            nextProjectId === null
+              ? 'Без проекта'
+              : (projectNamesRef.current.get(target) ?? 'проект');
+          toast(`Перенесено в ${name}`);
+        }
+      }
+      dropKeyRef.current = null;
+      setDraggingTask(null);
+      setDropKey(null);
+    };
+
+    // passive:false — иначе preventDefault на touch не сработает.
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
+    // На время drag глушим скролл страницы.
+    const prevTouch = document.body.style.touchAction;
+    document.body.style.touchAction = 'none';
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+      document.body.style.touchAction = prevTouch;
+    };
+  }, [draggingTask, hitTest, toast]);
+  // Свёрнутые группы (проекты/«Без проекта»). По умолчанию все развёрнуты.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  // Развёрнутые под-секции выполненных по ключу группы. По умолчанию — свёрнуты.
+  const [expandedCompleted, setExpandedCompleted] = useState<Set<string>>(() => new Set());
 
   const tasksRaw = useLiveQuery(() => db.tasks.toArray(), []);
   const projectsRaw = useLiveQuery(() => db.projects.toArray(), []);
@@ -132,6 +278,10 @@ export function TasksPage() {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+  // Синк имён проектов в ref для тоста переноса (читается в pointerup-обработчике).
+  useEffect(() => {
+    projectNamesRef.current = new Map(projects.map((p) => [p.id, p.name]));
+  }, [projects]);
   const loaded = tasksRaw !== undefined;
 
   const activeByProject = useMemo(() => {
@@ -147,22 +297,40 @@ export function TasksPage() {
     return map;
   }, [tasks]);
 
-  const completed = useMemo(
-    () =>
-      tasks
-        .filter((t) => t.completedAt)
-        .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
-        .slice(0, 50),
-    [tasks],
-  );
+  // Выполненные сгруппированы по проекту (key = projectId | NONE),
+  // внутри группы — по completedAt убыв.
+  const completedByProject = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const t of tasks) {
+      if (!t.completedAt) continue;
+      const key = t.projectId ?? NONE;
+      const arr = map.get(key);
+      if (arr) arr.push(t);
+      else map.set(key, [t]);
+    }
+    for (const arr of map.values()) {
+      arr.sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
+    }
+    return map;
+  }, [tasks]);
 
   const noProjectTasks = activeByProject.get(NONE) ?? [];
+  const noProjectCompleted = completedByProject.get(NONE) ?? [];
 
   function toggle(id: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleCompleted(key: string) {
+    setExpandedCompleted((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
@@ -213,6 +381,7 @@ export function TasksPage() {
         <>
           {projects.map((p) => {
             const list = activeByProject.get(p.id) ?? [];
+            const doneList = completedByProject.get(p.id) ?? [];
             return (
               <Section
                 key={p.id}
@@ -221,39 +390,61 @@ export function TasksPage() {
                 collapsed={collapsed.has(p.id)}
                 onToggle={() => toggle(p.id)}
                 onEdit={() => openProject(p)}
+                dropRef={registerSection}
+                dropKey={p.id}
+                highlight={Boolean(draggingTask) && dropKey === p.id}
               >
                 {list.length > 0 && (
-                  <TaskCard tasks={list} projectById={projectById} onEdit={(t) => openTask(t, t.projectId)} />
+                  <TaskCard
+                    tasks={list}
+                    projectById={projectById}
+                    onEdit={(t) => openTask(t, t.projectId)}
+                    onDragStart={onDragStart}
+                    draggingId={draggingTask?.id ?? null}
+                  />
+                )}
+                {doneList.length > 0 && (
+                  <CompletedSubsection
+                    tasks={doneList}
+                    projectById={projectById}
+                    onEdit={(t) => openTask(t, t.projectId)}
+                    expanded={expandedCompleted.has(p.id)}
+                    onToggle={() => toggleCompleted(p.id)}
+                  />
                 )}
                 <AddTaskRow onClick={() => openTask(null, p.id)} />
               </Section>
             );
           })}
 
-          {noProjectTasks.length > 0 && (
+          {(noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
             <Section
               title="Без проекта"
               count={noProjectTasks.length}
               collapsed={collapsed.has(NONE)}
               onToggle={() => toggle(NONE)}
+              dropRef={registerSection}
+              dropKey={NONE}
+              highlight={Boolean(draggingTask) && dropKey === NONE}
             >
-              <TaskCard tasks={noProjectTasks} projectById={projectById} onEdit={(t) => openTask(t, null)} />
-            </Section>
-          )}
-
-          {completed.length > 0 && (
-            <Section
-              title="Выполненные"
-              count={completed.length}
-              collapsed={collapsed.has(COMPLETED)}
-              onToggle={() => toggle(COMPLETED)}
-            >
-              <TaskCard
-                tasks={completed}
-                projectById={projectById}
-                onEdit={(t) => openTask(t, t.projectId)}
-                muted
-              />
+              {noProjectTasks.length > 0 && (
+                <TaskCard
+                  tasks={noProjectTasks}
+                  projectById={projectById}
+                  onEdit={(t) => openTask(t, null)}
+                  onDragStart={onDragStart}
+                  draggingId={draggingTask?.id ?? null}
+                />
+              )}
+              {noProjectCompleted.length > 0 && (
+                <CompletedSubsection
+                  tasks={noProjectCompleted}
+                  projectById={projectById}
+                  onEdit={(t) => openTask(t, null)}
+                  expanded={expandedCompleted.has(NONE)}
+                  onToggle={() => toggleCompleted(NONE)}
+                />
+              )}
             </Section>
           )}
 
@@ -279,6 +470,15 @@ export function TasksPage() {
         onClose={() => setProjectSheetOpen(false)}
         project={editingProject}
       />
+
+      {draggingTask && (
+        <div
+          className="pointer-events-none fixed z-[70] max-w-[70vw] -translate-y-1/2 translate-x-3 truncate rounded-xl border border-border bg-elevated px-3 py-2 text-sm font-medium shadow-lg shadow-black/30 opacity-90"
+          style={{ left: pointer.x, top: pointer.y }}
+        >
+          {draggingTask.title}
+        </div>
+      )}
     </Screen>
   );
 }

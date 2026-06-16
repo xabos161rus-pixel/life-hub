@@ -29,20 +29,25 @@ function deriveTitle(text: string): string {
 function ToolBtn({
   onClick,
   label,
+  active,
   children,
 }: {
   onClick: () => void;
   label: string;
+  active: boolean;
   children: ReactNode;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
+      aria-pressed={active}
       // не отдаём фокус из редактора — иначе пропадёт выделение
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className="flex size-10 items-center justify-center rounded-lg text-text active:bg-surface-2"
+      className={`flex size-10 items-center justify-center rounded-xl transition-colors ${
+        active ? 'bg-accent/15 text-accent' : 'bg-surface-2 text-text active:bg-elevated'
+      }`}
     >
       {children}
     </button>
@@ -65,6 +70,27 @@ export function NoteEditorPage() {
 
   const [pinned, setPinned] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Активность кнопок форматирования для подсветки в тулбаре.
+  const [active, setActive] = useState({ bold: false, italic: false, ul: false, ol: false });
+
+  // Пересчитываем активные форматы по текущему выделению (в обработчике, не в рендере).
+  const syncActive = useCallback(() => {
+    const el = editorRef.current;
+    const sel = document.getSelection();
+    if (!el || !sel || sel.rangeCount === 0 || !el.contains(sel.anchorNode)) return;
+    setActive({
+      bold: document.queryCommandState('bold'),
+      italic: document.queryCommandState('italic'),
+      ul: document.queryCommandState('insertUnorderedList'),
+      ol: document.queryCommandState('insertOrderedList'),
+    });
+  }, []);
+
+  // Подсветка следует за курсором/выделением, пока редактор открыт.
+  useEffect(() => {
+    document.addEventListener('selectionchange', syncActive);
+    return () => document.removeEventListener('selectionchange', syncActive);
+  }, [syncActive]);
 
   useEffect(() => {
     pinnedRef.current = pinned;
@@ -173,6 +199,7 @@ export function NoteEditorPage() {
     document.execCommand('styleWithCSS', false, 'false');
     document.execCommand(command);
     editorRef.current?.focus();
+    syncActive();
     touch();
   };
 
@@ -186,6 +213,13 @@ export function NoteEditorPage() {
     deletedRef.current = true;
     clearTimeout(timerRef.current);
     if (savedIdRef.current) await remove(db.notes, savedIdRef.current);
+    navigate('/notes');
+  };
+
+  // «Готово»: гасим отложенный автосейв, сохраняем текущее состояние и уходим.
+  const handleDone = async () => {
+    clearTimeout(timerRef.current);
+    await flush();
     navigate('/notes');
   };
 
@@ -210,6 +244,12 @@ export function NoteEditorPage() {
           >
             <Trash2 size={20} />
           </button>
+          <button
+            onClick={() => void handleDone()}
+            className="pl-1 pr-1 font-semibold text-accent active:opacity-60"
+          >
+            Готово
+          </button>
         </div>
       }
     >
@@ -227,21 +267,21 @@ export function NoteEditorPage() {
       />
 
       {/* Панель форматирования над клавиатурой (таб-бар на этом экране скрыт). */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 border-t border-border bg-surface/95 px-2 pt-1 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <ToolBtn onClick={() => exec('bold')} label="Жирный">
-          <Bold size={19} />
+      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 border-t border-hairline bg-surface/95 p-2 pb-[calc(env(safe-area-inset-bottom)+8px)] backdrop-blur-xl">
+        <ToolBtn onClick={() => exec('bold')} label="Жирный" active={active.bold}>
+          <Bold size={20} strokeWidth={2.25} />
         </ToolBtn>
-        <ToolBtn onClick={() => exec('italic')} label="Курсив">
-          <Italic size={19} />
+        <ToolBtn onClick={() => exec('italic')} label="Курсив" active={active.italic}>
+          <Italic size={20} strokeWidth={2.25} />
         </ToolBtn>
-        <ToolBtn onClick={() => exec('insertUnorderedList')} label="Маркированный список">
-          <List size={19} />
+        <ToolBtn onClick={() => exec('insertUnorderedList')} label="Маркированный список" active={active.ul}>
+          <List size={20} strokeWidth={2.25} />
         </ToolBtn>
-        <ToolBtn onClick={() => exec('insertOrderedList')} label="Нумерованный список">
-          <ListOrdered size={19} />
+        <ToolBtn onClick={() => exec('insertOrderedList')} label="Нумерованный список" active={active.ol}>
+          <ListOrdered size={20} strokeWidth={2.25} />
         </ToolBtn>
         <span
-          className={`ml-auto pr-2 text-xs text-muted transition-opacity ${
+          className={`ml-auto pr-1.5 text-xs font-medium text-muted transition-opacity ${
             saved ? 'opacity-100' : 'opacity-0'
           }`}
         >

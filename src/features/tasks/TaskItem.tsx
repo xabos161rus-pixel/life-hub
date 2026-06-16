@@ -1,5 +1,5 @@
-import { useRef, useState, type PointerEvent } from 'react';
-import { Repeat } from 'lucide-react';
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { Copy, Repeat } from 'lucide-react';
 import type { Project, Task } from '../../db/types';
 import { TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressBar } from '../../components/ui/ProgressBar';
@@ -19,17 +19,28 @@ const PRIORITY_BAR: Record<number, string> = {
 
 const ACTIONS_WIDTH = 152; // ширина блока действий слева (две кнопки)
 const SWIPE_THRESHOLD = 40; // меньше — считается тапом
+const LONG_PRESS_MS = 400; // удержание без движения → старт drag-режима
+const DRAG_CANCEL_MOVE = 8; // горизонт/вертикаль сдвиг, отменяющий long-press
 
 /** Строка задачи: чекбокс, заголовок, метаданные. Тап — редактирование,
- *  свайп влево — действия (Завтра/Удалить), свайп вправо — выполнить. */
+ *  свайп влево — действия (Завтра/Удалить), свайп вправо — выполнить.
+ *  Удержание ~400мс без движения (когда передан onDragStart) — старт
+ *  drag-режима переноса между проектами (логику переноса ведёт TasksPage). */
 export function TaskItem({
   task,
   project,
   onEdit,
+  onDragStart,
+  isDragSource = false,
 }: {
   task: Task;
   project?: Project | null;
   onEdit?: (t: Task) => void;
+  /** Опциональный: вызывается при long-press. Места без него (Today/Calendar/
+   *  GoalDetail) просто не получают drag. */
+  onDragStart?: (t: Task) => void;
+  /** Управляемый родителем визуальный сигнал «эта задача сейчас тащится». */
+  isDragSource?: boolean;
 }) {
   const toast = useToast();
   const done = Boolean(task.completedAt);
@@ -47,7 +58,18 @@ export function TaskItem({
 
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
-  const drag = useRef({ x: 0, dx: 0, moved: false });
+  // moved — был ли горизонтальный свайп; longPressed — сработал ли long-press
+  // (тогда дальнейшие move/up в этой строке игнорируются: жест ведёт TasksPage).
+  const drag = useRef({ x: 0, y: 0, dx: 0, moved: false, longPressed: false });
+  const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const clearLongPress = () => {
+    clearTimeout(longPressTimer.current);
+    longPressTimer.current = undefined;
+  };
+
+  // Подстраховка: снять висящий таймер при размонтировании строки.
+  useEffect(() => clearLongPress, []);
 
   const handleToggle = async () => {
     setDx(0);
@@ -66,17 +88,42 @@ export function TaskItem({
     else setDx(0);
   };
 
+  const handleCopy = (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const text = task.title + (task.notes ? `\n\n${task.notes}` : '');
+    void navigator.clipboard.writeText(text);
+    toast('Скопировано');
+  };
+
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
-    drag.current = { x: e.clientX, dx, moved: false };
+    drag.current = { x: e.clientX, y: e.clientY, dx, moved: false, longPressed: false };
     setDragging(true);
+    // Long-press → drag-режим. Армируем только там, где перенос поддержан.
+    if (onDragStart) {
+      clearLongPress();
+      longPressTimer.current = setTimeout(() => {
+        drag.current.longPressed = true;
+        setDragging(false); // прекращаем визуальный свайп: жест ушёл в drag
+        setDx(0);
+        onDragStart(task);
+      }, LONG_PRESS_MS);
+    }
   };
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (drag.current.longPressed) return; // жест ведёт TasksPage
     if (e.buttons === 0) return;
     const d = e.clientX - drag.current.x;
+    const dy = e.clientY - drag.current.y;
+    // Любое заметное движение (по X — свайп, по Y — скролл) отменяет long-press.
+    if (Math.abs(d) > DRAG_CANCEL_MOVE || Math.abs(dy) > DRAG_CANCEL_MOVE) {
+      clearLongPress();
+    }
     if (Math.abs(d) > 6) drag.current.moved = true;
     setDx(Math.max(-ACTIONS_WIDTH, Math.min(ACTIONS_WIDTH, drag.current.dx + d)));
   };
   const onUp = () => {
+    clearLongPress();
+    if (drag.current.longPressed) return; // перенос завершит TasksPage
     setDragging(false);
     // Решение принимаем снаружи setState-апдейтера: побочный эффект внутри
     // апдейтера в StrictMode вызывался бы дважды → дубль toggleTask.
@@ -89,6 +136,7 @@ export function TaskItem({
     }
   };
   const onClick = () => {
+    if (drag.current.longPressed) return; // это был старт переноса, не тап
     if (drag.current.moved) return; // это был свайп, не тап
     if (dx !== 0) {
       setDx(0); // открыты действия — закрываем
@@ -116,10 +164,12 @@ export function TaskItem({
         </button>
       </div>
       <div
-        className="relative flex touch-pan-y items-center gap-3 bg-surface px-4 py-3"
+        className={`relative flex touch-pan-y items-start gap-3 bg-surface px-4 py-3 ${
+          isDragSource ? 'scale-[0.97] opacity-40' : ''
+        }`}
         style={{
-          transform: `translateX(${dx}px)`,
-          transition: dragging ? 'none' : 'transform 0.2s',
+          transform: isDragSource ? undefined : `translateX(${dx}px)`,
+          transition: dragging ? 'none' : 'transform 0.2s, opacity 0.15s',
         }}
         onPointerDown={onDown}
         onPointerMove={onMove}
@@ -130,7 +180,7 @@ export function TaskItem({
         <span className={`w-1 shrink-0 self-stretch rounded-full ${PRIORITY_BAR[task.priority]}`} />
         <TaskCheck checked={done} onChange={handleToggle} color={project?.color} />
         <div className="min-w-0 flex-1">
-          <p className={`truncate ${done ? 'text-muted line-through' : ''}`}>{task.title}</p>
+          <p className={`break-words ${done ? 'text-muted line-through' : ''}`}>{task.title}</p>
           {hasMeta && (
             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
               {task.dueDate && (
@@ -176,6 +226,14 @@ export function TaskItem({
             </p>
           )}
         </div>
+        <button
+          type="button"
+          aria-label="Скопировать задачу"
+          onClick={handleCopy}
+          className="-mr-1 mt-0.5 shrink-0 p-1 text-muted active:opacity-60"
+        >
+          <Copy size={15} />
+        </button>
       </div>
     </div>
   );

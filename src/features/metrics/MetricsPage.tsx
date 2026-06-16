@@ -8,6 +8,8 @@ import { ProgressRing } from '../../components/ui/ProgressRing';
 import { db } from '../../db/db';
 import { alive, update } from '../../db/repo';
 import type { Metric, MetricLog } from '../../db/types';
+import { computeAutoMetrics } from '../../lib/autoMetrics';
+import { formatRub } from '../../lib/finance';
 import { MetricSheet } from './MetricSheet';
 import { MetricSparkline } from './MetricSparkline';
 import { upsertMetricLog } from './metricLog';
@@ -91,6 +93,50 @@ function MetricCard({ metric, onOpen }: { metric: Metric; onOpen: () => void }) 
   );
 }
 
+function SummaryCell({ value, label }: { value: string; label: string }) {
+  return (
+    <div>
+      <p className="text-2xl font-bold tabular-nums">{value}</p>
+      <p className="text-xs text-muted">{label}</p>
+    </div>
+  );
+}
+
+/** Авто-сводка по всему приложению. Скрывается, если данных нет совсем. */
+function SummaryWidget() {
+  const auto = useLiveQuery(() => computeAutoMetrics(), []);
+  if (!auto || auto.coverage === 0) return null;
+
+  return (
+    <section className="card p-4">
+      <h2 className="mb-3 text-sm font-semibold text-muted">Сводка</h2>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+        <SummaryCell value={String(auto.tasksDone7)} label="Выполнено за 7 дней" />
+        <SummaryCell value={String(auto.tasksAdded7)} label="Добавлено за 7 дней" />
+        <SummaryCell
+          value={auto.onTimeRate === null ? '—' : `${auto.onTimeRate}%`}
+          label="В срок (работоспособность)"
+        />
+        <SummaryCell value={`${auto.openTasks} / ${auto.overdueTasks}`} label="Открыто / Просрочено" />
+        <div className="flex items-center gap-3">
+          <ProgressRing value={auto.goalsAvgProgress} />
+          <div>
+            <p className="text-sm font-semibold">{auto.goalsActive}</p>
+            <p className="text-xs text-muted">Активных целей</p>
+          </div>
+        </div>
+        <SummaryCell
+          value={auto.learningProgress === null ? '—' : `${auto.learningProgress}%`}
+          label="Прогресс обучения"
+        />
+        <SummaryCell value={String(auto.booksRead)} label="Прочитано книг" />
+        <SummaryCell value={`${auto.coverage}/8`} label="Охват жизни" />
+        <SummaryCell value={formatRub(auto.financeBalance)} label="Баланс в месяц" />
+      </div>
+    </section>
+  );
+}
+
 export function MetricsPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Metric | null>(null);
@@ -110,18 +156,22 @@ export function MetricsPage() {
 
   return (
     <Screen title="Метрики" backTo="/more">
-      <div className="space-y-3">
-        {metrics.length === 0 ? (
-          <EmptyState
-            icon={Gauge}
-            title="Пока нет метрик"
-            hint="Добавьте показатель, который хотите отслеживать: вес, % владения языком, километраж."
-          />
-        ) : (
-          metrics.map((metric) => (
-            <MetricCard key={metric.id} metric={metric} onOpen={() => openEdit(metric)} />
-          ))
-        )}
+      <div className="space-y-4">
+        <SummaryWidget />
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-muted">Мои метрики</h2>
+          {metrics.length === 0 ? (
+            <EmptyState
+              icon={Gauge}
+              title="Пока нет метрик"
+              hint="Добавьте показатель, который хотите отслеживать: вес, % владения языком, километраж."
+            />
+          ) : (
+            metrics.map((metric) => (
+              <MetricCard key={metric.id} metric={metric} onOpen={() => openEdit(metric)} />
+            ))
+          )}
+        </div>
       </div>
       <Fab onClick={openCreate} />
       <MetricSheet open={sheetOpen} onClose={() => setSheetOpen(false)} metric={editing} />

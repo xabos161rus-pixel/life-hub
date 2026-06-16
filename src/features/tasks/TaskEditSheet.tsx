@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { X } from 'lucide-react';
+import { Copy, X } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, create, remove, uid, update } from '../../db/repo';
 import type { ChecklistItem, Priority, Recurrence, Task } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Field, Input, Textarea } from '../../components/ui/Input';
+import { useToast } from '../../components/ui/Toast';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TaskCheck } from '../../components/ui/Checkbox';
@@ -19,6 +20,11 @@ type PriorityStr = '0' | '1' | '2' | '3';
 
 const selectClass =
   'w-full appearance-none rounded-xl bg-surface-2 border border-border px-3.5 py-3 text-text outline-none focus:border-accent';
+
+// Стили Input для авто-grow textarea названия (#7) — компонент Textarea не
+// прокидывает ref, поэтому используем нативный textarea с теми же классами.
+const inputBase =
+  'w-full rounded-xl bg-surface-2 border border-hairline px-3.5 py-3 text-text placeholder:text-muted outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent/25';
 
 const PRIORITY_OPTIONS: { value: PriorityStr; label: string }[] = [
   { value: '0', label: 'Нет' },
@@ -65,6 +71,9 @@ export function TaskEditSheet({
       async () => alive(await db.goals.toArray()).filter((g) => g.status === 'active'),
       [],
     ) ?? [];
+
+  const toast = useToast();
+  const titleRef = useRef<HTMLTextAreaElement>(null);
 
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
@@ -127,6 +136,15 @@ export function TaskEditSheet({
     setNewProjectEmoji('📁');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Авто-подгон высоты поля названия под содержимое (#7). Реагирует на
+  // программные изменения title (mic/инициализация) и на открытие шита.
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [title, open]);
 
   const buildRecurrence = (): Recurrence | null => {
     const interval = Math.max(1, parseInt(recInterval, 10) || 1);
@@ -215,26 +233,62 @@ export function TaskEditSheet({
     }
   };
 
+  // Enter в поле названия не сабмитит — даём перенос строки (#7).
+  const handleTitleKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) e.stopPropagation();
+  };
+
+  const copyText = (text: string) => {
+    if (!text) return;
+    void navigator.clipboard.writeText(text);
+    toast('Скопировано');
+  };
+
   const tomorrow = addDaysKey(todayKey(), 1);
 
   return (
     <Sheet open={open} onClose={onClose} title={task ? 'Задача' : 'Новая задача'}>
       <div className="flex flex-col gap-4 pb-2">
-        <Field label="Название">
-          <div className="flex items-center gap-2">
-            <Input
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-sm font-medium text-muted">Название</span>
+            <button
+              type="button"
+              aria-label="Скопировать название"
+              onClick={() => copyText(title)}
+              className="-mr-1 p-1 text-muted active:opacity-60"
+            >
+              <Copy size={15} />
+            </button>
+          </div>
+          <div className="flex items-start gap-2">
+            <textarea
+              ref={titleRef}
+              rows={1}
               value={title}
               placeholder="Что нужно сделать?"
               onChange={(e) => setTitle(e.target.value)}
-              className="flex-1"
+              onKeyDown={handleTitleKey}
+              className={`${inputBase} flex-1 resize-none overflow-hidden`}
             />
             <MicButton
               onText={(t) => setTitle((prev) => (prev ? `${prev} ${t}` : t))}
             />
           </div>
-        </Field>
+        </div>
 
-        <Field label="Заметки">
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-sm font-medium text-muted">Заметки</span>
+            <button
+              type="button"
+              aria-label="Скопировать заметки"
+              onClick={() => copyText(notes)}
+              className="-mr-1 p-1 text-muted active:opacity-60"
+            >
+              <Copy size={15} />
+            </button>
+          </div>
           <div className="flex items-start gap-2">
             <Textarea
               rows={2}
@@ -247,7 +301,7 @@ export function TaskEditSheet({
               onText={(t) => setNotes((prev) => (prev ? `${prev} ${t}` : t))}
             />
           </div>
-        </Field>
+        </div>
 
         <Field label="Теги">
           <Input
