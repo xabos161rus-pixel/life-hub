@@ -75,14 +75,13 @@ export default function App() {
       <ToastProvider>
         <ThemeApplier />
         <ErrorBoundary>
-          {/* Каркас: корень динамической высоты (dvh, не vh — иначе на iOS
-              остаётся пустота при свёрнутой адресной строке), скроллится
-              только контент, таб-бар — обычный flex-элемент. bg-bg заливает
-              весь каркас, включая зону под таб-баром и safe-area, — без
-              просветов другого цвета. После закрытия клавиатуры дыры нет,
-              т.к. высота привязана к dvh, а не к fixed bottom-0. */}
-          <div className="fixed inset-x-0 top-0 flex h-dvh flex-col overflow-hidden bg-bg">
-            <div className="flex-1 overflow-x-hidden overflow-y-auto">
+          {/* Каркас прибит ко ВСЕМ четырём краям (inset-0) — гарантированно
+              покрывает весь экран в standalone-PWA, без полосы-пустоты внизу
+              (h-dvh с top-0 на iPhone до низа не доставал). Скроллится только
+              контент; таб-бар — обычный flex-элемент в самом низу. bg-bg
+              заливает весь каркас, включая safe-area под таб-баром. */}
+          <div className="fixed inset-0 flex flex-col overflow-hidden bg-bg">
+            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
               <Routes>
                 <Route path="/" element={<TodayPage />} />
                 <Route path="/search" element={<SearchPage />} />
