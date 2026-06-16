@@ -62,6 +62,10 @@ html,
 body,
 #root {
   height: 100%;
+  /* Единый цвет «холста» под каркасом: html/#root тоже залиты цветом таб-бара,
+     чтобы любой незакрашенный зазор в нижней safe-area сливался с панелью, а не
+     показывал тёмную полосу (нужно совпадение с manifest background_color). */
+  background-color: var(--app-elevated);
 }
 
 body {
