@@ -1,4 +1,4 @@
-import { Component, useEffect, type ReactNode } from 'react';
+import { Component, useEffect, useState, type ReactNode } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
@@ -68,6 +68,68 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
+/** ВРЕМЕННЫЙ диагностический блок — измеряет реальную геометрию вьюпорта на
+ *  устройстве (в dev-инструментах вырез айфона не виден). Убрать после замера. */
+function DebugInfo() {
+  const [t, setT] = useState('measuring…');
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const probe = document.createElement('div');
+      probe.style.cssText =
+        'position:fixed;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
+      document.body.appendChild(probe);
+      const cs = getComputedStyle(probe);
+      const saT = cs.paddingTop;
+      const saB = cs.paddingBottom;
+      probe.remove();
+      const nav = document.querySelector('nav');
+      const r = nav?.getBoundingClientRect();
+      const ih = window.innerHeight;
+      const sb = document
+        .querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+        ?.getAttribute('content');
+      const standalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (navigator as unknown as { standalone?: boolean }).standalone === true;
+      setT(
+        [
+          'BUILD diag-1',
+          `innerH ${ih}  screenH ${window.screen.height}`,
+          `visualVP ${Math.round(window.visualViewport?.height ?? 0)}`,
+          `docClientH ${document.documentElement.clientHeight}`,
+          `safeArea  top ${saT}  bot ${saB}`,
+          `navBottom ${r ? Math.round(r.bottom) : 'n/a'}  navTop ${r ? Math.round(r.top) : 'n/a'}`,
+          `GAP innerH-navBottom = ${r ? ih - Math.round(r.bottom) : 'n/a'}`,
+          `statusBar ${sb}`,
+          `standalone ${standalone}`,
+        ].join('\n'),
+      );
+    }, 350);
+    return () => clearTimeout(id);
+  }, []);
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: 12,
+        right: 12,
+        top: '40%',
+        zIndex: 200,
+        background: 'rgba(18,18,28,0.96)',
+        border: '1px solid #6366f1',
+        color: '#fff',
+        font: '12px/1.6 ui-monospace, monospace',
+        padding: '12px 14px',
+        borderRadius: 10,
+        whiteSpace: 'pre-wrap',
+        pointerEvents: 'none',
+      }}
+    >
+      {t}
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
@@ -104,6 +166,7 @@ export default function App() {
             <InstallBanner />
             <ReloadPrompt />
             <TabBar />
+            <DebugInfo />
           </div>
         </ErrorBoundary>
       </ToastProvider>
