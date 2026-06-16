@@ -23,7 +23,7 @@ export function TabBar() {
   if (/^\/notes\/.+/.test(pathname)) return null;
 
   return (
-    <nav className="z-30 shrink-0 border-t border-hairline bg-elevated pb-[max(env(safe-area-inset-bottom),8px)]">
+    <nav className="z-30 shrink-0 border-t border-hairline bg-elevated pb-[clamp(8px,env(safe-area-inset-bottom),12px)]">
       <div className="mx-auto flex max-w-lg px-1">
         {tabs.map(({ to, label, icon: Icon, end }) => (
           <NavLink
