@@ -8,8 +8,10 @@ interface Props {
   size?: number;
 }
 
-/** Круглый чекбокс задачи в стиле iOS Reminders. */
-export function TaskCheck({ checked, onChange, color, size = 26 }: Props) {
+/** Чекбокс задачи — скруглённый квадрат (как в списках iOS). Пустой —
+ *  спокойная серая рамка; выполненный — заливка цветом проекта/акцента
+ *  и белая галочка. Лаконичнее прежнего крупного цветного кольца. */
+export function TaskCheck({ checked, onChange, color, size = 22 }: Props) {
   const c = color || 'var(--app-accent)';
   return (
     <button
@@ -18,15 +20,15 @@ export function TaskCheck({ checked, onChange, color, size = 26 }: Props) {
         onChange();
       }}
       aria-label={checked ? 'Снять отметку' : 'Выполнить'}
-      className="flex shrink-0 items-center justify-center rounded-full border-2 transition-transform duration-150 active:scale-90"
+      className="flex shrink-0 items-center justify-center rounded-[6px] border-[1.5px] transition-transform duration-150 active:scale-90"
       style={{
         width: size,
         height: size,
-        borderColor: c,
+        borderColor: checked ? c : 'var(--app-border)',
         background: checked ? c : 'transparent',
       }}
     >
-      {checked && <Check size={size - 12} color="#fff" strokeWidth={3.5} />}
+      {checked && <Check size={size - 10} color="#fff" strokeWidth={3} />}
     </button>
   );
 }
