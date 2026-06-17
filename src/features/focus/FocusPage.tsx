@@ -1,6 +1,16 @@
 import { useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronRight, ListChecks, Pause, Play, RotateCcw, SkipForward } from 'lucide-react';
+import {
+  ChevronRight,
+  ListChecks,
+  Pause,
+  Pencil,
+  Play,
+  Plus,
+  RotateCcw,
+  SkipForward,
+  Trash2,
+} from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { Screen } from '../../components/layout/Screen';
@@ -21,11 +31,41 @@ const PHASE_LABEL: Record<Phase, string> = {
   long: 'Длинный перерыв',
 };
 
-const PRESETS: { work: number; break: number; label: string }[] = [
-  { work: 25, break: 5, label: '25 / 5' },
-  { work: 50, break: 10, label: '50 / 10' },
-  { work: 90, break: 20, label: '90 / 20' },
+// Пользовательский шаблон длительности (создаётся/правится/удаляется юзером).
+// Хранится в localStorage — рядом с состоянием помодоро, вне Dexie/бэкапа.
+interface Preset {
+  id: string;
+  name: string;
+  work: number;
+  break: number;
+  long: number;
+}
+
+const PRESETS_KEY = 'life-hub-pomodoro-presets';
+const DEFAULT_PRESETS: Preset[] = [
+  { id: 'def-25-5', name: '25 / 5', work: 25, break: 5, long: 15 },
+  { id: 'def-50-10', name: '50 / 10', work: 50, break: 10, long: 15 },
+  { id: 'def-90-20', name: '90 / 20', work: 90, break: 20, long: 20 },
 ];
+
+function loadPresets(): Preset[] {
+  try {
+    const raw = localStorage.getItem(PRESETS_KEY);
+    if (!raw) return DEFAULT_PRESETS;
+    const arr = JSON.parse(raw) as Preset[];
+    return Array.isArray(arr) ? arr : DEFAULT_PRESETS;
+  } catch {
+    return DEFAULT_PRESETS;
+  }
+}
+
+function savePresets(list: Preset[]): void {
+  try {
+    localStorage.setItem(PRESETS_KEY, JSON.stringify(list));
+  } catch {
+    /* квота */
+  }
+}
 
 const SOUNDS: { value: SoundType; label: string }[] = [
   { value: 'none', label: 'Тишина' },
@@ -113,9 +153,97 @@ function DurationStepper({
   );
 }
 
+/** Форма шаблона в нижнем шите: имя + три степпера + сохранить/удалить. */
+function PresetForm({
+  initial,
+  onSave,
+  onDelete,
+}: {
+  initial: Preset;
+  onSave: (preset: Preset) => void;
+  onDelete?: () => void;
+}) {
+  const [name, setName] = useState(initial.name);
+  const [work, setWork] = useState(initial.work);
+  const [brk, setBrk] = useState(initial.break);
+  const [long, setLong] = useState(initial.long);
+  const fallbackName = `${work} / ${brk}`;
+
+  return (
+    <div className="flex flex-col gap-4 pb-2">
+      <div>
+        <p className="mb-2 px-1 text-sm font-medium text-muted">Название</p>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={fallbackName}
+          className="w-full rounded-2xl bg-surface-2 px-4 py-3 text-base outline-none placeholder:text-muted"
+        />
+      </div>
+      <div>
+        <p className="mb-2 px-1 text-sm font-medium text-muted">Длительность (мин)</p>
+        <div className="flex gap-3">
+          <DurationStepper label="Фокус" value={work} onChange={setWork} />
+          <DurationStepper label="Перерыв" value={brk} onChange={setBrk} />
+        </div>
+        <div className="mt-3 flex gap-3">
+          <DurationStepper label="Длинный перерыв" value={long} onChange={setLong} />
+          <div className="flex-1" />
+        </div>
+      </div>
+      <button
+        onClick={() => onSave({ ...initial, name: name.trim() || fallbackName, work, break: brk, long })}
+        style={{ backgroundImage: 'linear-gradient(150deg, var(--focus-accent), var(--focus-accent-2))' }}
+        className="rounded-2xl py-3 text-center font-semibold text-white active:opacity-95"
+      >
+        Сохранить
+      </button>
+      {onDelete && (
+        <button
+          onClick={onDelete}
+          className="flex items-center justify-center gap-1.5 rounded-2xl border border-border py-3 text-center font-medium text-danger active:opacity-70"
+        >
+          <Trash2 size={16} /> Удалить
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function FocusPage() {
   const p = usePomodoro();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [presets, setPresets] = useState<Preset[]>(loadPresets);
+  const [managing, setManaging] = useState(false);
+  const [presetSheetOpen, setPresetSheetOpen] = useState(false);
+  const [editingPreset, setEditingPreset] = useState<Preset | null>(null);
+
+  const applyPreset = (pr: Preset) => {
+    p.setDurations(pr.work, pr.break);
+    p.setLongMin(pr.long);
+  };
+  const persistPresets = (next: Preset[]) => {
+    setPresets(next);
+    savePresets(next);
+  };
+  const openNewPreset = () => {
+    setEditingPreset({ id: crypto.randomUUID(), name: '', work: p.workMin, break: p.breakMin, long: p.longMin });
+    setPresetSheetOpen(true);
+  };
+  const openEditPreset = (pr: Preset) => {
+    setEditingPreset(pr);
+    setPresetSheetOpen(true);
+  };
+  const savePreset = (pr: Preset) => {
+    persistPresets(
+      presets.some((x) => x.id === pr.id) ? presets.map((x) => (x.id === pr.id ? pr : x)) : [...presets, pr],
+    );
+    setPresetSheetOpen(false);
+  };
+  const deletePreset = (id: string) => {
+    persistPresets(presets.filter((x) => x.id !== id));
+    setPresetSheetOpen(false);
+  };
   const tasks = alive(useLiveQuery(() => db.tasks.toArray(), []) ?? []).filter(
     (t) => !t.completedAt,
   );
@@ -298,19 +426,37 @@ export function FocusPage() {
               Длинный перерыв включается после каждых 4 фокусов.
             </p>
           </div>
-          <div className="mt-3">
-            <ChipRow>
-              {PRESETS.map((pr) => (
-                <Chip
-                  key={pr.label}
-                  active={p.workMin === pr.work && p.breakMin === pr.break}
-                  onClick={() => p.setDurations(pr.work, pr.break)}
-                >
-                  {pr.label}
-                </Chip>
-              ))}
-            </ChipRow>
+          <div className="mb-2 mt-5 flex items-center justify-between px-1">
+            <p className="text-sm font-medium text-muted">Шаблоны</p>
+            <button
+              onClick={() => setManaging((v) => !v)}
+              className="text-sm font-medium text-accent active:opacity-60"
+            >
+              {managing ? 'Готово' : 'Изменить'}
+            </button>
           </div>
+          <ChipRow>
+            {presets.map((pr) => (
+              <Chip
+                key={pr.id}
+                active={
+                  !managing && pr.work === p.workMin && pr.break === p.breakMin && pr.long === p.longMin
+                }
+                onClick={() => (managing ? openEditPreset(pr) : applyPreset(pr))}
+              >
+                <span className="flex items-center gap-1">
+                  {managing && <Pencil size={13} />}
+                  {pr.name}
+                </span>
+              </Chip>
+            ))}
+            <button
+              onClick={openNewPreset}
+              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70"
+            >
+              <Plus size={14} /> Шаблон
+            </button>
+          </ChipRow>
         </div>
 
         <div className="mt-8 flex w-full gap-3">
@@ -353,6 +499,29 @@ export function FocusPage() {
             ))
           )}
         </div>
+      </Sheet>
+
+      <Sheet
+        open={presetSheetOpen}
+        onClose={() => setPresetSheetOpen(false)}
+        title={
+          editingPreset && presets.some((x) => x.id === editingPreset.id)
+            ? 'Изменить шаблон'
+            : 'Новый шаблон'
+        }
+      >
+        {editingPreset && (
+          <PresetForm
+            key={editingPreset.id}
+            initial={editingPreset}
+            onSave={savePreset}
+            onDelete={
+              presets.some((x) => x.id === editingPreset.id)
+                ? () => deletePreset(editingPreset.id)
+                : undefined
+            }
+          />
+        )}
       </Sheet>
     </Screen>
   );
