@@ -24,7 +24,7 @@ export function TaskCheck({ checked, onChange, color, size = 22 }: Props) {
       style={{
         width: size,
         height: size,
-        borderColor: checked ? c : 'var(--app-border)',
+        borderColor: c, // рамка цвета проекта и у пустого квадрата — видно цвет
         background: checked ? c : 'transparent',
       }}
     >
