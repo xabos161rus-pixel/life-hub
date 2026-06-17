@@ -22,6 +22,9 @@ import { CalendarPage } from './features/calendar/CalendarPage';
 import { TrashPage } from './features/trash/TrashPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { InstallInstructionsPage } from './features/settings/InstallInstructionsPage';
+import { FocusPage } from './features/focus/FocusPage';
+import { PomodoroProvider } from './features/focus/PomodoroProvider';
+import { MiniTimer } from './features/focus/MiniTimer';
 
 function ThemeApplier() {
   const { theme } = useSettings();
@@ -73,6 +76,7 @@ export default function App() {
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <ToastProvider>
         <ThemeApplier />
+        <PomodoroProvider>
         <ErrorBoundary>
           {/* Каркас прибит ко ВСЕМ четырём краям (inset-0) — гарантированно
               покрывает весь экран в standalone-PWA, без полосы-пустоты внизу
@@ -93,6 +97,7 @@ export default function App() {
                 <Route path="/goals" element={<GoalsPage />} />
                 <Route path="/goals/:id" element={<GoalDetailPage />} />
                 <Route path="/more" element={<MorePage />} />
+                <Route path="/more/focus" element={<FocusPage />} />
                 <Route path="/more/learning" element={<LearningPage />} />
                 <Route path="/more/finance" element={<FinancePage />} />
                 <Route path="/more/energy" element={<EnergyPage />} />
@@ -103,9 +108,11 @@ export default function App() {
             </div>
             <InstallBanner />
             <ReloadPrompt />
+            <MiniTimer />
             <TabBar />
           </div>
         </ErrorBoundary>
+        </PomodoroProvider>
       </ToastProvider>
     </BrowserRouter>
   );

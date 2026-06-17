@@ -6,6 +6,7 @@ import {
   BatteryCharging,
   MapPin,
   ChartColumnBig,
+  Timer,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -77,6 +78,7 @@ export function MorePage() {
           title="Статистика"
           subtitle="Обзор продуктивности"
         />
+        <MenuCard to="/more/focus" icon={Timer} title="Фокус" subtitle="Таймер помодоро" />
         <MenuCard
           to="/more/learning"
           icon={GraduationCap}

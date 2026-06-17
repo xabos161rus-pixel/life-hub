@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Copy, X } from 'lucide-react';
+import { Copy, Timer, X } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, create, remove, uid, update } from '../../db/repo';
 import type { ChecklistItem, Priority, Recurrence, Task } from '../../db/types';
@@ -15,6 +16,7 @@ import { MicButton } from '../../components/ui/MicButton';
 import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { PRESET_COLORS } from '../../lib/colors';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
+import { usePomodoro } from '../focus/PomodoroProvider';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly';
 type PriorityStr = '0' | '1' | '2' | '3';
@@ -89,7 +91,16 @@ export function TaskEditSheet({
     ) ?? [];
 
   const toast = useToast();
+  const navigate = useNavigate();
+  const pomodoro = usePomodoro();
   const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleFocus = () => {
+    if (!task) return;
+    pomodoro.start(task.id, title.trim() || task.title);
+    onClose();
+    navigate('/more/focus');
+  };
 
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
@@ -607,6 +618,16 @@ export function TaskEditSheet({
             onKeyDown={handleNewItemKey}
           />
         </div>
+
+        {task && (
+          <Button
+            variant="secondary"
+            className="flex w-full items-center justify-center gap-1.5"
+            onClick={handleFocus}
+          >
+            <Timer size={17} /> Запустить фокус
+          </Button>
+        )}
 
         <div className="mt-1 flex gap-2">
           {task && (
