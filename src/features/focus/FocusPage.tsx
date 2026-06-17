@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronRight, ListChecks, Pause, Play, RotateCcw, SkipForward } from 'lucide-react';
 import { db } from '../../db/db';
@@ -38,6 +38,8 @@ const SOUNDS: { value: SoundType; label: string }[] = [
 const R = 130;
 const STROKE = 12;
 const CIRC = 2 * Math.PI * R;
+const MAX_MIN = 90; // полный круг = 90 мин
+const STEP_MIN = 5; // шаг при перетаскивании
 
 export function FocusPage() {
   const p = usePomodoro();
@@ -46,8 +48,52 @@ export function FocusPage() {
     (t) => !t.completedAt,
   );
 
-  const progress = p.totalMs > 0 ? 1 - p.remainingMs / p.totalMs : 0;
   const ringColor = p.phase === 'work' ? 'var(--app-accent)' : 'var(--app-success)';
+  // Когда таймер не идёт и фаза «работа» — кольцо это слайдер длительности
+  // (заполнение = workMin/MAX); тянешь по кругу → меняешь время. Иначе — отсчёт.
+  const idleWork = !p.running && p.phase === 'work';
+  const ringFrac = idleWork
+    ? Math.min(1, p.workMin / MAX_MIN)
+    : p.totalMs > 0
+      ? 1 - p.remainingMs / p.totalMs
+      : 0;
+  const handleA = 2 * Math.PI * ringFrac;
+  const handleX = 150 + R * Math.sin(handleA);
+  const handleY = 150 - R * Math.cos(handleA);
+
+  const svgRef = useRef<SVGSVGElement>(null);
+  const dragging = useRef(false);
+
+  function setFromPointer(clientX: number, clientY: number) {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let deg = (Math.atan2(clientX - cx, -(clientY - cy)) * 180) / Math.PI;
+    if (deg < 0) deg += 360;
+    let minutes = Math.round(((deg / 360) * MAX_MIN) / STEP_MIN) * STEP_MIN;
+    minutes = Math.max(STEP_MIN, Math.min(MAX_MIN, minutes));
+    p.setDurations(minutes, p.breakMin);
+  }
+
+  const onRingDown = (e: PointerEvent<SVGSVGElement>) => {
+    if (!idleWork) return;
+    dragging.current = true;
+    try {
+      svgRef.current?.setPointerCapture(e.pointerId);
+    } catch {
+      /* указатель уже неактивен */
+    }
+    setFromPointer(e.clientX, e.clientY);
+  };
+  const onRingMove = (e: PointerEvent<SVGSVGElement>) => {
+    if (!dragging.current || !idleWork) return;
+    setFromPointer(e.clientX, e.clientY);
+  };
+  const onRingUp = () => {
+    dragging.current = false;
+  };
 
   return (
     <Screen title="Фокус" backTo="/more">
@@ -57,7 +103,16 @@ export function FocusPage() {
         </p>
 
         <div className="relative">
-          <svg viewBox="0 0 300 300" className="w-64 max-w-[72vw]">
+          <svg
+            ref={svgRef}
+            viewBox="0 0 300 300"
+            className="w-64 max-w-[72vw]"
+            style={{ touchAction: idleWork ? 'none' : 'auto' }}
+            onPointerDown={onRingDown}
+            onPointerMove={onRingMove}
+            onPointerUp={onRingUp}
+            onPointerCancel={onRingUp}
+          >
             <circle cx="150" cy="150" r={R} fill="none" stroke="var(--app-hairline)" strokeWidth={STROKE} />
             <circle
               cx="150"
@@ -68,18 +123,30 @@ export function FocusPage() {
               strokeWidth={STROKE}
               strokeLinecap="round"
               strokeDasharray={CIRC}
-              strokeDashoffset={CIRC * (1 - progress)}
+              strokeDashoffset={CIRC * (1 - ringFrac)}
               transform="rotate(-90 150 150)"
-              style={{ transition: 'stroke-dashoffset 0.5s linear' }}
+              style={{ transition: p.running ? 'stroke-dashoffset 0.5s linear' : 'none' }}
             />
+            {idleWork && (
+              <circle
+                cx={handleX}
+                cy={handleY}
+                r={13}
+                fill={ringColor}
+                stroke="var(--app-bg)"
+                strokeWidth={3}
+              />
+            )}
           </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-5xl font-bold tabular-nums tracking-tight">
               {formatClock(p.remainingMs)}
             </span>
-            {p.taskTitle && (
+            {p.taskTitle ? (
               <span className="mt-1 max-w-[60%] truncate text-sm text-muted">{p.taskTitle}</span>
-            )}
+            ) : idleWork ? (
+              <span className="mt-1 text-xs text-muted">крути кольцо ↻</span>
+            ) : null}
           </div>
         </div>
 
