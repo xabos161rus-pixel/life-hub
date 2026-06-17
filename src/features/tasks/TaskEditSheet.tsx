@@ -47,8 +47,12 @@ const REC_INTERVAL_LABELS: Record<Exclude<RecType, 'none'>, string> = {
   monthly: 'Интервал (месяцев)',
 };
 
-const DURATION_PRESETS = [15, 30, 45, 60, 90, 120]; // минуты
-const REMIND_PRESETS = [5, 10, 15, 30, 60]; // минуты до начала
+// Длительность — от 5 минут до 24 часов (мелкий шаг в начале, крупный дальше).
+const DURATION_PRESETS = [
+  5, 10, 15, 20, 30, 45, 60, 90, 120, 150, 180, 240, 300, 360, 480, 600, 720, 900, 1080, 1440,
+];
+// Напоминание — за сколько до начала, вплоть до суток.
+const REMIND_PRESETS = [5, 10, 15, 30, 45, 60, 120, 180, 360, 720, 1440];
 
 /** Человекочитаемая длительность: «15м», «1ч», «1ч 30м». */
 function formatDuration(min: number): string {
@@ -450,22 +454,11 @@ export function TaskEditSheet({
 
         <div>
           <Field label="Срок">
-            <div className="flex gap-2">
-              <Input
-                type="date"
-                value={dueDate ?? ''}
-                onChange={(e) => setDueDate(e.target.value || null)}
-                className="flex-1"
-              />
-              {dueDate && (
-                <Input
-                  type="time"
-                  value={dueTime ?? ''}
-                  onChange={(e) => setDueTime(e.target.value || null)}
-                  className="w-32"
-                />
-              )}
-            </div>
+            <Input
+              type="date"
+              value={dueDate ?? ''}
+              onChange={(e) => setDueDate(e.target.value || null)}
+            />
           </Field>
           <div className="mt-2">
             <ChipRow>
@@ -489,36 +482,43 @@ export function TaskEditSheet({
 
         {dueDate && (
           <>
+            <Field label="Время начала">
+              <Input
+                type="time"
+                value={dueTime ?? ''}
+                onChange={(e) => setDueTime(e.target.value || null)}
+              />
+            </Field>
             <Field label="Длительность">
-              <ChipRow>
-                <Chip active={duration === null} onClick={() => setDuration(null)}>
-                  Нет
-                </Chip>
+              <select
+                className={selectClass}
+                value={duration ?? ''}
+                onChange={(e) => setDuration(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Нет</option>
                 {DURATION_PRESETS.map((m) => (
-                  <Chip key={m} active={duration === m} onClick={() => setDuration(m)}>
+                  <option key={m} value={m}>
                     {formatDuration(m)}
-                  </Chip>
+                  </option>
                 ))}
-              </ChipRow>
+              </select>
             </Field>
             <Field label="Напоминание">
-              <ChipRow>
-                <Chip active={remindBefore === null} onClick={() => setRemindBefore(null)}>
-                  Выкл
-                </Chip>
-                <Chip active={remindBefore === 0} onClick={() => setRemindBefore(0)}>
-                  Вовремя
-                </Chip>
+              <select
+                className={selectClass}
+                value={remindBefore ?? ''}
+                onChange={(e) =>
+                  setRemindBefore(e.target.value === '' ? null : Number(e.target.value))
+                }
+              >
+                <option value="">Выкл</option>
+                <option value="0">Вовремя</option>
                 {REMIND_PRESETS.map((m) => (
-                  <Chip
-                    key={m}
-                    active={remindBefore === m}
-                    onClick={() => setRemindBefore(m)}
-                  >
+                  <option key={m} value={m}>
                     за {formatDuration(m)}
-                  </Chip>
+                  </option>
                 ))}
-              </ChipRow>
+              </select>
             </Field>
           </>
         )}
