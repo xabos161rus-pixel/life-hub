@@ -198,7 +198,7 @@ export function TaskItem({
             <p className="mt-0.5 line-clamp-2 break-words text-xs text-muted">{task.notes}</p>
           )}
           {hasMeta && (
-            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
               {task.dueDate && (
                 <span className={overdue ? 'text-danger' : ''}>
                   {formatDueDate(task.dueDate)}
@@ -248,7 +248,7 @@ export function TaskItem({
                   #{tag}
                 </span>
               ))}
-            </p>
+            </div>
           )}
         </div>
         <button
