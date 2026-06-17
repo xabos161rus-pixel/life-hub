@@ -10,7 +10,7 @@ export function MiniTimer() {
   if (!p.active) return null;
   if (pathname === '/more/focus') return null; // на самой странице не дублируем
   if (/^\/notes\/.+/.test(pathname)) return null; // там таб-бара нет
-  const color = p.phase === 'work' ? 'var(--app-accent)' : 'var(--app-success)';
+  const color = p.phase === 'work' ? 'var(--focus-accent)' : 'var(--app-success)';
   return (
     <div
       role="button"

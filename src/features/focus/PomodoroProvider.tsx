@@ -33,6 +33,7 @@ interface Persisted {
   date: string;
   workMin: number;
   breakMin: number;
+  longMin: number;
   sound: SoundType;
 }
 
@@ -47,6 +48,7 @@ interface PomodoroCtx {
   focusMinToday: number;
   workMin: number;
   breakMin: number;
+  longMin: number;
   sound: SoundType;
   active: boolean; // идёт сессия (не дефолтное простаивание)
   start: (taskId?: string | null, taskTitle?: string | null) => void;
@@ -54,6 +56,9 @@ interface PomodoroCtx {
   reset: () => void;
   skip: () => void;
   setDurations: (workMin: number, breakMin: number) => void;
+  setWorkMin: (workMin: number) => void;
+  setBreakMin: (breakMin: number) => void;
+  setLongMin: (longMin: number) => void;
   setTask: (taskId: string | null, taskTitle: string | null) => void;
   setSound: (sound: SoundType) => void;
 }
@@ -61,9 +66,9 @@ interface PomodoroCtx {
 const STORE_KEY = 'life-hub-pomodoro';
 const Ctx = createContext<PomodoroCtx | null>(null);
 
-function phaseMs(phase: Phase, workMin: number, breakMin: number): number {
+function phaseMs(phase: Phase, workMin: number, breakMin: number, longMin: number): number {
   if (phase === 'work') return workMin * 60_000;
-  if (phase === 'long') return LONG_MIN * 60_000;
+  if (phase === 'long') return longMin * 60_000;
   return breakMin * 60_000;
 }
 
@@ -81,6 +86,7 @@ function load(): Persisted {
     date: todayKey(),
     workMin: 25,
     breakMin: 5,
+    longMin: LONG_MIN,
     sound: 'none',
   };
   try {
@@ -198,6 +204,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   sRef.current = s;
 
   const persist = useCallback((next: Persisted) => {
+    sRef.current = next; // синхронно — чтобы следующий persist в том же тике видел свежее
     setS(next);
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(next));
@@ -206,7 +213,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const total = phaseMs(s.phase, s.workMin, s.breakMin);
+  const total = phaseMs(s.phase, s.workMin, s.breakMin, s.longMin);
   const remainingMs =
     s.running && s.endsAt != null ? Math.max(0, s.endsAt - Date.now()) : s.remainingMs;
 
@@ -255,8 +262,8 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         focusMinToday: cur.focusMinToday + cur.workMin,
         date: todayKey(),
         running: true,
-        endsAt: Date.now() + phaseMs(nextPhase, cur.workMin, cur.breakMin),
-        remainingMs: phaseMs(nextPhase, cur.workMin, cur.breakMin),
+        endsAt: Date.now() + phaseMs(nextPhase, cur.workMin, cur.breakMin, cur.longMin),
+        remainingMs: phaseMs(nextPhase, cur.workMin, cur.breakMin, cur.longMin),
       });
     } else {
       persist({
@@ -272,7 +279,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   const start: PomodoroCtx['start'] = useCallback(
     (taskId = null, taskTitle = null) => {
       const cur = sRef.current;
-      const ms = phaseMs('work', cur.workMin, cur.breakMin);
+      const ms = phaseMs('work', cur.workMin, cur.breakMin, cur.longMin);
       persist({
         ...cur,
         phase: 'work',
@@ -298,7 +305,8 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         remainingMs: Math.max(0, (cur.endsAt ?? Date.now()) - Date.now()),
       });
     } else {
-      const rem = cur.remainingMs > 0 ? cur.remainingMs : phaseMs(cur.phase, cur.workMin, cur.breakMin);
+      const rem =
+        cur.remainingMs > 0 ? cur.remainingMs : phaseMs(cur.phase, cur.workMin, cur.breakMin, cur.longMin);
       persist({ ...cur, running: true, endsAt: Date.now() + rem, remainingMs: rem });
       ensureAudio();
     }
@@ -336,6 +344,30 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
+  // Независимые сеттеры: читают sRef.current (всегда свежее), поэтому смена
+  // одного поля не затирает другое и не зависит от тайминга ре-рендера.
+  const setWorkMin = useCallback(
+    (workMin: number) => {
+      const cur = sRef.current;
+      persist({ ...cur, workMin, remainingMs: cur.running ? cur.remainingMs : workMin * 60_000 });
+    },
+    [persist],
+  );
+
+  const setBreakMin = useCallback(
+    (breakMin: number) => {
+      persist({ ...sRef.current, breakMin });
+    },
+    [persist],
+  );
+
+  const setLongMin = useCallback(
+    (longMin: number) => {
+      persist({ ...sRef.current, longMin });
+    },
+    [persist],
+  );
+
   const setTask = useCallback(
     (taskId: string | null, taskTitle: string | null) => {
       persist({ ...sRef.current, taskId, taskTitle });
@@ -366,6 +398,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         focusMinToday: s.focusMinToday,
         workMin: s.workMin,
         breakMin: s.breakMin,
+        longMin: s.longMin,
         sound: s.sound,
         active,
         start,
@@ -373,6 +406,9 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         reset,
         skip,
         setDurations,
+        setWorkMin,
+        setBreakMin,
+        setLongMin,
         setTask,
         setSound,
       }}

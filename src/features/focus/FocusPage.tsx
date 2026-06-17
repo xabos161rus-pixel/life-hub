@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent } from 'react';
+import { useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronRight, ListChecks, Pause, Play, RotateCcw, SkipForward } from 'lucide-react';
 import { db } from '../../db/db';
@@ -38,8 +38,63 @@ const SOUNDS: { value: SoundType; label: string }[] = [
 const R = 130;
 const STROKE = 12;
 const CIRC = 2 * Math.PI * R;
-const MAX_MIN = 90; // полный круг = 90 мин
-const STEP_MIN = 5; // шаг при перетаскивании
+const MAX_MIN = 90; // базовый максимум круга (растёт под бо́льшие значения)
+const STEP_MIN = 5; // шаг при перетаскивании кольца
+
+// Перекрытие акцента приложения тёплой гаммой Focus To-Do — только в пределах
+// экрана «Фокус»: кнопка, чипы, иконки и метка фазы наследуют его автоматически.
+const FOCUS_VARS = {
+  '--app-accent': 'var(--focus-accent)',
+  '--app-accent-2': 'var(--focus-accent-2)',
+  '--shadow-accent': 'var(--shadow-focus)',
+} as unknown as CSSProperties;
+
+/** Поле длительности (мин): шаг ±1 кнопками и ввод любого значения, без верхнего предела. */
+function DurationStepper({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex-1 rounded-2xl bg-surface-2 p-3">
+      <p className="mb-2 text-center text-xs text-muted">{label}</p>
+      <div className="flex items-center justify-between gap-1">
+        <button
+          type="button"
+          aria-label={`${label}: меньше`}
+          onClick={() => onChange(Math.max(1, value - 1))}
+          className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90"
+        >
+          −
+        </button>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          aria-label={`${label}, минут`}
+          value={value}
+          onChange={(e) => {
+            const n = parseInt(e.target.value.replace(/\D/g, ''), 10);
+            onChange(Number.isFinite(n) ? Math.max(1, n) : 1);
+          }}
+          className="w-14 bg-transparent text-center text-2xl font-bold tabular-nums outline-none"
+        />
+        <button
+          type="button"
+          aria-label={`${label}: больше`}
+          onClick={() => onChange(value + 1)}
+          className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function FocusPage() {
   const p = usePomodoro();
@@ -48,12 +103,18 @@ export function FocusPage() {
     (t) => !t.completedAt,
   );
 
-  const ringColor = p.phase === 'work' ? 'var(--app-accent)' : 'var(--app-success)';
+  const isWork = p.phase === 'work';
+  // Метка фазы и «ручка» слайдера — сплошной цвет (акцент перекрыт тёплым ниже
+  // по дереву); сама дуга в фокусе — красно-оранжевый градиент Focus To-Do.
+  const accentColor = isWork ? 'var(--app-accent)' : 'var(--app-success)';
+  const ringStroke = isWork ? 'url(#focusGrad)' : 'var(--app-success)';
   // Когда таймер не идёт и фаза «работа» — кольцо это слайдер длительности
-  // (заполнение = workMin/MAX); тянешь по кругу → меняешь время. Иначе — отсчёт.
-  const idleWork = !p.running && p.phase === 'work';
+  // (заполнение = workMin/ringMax); тянешь по кругу → меняешь время. Иначе — отсчёт.
+  // ringMax растёт под значения больше 90 (длительность задаётся без верхнего предела).
+  const idleWork = !p.running && isWork;
+  const ringMax = Math.max(MAX_MIN, p.workMin);
   const ringFrac = idleWork
-    ? Math.min(1, p.workMin / MAX_MIN)
+    ? Math.min(1, p.workMin / ringMax)
     : p.totalMs > 0
       ? 1 - p.remainingMs / p.totalMs
       : 0;
@@ -72,9 +133,10 @@ export function FocusPage() {
     const cy = rect.top + rect.height / 2;
     let deg = (Math.atan2(clientX - cx, -(clientY - cy)) * 180) / Math.PI;
     if (deg < 0) deg += 360;
-    let minutes = Math.round(((deg / 360) * MAX_MIN) / STEP_MIN) * STEP_MIN;
-    minutes = Math.max(STEP_MIN, Math.min(MAX_MIN, minutes));
-    p.setDurations(minutes, p.breakMin);
+    const max = Math.max(MAX_MIN, p.workMin);
+    let minutes = Math.round(((deg / 360) * max) / STEP_MIN) * STEP_MIN;
+    minutes = Math.max(STEP_MIN, Math.min(max, minutes));
+    p.setWorkMin(minutes);
   }
 
   const onRingDown = (e: PointerEvent<SVGSVGElement>) => {
@@ -97,8 +159,8 @@ export function FocusPage() {
 
   return (
     <Screen title="Фокус" backTo="/more">
-      <div className="flex flex-col items-center">
-        <p className="mb-4 text-sm font-semibold" style={{ color: ringColor }}>
+      <div className="flex flex-col items-center" style={FOCUS_VARS}>
+        <p className="mb-4 text-sm font-semibold" style={{ color: accentColor }}>
           {PHASE_LABEL[p.phase]}
         </p>
 
@@ -113,13 +175,19 @@ export function FocusPage() {
             onPointerUp={onRingUp}
             onPointerCancel={onRingUp}
           >
+            <defs>
+              <linearGradient id="focusGrad" gradientUnits="userSpaceOnUse" x1="150" y1="20" x2="150" y2="280">
+                <stop offset="0%" stopColor="var(--focus-accent)" />
+                <stop offset="100%" stopColor="var(--focus-accent-2)" />
+              </linearGradient>
+            </defs>
             <circle cx="150" cy="150" r={R} fill="none" stroke="var(--app-hairline)" strokeWidth={STROKE} />
             <circle
               cx="150"
               cy="150"
               r={R}
               fill="none"
-              stroke={ringColor}
+              stroke={ringStroke}
               strokeWidth={STROKE}
               strokeLinecap="round"
               strokeDasharray={CIRC}
@@ -132,7 +200,7 @@ export function FocusPage() {
                 cx={handleX}
                 cy={handleY}
                 r={13}
-                fill={ringColor}
+                fill={accentColor}
                 stroke="var(--app-bg)"
                 strokeWidth={3}
               />
@@ -161,7 +229,11 @@ export function FocusPage() {
           <button
             onClick={p.running ? p.toggle : () => (p.active ? p.toggle() : p.start())}
             aria-label={p.running ? 'Пауза' : 'Старт'}
-            className="flex size-20 items-center justify-center rounded-full bg-accent text-white shadow-[var(--shadow-accent)] active:scale-90"
+            style={{
+              backgroundImage: 'linear-gradient(150deg, var(--focus-accent), var(--focus-accent-2))',
+              boxShadow: 'var(--shadow-focus)',
+            }}
+            className="flex size-20 items-center justify-center rounded-full text-white active:scale-90"
           >
             {p.running ? <Pause size={32} fill="#fff" /> : <Play size={32} fill="#fff" className="ml-1" />}
           </button>
@@ -199,17 +271,29 @@ export function FocusPage() {
 
         <div className="mt-6 w-full">
           <p className="mb-2 px-1 text-sm font-medium text-muted">Длительность (мин)</p>
-          <ChipRow>
-            {PRESETS.map((pr) => (
-              <Chip
-                key={pr.label}
-                active={p.workMin === pr.work && p.breakMin === pr.break}
-                onClick={() => p.setDurations(pr.work, pr.break)}
-              >
-                {pr.label}
-              </Chip>
-            ))}
-          </ChipRow>
+          <div className="flex gap-3">
+            <DurationStepper label="Фокус" value={p.workMin} onChange={p.setWorkMin} />
+            <DurationStepper label="Перерыв" value={p.breakMin} onChange={p.setBreakMin} />
+          </div>
+          <div className="mt-3 flex gap-3">
+            <DurationStepper label="Длинный перерыв" value={p.longMin} onChange={p.setLongMin} />
+            <p className="flex-1 self-center px-1 text-xs leading-snug text-muted">
+              Длинный перерыв включается после каждых 4 фокусов.
+            </p>
+          </div>
+          <div className="mt-3">
+            <ChipRow>
+              {PRESETS.map((pr) => (
+                <Chip
+                  key={pr.label}
+                  active={p.workMin === pr.work && p.breakMin === pr.break}
+                  onClick={() => p.setDurations(pr.work, pr.break)}
+                >
+                  {pr.label}
+                </Chip>
+              ))}
+            </ChipRow>
+          </div>
         </div>
 
         <div className="mt-8 flex w-full gap-3">

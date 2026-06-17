@@ -29,12 +29,17 @@
   --app-muted: oklch(0.675 0.022 282);
   --app-accent: oklch(0.72 0.18 264);
   --app-accent-2: oklch(0.67 0.21 300);
+  /* Тёплый красно-оранжевый акцент экрана «Фокус» в духе Focus To-Do.
+     Локальный — перекрывает --app-accent только внутри обёртки FocusPage. */
+  --focus-accent: oklch(0.645 0.215 27);
+  --focus-accent-2: oklch(0.755 0.165 55);
   --app-danger: oklch(0.70 0.185 20);
   --app-success: oklch(0.80 0.16 158);
   --app-warning: oklch(0.83 0.135 80);
   --shadow-card: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px -12px oklch(0 0 0 / 0.55);
   --shadow-pop: 0 8px 30px -8px oklch(0 0 0 / 0.6);
   --shadow-accent: 0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);
+  --shadow-focus: 0 10px 30px -8px oklch(0.66 0.205 38 / 0.5);
   color-scheme: dark;
 }
 
@@ -49,12 +54,15 @@
   --app-muted: oklch(0.52 0.022 282);
   --app-accent: oklch(0.58 0.17 266);
   --app-accent-2: oklch(0.56 0.18 292);
+  --focus-accent: oklch(0.605 0.225 27);
+  --focus-accent-2: oklch(0.72 0.17 52);
   --app-danger: oklch(0.58 0.2 22);
   --app-success: oklch(0.6 0.16 158);
   --app-warning: oklch(0.68 0.15 70);
   --shadow-card: 0 1px 2px oklch(0.7 0.02 284 / 0.18), 0 10px 24px -14px oklch(0.5 0.04 284 / 0.3);
   --shadow-pop: 0 10px 30px -8px oklch(0.5 0.04 284 / 0.25);
   --shadow-accent: 0 10px 30px -10px oklch(0.58 0.17 266 / 0.45);
+  --shadow-focus: 0 10px 30px -10px oklch(0.62 0.205 35 / 0.45);
   color-scheme: light;
 }
 
