@@ -6,6 +6,7 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 import { useToast } from '../../components/ui/Toast';
 import { db } from '../../db/db';
 import { remove, update } from '../../db/repo';
+import { cancelReminder } from '../../lib/push';
 import { addDaysKey, formatDueDate, todayKey } from '../../lib/dates';
 import { describeRecurrence } from '../../lib/recurrence';
 import { toggleTask } from './taskActions';
@@ -94,8 +95,10 @@ export function TaskItem({
   };
 
   const handleDelete = () => {
-    if (window.confirm('Удалить задачу?')) void remove(db.tasks, task.id);
-    else setDx(0);
+    if (window.confirm('Удалить задачу?')) {
+      void cancelReminder(task.id);
+      void remove(db.tasks, task.id);
+    } else setDx(0);
   };
 
   const handleCopy = (e: MouseEvent<HTMLButtonElement>) => {

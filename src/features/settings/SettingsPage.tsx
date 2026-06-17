@@ -1,4 +1,4 @@
-import { useRef, type ChangeEvent, type ReactNode } from 'react';
+import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ChevronRight, Trash2 } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
@@ -6,7 +6,9 @@ import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useToast } from '../../components/ui/Toast';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
-import { now } from '../../db/repo';
+import { db } from '../../db/db';
+import { alive, now } from '../../db/repo';
+import { enablePush, isStandalone, pushEnabled, pushSupported, rescheduleAll } from '../../lib/push';
 import {
   exportBackup,
   backupFilename,
@@ -38,6 +40,33 @@ export function SettingsPage() {
   const { persisted, usageMb } = usePersistentStorage();
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [pushOn, setPushOn] = useState(pushEnabled());
+
+  async function handleEnablePush() {
+    if (!pushSupported()) {
+      alert('Уведомления не поддерживаются этим браузером.');
+      return;
+    }
+    if (!isStandalone()) {
+      alert(
+        'На iPhone уведомления работают только в установленном приложении. Добавьте Life Hub на экран «Домой» и откройте оттуда.',
+      );
+      return;
+    }
+    const res = await enablePush();
+    if (!res.ok) {
+      alert(
+        res.reason === 'denied'
+          ? 'Разрешение не выдано. Включите его: Настройки iPhone → Уведомления → Life Hub.'
+          : 'Не удалось включить уведомления.',
+      );
+      return;
+    }
+    setPushOn(true);
+    const tasks = alive(await db.tasks.toArray()).filter((t) => !t.completedAt);
+    await rescheduleAll(tasks);
+    toast('Уведомления включены');
+  }
 
   async function handleExport() {
     const backup = await exportBackup();
@@ -114,6 +143,27 @@ export function SettingsPage() {
               value={settings.theme}
               onChange={(theme) => void updateSettings({ theme })}
             />
+          </div>
+        </Section>
+
+        <Section title="Уведомления">
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            {pushOn ? (
+              <p className="text-sm">
+                <span className="font-medium text-success">Включены</span> · напоминания о
+                задачах придут даже при закрытом приложении
+              </p>
+            ) : (
+              <>
+                <Button className="w-full" onClick={() => void handleEnablePush()}>
+                  Включить уведомления
+                </Button>
+                <p className="mt-2 text-sm text-muted">
+                  Нужны для напоминаний о задачах («напомнить за N мин»). На iPhone работают
+                  только в установленном приложении.
+                </p>
+              </>
+            )}
           </div>
         </Section>
 

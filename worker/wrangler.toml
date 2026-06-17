@@ -1,0 +1,20 @@
+name = "life-hub-push"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Публичные переменные (не секреты).
+[vars]
+ALLOW_ORIGIN = "https://xabos161rus-pixel.github.io"
+VAPID_PUBLIC = "BCi0yalmrjjC4elVs1vwAzGASoESrlpDA5ImcuB-u6kOVQf00Zc-GIK79WIBe7sQp5Y3_IBD96l8JEpccCj9Ws8"
+VAPID_SUBJECT = "mailto:xabos161rus@gmail.com"
+
+# KV для напоминаний. id подставляется после `wrangler kv namespace create REMINDERS`.
+[[kv_namespaces]]
+binding = "REMINDERS"
+id = "f0580b633e4b4d1bb5adff01aa122b92"
+
+# Планировщик: раз в минуту проверяем и шлём наступившие напоминания.
+[triggers]
+crons = ["* * * * *"]
+
+# Секрет VAPID_PRIVATE задаётся через `wrangler secret put VAPID_PRIVATE` (не в файле).

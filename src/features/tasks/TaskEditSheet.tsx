@@ -14,6 +14,7 @@ import { TaskCheck } from '../../components/ui/Checkbox';
 import { MicButton } from '../../components/ui/MicButton';
 import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { PRESET_COLORS } from '../../lib/colors';
+import { cancelReminder, scheduleReminder } from '../../lib/push';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly';
 type PriorityStr = '0' | '1' | '2' | '3';
@@ -203,11 +204,22 @@ export function TaskEditSheet({
           .map((t) => t.trim())
           .filter(Boolean),
       };
+      let savedId: string;
       if (task) {
         await update(db.tasks, task.id, data);
+        savedId = task.id;
       } else {
-        await create(db.tasks, { ...data, completedAt: null, sortOrder: Date.now() });
+        const created = await create(db.tasks, { ...data, completedAt: null, sortOrder: Date.now() });
+        savedId = created.id;
       }
+      // Поставить/обновить пуш-напоминание (внутри само снимет, если срок/время убраны).
+      void scheduleReminder({
+        id: savedId,
+        title: data.title,
+        dueDate: data.dueDate,
+        dueTime: data.dueTime,
+        remindBefore: data.remindBefore,
+      });
       onClose();
     } finally {
       savingRef.current = false;
@@ -217,6 +229,7 @@ export function TaskEditSheet({
   const handleDelete = async () => {
     if (!task) return;
     if (!window.confirm('Удалить задачу?')) return;
+    void cancelReminder(task.id);
     await remove(db.tasks, task.id);
     onClose();
   };

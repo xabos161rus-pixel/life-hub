@@ -2,6 +2,7 @@ import type { Task } from '../../db/types';
 import { db } from '../../db/db';
 import { create, now, uid, update } from '../../db/repo';
 import { nextOccurrence } from '../../lib/recurrence';
+import { cancelReminder, scheduleReminder } from '../../lib/push';
 
 /**
  * Переключение выполненности задачи.
@@ -11,14 +12,16 @@ import { nextOccurrence } from '../../lib/recurrence';
 export async function toggleTask(task: Task): Promise<string | null> {
   if (task.completedAt) {
     await update(db.tasks, task.id, { completedAt: null });
+    void scheduleReminder(task); // снова активна — вернуть напоминание
     return null;
   }
 
   await update(db.tasks, task.id, { completedAt: now() });
+  void cancelReminder(task.id); // выполнена — напоминание не нужно
 
   if (task.recurrence) {
     const nextDue = nextOccurrence(task.recurrence, task.dueDate);
-    await create(db.tasks, {
+    const next = await create(db.tasks, {
       title: task.title,
       notes: task.notes,
       projectId: task.projectId,
@@ -36,6 +39,7 @@ export async function toggleTask(task: Task): Promise<string | null> {
       tags: [...task.tags],
       sortOrder: task.sortOrder,
     });
+    void scheduleReminder(next); // напоминание для следующего повторения
     return nextDue;
   }
 

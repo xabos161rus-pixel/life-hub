@@ -31,6 +31,8 @@ export default defineConfig(({ command }) => ({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         navigateFallback: '/life-hub/index.html',
+        // Свой обработчик push/notificationclick поверх сгенерированного SW.
+        importScripts: ['push-sw.js'],
       },
     }),
   ],
