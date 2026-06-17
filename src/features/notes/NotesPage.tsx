@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type ChangeEvent, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Pin, Search, StickyNote } from 'lucide-react';
+import { Pin, Search, NotebookText } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
@@ -166,7 +166,7 @@ export function NotesPage() {
       </div>
 
       {notes.length === 0 ? (
-        <EmptyState icon={StickyNote} title="Пока нет заметок" hint="Нажмите +, чтобы создать первую" />
+        <EmptyState icon={NotebookText} title="Пока нет заметок" hint="Нажмите +, чтобы создать первую" />
       ) : filtered.length === 0 ? (
         <EmptyState icon={Search} title="Ничего не найдено" hint="Попробуйте другой запрос" />
       ) : (

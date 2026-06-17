@@ -6,7 +6,7 @@ import {
   MapPin,
   Search,
   SearchX,
-  StickyNote,
+  NotebookText,
   Target,
   GraduationCap,
   Wallet,
@@ -114,7 +114,7 @@ export function SearchPage() {
 
     return [
       build('tasks', 'Задачи', ListTodo, taskHits),
-      build('notes', 'Заметки', StickyNote, noteHits),
+      build('notes', 'Заметки', NotebookText, noteHits),
       build('goals', 'Цели', Target, goalHits),
       build('places', 'Места', MapPin, placeHits),
       build('learning', 'Обучение', GraduationCap, learningHits),

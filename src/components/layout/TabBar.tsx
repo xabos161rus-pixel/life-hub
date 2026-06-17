@@ -1,12 +1,12 @@
 import { NavLink, useLocation } from 'react-router';
-import { House, ListTodo, NotebookPen, Trophy, LayoutGrid } from 'lucide-react';
+import { Sun, ListTodo, NotebookText, Target, LayoutGrid } from 'lucide-react';
 import { useSettings } from '../../hooks/useSettings';
 
 const tabs = [
-  { to: '/', label: 'Сегодня', icon: House, end: true },
+  { to: '/', label: 'Сегодня', icon: Sun, end: true },
   { to: '/tasks', label: 'Задачи', icon: ListTodo, end: false },
-  { to: '/notes', label: 'Заметки', icon: NotebookPen, end: false },
-  { to: '/goals', label: 'Цели', icon: Trophy, end: false },
+  { to: '/notes', label: 'Заметки', icon: NotebookText, end: false },
+  { to: '/goals', label: 'Цели', icon: Target, end: false },
   { to: '/more', label: 'Ещё', icon: LayoutGrid, end: false },
 ];
 
@@ -44,10 +44,14 @@ export function TabBar() {
                   <span className="relative">
                     <Icon
                       size={22}
-                      strokeWidth={isActive ? 2.5 : 1.9}
-                      style={
-                        isActive ? { filter: 'drop-shadow(0 0 6px var(--app-accent))' } : undefined
-                      }
+                      // strokeWidth через inline style (перебивает глобальное
+                      // правило .lucide): активный таб «наливается» весом 2.5.
+                      style={{
+                        strokeWidth: isActive ? 2.5 : 1.75,
+                        ...(isActive
+                          ? { filter: 'drop-shadow(0 0 6px var(--app-accent))' }
+                          : {}),
+                      }}
                     />
                     {label === 'Ещё' && backupStale && (
                       <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-elevated" />

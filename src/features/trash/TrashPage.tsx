@@ -7,7 +7,7 @@ import {
   ListTodo,
   MapPin,
   RotateCcw,
-  StickyNote,
+  NotebookText,
   Target,
   Trash2,
   Wallet,
@@ -67,7 +67,7 @@ export function TrashPage() {
 
     return [
       ...collect(db.tasks, 'tasks', ListTodo, tasks, (r) => str(r.title)),
-      ...collect(db.notes, 'notes', StickyNote, notes, (r) => str(r.title) || 'Без названия'),
+      ...collect(db.notes, 'notes', NotebookText, notes, (r) => str(r.title) || 'Без названия'),
       ...collect(db.goals, 'goals', Target, goals, (r) => str(r.title)),
       ...collect(db.projects, 'projects', FolderKanban, projects, (r) => str(r.name)),
       ...collect(db.learningItems, 'learningItems', GraduationCap, learning, (r) => str(r.title)),
