@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { todayKey } from '../../lib/dates';
+import { schedulePush, cancelPush } from '../../lib/push';
 
 // Помодоро-таймер на основе timestamp (endsAt) — корректно показывает остаток
 // после сворачивания приложения и навигации. Состояние глобальное (контекст),
@@ -70,6 +71,58 @@ function phaseMs(phase: Phase, workMin: number, breakMin: number, longMin: numbe
   if (phase === 'work') return workMin * 60_000;
   if (phase === 'long') return longMin * 60_000;
   return breakMin * 60_000;
+}
+
+// ── Уведомления о конце круга ─────────────────────────────────────────────────
+const POMO_PUSH_ID = 'pomodoro-end';
+
+/** Текст уведомления по фазе, которая заканчивается. */
+function phaseEndText(phase: Phase): { title: string; body: string } {
+  return phase === 'work'
+    ? { title: '🍅 Фокус завершён', body: 'Время для перерыва' }
+    : { title: 'Перерыв окончен', body: 'Возвращайся к фокусу' };
+}
+
+/** Локальное системное уведомление о конце фазы (когда приложение активно). */
+function notifyPhaseEnd(endedPhase: Phase): void {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const { title, body } = phaseEndText(endedPhase);
+    const opts: NotificationOptions = {
+      body,
+      tag: POMO_PUSH_ID,
+      icon: '/life-hub/icons/icon-192.png',
+      badge: '/life-hub/icons/icon-192.png',
+    };
+    if ('serviceWorker' in navigator) {
+      void navigator.serviceWorker.ready.then((reg) => reg.showNotification(title, opts)).catch(() => {});
+    } else {
+      new Notification(title, opts);
+    }
+  } catch {
+    /* нет SW/уведомлений */
+  }
+}
+
+/** Фоновый пуш на конец текущей фазы через Worker (на случай свёрнутого PWA). */
+function syncPhasePush(s: Persisted): void {
+  if (s.running && s.endsAt) {
+    const { title, body } = phaseEndText(s.phase);
+    void schedulePush(POMO_PUSH_ID, s.endsAt, title, body);
+  } else {
+    void cancelPush(POMO_PUSH_ID);
+  }
+}
+
+/** Разовый запрос разрешения на уведомления — по жесту старта. */
+function ensureNotifyPermission(): void {
+  try {
+    if ('Notification' in window && Notification.permission === 'default') {
+      void Notification.requestPermission();
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 function load(): Persisted {
@@ -204,12 +257,17 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   sRef.current = s;
 
   const persist = useCallback((next: Persisted) => {
+    const prev = sRef.current;
     sRef.current = next; // синхронно — чтобы следующий persist в том же тике видел свежее
     setS(next);
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(next));
     } catch {
       /* квота */
+    }
+    // Переставить/снять фоновый пуш конца фазы только при значимой смене состояния.
+    if (prev.running !== next.running || prev.endsAt !== next.endsAt || prev.phase !== next.phase) {
+      syncPhasePush(next);
     }
   }, []);
 
@@ -251,6 +309,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   function advancePhase() {
     const cur = sRef.current;
     beep();
+    notifyPhaseEnd(cur.phase);
     if (cur.phase === 'work') {
       const workCount = cur.workCount + 1;
       const nextPhase: Phase = workCount % LONG_AFTER === 0 ? 'long' : 'break';
@@ -291,6 +350,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         date: todayKey(),
       });
       ensureAudio(); // разблокировать аудио жестом пользователя
+      ensureNotifyPermission(); // спросить разрешение на уведомления о конце круга
     },
     [persist],
   );
@@ -309,6 +369,7 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         cur.remainingMs > 0 ? cur.remainingMs : phaseMs(cur.phase, cur.workMin, cur.breakMin, cur.longMin);
       persist({ ...cur, running: true, endsAt: Date.now() + rem, remainingMs: rem });
       ensureAudio();
+      ensureNotifyPermission();
     }
   }, [persist]);
 

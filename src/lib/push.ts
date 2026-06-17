@@ -109,6 +109,30 @@ export async function cancelReminder(taskId: string): Promise<void> {
   }
 }
 
+/** Поставить пуш по произвольному id на абсолютное время (не задача — напр. помодоро). */
+export async function schedulePush(
+  id: string,
+  fireAt: number,
+  title: string,
+  body: string,
+): Promise<void> {
+  if (!storedSub() || fireAt <= Date.now()) return;
+  try {
+    await fetch(`${WORKER_URL}/schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId: id, fireAt, title, body, subscription: storedSub() }),
+    });
+  } catch {
+    /* офлайн */
+  }
+}
+
+/** Снять пуш по произвольному id. */
+export async function cancelPush(id: string): Promise<void> {
+  return cancelReminder(id);
+}
+
 /** После включения пушей — переставить напоминания всех будущих задач. */
 export async function rescheduleAll(tasks: ReminderTask[]): Promise<void> {
   for (const t of tasks) {

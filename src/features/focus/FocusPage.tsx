@@ -59,6 +59,17 @@ function DurationStepper({
   value: number;
   onChange: (v: number) => void;
 }) {
+  // Локальный текст: позволяет полностью стереть поле во время ввода (value=число
+  // нельзя сделать пустым). Живое обновление — только при валидном числе ≥ 1;
+  // пустое/невалидное на blur откатывается к текущему значению. Синхронизация с
+  // внешним value (кнопки ±, пресеты, кольцо) — во время рендера, не в эффекте.
+  const [text, setText] = useState(String(value));
+  const [seenValue, setSeenValue] = useState(value);
+  if (seenValue !== value) {
+    setSeenValue(value);
+    setText(String(value));
+  }
+
   return (
     <div className="flex-1 rounded-2xl bg-surface-2 p-3">
       <p className="mb-2 text-center text-xs text-muted">{label}</p>
@@ -76,10 +87,16 @@ function DurationStepper({
           inputMode="numeric"
           pattern="[0-9]*"
           aria-label={`${label}, минут`}
-          value={value}
+          value={text}
           onChange={(e) => {
-            const n = parseInt(e.target.value.replace(/\D/g, ''), 10);
-            onChange(Number.isFinite(n) ? Math.max(1, n) : 1);
+            const raw = e.target.value.replace(/\D/g, '');
+            setText(raw);
+            const n = parseInt(raw, 10);
+            if (raw !== '' && n >= 1) onChange(n);
+          }}
+          onBlur={() => {
+            const n = parseInt(text, 10);
+            if (!Number.isFinite(n) || n < 1) setText(String(value));
           }}
           className="w-14 bg-transparent text-center text-2xl font-bold tabular-nums outline-none"
         />
