@@ -445,15 +445,6 @@ export function TasksPage() {
                 dropKey={p.id}
                 highlight={Boolean(draggingTask) && dropKey === p.id}
               >
-                {list.length > 0 && (
-                  <TaskCard
-                    tasks={list}
-                    projectById={projectById}
-                    onEdit={(t) => openTask(t, t.projectId)}
-                    onDragStart={onDragStart}
-                    draggingId={draggingTask?.id ?? null}
-                  />
-                )}
                 {doneList.length > 0 && (
                   <CompletedSubsection
                     tasks={doneList}
@@ -461,6 +452,15 @@ export function TasksPage() {
                     onEdit={(t) => openTask(t, t.projectId)}
                     expanded={expandedCompleted.has(p.id)}
                     onToggle={() => toggleCompleted(p.id)}
+                  />
+                )}
+                {list.length > 0 && (
+                  <TaskCard
+                    tasks={list}
+                    projectById={projectById}
+                    onEdit={(t) => openTask(t, t.projectId)}
+                    onDragStart={onDragStart}
+                    draggingId={draggingTask?.id ?? null}
                   />
                 )}
                 <AddTaskRow onClick={() => openTask(null, p.id)} />
@@ -478,15 +478,6 @@ export function TasksPage() {
               dropKey={NONE}
               highlight={Boolean(draggingTask) && dropKey === NONE}
             >
-              {noProjectTasks.length > 0 && (
-                <TaskCard
-                  tasks={noProjectTasks}
-                  projectById={projectById}
-                  onEdit={(t) => openTask(t, null)}
-                  onDragStart={onDragStart}
-                  draggingId={draggingTask?.id ?? null}
-                />
-              )}
               {noProjectCompleted.length > 0 && (
                 <CompletedSubsection
                   tasks={noProjectCompleted}
@@ -494,6 +485,15 @@ export function TasksPage() {
                   onEdit={(t) => openTask(t, null)}
                   expanded={expandedCompleted.has(NONE)}
                   onToggle={() => toggleCompleted(NONE)}
+                />
+              )}
+              {noProjectTasks.length > 0 && (
+                <TaskCard
+                  tasks={noProjectTasks}
+                  projectById={projectById}
+                  onEdit={(t) => openTask(t, null)}
+                  onDragStart={onDragStart}
+                  draggingId={draggingTask?.id ?? null}
                 />
               )}
             </Section>
