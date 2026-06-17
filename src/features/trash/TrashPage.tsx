@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   BatteryCharging,
@@ -77,19 +77,34 @@ export function TrashPage() {
     ].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
   }, [tasks, notes, goals, projects, learning, expenses, energy, places]);
 
+  // Защита от повторного срабатывания, пока идёт асинхронная операция (двойной тап).
+  const busyRef = useRef(false);
+
   async function handleRestore(entry: TrashEntry) {
-    await update(entry.table, entry.id, { deletedAt: null });
-    toast('Восстановлено');
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      await update(entry.table, entry.id, { deletedAt: null });
+      toast('Восстановлено');
+    } finally {
+      busyRef.current = false;
+    }
   }
 
   async function handlePurge(entry: TrashEntry) {
+    if (busyRef.current) return;
     if (!window.confirm('Удалить навсегда?')) return;
-    // Каскадно убираем дочерние логи, иначе они остаются мусором в БД и бэкапе.
-    if (entry.tableName === 'learningItems') {
-      await db.learningLogs.where('itemId').equals(entry.id).delete();
+    busyRef.current = true;
+    try {
+      // Каскадно убираем дочерние логи, иначе они остаются мусором в БД и бэкапе.
+      if (entry.tableName === 'learningItems') {
+        await db.learningLogs.where('itemId').equals(entry.id).delete();
+      }
+      await db.table(entry.tableName).delete(entry.id);
+      toast('Удалено навсегда');
+    } finally {
+      busyRef.current = false;
     }
-    await db.table(entry.tableName).delete(entry.id);
-    toast('Удалено навсегда');
   }
 
   return (

@@ -41,6 +41,9 @@ export function SettingsPage() {
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [pushOn, setPushOn] = useState(pushEnabled());
+  // Защита от повторного запуска async-операций при быстрых повторных кликах.
+  const pushingRef = useRef(false);
+  const exportingRef = useRef(false);
 
   async function handleEnablePush() {
     if (!pushSupported()) {
@@ -53,52 +56,64 @@ export function SettingsPage() {
       );
       return;
     }
-    const res = await enablePush();
-    if (!res.ok) {
-      alert(
-        res.reason === 'denied'
-          ? 'Разрешение не выдано. Включите его: Настройки iPhone → Уведомления → Life Hub.'
-          : 'Не удалось включить уведомления.',
-      );
-      return;
+    if (pushingRef.current) return;
+    pushingRef.current = true;
+    try {
+      const res = await enablePush();
+      if (!res.ok) {
+        alert(
+          res.reason === 'denied'
+            ? 'Разрешение не выдано. Включите его: Настройки iPhone → Уведомления → Life Hub.'
+            : 'Не удалось включить уведомления.',
+        );
+        return;
+      }
+      setPushOn(true);
+      const tasks = alive(await db.tasks.toArray()).filter((t) => !t.completedAt);
+      await rescheduleAll(tasks);
+      toast('Уведомления включены');
+    } finally {
+      pushingRef.current = false;
     }
-    setPushOn(true);
-    const tasks = alive(await db.tasks.toArray()).filter((t) => !t.completedAt);
-    await rescheduleAll(tasks);
-    toast('Уведомления включены');
   }
 
   async function handleExport() {
-    const backup = await exportBackup();
-    const json = JSON.stringify(backup, null, 2);
-    const file = new File([json], backupFilename(), { type: 'application/json' });
+    if (exportingRef.current) return;
+    exportingRef.current = true;
+    try {
+      const backup = await exportBackup();
+      const json = JSON.stringify(backup, null, 2);
+      const file = new File([json], backupFilename(), { type: 'application/json' });
 
-    // share-шит — только на iOS (там это путь в «Файлы»); на десктопе
-    // системный share-диалог блокирует страницу, качаем напрямую
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (isIOS && navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file] });
-      } catch (err) {
-        // AbortError — пользователь закрыл шит шаринга, это не ошибка
-        if (!(err instanceof DOMException && err.name === 'AbortError')) {
-          alert('Не удалось поделиться файлом бэкапа');
+      // share-шит — только на iOS (там это путь в «Файлы»); на десктопе
+      // системный share-диалог блокирует страницу, качаем напрямую
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] });
+        } catch (err) {
+          // AbortError — пользователь закрыл шит шаринга, это не ошибка
+          if (!(err instanceof DOMException && err.name === 'AbortError')) {
+            alert('Не удалось поделиться файлом бэкапа');
+          }
+          return;
         }
-        return;
+      } else {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
       }
-    } else {
-      const url = URL.createObjectURL(file);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = file.name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
 
-    await updateSettings({ lastBackupAt: now() });
-    toast('Бэкап сохранён');
+      await updateSettings({ lastBackupAt: now() });
+      toast('Бэкап сохранён');
+    } finally {
+      exportingRef.current = false;
+    }
   }
 
   async function handleImport(e: ChangeEvent<HTMLInputElement>) {
