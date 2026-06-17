@@ -1,7 +1,19 @@
-import { Pause, Play, RotateCcw, SkipForward } from 'lucide-react';
+import { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { ChevronRight, ListChecks, Pause, Play, RotateCcw, SkipForward } from 'lucide-react';
+import { db } from '../../db/db';
+import { alive } from '../../db/repo';
 import { Screen } from '../../components/layout/Screen';
+import { Sheet } from '../../components/ui/Sheet';
 import { Chip, ChipRow } from '../../components/ui/Chip';
-import { formatClock, usePomodoro, type Phase } from './PomodoroProvider';
+import { EmptyState } from '../../components/ui/EmptyState';
+import {
+  formatClock,
+  formatFocusTime,
+  usePomodoro,
+  type Phase,
+  type SoundType,
+} from './PomodoroProvider';
 
 const PHASE_LABEL: Record<Phase, string> = {
   work: 'Фокус',
@@ -15,35 +27,38 @@ const PRESETS: { work: number; break: number; label: string }[] = [
   { work: 90, break: 20, label: '90 / 20' },
 ];
 
+const SOUNDS: { value: SoundType; label: string }[] = [
+  { value: 'none', label: 'Тишина' },
+  { value: 'white', label: 'Белый' },
+  { value: 'pink', label: 'Розовый' },
+  { value: 'brown', label: 'Коричневый' },
+  { value: 'rain', label: 'Дождь' },
+];
+
 const R = 130;
 const STROKE = 12;
 const CIRC = 2 * Math.PI * R;
 
 export function FocusPage() {
   const p = usePomodoro();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const tasks = alive(useLiveQuery(() => db.tasks.toArray(), []) ?? []).filter(
+    (t) => !t.completedAt,
+  );
+
   const progress = p.totalMs > 0 ? 1 - p.remainingMs / p.totalMs : 0;
   const ringColor = p.phase === 'work' ? 'var(--app-accent)' : 'var(--app-success)';
 
   return (
     <Screen title="Фокус" backTo="/more">
       <div className="flex flex-col items-center">
-        <p
-          className="mb-4 text-sm font-semibold"
-          style={{ color: ringColor }}
-        >
+        <p className="mb-4 text-sm font-semibold" style={{ color: ringColor }}>
           {PHASE_LABEL[p.phase]}
         </p>
 
         <div className="relative">
           <svg viewBox="0 0 300 300" className="w-64 max-w-[72vw]">
-            <circle
-              cx="150"
-              cy="150"
-              r={R}
-              fill="none"
-              stroke="var(--app-hairline)"
-              strokeWidth={STROKE}
-            />
+            <circle cx="150" cy="150" r={R} fill="none" stroke="var(--app-hairline)" strokeWidth={STROKE} />
             <circle
               cx="150"
               cy="150"
@@ -92,7 +107,30 @@ export function FocusPage() {
           </button>
         </div>
 
-        <div className="mt-8 w-full">
+        {/* Выбор задачи фокуса */}
+        <button
+          onClick={() => setPickerOpen(true)}
+          className="card mt-8 flex w-full items-center gap-3 px-4 py-3 active:opacity-80"
+        >
+          <ListChecks size={20} className="shrink-0 text-accent" />
+          <span className={`min-w-0 flex-1 truncate text-left ${p.taskTitle ? '' : 'text-muted'}`}>
+            {p.taskTitle || 'Выбрать задачу'}
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-muted" />
+        </button>
+
+        <div className="mt-6 w-full">
+          <p className="mb-2 px-1 text-sm font-medium text-muted">Звук фокуса</p>
+          <ChipRow>
+            {SOUNDS.map((sd) => (
+              <Chip key={sd.value} active={p.sound === sd.value} onClick={() => p.setSound(sd.value)}>
+                {sd.label}
+              </Chip>
+            ))}
+          </ChipRow>
+        </div>
+
+        <div className="mt-6 w-full">
           <p className="mb-2 px-1 text-sm font-medium text-muted">Длительность (мин)</p>
           <ChipRow>
             {PRESETS.map((pr) => (
@@ -107,10 +145,47 @@ export function FocusPage() {
           </ChipRow>
         </div>
 
-        <p className="mt-8 text-sm text-muted">
-          Помодоро за сегодня: <span className="font-semibold text-text">{p.completedToday}</span>
-        </p>
+        <div className="mt-8 flex w-full gap-3">
+          <div className="flex-1 rounded-2xl bg-surface-2 p-3 text-center">
+            <p className="text-2xl font-bold">{p.completedToday}</p>
+            <p className="text-xs text-muted">помодоро сегодня</p>
+          </div>
+          <div className="flex-1 rounded-2xl bg-surface-2 p-3 text-center">
+            <p className="text-2xl font-bold">{formatFocusTime(p.focusMinToday)}</p>
+            <p className="text-xs text-muted">фокуса сегодня</p>
+          </div>
+        </div>
       </div>
+
+      <Sheet open={pickerOpen} onClose={() => setPickerOpen(false)} title="Задача для фокуса">
+        <div className="flex flex-col">
+          <button
+            onClick={() => {
+              p.setTask(null, null);
+              setPickerOpen(false);
+            }}
+            className="border-b border-hairline py-3 text-left text-muted active:opacity-60"
+          >
+            Без задачи
+          </button>
+          {tasks.length === 0 ? (
+            <EmptyState icon={ListChecks} title="Нет активных задач" />
+          ) : (
+            tasks.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => {
+                  p.setTask(t.id, t.title);
+                  setPickerOpen(false);
+                }}
+                className="border-b border-hairline py-3 text-left active:opacity-60"
+              >
+                {t.title}
+              </button>
+            ))
+          )}
+        </div>
+      </Sheet>
     </Screen>
   );
 }

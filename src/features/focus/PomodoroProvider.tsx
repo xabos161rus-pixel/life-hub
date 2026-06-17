@@ -11,9 +11,11 @@ import { todayKey } from '../../lib/dates';
 
 // Помодоро-таймер на основе timestamp (endsAt) — корректно показывает остаток
 // после сворачивания приложения и навигации. Состояние глобальное (контекст),
-// чтобы мини-таймер был виден из любого раздела. Звук — Web Audio (без файлов).
+// чтобы мини-таймер был виден из любого раздела. Звук — Web Audio (без файлов):
+// сигнал смены фазы + фоновый шум (белый/розовый/коричневый/«дождь») во время работы.
 
 export type Phase = 'work' | 'break' | 'long';
+export type SoundType = 'none' | 'white' | 'pink' | 'brown' | 'rain';
 
 const LONG_AFTER = 4; // длинный перерыв после стольких рабочих сессий
 const LONG_MIN = 15;
@@ -27,9 +29,11 @@ interface Persisted {
   taskTitle: string | null;
   workCount: number;
   completedToday: number;
+  focusMinToday: number; // суммарно минут фокуса за сегодня
   date: string;
   workMin: number;
   breakMin: number;
+  sound: SoundType;
 }
 
 interface PomodoroCtx {
@@ -40,14 +44,18 @@ interface PomodoroCtx {
   taskId: string | null;
   taskTitle: string | null;
   completedToday: number;
+  focusMinToday: number;
   workMin: number;
   breakMin: number;
+  sound: SoundType;
   active: boolean; // идёт сессия (не дефолтное простаивание)
   start: (taskId?: string | null, taskTitle?: string | null) => void;
   toggle: () => void;
   reset: () => void;
   skip: () => void;
   setDurations: (workMin: number, breakMin: number) => void;
+  setTask: (taskId: string | null, taskTitle: string | null) => void;
+  setSound: (sound: SoundType) => void;
 }
 
 const STORE_KEY = 'life-hub-pomodoro';
@@ -69,43 +77,119 @@ function load(): Persisted {
     taskTitle: null,
     workCount: 0,
     completedToday: 0,
+    focusMinToday: 0,
     date: todayKey(),
     workMin: 25,
     breakMin: 5,
+    sound: 'none',
   };
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (!raw) return base;
     const p = { ...base, ...(JSON.parse(raw) as Persisted) };
-    if (p.date !== todayKey()) p.completedToday = 0; // счётчик помодоро — за сегодня
+    if (p.date !== todayKey()) {
+      p.completedToday = 0; // счётчики — за сегодня
+      p.focusMinToday = 0;
+    }
     return p;
   } catch {
     return base;
   }
 }
 
-let beepCtx: AudioContext | null = null;
-function beep() {
+// ── Аудио ───────────────────────────────────────────────────────────────────
+let audioCtx: AudioContext | null = null;
+function ensureAudio(): AudioContext | null {
   try {
-    const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!beepCtx) beepCtx = new AC();
-    void beepCtx.resume();
-    const o = beepCtx.createOscillator();
-    const g = beepCtx.createGain();
+    const AC =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!audioCtx) audioCtx = new AC();
+    void audioCtx.resume();
+    return audioCtx;
+  } catch {
+    return null;
+  }
+}
+
+function beep() {
+  const ac = ensureAudio();
+  if (ac) {
+    const o = ac.createOscillator();
+    const g = ac.createGain();
     o.connect(g);
-    g.connect(beepCtx.destination);
+    g.connect(ac.destination);
     o.type = 'sine';
     o.frequency.value = 880;
-    const t = beepCtx.currentTime;
+    const t = ac.currentTime;
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(0.35, t + 0.02);
     g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
     o.start(t);
     o.stop(t + 0.6);
-  } catch {
-    /* звук недоступен */
   }
   navigator.vibrate?.(200);
+}
+
+function makeNoiseBuffer(ac: AudioContext, kind: SoundType): AudioBuffer {
+  const len = ac.sampleRate * 2;
+  const buf = ac.createBuffer(1, len, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  if (kind === 'brown') {
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      last = (last + 0.02 * w) / 1.02;
+      d[i] = last * 3.5;
+    }
+  } else if (kind === 'pink') {
+    let b0 = 0,
+      b1 = 0,
+      b2 = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      b0 = 0.99765 * b0 + w * 0.099046;
+      b1 = 0.963 * b1 + w * 0.2965164;
+      b2 = 0.57 * b2 + w * 1.0526913;
+      d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.25;
+    }
+  } else {
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; // white / база для rain
+  }
+  return buf;
+}
+
+let noiseSrc: AudioBufferSourceNode | null = null;
+function stopNoise() {
+  try {
+    noiseSrc?.stop();
+  } catch {
+    /* уже остановлен */
+  }
+  noiseSrc = null;
+}
+function startNoise(kind: SoundType) {
+  stopNoise();
+  if (kind === 'none') return;
+  const ac = ensureAudio();
+  if (!ac) return;
+  const src = ac.createBufferSource();
+  src.buffer = makeNoiseBuffer(ac, kind === 'rain' ? 'white' : kind);
+  src.loop = true;
+  const gain = ac.createGain();
+  gain.gain.value = kind === 'brown' ? 0.16 : 0.1;
+  if (kind === 'rain' || kind === 'pink' || kind === 'brown') {
+    const lp = ac.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = kind === 'rain' ? 3200 : kind === 'brown' ? 500 : 1400;
+    src.connect(lp);
+    lp.connect(gain);
+  } else {
+    src.connect(gain);
+  }
+  gain.connect(ac.destination);
+  src.start();
+  noiseSrc = src;
 }
 
 export function PomodoroProvider({ children }: { children: ReactNode }) {
@@ -123,9 +207,9 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const total = phaseMs(s.phase, s.workMin, s.breakMin);
-  const remainingMs = s.running && s.endsAt != null ? Math.max(0, s.endsAt - Date.now()) : s.remainingMs;
+  const remainingMs =
+    s.running && s.endsAt != null ? Math.max(0, s.endsAt - Date.now()) : s.remainingMs;
 
-  // Тик раз в 500мс, пока идёт; пересчёт из endsAt — устойчив к сворачиванию.
   const [, force] = useState(0);
   useEffect(() => {
     if (!s.running) return;
@@ -139,7 +223,6 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.running, s.endsAt]);
 
-  // Пересчёт при возврате в приложение (когда таймеры в фоне стояли).
   useEffect(() => {
     const onVis = () => {
       const cur = sRef.current;
@@ -151,26 +234,31 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Фоновый шум — только во время работающей рабочей фазы.
+  useEffect(() => {
+    if (s.running && s.phase === 'work' && s.sound !== 'none') startNoise(s.sound);
+    else stopNoise();
+    return () => stopNoise();
+  }, [s.running, s.phase, s.sound]);
+
   function advancePhase() {
     const cur = sRef.current;
     beep();
     if (cur.phase === 'work') {
       const workCount = cur.workCount + 1;
-      const completedToday = cur.completedToday + 1;
       const nextPhase: Phase = workCount % LONG_AFTER === 0 ? 'long' : 'break';
-      // перерыв запускаем автоматически
       persist({
         ...cur,
         phase: nextPhase,
         workCount,
-        completedToday,
+        completedToday: cur.completedToday + 1,
+        focusMinToday: cur.focusMinToday + cur.workMin,
         date: todayKey(),
         running: true,
         endsAt: Date.now() + phaseMs(nextPhase, cur.workMin, cur.breakMin),
         remainingMs: phaseMs(nextPhase, cur.workMin, cur.breakMin),
       });
     } else {
-      // конец перерыва → готов к новой работе, ждём старта
       persist({
         ...cur,
         phase: 'work',
@@ -191,11 +279,11 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         running: true,
         endsAt: Date.now() + ms,
         remainingMs: ms,
-        taskId,
-        taskTitle,
+        taskId: taskId ?? cur.taskId,
+        taskTitle: taskTitle ?? cur.taskTitle,
         date: todayKey(),
       });
-      beep(); // разблокировать аудио жестом пользователя (тихо стартует и контекст)
+      ensureAudio(); // разблокировать аудио жестом пользователя
     },
     [persist],
   );
@@ -203,10 +291,16 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => {
     const cur = sRef.current;
     if (cur.running) {
-      persist({ ...cur, running: false, endsAt: null, remainingMs: Math.max(0, (cur.endsAt ?? Date.now()) - Date.now()) });
+      persist({
+        ...cur,
+        running: false,
+        endsAt: null,
+        remainingMs: Math.max(0, (cur.endsAt ?? Date.now()) - Date.now()),
+      });
     } else {
       const rem = cur.remainingMs > 0 ? cur.remainingMs : phaseMs(cur.phase, cur.workMin, cur.breakMin);
       persist({ ...cur, running: true, endsAt: Date.now() + rem, remainingMs: rem });
+      ensureAudio();
     }
   }, [persist]);
 
@@ -242,6 +336,21 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
+  const setTask = useCallback(
+    (taskId: string | null, taskTitle: string | null) => {
+      persist({ ...sRef.current, taskId, taskTitle });
+    },
+    [persist],
+  );
+
+  const setSound = useCallback(
+    (sound: SoundType) => {
+      persist({ ...sRef.current, sound });
+      ensureAudio();
+    },
+    [persist],
+  );
+
   const active = s.running || s.remainingMs < total || s.phase !== 'work';
 
   return (
@@ -254,14 +363,18 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
         taskId: s.taskId,
         taskTitle: s.taskTitle,
         completedToday: s.completedToday,
+        focusMinToday: s.focusMinToday,
         workMin: s.workMin,
         breakMin: s.breakMin,
+        sound: s.sound,
         active,
         start,
         toggle,
         reset,
         skip,
         setDurations,
+        setTask,
+        setSound,
       }}
     >
       {children}
@@ -281,4 +394,12 @@ export function formatClock(ms: number): string {
   const m = Math.floor(total / 60);
   const sec = total % 60;
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+}
+
+/** «1 ч 25 мин» / «25 мин» из минут — для статистики фокуса. */
+export function formatFocusTime(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h === 0) return `${m} мин`;
+  return m === 0 ? `${h} ч` : `${h} ч ${m} мин`;
 }
