@@ -15,9 +15,13 @@ import type {
   MetricLog,
   Settings,
   SyncConfig,
+  FamilyConfig,
+  FamilyMember,
+  FamilyTask,
+  FamilyMessage,
 } from './types';
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -35,6 +39,10 @@ export class LifeHubDB extends Dexie {
   metricLogs!: Table<MetricLog, string>;
   settings!: Table<Settings, string>;
   sync!: Table<SyncConfig, string>;
+  family!: Table<FamilyConfig, string>;
+  familyMembers!: Table<FamilyMember, string>;
+  familyTasks!: Table<FamilyTask, string>;
+  familyMessages!: Table<FamilyMessage, string>;
 
   constructor() {
     super('life-hub');
@@ -72,6 +80,14 @@ export class LifeHubDB extends Dexie {
     // v4 — конфиг E2E-синхронизации (одна строка id='config'). Новая таблица,
     // существующие не меняются → upgrade-функция не нужна.
     this.version(4).stores({ sync: 'id' });
+    // v5 — семейный раздел (общие задачи + чат). Только новые таблицы,
+    // существующие не трогаются → upgrade-функция не нужна.
+    this.version(5).stores({
+      family: 'id',
+      familyMembers: 'id, seq',
+      familyTasks: 'id, seq, assigneeId, completedAt',
+      familyMessages: 'clientMsgId, seq, createdAt',
+    });
   }
 }
 

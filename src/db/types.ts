@@ -190,6 +190,60 @@ export interface Settings {
   updatedAt: string;
 }
 
+// === Семейный раздел (общие задачи + чат) ===
+// Отдельное E2E-пространство: общий семейный ключ, шарится между ЛЮДЬМИ по QR.
+// Источник истины — Durable Object на сервере (плотный seq), не личный D1-синк.
+
+// Конфиг семьи. НЕ синкается, НЕ в бэкап (как SyncConfig — содержит ключ/токен).
+export interface FamilyConfig {
+  id: 'config';
+  familyId: string;
+  familyToken: string;
+  familyKey: CryptoKey; // общий E2E-ключ семьи
+  familyName: string;
+  selfMemberId: string; // стабильный uuid этого пользователя в семье
+  lastSeq: number; // курсор: последний полученный seq из DO-комнаты
+  enabled: boolean;
+  joinedAt: string;
+}
+
+// Участник семьи. Синкается через DO (канал 'member'). seq — серверный порядок.
+export interface FamilyMember {
+  id: string; // memberId (uuid)
+  seq: number;
+  displayName: string;
+  color: string;
+  joinedAt: string;
+  leftAt: string | null;
+}
+
+// Общая задача семьи. Можно ставить друг другу (assigneeId). Синк через DO ('task').
+export interface FamilyTask {
+  id: string;
+  seq: number;
+  title: string;
+  notes: string;
+  priority: Priority;
+  dueDate: string | null; // 'YYYY-MM-DD'
+  assigneeId: string | null; // кому поставлена
+  createdBy: string; // кто поставил (memberId)
+  completedAt: string | null;
+  completedBy: string | null;
+  sortOrder: number;
+  deletedAt: string | null;
+}
+
+// Сообщение чата. append-only, дедуп по clientMsgId; порядок по серверному seq.
+export interface FamilyMessage {
+  clientMsgId: string; // uuid, первичный ключ
+  seq: number | null; // null пока сервер не присвоил
+  senderMemberId: string;
+  createdAt: string;
+  text: string;
+  status: 'pending' | 'sent' | 'acked'; // локальное состояние доставки (мимо синка)
+  deletedAt: string | null;
+}
+
 // Конфиг E2E-синхронизации. НЕ синкается и НЕ входит в бэкап (содержит ключ
 // и токен). key — extractable CryptoKey: нужно для повторного показа QR при
 // подключении ещё одного устройства и резервного сохранения ключа.

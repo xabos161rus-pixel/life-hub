@@ -95,3 +95,27 @@ export function decodePairing(code: string): PairingData {
   }
   return d;
 }
+
+// === Пакет приглашения в СЕМЬЮ (v:2) ===
+// Отдельный формат от device-сопряжения (v:1): шарится между людьми, содержит
+// общий семейный ключ + имя семьи. Тот же AES-256-GCM ключ под капотом.
+export interface FamilyPairingData {
+  v: 2;
+  familyId: string;
+  familyToken: string;
+  key: string; // общий семейный raw-ключ в base64url
+  familyName: string;
+}
+
+export function encodeFamilyPairing(d: FamilyPairingData): string {
+  return bytesToB64url(new TextEncoder().encode(JSON.stringify(d)));
+}
+
+export function decodeFamilyPairing(code: string): FamilyPairingData {
+  const json = new TextDecoder().decode(b64urlToBytes(code.trim()));
+  const d = JSON.parse(json) as FamilyPairingData;
+  if (d.v !== 2 || !d.familyId || !d.familyToken || !d.key) {
+    throw new Error('Некорректный код приглашения в семью');
+  }
+  return d;
+}
