@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { connectionState, subscribeConnection } from '../../lib/family/familyChat';
 import { MembersTab } from './MembersTab';
+import { ChatTab } from './ChatTab';
+import { FamilyTasksTab } from './FamilyTasksTab';
 
 type Tab = 'chat' | 'tasks' | 'members';
 const TABS = [
@@ -19,7 +21,7 @@ function useConnection() {
 const CONN_LABEL: Record<string, string> = { offline: 'не в сети', connecting: 'подключение…', online: 'на связи' };
 
 export function FamilyScreen() {
-  const [tab, setTab] = useState<Tab>('members');
+  const [tab, setTab] = useState<Tab>('chat');
   const conn = useConnection();
 
   return (
@@ -31,13 +33,7 @@ export function FamilyScreen() {
         </span>
       </div>
       <SegmentedControl options={TABS} value={tab} onChange={setTab} />
-      {tab === 'members' ? (
-        <MembersTab />
-      ) : (
-        <div className="py-12 text-center text-sm text-muted">
-          {tab === 'chat' ? 'Чат' : 'Задачи'} — появятся на следующем шаге сборки.
-        </div>
-      )}
+      {tab === 'chat' ? <ChatTab /> : tab === 'tasks' ? <FamilyTasksTab /> : <MembersTab />}
     </div>
   );
 }
