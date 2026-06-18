@@ -14,9 +14,10 @@ import type {
   Metric,
   MetricLog,
   Settings,
+  SyncConfig,
 } from './types';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -33,6 +34,7 @@ export class LifeHubDB extends Dexie {
   metrics!: Table<Metric, string>;
   metricLogs!: Table<MetricLog, string>;
   settings!: Table<Settings, string>;
+  sync!: Table<SyncConfig, string>;
 
   constructor() {
     super('life-hub');
@@ -67,6 +69,9 @@ export class LifeHubDB extends Dexie {
             if (!Array.isArray(t.tags)) t.tags = [];
           }),
       );
+    // v4 — конфиг E2E-синхронизации (одна строка id='config'). Новая таблица,
+    // существующие не меняются → upgrade-функция не нужна.
+    this.version(4).stores({ sync: 'id' });
   }
 }
 

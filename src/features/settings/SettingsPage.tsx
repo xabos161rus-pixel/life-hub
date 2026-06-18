@@ -18,6 +18,7 @@ import {
 } from '../../db/backup';
 import { formatRu } from '../../lib/dates';
 import { usePersistentStorage } from './usePersistentStorage';
+import { SyncSection } from './sync/SyncSection';
 import type { Settings } from '../../db/types';
 
 const THEME_OPTIONS: { value: Settings['theme']; label: string }[] = [
@@ -180,6 +181,10 @@ export function SettingsPage() {
               </>
             )}
           </div>
+        </Section>
+
+        <Section title="Синхронизация">
+          <SyncSection />
         </Section>
 
         <Section title="Данные">

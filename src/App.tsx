@@ -2,6 +2,7 @@ import { Component, useEffect, type ReactNode } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
+import { SyncRunner } from './components/SyncRunner';
 import { TabBar } from './components/layout/TabBar';
 import { ToastProvider } from './components/ui/Toast';
 import { useSettings } from './hooks/useSettings';
@@ -76,6 +77,7 @@ export default function App() {
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <ToastProvider>
         <ThemeApplier />
+        <SyncRunner />
         <PomodoroProvider>
         <ErrorBoundary>
           {/* Каркас прибит ко ВСЕМ четырём краям (inset-0) — гарантированно

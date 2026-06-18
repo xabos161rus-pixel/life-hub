@@ -188,3 +188,17 @@ export interface Settings {
   schemaVersion: number;
   updatedAt: string;
 }
+
+// Конфиг E2E-синхронизации. НЕ синкается и НЕ входит в бэкап (содержит ключ
+// и токен). key — extractable CryptoKey: нужно для повторного показа QR при
+// подключении ещё одного устройства и резервного сохранения ключа.
+export interface SyncConfig {
+  id: 'config';
+  accountId: string;
+  authToken: string;
+  key: CryptoKey;
+  enabled: boolean;
+  lastPullAt: string; // ISO-курсор: последний полученный updatedAt
+  lastPushAt: string; // ISO-курсор: последний отправленный updatedAt
+  lastSyncedAt: string; // ISO времени последнего успешного синка ('' — ни разу)
+}
