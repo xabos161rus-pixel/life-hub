@@ -268,7 +268,7 @@ export class FamilyRoom extends DurableObject {
         const sub = JSON.parse(m.push_sub);
         const { endpoint, headers, body } = await buildPushRequest({
           subscription: sub,
-          payload: JSON.stringify({ title: 'Семейный чат', body: 'Новое сообщение', family: true }),
+          payload: JSON.stringify({ title: 'Семейный чат', body: 'Новое сообщение', family: true, tag: 'family-chat' }),
           vapid,
           ttl: 3600,
           urgency: 'high',

@@ -7,6 +7,7 @@
 import { db } from '../../db/db';
 import type { FamilyConfig, FamilyTask, FamilyMember } from '../../db/types';
 import { encryptJSON, decryptJSON } from '../crypto';
+import { getPushSubscription } from '../push';
 import { getFamilyConfig, patchFamilyConfig } from './familyState';
 
 const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
@@ -139,6 +140,7 @@ export async function connect() {
       } else if (m.type === 'ready') {
         setState('online');
         await resendOutbox();
+        await registerPush(c);
       } else if (m.type === 'item') {
         const fresh = await getFamilyConfig();
         if (fresh) await applyItem(fresh, m);
@@ -155,6 +157,22 @@ export async function connect() {
   } catch {
     setState('offline');
     scheduleReconnect();
+  }
+}
+
+// Регистрируем push-подписку этого участника в DO — чтобы получать
+// уведомления о сообщениях, когда приложение закрыто (WS мёртв).
+async function registerPush(c: FamilyConfig) {
+  const sub = getPushSubscription();
+  if (!sub) return;
+  try {
+    await fetch(`${WORKER_URL}/family/push-sub?familyId=${c.familyId}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${c.familyToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memberId: c.selfMemberId, subscription: sub }),
+    });
+  } catch {
+    /* офлайн — переедет при следующем ready */
   }
 }
 

@@ -13,8 +13,8 @@ self.addEventListener('push', (event) => {
       body: data.body || '',
       icon: '/life-hub/icons/icon-192.png',
       badge: '/life-hub/icons/icon-192.png',
-      tag: data.taskId || undefined,
-      data: { url: '/life-hub/' },
+      tag: data.taskId || data.tag || undefined,
+      data: { url: data.family ? '/life-hub/more/family' : '/life-hub/' },
     }),
   );
 });

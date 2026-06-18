@@ -45,6 +45,11 @@ function storedSub(): unknown | null {
   return raw ? (JSON.parse(raw) as unknown) : null;
 }
 
+/** Текущая push-подписка (для регистрации в семейном DO). */
+export function getPushSubscription(): unknown | null {
+  return storedSub();
+}
+
 /** Запрос разрешения + подписка. Возвращает причину отказа для UI. */
 export async function enablePush(): Promise<{ ok: boolean; reason?: string }> {
   if (!pushSupported()) return { ok: false, reason: 'unsupported' };
