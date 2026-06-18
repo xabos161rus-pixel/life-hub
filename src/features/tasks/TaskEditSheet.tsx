@@ -285,6 +285,32 @@ export function TaskEditSheet({
     if (e.key === 'Enter' && !e.shiftKey) e.stopPropagation();
   };
 
+  // Автонумерация в заметках: Enter после строки «N. текст» добавляет «(N+1). »;
+  // Enter на пустом пункте «N. » — выходит из списка (убирает маркер).
+  const handleNotesKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    const ta = e.currentTarget;
+    const { selectionStart, selectionEnd, value } = ta;
+    if (selectionStart !== selectionEnd) return; // есть выделение — обычный Enter
+    const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+    const line = value.slice(lineStart, selectionStart);
+    const m = /^(\s*)(\d+)\.\s(.*)$/.exec(line);
+    if (!m) return; // строка не вида «N. …» — обычный перенос
+    e.preventDefault();
+    const [, indent, numStr, rest] = m;
+    if (rest.trim() === '') {
+      const next = value.slice(0, lineStart) + value.slice(selectionStart);
+      setNotes(next);
+      requestAnimationFrame(() => ta.setSelectionRange(lineStart, lineStart));
+      return;
+    }
+    const insert = `\n${indent}${Number(numStr) + 1}. `;
+    const next = value.slice(0, selectionStart) + insert + value.slice(selectionEnd);
+    setNotes(next);
+    const pos = selectionStart + insert.length;
+    requestAnimationFrame(() => ta.setSelectionRange(pos, pos));
+  };
+
   const copyText = (text: string) => {
     if (!text) return;
     void navigator.clipboard.writeText(text);
@@ -342,7 +368,8 @@ export function TaskEditSheet({
               value={notes}
               placeholder="Детали…"
               onChange={(e) => setNotes(e.target.value)}
-              className="flex-1"
+              onKeyDown={handleNotesKey}
+              className="flex-1 whitespace-pre-wrap font-mono"
             />
             <MicButton
               onText={(t) => setNotes((prev) => (prev ? `${prev} ${t}` : t))}

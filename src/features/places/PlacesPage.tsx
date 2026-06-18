@@ -44,6 +44,11 @@ const STATUS_LABELS: Record<PlaceStatus, string> = {
 
 const KIND_ORDER: PlaceKind[] = ['place', 'thing', 'tip', 'food', 'travel'];
 
+/** Открывает адрес в Картах (на iPhone/Mac — приложение Apple Карты). */
+function openMaps(location: string) {
+  window.open(`https://maps.apple.com/?q=${encodeURIComponent(location)}`, '_blank', 'noopener');
+}
+
 type KindFilter = 'all' | PlaceKind;
 
 function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
@@ -51,12 +56,27 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
   return (
     <div
       onClick={onOpen}
-      className="rounded-2xl border border-hairline bg-surface p-4 active:opacity-90"
+      className="overflow-hidden rounded-2xl border border-hairline bg-surface active:opacity-90"
     >
-      <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-          <Icon size={20} />
-        </div>
+      {item.photo && <img src={item.photo} alt="" className="h-40 w-full object-cover" />}
+      <div className="flex items-start gap-3 p-4">
+        {item.location ? (
+          <button
+            type="button"
+            aria-label="Открыть на карте"
+            onClick={(e) => {
+              e.stopPropagation();
+              openMaps(item.location);
+            }}
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent active:opacity-70"
+          >
+            <MapPin size={20} />
+          </button>
+        ) : (
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+            <Icon size={20} />
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <p className="min-w-0 flex-1 font-semibold">{item.title}</p>

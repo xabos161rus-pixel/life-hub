@@ -27,6 +27,7 @@ function addMinutesToTime(hhmm: string, add: number): string {
 
 const ACTIONS_WIDTH = 152; // ширина блока действий слева (две кнопки)
 const SWIPE_THRESHOLD = 40; // меньше — считается тапом
+const SWIPE_ACTIVATE = 14; // порог распознавания жеста: меньше — ничего не двигаем
 const LONG_PRESS_MS = 400; // удержание без движения → старт drag-режима
 const DRAG_CANCEL_MOVE = 8; // горизонт/вертикаль сдвиг, отменяющий long-press
 
@@ -75,7 +76,15 @@ export function TaskItem({
   const [dragging, setDragging] = useState(false);
   // moved — был ли горизонтальный свайп; longPressed — сработал ли long-press
   // (тогда дальнейшие move/up в этой строке игнорируются: жест ведёт TasksPage).
-  const drag = useRef({ x: 0, y: 0, dx: 0, moved: false, longPressed: false, pointerId: 0 });
+  const drag = useRef({
+    x: 0,
+    y: 0,
+    dx: 0,
+    moved: false,
+    longPressed: false,
+    pointerId: 0,
+    axis: 'none' as 'none' | 'x' | 'y', // directional lock: ось жеста, пока не определена — не свайпим
+  });
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const rowRef = useRef<HTMLDivElement>(null);
 
@@ -133,6 +142,7 @@ export function TaskItem({
       moved: false,
       longPressed: false,
       pointerId: e.pointerId,
+      axis: 'none',
     };
     setDragging(true);
     // Long-press → drag-режим. Армируем только там, где перенос поддержан.
@@ -167,7 +177,15 @@ export function TaskItem({
     if (Math.abs(d) > DRAG_CANCEL_MOVE || Math.abs(dy) > DRAG_CANCEL_MOVE) {
       clearLongPress();
     }
-    if (Math.abs(d) > 6) drag.current.moved = true;
+    // Directional lock: пока движение мало — ничего не двигаем (убирает выезд
+    // плашки от лёгкого касания). Как только ось определилась — фиксируем её:
+    // вертикаль = скролл (свайп заблокирован), горизонталь = свайп действий.
+    if (drag.current.axis === 'none') {
+      if (Math.abs(d) < SWIPE_ACTIVATE && Math.abs(dy) < SWIPE_ACTIVATE) return;
+      drag.current.axis = Math.abs(d) > Math.abs(dy) ? 'x' : 'y';
+      drag.current.moved = true; // определившееся движение — это не тап
+    }
+    if (drag.current.axis === 'y') return; // вертикальный скролл — не свайпим
     setDx(Math.max(-ACTIONS_WIDTH, Math.min(ACTIONS_WIDTH, drag.current.dx + d)));
   };
   const onUp = () => {
@@ -232,9 +250,13 @@ export function TaskItem({
         <span className={`w-1 shrink-0 self-stretch rounded-full ${PRIORITY_BAR[task.priority]}`} />
         <TaskCheck checked={done} onChange={handleToggle} color={project?.color} />
         <div className="min-w-0 flex-1">
-          <p className={`break-words ${done ? 'text-muted line-through' : ''}`}>{task.title}</p>
+          <p className={`break-words font-medium ${done ? 'text-muted line-through' : ''}`}>
+            {task.title}
+          </p>
           {task.notes && (
-            <p className="mt-0.5 line-clamp-2 break-words text-xs text-muted">{task.notes}</p>
+            <p className="mt-1 line-clamp-4 whitespace-pre-line break-words border-l-2 border-hairline pl-2 font-mono text-[13px] leading-relaxed text-text/65">
+              {task.notes}
+            </p>
           )}
           {hasMeta && (
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">

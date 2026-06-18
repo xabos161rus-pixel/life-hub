@@ -164,11 +164,11 @@ function Section({
           }`}
         >
           <ChevronDown
-            size={16}
+            size={18}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
-          <h2 className="text-sm font-semibold">{title}</h2>
-          <span className="text-xs text-muted">{count}</span>
+          <h2 className="text-lg font-bold tracking-tight">{title}</h2>
+          <span className="text-sm text-muted">{count}</span>
         </button>
         {onEdit && (
           <button

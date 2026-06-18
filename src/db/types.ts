@@ -159,6 +159,7 @@ export interface PlaceItem extends BaseEntity {
   source: string; // от кого совет
   location: string; // город/адрес (опц.)
   link: string; // ссылка (опц.)
+  photo: string | null; // dataURL сжатого фото (опц.)
   tags: string[];
   status: PlaceStatus;
   sortOrder: number;

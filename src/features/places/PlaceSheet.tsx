@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react';
+import { ImagePlus, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Field, Input, Textarea } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -6,6 +7,37 @@ import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
 import type { PlaceItem, PlaceKind, PlaceStatus } from '../../db/types';
+
+// Уменьшает фото до ~1280px и пережимает в JPEG — чтобы dataURL в IndexedDB
+// весил сотни КБ, а не мегабайты с камеры телефона.
+async function compressImage(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result as string);
+    fr.onerror = () => rej(new Error('read'));
+    fr.readAsDataURL(file);
+  });
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = () => rej(new Error('decode'));
+    i.src = dataUrl;
+  });
+  const MAX = 1280;
+  let { width, height } = img;
+  if (Math.max(width, height) > MAX) {
+    const s = MAX / Math.max(width, height);
+    width = Math.round(width * s);
+    height = Math.round(height * s);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return dataUrl;
+  ctx.drawImage(img, 0, 0, width, height);
+  return canvas.toDataURL('image/jpeg', 0.8);
+}
 
 interface Props {
   open: boolean;
@@ -30,8 +62,21 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
   const [source, setSource] = useState(item?.source ?? '');
   const [location, setLocation] = useState(item?.location ?? '');
   const [link, setLink] = useState(item?.link ?? '');
+  const [photo, setPhoto] = useState<string | null>(item?.photo ?? null);
   const [tagsStr, setTagsStr] = useState(item?.tags.join(', ') ?? '');
   const [status, setStatus] = useState<PlaceStatus>(item?.status ?? 'idea');
+
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const handlePhoto = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // позволяет выбрать тот же файл повторно
+    if (!file) return;
+    try {
+      setPhoto(await compressImage(file));
+    } catch {
+      /* битый файл — игнорируем */
+    }
+  };
 
   const savingRef = useRef(false);
   const handleSave = async () => {
@@ -51,6 +96,7 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
         source: source.trim(),
         location: location.trim(),
         link: link.trim(),
+        photo,
         tags,
         status,
       };
@@ -123,6 +169,37 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
           value={link}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setLink(e.target.value)}
           placeholder="https://"
+        />
+      </Field>
+      <Field label="Фото">
+        {photo ? (
+          <div className="relative">
+            <img src={photo} alt="" className="max-h-56 w-full rounded-xl object-cover" />
+            <button
+              type="button"
+              aria-label="Удалить фото"
+              onClick={() => setPhoto(null)}
+              className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white active:opacity-80"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => photoInputRef.current?.click()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6 text-sm text-muted active:opacity-70"
+          >
+            <ImagePlus size={18} />
+            Добавить фото
+          </button>
+        )}
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => void handlePhoto(e)}
         />
       </Field>
       <Field label="Теги">
