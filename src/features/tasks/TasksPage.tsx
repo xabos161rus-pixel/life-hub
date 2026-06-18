@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronDown, ChevronRight, FolderPlus, ListChecks, Pencil, Plus } from 'lucide-react';
 import { db } from '../../db/db';
@@ -19,6 +28,10 @@ const NONE = '__none__';
 // Авто-скролл во время drag: зона у краёв скролл-контейнера и шаг за кадр.
 const SCROLL_EDGE = 72; // px от верх/низ края, где включается авто-скролл
 const SCROLL_STEP = 11; // px за кадр
+
+// Переупорядочивание проектов: удержание заголовка → drag.
+const LONG_PRESS_MS = 400; // удержание без движения → старт drag
+const DRAG_CANCEL_MOVE = 8; // сдвиг до старта = скролл, а не drag — отменяем
 
 /** Ближайший прокручиваемый предок (overflow-y auto/scroll с переполнением). */
 function getScrollParent(node: HTMLElement | null): HTMLElement | null {
@@ -53,6 +66,8 @@ function Section({
   dropRef,
   dropKey,
   highlight = false,
+  onReorderStart,
+  isReorderSource = false,
   children,
 }: {
   title: string;
@@ -63,18 +78,71 @@ function Section({
   dropRef?: (el: HTMLElement | null) => void;
   dropKey?: string;
   highlight?: boolean;
+  /** Передаётся только реальным проектам — включает long-press переупорядочивания. */
+  onReorderStart?: (at: { x: number; y: number }) => void;
+  /** Этот проект сейчас перетаскивают — приглушаем. */
+  isReorderSource?: boolean;
   children: ReactNode;
 }) {
+  const reorderable = Boolean(onReorderStart);
+  const pressTimer = useRef<number | null>(null);
+  const longFired = useRef(false);
+  const startPt = useRef({ x: 0, y: 0 });
+
+  const cancelPress = () => {
+    if (pressTimer.current != null) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+  const headerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!reorderable) return;
+    longFired.current = false;
+    startPt.current = { x: e.clientX, y: e.clientY };
+    cancelPress();
+    pressTimer.current = window.setTimeout(() => {
+      pressTimer.current = null;
+      longFired.current = true;
+      onReorderStart?.(startPt.current);
+    }, LONG_PRESS_MS);
+  };
+  const headerMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (pressTimer.current == null) return;
+    if (
+      Math.abs(e.clientX - startPt.current.x) > DRAG_CANCEL_MOVE ||
+      Math.abs(e.clientY - startPt.current.y) > DRAG_CANCEL_MOVE
+    ) {
+      cancelPress(); // палец поехал — это скролл, а не удержание
+    }
+  };
+  const headerClick = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    if (longFired.current) {
+      e.preventDefault(); // был long-press — не сворачиваем секцию
+      longFired.current = false;
+      return;
+    }
+    onToggle();
+  };
+
   return (
     <section
       ref={dropRef}
       data-drop-key={dropKey}
-      className={`mb-4 rounded-2xl transition-colors ${
+      className={`mb-4 rounded-2xl transition-[background-color,opacity] ${
         highlight ? 'bg-accent/10 ring-2 ring-accent' : ''
-      }`}
+      } ${isReorderSource ? 'opacity-40' : ''}`}
     >
       <div className="mb-2 flex items-center gap-1 px-1">
-        <button onClick={onToggle} className="flex flex-1 items-center gap-1.5 text-left">
+        <button
+          onClick={headerClick}
+          onPointerDown={headerDown}
+          onPointerMove={headerMove}
+          onPointerUp={cancelPress}
+          onPointerCancel={cancelPress}
+          className={`flex flex-1 items-center gap-1.5 text-left ${
+            reorderable ? 'select-none [-webkit-touch-callout:none] [-webkit-user-select:none]' : ''
+          }`}
+        >
           <ChevronDown
             size={16}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
@@ -126,6 +194,7 @@ function TaskCard({
           onEdit={onEdit}
           onDragStart={onDragStart}
           isDragSource={draggingId === t.id}
+          hideProject
         />
       ))}
     </div>
@@ -203,6 +272,20 @@ export function TasksPage() {
   const dropKeyRef = useRef<string | null>(null);
   // Имена проектов по id — для тоста переноса. Синкается из projects в effect.
   const projectNamesRef = useRef<Map<string, string>>(new Map());
+
+  // --- Переупорядочивание проектов (long-press заголовка) ---
+  const [draggingProject, setDraggingProject] = useState<Project | null>(null);
+  const [projDropId, setProjDropId] = useState<string | null>(null);
+  const projDropRef = useRef<string | null>(null);
+  const projectsRef = useRef<Project[]>([]);
+
+  const onProjectReorderStart = useCallback((p: Project, at: { x: number; y: number }) => {
+    pointerRef.current = at; // стартовая позиция пальца — «призрак» из неё, не из угла
+    setPointer(at);
+    projDropRef.current = p.id;
+    setProjDropId(p.id);
+    setDraggingProject(p);
+  }, []);
 
   // Единственный стабильный ref-колбэк: ключ берётся из data-drop-key самого
   // узла, поэтому идентичность колбэка постоянна и React не дёргает его лишний раз.
@@ -308,6 +391,76 @@ export function TasksPage() {
       cancelAnimationFrame(raf);
     };
   }, [draggingTask, hitTest, toast]);
+
+  // Window-слушатели переупорядочивания проектов — активны только во время drag.
+  useEffect(() => {
+    if (!draggingProject) return;
+    const dp = draggingProject;
+    const anySection = sectionNodes.current.values().next().value ?? null;
+    const scroller = getScrollParent(anySection);
+
+    const refreshDrop = (y: number) => {
+      const key = hitTest(y);
+      // Цель — только реальный проект (не «Без проекта» и не пусто).
+      const valid = key && key !== NONE && projectsRef.current.some((p) => p.id === key) ? key : null;
+      if (valid !== projDropRef.current) {
+        projDropRef.current = valid;
+        setProjDropId(valid);
+      }
+    };
+    const move = (e: PointerEvent) => {
+      e.preventDefault();
+      pointerRef.current = { x: e.clientX, y: e.clientY };
+      setPointer({ x: e.clientX, y: e.clientY });
+      refreshDrop(e.clientY);
+    };
+    let raf = 0;
+    const tick = () => {
+      const y = pointerRef.current.y;
+      if (scroller) {
+        const r = scroller.getBoundingClientRect();
+        const max = scroller.scrollHeight - scroller.clientHeight;
+        if (y < r.top + SCROLL_EDGE && scroller.scrollTop > 0) scroller.scrollTop -= SCROLL_STEP;
+        else if (y > r.bottom - SCROLL_EDGE && scroller.scrollTop < max) scroller.scrollTop += SCROLL_STEP;
+      }
+      refreshDrop(y);
+      raf = requestAnimationFrame(tick);
+    };
+    const finish = () => {
+      const target = projDropRef.current;
+      const ids = projectsRef.current.map((p) => p.id);
+      const from = ids.indexOf(dp.id);
+      const to = target ? ids.indexOf(target) : -1;
+      if (from !== -1 && to !== -1 && from !== to) {
+        const next = [...ids];
+        next.splice(from, 1);
+        next.splice(to, 0, dp.id);
+        next.forEach((id, i) => {
+          const cur = projectsRef.current.find((p) => p.id === id);
+          const order = (i + 1) * 1000;
+          if (cur && cur.sortOrder !== order) void update(db.projects, id, { sortOrder: order });
+        });
+        toast('Порядок проектов обновлён');
+      }
+      projDropRef.current = null;
+      setDraggingProject(null);
+      setProjDropId(null);
+    };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
+    const prevTouch = document.body.style.touchAction;
+    document.body.style.touchAction = 'none';
+    if (scroller) raf = requestAnimationFrame(tick);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+      document.body.style.touchAction = prevTouch;
+      cancelAnimationFrame(raf);
+    };
+  }, [draggingProject, hitTest, toast]);
+
   // Свёрнутые группы (проекты/«Без проекта»). По умолчанию все развёрнуты.
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   // Развёрнутые под-секции выполненных по ключу группы. По умолчанию — свёрнуты.
@@ -332,6 +485,7 @@ export function TasksPage() {
   // Синк имён проектов в ref для тоста переноса (читается в pointerup-обработчике).
   useEffect(() => {
     projectNamesRef.current = new Map(projects.map((p) => [p.id, p.name]));
+    projectsRef.current = projects; // для finish-обработчика drag без устаревания
   }, [projects]);
   const loaded = tasksRaw !== undefined;
 
@@ -443,7 +597,12 @@ export function TasksPage() {
                 onEdit={() => openProject(p)}
                 dropRef={registerSection}
                 dropKey={p.id}
-                highlight={Boolean(draggingTask) && dropKey === p.id}
+                highlight={
+                  (Boolean(draggingTask) && dropKey === p.id) ||
+                  (Boolean(draggingProject) && draggingProject?.id !== p.id && projDropId === p.id)
+                }
+                onReorderStart={(at) => onProjectReorderStart(p, at)}
+                isReorderSource={draggingProject?.id === p.id}
               >
                 {doneList.length > 0 && (
                   <CompletedSubsection
@@ -528,6 +687,14 @@ export function TasksPage() {
           style={{ left: pointer.x, top: pointer.y }}
         >
           {draggingTask.title}
+        </div>
+      )}
+      {draggingProject && (
+        <div
+          className="pointer-events-none fixed z-[70] max-w-[70vw] -translate-y-1/2 translate-x-3 truncate rounded-xl border border-accent bg-elevated px-3 py-2 text-sm font-semibold shadow-lg shadow-black/30 opacity-95"
+          style={{ left: pointer.x, top: pointer.y }}
+        >
+          {draggingProject.emoji} {draggingProject.name}
         </div>
       )}
     </Screen>

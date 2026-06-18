@@ -40,6 +40,7 @@ export function TaskItem({
   onEdit,
   onDragStart,
   isDragSource = false,
+  hideProject = false,
 }: {
   task: Task;
   project?: Project | null;
@@ -49,12 +50,15 @@ export function TaskItem({
   onDragStart?: (t: Task, at: { x: number; y: number }) => void;
   /** Управляемый родителем визуальный сигнал «эта задача сейчас тащится». */
   isDragSource?: boolean;
+  /** Скрыть метку проекта — на TasksPage задача уже под заголовком проекта. */
+  hideProject?: boolean;
 }) {
   const toast = useToast();
   const done = Boolean(task.completedAt);
   // Где включён drag — глушим нативное выделение/лупу/callout iOS, иначе
   // удержание шлёт строке pointercancel и перенос срывается.
   const draggable = Boolean(onDragStart);
+  const showProject = Boolean(project) && !hideProject;
   const overdue = !done && task.dueDate !== null && task.dueDate < todayKey();
   const checklistDone = task.checklist.filter((i) => i.done).length;
   const checklistPct = task.checklist.length
@@ -63,7 +67,7 @@ export function TaskItem({
   const hasMeta =
     Boolean(task.dueDate) ||
     Boolean(task.recurrence) ||
-    Boolean(project) ||
+    showProject ||
     task.checklist.length > 0 ||
     task.tags.length > 0;
 
@@ -220,7 +224,7 @@ export function TaskItem({
                   {describeRecurrence(task.recurrence)}
                 </span>
               )}
-              {project && (
+              {showProject && project && (
                 <span className="truncate">
                   {project.emoji} {project.name}
                 </span>

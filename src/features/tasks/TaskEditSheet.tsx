@@ -494,11 +494,26 @@ export function TaskEditSheet({
         {dueDate && (
           <>
             <Field label="Время начала">
-              <Input
-                type="time"
-                value={dueTime ?? ''}
-                onChange={(e) => setDueTime(e.target.value || null)}
-              />
+              <div className="flex items-center gap-2">
+                <Input
+                  type="time"
+                  className="flex-1"
+                  value={dueTime ?? ''}
+                  onChange={(e) => setDueTime(e.target.value || null)}
+                />
+                {dueTime && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setDueTime(null);
+                    }}
+                    className="shrink-0 rounded-xl border border-border px-3.5 py-3 text-sm text-muted active:opacity-60"
+                  >
+                    Убрать
+                  </button>
+                )}
+              </div>
             </Field>
             <Field label="Длительность">
               <select
