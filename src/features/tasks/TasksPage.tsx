@@ -45,16 +45,6 @@ function getScrollParent(node: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
-/** Сортировка внутри секции: ближайший срок и время выше, затем приоритет. */
-function byDateTimePriority(a: Task, b: Task): number {
-  return (
-    (a.dueDate ?? '9999-99-99').localeCompare(b.dueDate ?? '9999-99-99') ||
-    (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99') ||
-    b.priority - a.priority ||
-    a.sortOrder - b.sortOrder
-  );
-}
-
 /** Сворачиваемая секция с заголовком, счётчиком и (опц.) карандашом.
  *  dropRef/dropKey/highlight — для drag-and-drop: вся секция служит drop-зоной,
  *  ключ цели читается из data-drop-key узла. */
@@ -195,6 +185,13 @@ function Section({
   );
 }
 
+/** Тонкая линия-индикатор вставки задачи между строками. */
+function TaskDropLine() {
+  return (
+    <div className="my-1.5 h-1 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent)]" aria-hidden />
+  );
+}
+
 function TaskCard({
   tasks,
   projectById,
@@ -202,6 +199,7 @@ function TaskCard({
   muted,
   onDragStart,
   draggingId,
+  dropIndex,
 }: {
   tasks: Task[];
   projectById: Map<string, Project>;
@@ -211,22 +209,27 @@ function TaskCard({
   onDragStart?: (t: Task, at: { x: number; y: number }) => void;
   /** id перетаскиваемой задачи для визуального сигнала источника. */
   draggingId?: string | null;
+  /** Зазор вставки перетаскиваемой задачи (0..N) — рисуем линию. null — нет. */
+  dropIndex?: number | null;
 }) {
   return (
     <div
       className={`card divide-y divide-hairline px-4 ${muted ? 'opacity-60' : ''}`}
     >
-      {tasks.map((t) => (
-        <TaskItem
-          key={t.id}
-          task={t}
-          project={t.projectId ? (projectById.get(t.projectId) ?? null) : null}
-          onEdit={onEdit}
-          onDragStart={onDragStart}
-          isDragSource={draggingId === t.id}
-          hideProject
-        />
+      {tasks.map((t, i) => (
+        <Fragment key={t.id}>
+          {dropIndex === i && <TaskDropLine />}
+          <TaskItem
+            task={t}
+            project={t.projectId ? (projectById.get(t.projectId) ?? null) : null}
+            onEdit={onEdit}
+            onDragStart={onDragStart}
+            isDragSource={draggingId === t.id}
+            hideProject
+          />
+        </Fragment>
       ))}
+      {dropIndex === tasks.length && <TaskDropLine />}
     </div>
   );
 }
@@ -307,12 +310,17 @@ export function TasksPage() {
   const pointerRef = useRef({ x: 0, y: 0 });
   // Ключ секции под пальцем (projectId | NONE) — для подсветки drop-зоны.
   const [dropKey, setDropKey] = useState<string | null>(null);
+  // Индекс вставки задачи внутри проекта-цели (зазор) — для линии и точного дропа.
+  const [taskDropIndex, setTaskDropIndex] = useState<number | null>(null);
+  const taskDropIndexRef = useRef<number | null>(null);
   // Реестр DOM-узлов секций для hit-теста по Y пальца (ключ = data-drop-key).
   const sectionNodes = useRef<Map<string, HTMLElement>>(new Map());
   // Актуальный dropKey для window-обработчика pointerup (обновляется в move).
   const dropKeyRef = useRef<string | null>(null);
   // Имена проектов по id — для тоста переноса. Синкается из projects в effect.
   const projectNamesRef = useRef<Map<string, string>>(new Map());
+  // Актуальные активные задачи по проектам — для finish-обработчика drag.
+  const activeByProjectRef = useRef<Map<string, Task[]>>(new Map());
 
   // --- Переупорядочивание проектов (long-press заголовка) ---
   // projInsertIndex — «зазор» (0..N), куда встанет проект; рисуем там линию.
@@ -373,6 +381,24 @@ export function TasksPage() {
         dropKeyRef.current = key;
         setDropKey(key);
       }
+      // Зазор вставки среди отображаемых активных задач проекта-цели.
+      let idx = 0;
+      if (key) {
+        const sec = sectionNodes.current.get(key);
+        const list = activeByProjectRef.current.get(key) ?? [];
+        if (sec) {
+          for (const at of list) {
+            const el = sec.querySelector(`[data-task-id="${at.id}"]`);
+            if (!el) continue;
+            const r = el.getBoundingClientRect();
+            if (y > r.top + r.height / 2) idx++;
+          }
+        }
+      }
+      if (idx !== taskDropIndexRef.current) {
+        taskDropIndexRef.current = idx;
+        setTaskDropIndex(idx);
+      }
     };
 
     const move = (e: PointerEvent) => {
@@ -402,20 +428,36 @@ export function TasksPage() {
 
     const finish = () => {
       const target = dropKeyRef.current;
+      const idx = taskDropIndexRef.current ?? 0;
       if (target) {
         const nextProjectId = target === NONE ? null : target;
+        // Новый порядок активных задач проекта-цели с задачей на позиции idx.
+        const current = (activeByProjectRef.current.get(target) ?? []).map((t) => t.id);
+        const from = current.indexOf(task.id);
+        let order: string[];
+        if (from === -1) {
+          order = [...current];
+          order.splice(idx, 0, task.id); // из другого проекта — без сдвига
+        } else {
+          order = current.filter((id) => id !== task.id);
+          order.splice(idx > from ? idx - 1 : idx, 0, task.id);
+        }
+        order.forEach((id, i) => {
+          const sortOrder = (i + 1) * 1000;
+          if (id === task.id) void update(db.tasks, id, { projectId: nextProjectId, sortOrder });
+          else void update(db.tasks, id, { sortOrder });
+        });
         if (nextProjectId !== task.projectId) {
-          void update(db.tasks, task.id, { projectId: nextProjectId });
           const name =
-            nextProjectId === null
-              ? 'Без проекта'
-              : (projectNamesRef.current.get(target) ?? 'проект');
+            nextProjectId === null ? 'Без проекта' : (projectNamesRef.current.get(target) ?? 'проект');
           toast(`Перенесено в ${name}`);
         }
       }
       dropKeyRef.current = null;
+      taskDropIndexRef.current = null;
       setDraggingTask(null);
       setDropKey(null);
+      setTaskDropIndex(null);
     };
 
     // passive:false — иначе preventDefault на touch не сработает.
@@ -554,9 +596,14 @@ export function TasksPage() {
       if (arr) arr.push(t);
       else map.set(key, [t]);
     }
-    for (const arr of map.values()) arr.sort(byDateTimePriority);
+    // Ручной порядок: по sortOrder (перетаскивание задаёт позицию).
+    for (const arr of map.values()) arr.sort((a, b) => a.sortOrder - b.sortOrder);
     return map;
   }, [tasks]);
+  // Актуальные активные задачи по проектам — для finish-обработчика drag.
+  useEffect(() => {
+    activeByProjectRef.current = activeByProject;
+  }, [activeByProject]);
 
   // Выполненные сгруппированы по проекту (key = projectId | NONE),
   // внутри группы — по completedAt убыв.
@@ -674,6 +721,7 @@ export function TasksPage() {
                       onEdit={(t) => openTask(t, t.projectId)}
                       onDragStart={onDragStart}
                       draggingId={draggingTask?.id ?? null}
+                      dropIndex={draggingTask && dropKey === p.id ? taskDropIndex : null}
                     />
                   )}
                   <AddTaskRow onClick={() => openTask(null, p.id)} />
@@ -709,6 +757,7 @@ export function TasksPage() {
                   onEdit={(t) => openTask(t, null)}
                   onDragStart={onDragStart}
                   draggingId={draggingTask?.id ?? null}
+                  dropIndex={draggingTask && dropKey === NONE ? taskDropIndex : null}
                 />
               )}
               <AddTaskRow onClick={() => openTask(null, null)} />

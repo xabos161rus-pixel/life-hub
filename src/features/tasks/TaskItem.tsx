@@ -215,6 +215,7 @@ export function TaskItem({
       </div>
       <div
         ref={rowRef}
+        data-task-id={task.id}
         className={`relative flex touch-pan-y items-start gap-3 bg-surface px-4 py-3 ${
           draggable ? 'select-none [-webkit-user-select:none] [-webkit-touch-callout:none]' : ''
         } ${isDragSource ? 'scale-[0.97] opacity-40' : ''}`}
