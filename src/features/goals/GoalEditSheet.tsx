@@ -3,7 +3,7 @@ import { Check } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, create, remove, update } from '../../db/repo';
 import type { Goal, GoalProgressMode, GoalStatus } from '../../db/types';
-import { PRESET_COLORS } from '../../lib/colors';
+import { PRESET_COLORS, isLightColor, ON_COLOR_DARK } from '../../lib/colors';
 import { Button } from '../../components/ui/Button';
 import { Field, Input, Textarea } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -133,7 +133,9 @@ export function GoalEditSheet({
                 className="flex size-9 items-center justify-center rounded-full"
                 style={{ background: c }}
               >
-                {color === c && <Check size={18} color="#fff" strokeWidth={3} />}
+                {color === c && (
+                  <Check size={18} color={isLightColor(c) ? ON_COLOR_DARK : '#fff'} strokeWidth={3} />
+                )}
               </button>
             ))}
           </div>

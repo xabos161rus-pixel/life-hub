@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react';
+import { isLightColor, ON_COLOR_DARK } from '../../lib/colors';
 
 interface Props {
   checked: boolean;
@@ -13,6 +14,8 @@ interface Props {
  *  и белая галочка. Лаконичнее прежнего крупного цветного кольца. */
 export function TaskCheck({ checked, onChange, color, size = 22 }: Props) {
   const c = color || 'var(--app-accent)';
+  // На светлой заливке (белый, янтарный…) белая галочка не видна — ставим тёмную.
+  const checkColor = color && isLightColor(color) ? ON_COLOR_DARK : '#fff';
   return (
     <button
       onClick={(e) => {
@@ -28,7 +31,7 @@ export function TaskCheck({ checked, onChange, color, size = 22 }: Props) {
         background: checked ? c : 'transparent',
       }}
     >
-      {checked && <Check size={size - 10} color="#fff" strokeWidth={3} />}
+      {checked && <Check size={size - 10} color={checkColor} strokeWidth={3} />}
     </button>
   );
 }

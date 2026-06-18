@@ -75,8 +75,21 @@ export function TaskItem({
   const [dragging, setDragging] = useState(false);
   // moved — был ли горизонтальный свайп; longPressed — сработал ли long-press
   // (тогда дальнейшие move/up в этой строке игнорируются: жест ведёт TasksPage).
-  const drag = useRef({ x: 0, y: 0, dx: 0, moved: false, longPressed: false });
+  const drag = useRef({ x: 0, y: 0, dx: 0, moved: false, longPressed: false, pointerId: 0 });
   const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  // Снять «drag-режим» строки: вернуть touch-action и отпустить захват указателя.
+  const endRowDrag = () => {
+    const el = rowRef.current;
+    if (!el) return;
+    el.style.touchAction = '';
+    try {
+      el.releasePointerCapture(drag.current.pointerId);
+    } catch {
+      /* указатель уже отпущен */
+    }
+  };
 
   const clearLongPress = () => {
     clearTimeout(longPressTimer.current);
@@ -113,7 +126,14 @@ export function TaskItem({
   };
 
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
-    drag.current = { x: e.clientX, y: e.clientY, dx, moved: false, longPressed: false };
+    drag.current = {
+      x: e.clientX,
+      y: e.clientY,
+      dx,
+      moved: false,
+      longPressed: false,
+      pointerId: e.pointerId,
+    };
     setDragging(true);
     // Long-press → drag-режим. Армируем только там, где перенос поддержан.
     if (onDragStart) {
@@ -122,6 +142,18 @@ export function TaskItem({
         drag.current.longPressed = true;
         setDragging(false); // прекращаем визуальный свайп: жест ушёл в drag
         setDx(0);
+        // Палец ещё неподвижен — самое время заблокировать нативный скролл для
+        // этого касания (иначе вертикальный перенос iOS заберёт под скролл и
+        // оборвёт pointercancel) и удержать события на строке через захват.
+        const el = rowRef.current;
+        if (el) {
+          el.style.touchAction = 'none';
+          try {
+            el.setPointerCapture(drag.current.pointerId);
+          } catch {
+            /* указатель уже неактивен */
+          }
+        }
         onDragStart(task, { x: drag.current.x, y: drag.current.y });
       }, LONG_PRESS_MS);
     }
@@ -139,6 +171,7 @@ export function TaskItem({
     setDx(Math.max(-ACTIONS_WIDTH, Math.min(ACTIONS_WIDTH, drag.current.dx + d)));
   };
   const onUp = () => {
+    endRowDrag(); // вернуть touch-action и отпустить захват (касание завершено)
     clearLongPress();
     if (drag.current.longPressed) return; // перенос завершит TasksPage
     setDragging(false);
@@ -181,6 +214,7 @@ export function TaskItem({
         </button>
       </div>
       <div
+        ref={rowRef}
         className={`relative flex touch-pan-y items-start gap-3 bg-surface px-4 py-3 ${
           draggable ? 'select-none [-webkit-user-select:none] [-webkit-touch-callout:none]' : ''
         } ${isDragSource ? 'scale-[0.97] opacity-40' : ''}`}

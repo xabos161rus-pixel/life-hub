@@ -88,6 +88,8 @@ function Section({
   const pressTimer = useRef<number | null>(null);
   const longFired = useRef(false);
   const startPt = useRef({ x: 0, y: 0 });
+  const headerRef = useRef<HTMLButtonElement>(null);
+  const pointerIdRef = useRef(0);
 
   const cancelPress = () => {
     if (pressTimer.current != null) {
@@ -95,14 +97,36 @@ function Section({
       pressTimer.current = null;
     }
   };
+  const endHeaderDrag = () => {
+    const el = headerRef.current;
+    if (!el) return;
+    el.style.touchAction = '';
+    try {
+      el.releasePointerCapture(pointerIdRef.current);
+    } catch {
+      /* указатель уже отпущен */
+    }
+  };
   const headerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
     if (!reorderable) return;
     longFired.current = false;
     startPt.current = { x: e.clientX, y: e.clientY };
+    pointerIdRef.current = e.pointerId;
     cancelPress();
     pressTimer.current = window.setTimeout(() => {
       pressTimer.current = null;
       longFired.current = true;
+      // Палец неподвижен — блокируем нативный скролл для этого касания и
+      // держим события на заголовке (иначе вертикальный перенос iOS заберёт).
+      const el = headerRef.current;
+      if (el) {
+        el.style.touchAction = 'none';
+        try {
+          el.setPointerCapture(pointerIdRef.current);
+        } catch {
+          /* указатель уже неактивен */
+        }
+      }
       onReorderStart?.(startPt.current);
     }, LONG_PRESS_MS);
   };
@@ -114,6 +138,10 @@ function Section({
     ) {
       cancelPress(); // палец поехал — это скролл, а не удержание
     }
+  };
+  const onHeaderUp = () => {
+    cancelPress();
+    endHeaderDrag();
   };
   const headerClick = (e: ReactMouseEvent<HTMLButtonElement>) => {
     if (longFired.current) {
@@ -134,11 +162,12 @@ function Section({
     >
       <div className="mb-2 flex items-center gap-1 px-1">
         <button
+          ref={headerRef}
           onClick={headerClick}
           onPointerDown={headerDown}
           onPointerMove={headerMove}
-          onPointerUp={cancelPress}
-          onPointerCancel={cancelPress}
+          onPointerUp={onHeaderUp}
+          onPointerCancel={onHeaderUp}
           className={`flex flex-1 items-center gap-1.5 text-left ${
             reorderable ? 'select-none [-webkit-touch-callout:none] [-webkit-user-select:none]' : ''
           }`}
@@ -377,7 +406,9 @@ export function TasksPage() {
     };
 
     // passive:false — иначе preventDefault на touch не сработает.
+    const preventScroll = (ev: TouchEvent) => ev.preventDefault();
     window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
     window.addEventListener('pointerup', finish);
     window.addEventListener('pointercancel', finish);
     // На время drag глушим скролл страницы (свой авто-скролл — программный).
@@ -386,6 +417,7 @@ export function TasksPage() {
     if (scroller) raf = requestAnimationFrame(tick);
     return () => {
       window.removeEventListener('pointermove', move);
+      window.removeEventListener('touchmove', preventScroll);
       window.removeEventListener('pointerup', finish);
       window.removeEventListener('pointercancel', finish);
       document.body.style.touchAction = prevTouch;
@@ -447,7 +479,9 @@ export function TasksPage() {
       setDraggingProject(null);
       setProjDropId(null);
     };
+    const preventScroll = (ev: TouchEvent) => ev.preventDefault();
     window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
     window.addEventListener('pointerup', finish);
     window.addEventListener('pointercancel', finish);
     const prevTouch = document.body.style.touchAction;
@@ -455,6 +489,7 @@ export function TasksPage() {
     if (scroller) raf = requestAnimationFrame(tick);
     return () => {
       window.removeEventListener('pointermove', move);
+      window.removeEventListener('touchmove', preventScroll);
       window.removeEventListener('pointerup', finish);
       window.removeEventListener('pointercancel', finish);
       document.body.style.touchAction = prevTouch;
