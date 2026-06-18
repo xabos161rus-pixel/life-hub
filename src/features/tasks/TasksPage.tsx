@@ -241,6 +241,7 @@ function AddTaskRow({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
+      aria-label="Добавить задачу"
       className="mt-1.5 flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
     >
       <Plus size={15} /> Задача
@@ -655,6 +656,7 @@ export function TasksPage() {
                   draggingId={draggingTask?.id ?? null}
                 />
               )}
+              <AddTaskRow onClick={() => openTask(null, null)} />
             </Section>
           )}
 

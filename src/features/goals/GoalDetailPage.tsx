@@ -115,6 +115,17 @@ export function GoalDetailPage() {
     await update(db.goals, goal.id, { currentValue: Math.max(0, value) });
   }
 
+  // Δ через атомарный modify: читает актуальное значение из БД, поэтому
+  // быстрые повторные клики +/- не теряют инкременты (без устаревших замыканий).
+  async function changeBy(delta: number) {
+    if (!goal) return;
+    const id = goal.id;
+    await db.goals.where('id').equals(id).modify((g) => {
+      g.currentValue = Math.max(0, (g.currentValue ?? 0) + delta);
+      g.updatedAt = new Date().toISOString();
+    });
+  }
+
   return (
     <Screen
       title={goal.title}
@@ -160,13 +171,16 @@ export function GoalDetailPage() {
       <div className="mt-3">
         {goal.progressMode === 'manual' && (
           <div className="rounded-2xl border border-border bg-surface p-4">
-            <p className="mb-2 text-sm font-medium text-muted">Прогресс вручную</p>
+            <p className="mb-2 text-sm font-medium text-muted">
+              Прогресс вручную · {goal.progressManual}%
+            </p>
             <input
               type="range"
               min={0}
               max={100}
               step={1}
               value={goal.progressManual}
+              aria-label="Прогресс вручную, проценты"
               onChange={(e: ChangeEvent<HTMLInputElement>) =>
                 update(db.goals, goal.id, { progressManual: Number(e.target.value) })
               }
@@ -184,10 +198,10 @@ export function GoalDetailPage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                aria-label="Уменьшить"
+                aria-label="Уменьшить прогресс"
                 onClick={() => {
                   setValueDraft(null);
-                  void setCurrentValue(current - 1);
+                  void changeBy(-1);
                 }}
                 className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 active:opacity-70"
               >
@@ -209,10 +223,10 @@ export function GoalDetailPage() {
               />
               <button
                 type="button"
-                aria-label="Увеличить"
+                aria-label="Увеличить прогресс"
                 onClick={() => {
                   setValueDraft(null);
-                  void setCurrentValue(current + 1);
+                  void changeBy(1);
                 }}
                 className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 active:opacity-70"
               >

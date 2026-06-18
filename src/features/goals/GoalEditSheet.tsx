@@ -184,7 +184,10 @@ export function GoalEditSheet({
         )}
 
         <div className="mt-1 flex flex-col gap-2">
-          <Button onClick={handleSave} disabled={!title.trim()}>
+          <Button
+            onClick={handleSave}
+            disabled={!title.trim() || (mode === 'numeric' && !(Number(targetValue) > 0))}
+          >
             Сохранить
           </Button>
           {goal && (

@@ -84,7 +84,7 @@ export interface HabitLog extends BaseEntity {
 
 export interface Note extends BaseEntity {
   title: string;
-  content: string; // markdown
+  content: string; // HTML (v1-заметки — markdown, мигрируют в HTML при первом открытии)
   tags: string[];
   pinned: boolean;
 }

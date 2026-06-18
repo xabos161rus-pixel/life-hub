@@ -98,7 +98,14 @@ export function TodayPage() {
     setSheetOpen(true);
   }
 
-  const noTasksAtAll = overdue.length === 0 && todayOpen.length === 0 && todayDone.length === 0;
+  // Пусто только когда на экране реально нечего показать: ни задач сегодня,
+  // ни просроченных, ни «в работе», ни целей — иначе EmptyState врёт.
+  const noTasksAtAll =
+    overdue.length === 0 &&
+    todayOpen.length === 0 &&
+    todayDone.length === 0 &&
+    inProgress.length === 0 &&
+    activeGoals.length === 0;
   const todayTotal = todayOpen.length + todayDone.length;
   const todayPct = todayTotal === 0 ? 0 : Math.round((todayDone.length / todayTotal) * 100);
 
@@ -158,6 +165,9 @@ export function TodayPage() {
       {inProgress.length > 0 && (
         <section className="mb-5">
           <button
+            type="button"
+            aria-expanded={!inProgressCollapsed}
+            aria-label={inProgressCollapsed ? 'Развернуть «В работе»' : 'Свернуть «В работе»'}
             onClick={() => setInProgressCollapsed((c) => !c)}
             className="mb-2 flex w-full items-center gap-1.5 text-left active:opacity-70"
           >

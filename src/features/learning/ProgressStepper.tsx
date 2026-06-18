@@ -32,7 +32,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
     >
       <button
         className={BTN_CLASS}
-        aria-label="Уменьшить"
+        aria-label="Уменьшить прогресс"
         disabled={item.progressCurrent <= 0}
         onClick={() => void setValue(item.progressCurrent - step)}
       >
@@ -44,7 +44,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
       </span>
       <button
         className={BTN_CLASS}
-        aria-label="Увеличить"
+        aria-label="Увеличить прогресс"
         disabled={item.progressCurrent >= item.progressTarget}
         onClick={() => void setValue(item.progressCurrent + step)}
       >

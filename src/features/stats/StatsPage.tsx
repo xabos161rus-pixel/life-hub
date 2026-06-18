@@ -269,16 +269,14 @@ export function StatsPage() {
         {/* Развитие */}
         {learning.length > 0 && (
           <StatCard title="Развитие">
-            {learning.length > 0 && (
-              <p className="mb-3 text-sm text-muted">
-                Обучение:{' '}
-                <span className="font-semibold text-text">{learningStats.done} завершено</span>
-                {' / '}
-                <span className="font-semibold text-text">
-                  {learningStats.inProgress} в процессе
-                </span>
-              </p>
-            )}
+            <p className="mb-3 text-sm text-muted">
+              Обучение:{' '}
+              <span className="font-semibold text-text">{learningStats.done} завершено</span>
+              {' / '}
+              <span className="font-semibold text-text">
+                {learningStats.inProgress} в процессе
+              </span>
+            </p>
           </StatCard>
         )}
 

@@ -226,7 +226,7 @@ export function SettingsPage() {
                 {usageMb === null ? 'неизвестно' : `${usageMb.toFixed(1).replace('.', ',')} МБ`}
               </span>
             </p>
-            {persisted === false && (
+            {(persisted === false || settings.lastBackupAt === null) && (
               <p className="text-warning">Регулярно делайте бэкап.</p>
             )}
           </div>

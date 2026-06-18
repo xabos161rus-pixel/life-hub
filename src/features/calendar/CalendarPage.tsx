@@ -147,6 +147,10 @@ export function CalendarPage() {
               <button
                 key={day.key}
                 type="button"
+                aria-label={`${format(day.date, 'd MMMM yyyy', { locale: ru })}${
+                  isSelected ? ', выбрано' : ''
+                }${stat ? `, задач: ${stat.count}${stat.overdue ? ', есть просроченные' : ''}` : ''}`}
+                aria-pressed={isSelected}
                 onClick={() => setSelectedDate(day.key)}
                 className={`relative flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition-colors ${
                   isSelected

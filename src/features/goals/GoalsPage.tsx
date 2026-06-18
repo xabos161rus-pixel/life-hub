@@ -23,6 +23,7 @@ function CollapsibleSection({ title, goals }: { title: string; goals: Goal[] }) 
     <section className="mt-5">
       <button
         type="button"
+        aria-expanded={expanded}
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full items-center gap-1 py-1 text-sm font-semibold text-muted"
       >

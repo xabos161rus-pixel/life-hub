@@ -259,6 +259,16 @@ export function NoteEditorPage() {
         contentEditable
         suppressContentEditableWarning
         data-placeholder="Заголовок"
+        onPaste={(e) => {
+          // Чистим вставку ДО попадания в DOM: иначе <img onerror>/скрипт из
+          // буфера может сработать раньше санитайза-на-сохранении (XSS).
+          e.preventDefault();
+          const html = e.clipboardData.getData('text/html');
+          const text = e.clipboardData.getData('text/plain');
+          const clean = html ? DOMPurify.sanitize(html, SANITIZE) : text;
+          document.execCommand('insertHTML', false, clean);
+          touch();
+        }}
         onInput={touch}
         onBlur={() => {
           clearTimeout(timerRef.current);

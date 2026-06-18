@@ -10,6 +10,7 @@ export function Chip({ active = false, onClick, children }: Props) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
         active
           ? 'border-accent bg-accent/15 text-accent'

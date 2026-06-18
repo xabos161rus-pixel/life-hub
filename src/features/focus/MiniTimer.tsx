@@ -29,7 +29,15 @@ export function MiniTimer() {
   return (
     <div
       role="button"
+      tabIndex={0}
+      aria-label="Открыть Фокус"
       onClick={() => nav('/more/focus')}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          nav('/more/focus');
+        }
+      }}
       className="z-30 flex shrink-0 cursor-pointer items-center gap-2 border-t border-hairline bg-elevated px-4 py-2 active:opacity-80"
     >
       <span className="size-2.5 shrink-0 rounded-full" style={{ background: color }} />
