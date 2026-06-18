@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router';
 import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
 import { SyncRunner } from './components/SyncRunner';
+import { FamilyRunner } from './components/FamilyRunner';
 import { TabBar } from './components/layout/TabBar';
 import { ToastProvider } from './components/ui/Toast';
 import { useSettings } from './hooks/useSettings';
@@ -24,6 +25,7 @@ import { TrashPage } from './features/trash/TrashPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { InstallInstructionsPage } from './features/settings/InstallInstructionsPage';
 import { FocusPage } from './features/focus/FocusPage';
+import { FamilyPage } from './features/family/FamilyPage';
 import { PomodoroProvider } from './features/focus/PomodoroProvider';
 import { MiniTimer } from './features/focus/MiniTimer';
 
@@ -78,6 +80,7 @@ export default function App() {
       <ToastProvider>
         <ThemeApplier />
         <SyncRunner />
+        <FamilyRunner />
         <PomodoroProvider>
         <ErrorBoundary>
           {/* Каркас прибит ко ВСЕМ четырём краям (inset-0) — гарантированно
@@ -99,6 +102,7 @@ export default function App() {
                 <Route path="/goals" element={<GoalsPage />} />
                 <Route path="/goals/:id" element={<GoalDetailPage />} />
                 <Route path="/more" element={<MorePage />} />
+                <Route path="/more/family" element={<FamilyPage />} />
                 <Route path="/more/focus" element={<FocusPage />} />
                 <Route path="/more/learning" element={<LearningPage />} />
                 <Route path="/more/finance" element={<FinancePage />} />

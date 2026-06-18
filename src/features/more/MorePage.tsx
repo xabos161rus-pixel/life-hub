@@ -7,6 +7,7 @@ import {
   MapPin,
   ChartColumnBig,
   Timer,
+  Users,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -79,6 +80,7 @@ export function MorePage() {
           subtitle="Обзор продуктивности"
         />
         <MenuCard to="/more/focus" icon={Timer} title="Фокус" subtitle="Таймер помодоро" />
+        <MenuCard to="/more/family" icon={Users} title="Семья" subtitle="Общий чат и задачи" />
         <MenuCard
           to="/more/learning"
           icon={GraduationCap}
