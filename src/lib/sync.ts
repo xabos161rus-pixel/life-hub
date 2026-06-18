@@ -168,6 +168,20 @@ export function lastSyncError(): string | null {
   return lastError;
 }
 
+// Debounce-синк после правок: любая локальная запись через repo дёргает это,
+// пачка изменений за DEBOUNCE_MS уходит одним синком. runSync сам выходит,
+// если синк выключен, поэтому накладных для не-настроенных пользователей нет.
+const DEBOUNCE_MS = 1500;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function scheduleSyncSoon(): void {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    debounceTimer = null;
+    void runSync().catch(() => {});
+  }, DEBOUNCE_MS);
+}
+
 // === Жизненный цикл сопряжения ===
 
 /** Создать новый аккаунт синхронизации на этом устройстве (первое устройство). */
