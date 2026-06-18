@@ -270,9 +270,9 @@ function CompletedSubsection({
 /** Линия-индикатор вставки при перетаскивании проекта — показывает, куда он встанет. */
 function DropLine() {
   return (
-    <div className="mx-1 mb-4 flex items-center gap-1.5" aria-hidden>
-      <span className="size-2 shrink-0 rounded-full bg-accent" />
-      <span className="h-[3px] flex-1 rounded-full bg-accent shadow-[0_0_8px_var(--app-accent)]" />
+    <div className="mx-1 mb-4 flex items-center gap-2" aria-hidden>
+      <span className="size-3 shrink-0 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent)]" />
+      <span className="h-1.5 flex-1 rounded-full bg-accent shadow-[0_0_12px_2px_var(--app-accent)]" />
     </div>
   );
 }
