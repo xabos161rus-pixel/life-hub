@@ -7,3 +7,5 @@ verify.mjs
 verify-sync.mjs
 verify-e2e.mjs
 e2e-crypto.mjs
+verify-family.mjs
+.mf-family/

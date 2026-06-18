@@ -6,6 +6,7 @@
 // Cron (раз в минуту): шлёт пуши, у которых наступило время.
 
 import { buildPushRequest } from './webpush.js';
+export { FamilyRoom } from './familyRoom.js';
 
 const corsHeaders = (origin) => ({
   'Access-Control-Allow-Origin': origin,
@@ -127,6 +128,18 @@ export default {
         }));
         const nextSince = out.length ? out[out.length - 1].updatedAt : since;
         return json({ records: out, hasMore, nextSince }, 200, origin);
+      }
+
+      // === Семья: проксируем в Durable Object (1 комната на семью) ===
+      if (url.pathname.startsWith('/family/')) {
+        const familyId = url.searchParams.get('familyId') || request.headers.get('X-Account');
+        if (!familyId) return json({ error: 'no family' }, 400, origin);
+        const stub = env.FAMILY_ROOM.get(env.FAMILY_ROOM.idFromName(familyId));
+        const res = await stub.fetch(request);
+        if (res.webSocket) return res; // WS upgrade — отдаём как есть
+        const h = new Headers(res.headers);
+        for (const [k, v] of Object.entries(corsHeaders(origin))) h.set(k, v);
+        return new Response(res.body, { status: res.status, headers: h });
       }
 
       return json({ error: 'not found' }, 404, origin);
