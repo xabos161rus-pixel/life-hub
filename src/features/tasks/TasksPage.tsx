@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -266,6 +267,16 @@ function CompletedSubsection({
   );
 }
 
+/** Линия-индикатор вставки при перетаскивании проекта — показывает, куда он встанет. */
+function DropLine() {
+  return (
+    <div className="mx-1 mb-4 flex items-center gap-1.5" aria-hidden>
+      <span className="size-2 shrink-0 rounded-full bg-accent" />
+      <span className="h-[3px] flex-1 rounded-full bg-accent shadow-[0_0_8px_var(--app-accent)]" />
+    </div>
+  );
+}
+
 function AddTaskRow({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -304,16 +315,18 @@ export function TasksPage() {
   const projectNamesRef = useRef<Map<string, string>>(new Map());
 
   // --- Переупорядочивание проектов (long-press заголовка) ---
+  // projInsertIndex — «зазор» (0..N), куда встанет проект; рисуем там линию.
   const [draggingProject, setDraggingProject] = useState<Project | null>(null);
-  const [projDropId, setProjDropId] = useState<string | null>(null);
-  const projDropRef = useRef<string | null>(null);
+  const [projInsertIndex, setProjInsertIndex] = useState<number | null>(null);
+  const projInsertRef = useRef<number | null>(null);
   const projectsRef = useRef<Project[]>([]);
 
   const onProjectReorderStart = useCallback((p: Project, at: { x: number; y: number }) => {
     pointerRef.current = at; // стартовая позиция пальца — «призрак» из неё, не из угла
     setPointer(at);
-    projDropRef.current = p.id;
-    setProjDropId(p.id);
+    const idx = projectsRef.current.findIndex((x) => x.id === p.id);
+    projInsertRef.current = idx;
+    setProjInsertIndex(idx);
     setDraggingProject(p);
   }, []);
 
@@ -433,12 +446,17 @@ export function TasksPage() {
     const scroller = getScrollParent(anySection);
 
     const refreshDrop = (y: number) => {
-      const key = hitTest(y);
-      // Цель — только реальный проект (не «Без проекта» и не пусто).
-      const valid = key && key !== NONE && projectsRef.current.some((p) => p.id === key) ? key : null;
-      if (valid !== projDropRef.current) {
-        projDropRef.current = valid;
-        setProjDropId(valid);
+      // Зазор вставки = сколько проектов своей серединой выше пальца.
+      let idx = 0;
+      for (const proj of projectsRef.current) {
+        const el = sectionNodes.current.get(proj.id);
+        if (!el || !el.isConnected) continue;
+        const r = el.getBoundingClientRect();
+        if (y > r.top + r.height / 2) idx++;
+      }
+      if (idx !== projInsertRef.current) {
+        projInsertRef.current = idx;
+        setProjInsertIndex(idx);
       }
     };
     const move = (e: PointerEvent) => {
@@ -460,24 +478,26 @@ export function TasksPage() {
       raf = requestAnimationFrame(tick);
     };
     const finish = () => {
-      const target = projDropRef.current;
+      const insertIndex = projInsertRef.current;
       const ids = projectsRef.current.map((p) => p.id);
       const from = ids.indexOf(dp.id);
-      const to = target ? ids.indexOf(target) : -1;
-      if (from !== -1 && to !== -1 && from !== to) {
-        const next = [...ids];
-        next.splice(from, 1);
-        next.splice(to, 0, dp.id);
-        next.forEach((id, i) => {
-          const cur = projectsRef.current.find((p) => p.id === id);
-          const order = (i + 1) * 1000;
-          if (cur && cur.sortOrder !== order) void update(db.projects, id, { sortOrder: order });
-        });
-        toast('Порядок проектов обновлён');
+      if (from !== -1 && insertIndex != null) {
+        const next = ids.filter((id) => id !== dp.id);
+        const insertAt = insertIndex > from ? insertIndex - 1 : insertIndex;
+        next.splice(insertAt, 0, dp.id);
+        const changed = next.some((id, i) => ids[i] !== id);
+        if (changed) {
+          next.forEach((id, i) => {
+            const cur = projectsRef.current.find((p) => p.id === id);
+            const order = (i + 1) * 1000;
+            if (cur && cur.sortOrder !== order) void update(db.projects, id, { sortOrder: order });
+          });
+          toast('Порядок проектов обновлён');
+        }
       }
-      projDropRef.current = null;
+      projInsertRef.current = null;
       setDraggingProject(null);
-      setProjDropId(null);
+      setProjInsertIndex(null);
     };
     const preventScroll = (ev: TouchEvent) => ev.preventDefault();
     window.addEventListener('pointermove', move, { passive: false });
@@ -620,48 +640,48 @@ export function TasksPage() {
         />
       ) : (
         <>
-          {projects.map((p) => {
+          {projects.map((p, i) => {
             const list = activeByProject.get(p.id) ?? [];
             const doneList = completedByProject.get(p.id) ?? [];
             return (
-              <Section
-                key={p.id}
-                title={`${p.emoji} ${p.name}`}
-                count={list.length}
-                collapsed={collapsed.has(p.id)}
-                onToggle={() => toggle(p.id)}
-                onEdit={() => openProject(p)}
-                dropRef={registerSection}
-                dropKey={p.id}
-                highlight={
-                  (Boolean(draggingTask) && dropKey === p.id) ||
-                  (Boolean(draggingProject) && draggingProject?.id !== p.id && projDropId === p.id)
-                }
-                onReorderStart={(at) => onProjectReorderStart(p, at)}
-                isReorderSource={draggingProject?.id === p.id}
-              >
-                {doneList.length > 0 && (
-                  <CompletedSubsection
-                    tasks={doneList}
-                    projectById={projectById}
-                    onEdit={(t) => openTask(t, t.projectId)}
-                    expanded={expandedCompleted.has(p.id)}
-                    onToggle={() => toggleCompleted(p.id)}
-                  />
-                )}
-                {list.length > 0 && (
-                  <TaskCard
-                    tasks={list}
-                    projectById={projectById}
-                    onEdit={(t) => openTask(t, t.projectId)}
-                    onDragStart={onDragStart}
-                    draggingId={draggingTask?.id ?? null}
-                  />
-                )}
-                <AddTaskRow onClick={() => openTask(null, p.id)} />
-              </Section>
+              <Fragment key={p.id}>
+                {draggingProject && projInsertIndex === i && <DropLine />}
+                <Section
+                  title={`${p.emoji} ${p.name}`}
+                  count={list.length}
+                  collapsed={collapsed.has(p.id)}
+                  onToggle={() => toggle(p.id)}
+                  onEdit={() => openProject(p)}
+                  dropRef={registerSection}
+                  dropKey={p.id}
+                  highlight={Boolean(draggingTask) && dropKey === p.id}
+                  onReorderStart={(at) => onProjectReorderStart(p, at)}
+                  isReorderSource={draggingProject?.id === p.id}
+                >
+                  {doneList.length > 0 && (
+                    <CompletedSubsection
+                      tasks={doneList}
+                      projectById={projectById}
+                      onEdit={(t) => openTask(t, t.projectId)}
+                      expanded={expandedCompleted.has(p.id)}
+                      onToggle={() => toggleCompleted(p.id)}
+                    />
+                  )}
+                  {list.length > 0 && (
+                    <TaskCard
+                      tasks={list}
+                      projectById={projectById}
+                      onEdit={(t) => openTask(t, t.projectId)}
+                      onDragStart={onDragStart}
+                      draggingId={draggingTask?.id ?? null}
+                    />
+                  )}
+                  <AddTaskRow onClick={() => openTask(null, p.id)} />
+                </Section>
+              </Fragment>
             );
           })}
+          {draggingProject && projInsertIndex === projects.length && <DropLine />}
 
           {(noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
             <Section
