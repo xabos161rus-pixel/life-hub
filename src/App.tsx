@@ -89,7 +89,12 @@ export default function App() {
               контент; таб-бар — обычный flex-элемент в самом низу. bg-bg
               заливает весь каркас, включая safe-area под таб-баром. */}
           <div className="fixed inset-0 flex flex-col overflow-hidden bg-bg">
-            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+            {/* Аврора — неподвижный слой за контентом (не fixed-attachment) */}
+            <div aria-hidden className="aurora pointer-events-none absolute inset-0 -z-10" />
+            <div
+              className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+              style={{ contain: 'layout paint', overscrollBehavior: 'contain' }}
+            >
               <Routes>
                 <Route path="/" element={<TodayPage />} />
                 <Route path="/search" element={<SearchPage />} />

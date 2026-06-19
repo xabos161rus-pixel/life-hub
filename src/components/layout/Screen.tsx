@@ -10,16 +10,18 @@ interface Props {
   right?: ReactNode;
   /** подзаголовок под title (например, дата) */
   subtitle?: string;
+  /** контент занимает всю высоту (для чата): сам скроллится внутри, без pb-20 */
+  fill?: boolean;
   children: ReactNode;
 }
 
 /** Каркас страницы: липкая шапка с safe-area + контент с нижним отступом ровно
  *  под клиренс FAB (таб-бар — отдельный flex-элемент, контент под него не уходит,
  *  поэтому большой pb не нужен — он давал пустую полосу внизу в standalone). */
-export function Screen({ title, backTo, right, subtitle, children }: Props) {
+export function Screen({ title, backTo, right, subtitle, fill = false, children }: Props) {
   return (
-    <div className="min-h-full pb-20">
-      <header className="sticky top-0 z-30 border-b border-hairline bg-bg/70 px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 backdrop-blur-xl">
+    <div className={fill ? 'flex h-full flex-col' : 'min-h-full pb-20'}>
+      <header className="sticky top-0 z-30 shrink-0 border-b border-hairline bg-bg px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3">
         <div className="flex items-center gap-2">
           {backTo && (
             <Link to={backTo} aria-label="Назад" className="-ml-2 p-1 text-accent active:opacity-60">
@@ -33,7 +35,7 @@ export function Screen({ title, backTo, right, subtitle, children }: Props) {
           {right}
         </div>
       </header>
-      <main className="px-4 pt-4">{children}</main>
+      <main className={fill ? 'min-h-0 flex-1 overflow-hidden px-4 pt-4' : 'px-4 pt-4'}>{children}</main>
     </div>
   );
 }

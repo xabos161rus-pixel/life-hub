@@ -85,13 +85,6 @@ body {
      indicator) тогда сливается с таб-баром (bg-elevated), без «чёрной полосы»
      между панелью и краем телефона. Сам экран перекрыт непрозрачным каркасом. */
   background-color: var(--app-elevated);
-  /* Мягкая «аврора» сверху — два цветных всполоха в акцентах. Глубина и
-     характер без глассморфизма; зафиксирована, не скроллится. */
-  background-image:
-    radial-gradient(78% 48% at 12% -6%, oklch(0.6 0.2 266 / 0.2), transparent 58%),
-    radial-gradient(72% 46% at 96% -2%, oklch(0.6 0.22 304 / 0.16), transparent 56%),
-    radial-gradient(130% 75% at 50% -12%, oklch(0.26 0.04 288 / 0.5), transparent 72%);
-  background-attachment: fixed;
   color: var(--app-text);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
@@ -100,9 +93,16 @@ body {
   overscroll-behavior-y: none;
 }
 
-/* Светлая тема: своя «аврора» — мягкие цветные всполохи на светлом фоне,
-   иначе тёмные градиенты тёмной темы грязнят белый фон. */
-:root.light body {
+/* Аврора как неподвижный слой внутри fixed-каркаса (App.tsx), а НЕ
+   background-attachment:fixed на body — тот заставлял WebKit перерисовывать
+   весь экран на каждый кадр скролла (главная причина лагов прокрутки). */
+.aurora {
+  background-image:
+    radial-gradient(78% 48% at 12% -6%, oklch(0.6 0.2 266 / 0.2), transparent 58%),
+    radial-gradient(72% 46% at 96% -2%, oklch(0.6 0.22 304 / 0.16), transparent 56%),
+    radial-gradient(130% 75% at 50% -12%, oklch(0.26 0.04 288 / 0.5), transparent 72%);
+}
+:root.light .aurora {
   background-image:
     radial-gradient(78% 48% at 12% -6%, oklch(0.7 0.16 266 / 0.14), transparent 60%),
     radial-gradient(72% 46% at 96% -2%, oklch(0.72 0.17 304 / 0.1), transparent 58%),

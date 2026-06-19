@@ -147,7 +147,7 @@ function Section({
     <section
       ref={dropRef}
       data-drop-key={dropKey}
-      className={`mb-8 rounded-2xl transition-[background-color,opacity] ${
+      className={`mb-12 rounded-2xl transition-[background-color,opacity] ${
         highlight ? 'bg-accent/10 ring-2 ring-accent' : ''
       } ${isReorderSource ? 'opacity-40' : ''}`}
     >

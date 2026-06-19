@@ -13,7 +13,7 @@ function ordered(msgs: FamilyMessage[]): FamilyMessage[] {
     .filter((m) => !m.deletedAt)
     .sort((a, b) => {
       if (a.seq != null && b.seq != null) return a.seq - b.seq;
-      if (a.seq == null && b.seq == null) return a.createdAt.localeCompare(b.createdAt);
+      if (a.seq == null && b.seq == null) return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
       return a.seq == null ? 1 : -1;
     });
 }
@@ -35,10 +35,15 @@ export function ChatTab() {
   const [actionMsg, setActionMsg] = useState<FamilyMessage | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Автоскролл к низу при новом сообщении.
+  // Автоскролл к низу при новом сообщении — только если уже у низа ленты
+  // (иначе при чтении истории чужое сообщение дёргало бы прокрутку вверх).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' });
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (nearBottom) bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [list.length]);
 
   async function submit() {
@@ -70,10 +75,10 @@ export function ChatTab() {
   }
 
   return (
-    // Полная высота под чат: лента растёт и скроллится, композер прибит к низу
-    // над таб-баром. -mb-20 съедает нижний отступ Screen (pb-20) на этом экране.
-    <div className="-mb-20 flex h-[calc(100dvh-15.5rem)] flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+    // Полная высота под чат от каркаса (Screen fill): лента растёт и скроллится,
+    // композер прибит к низу. Без magic-number — высоту даёт родитель.
+    <div className="flex h-full min-h-0 flex-col">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-1">
         {list.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted">Пока нет сообщений. Напишите первым!</p>
         ) : (

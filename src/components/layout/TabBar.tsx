@@ -35,7 +35,7 @@ export function TabBar() {
             {({ isActive }) => (
               <>
                 <span
-                  className={`flex h-9 w-16 items-center justify-center rounded-2xl transition-all duration-200 ${
+                  className={`flex h-9 w-16 items-center justify-center rounded-2xl transition-colors duration-200 ${
                     isActive
                       ? 'bg-accent/15 text-accent shadow-[0_5px_18px_-7px_var(--app-accent)]'
                       : 'text-muted'

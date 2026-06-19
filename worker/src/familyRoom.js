@@ -48,6 +48,27 @@ export class FamilyRoom extends DurableObject {
     this.insertsSincePrune = 0;
   }
 
+  // Кто сейчас онлайн: memberId всех живых WebSocket-соединений.
+  onlineMemberIds() {
+    const ids = new Set();
+    for (const ws of this.ctx.getWebSockets()) {
+      const att = ws.deserializeAttachment();
+      if (att?.memberId) ids.add(att.memberId);
+    }
+    return [...ids];
+  }
+
+  broadcastPresence() {
+    const frame = JSON.stringify({ type: 'presence', online: this.onlineMemberIds() });
+    for (const ws of this.ctx.getWebSockets()) {
+      try {
+        ws.send(frame);
+      } catch {
+        /* сокет закрывается */
+      }
+    }
+  }
+
   // === Авторизация семейным токеном (TOFU, как личный authAccount) ===
   async checkToken(token) {
     if (!token) return false;
@@ -214,6 +235,10 @@ export class FamilyRoom extends DurableObject {
       ws.close(1003, 'bad frame');
       return;
     }
+    if (msg.t === 'ping') {
+      ws.send('{"t":"pong"}'); // heartbeat — держит соединение живым
+      return;
+    }
     if (msg.type === 'hello') {
       ws.serializeAttachment({ memberId: msg.memberId || null });
       if (msg.memberId) {
@@ -230,7 +255,8 @@ export class FamilyRoom extends DurableObject {
         since = page.nextSince;
         if (!page.hasMore) break;
       }
-      ws.send(JSON.stringify({ type: 'ready', headSeq: this.headSeq() }));
+      ws.send(JSON.stringify({ type: 'ready', headSeq: this.headSeq(), online: this.onlineMemberIds() }));
+      this.broadcastPresence(); // остальным — что этот участник вошёл
       return;
     }
     if (msg.type === 'send') {
@@ -246,6 +272,7 @@ export class FamilyRoom extends DurableObject {
     } catch {
       /* уже закрыт */
     }
+    this.broadcastPresence(); // участник ушёл — обновить статус у остальных
   }
 
   // === Web Push оффлайн-участникам (сигнал, не транспорт) ===

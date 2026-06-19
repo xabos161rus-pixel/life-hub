@@ -107,22 +107,27 @@ async function pull(c: SyncConfig): Promise<number> {
 // (сотни записей) это миллисекунды; при росте можно перейти на outbox/индекс.
 async function push(c: SyncConfig): Promise<number> {
   let maxUpdatedAt = c.lastPushAt;
-  const out: RemoteRecord[] = [];
+  const fresh: { name: string; row: Row }[] = [];
   for (const name of SYNCED_TABLES) {
     const rows = (await db.table<Row>(name).toArray()).filter(
       (r) => typeof r.updatedAt === 'string' && r.updatedAt > c.lastPushAt,
     );
     for (const row of rows) {
-      out.push({
-        table: name,
-        id: row.id,
-        updatedAt: row.updatedAt,
-        deletedAt: row.deletedAt ?? null,
-        ciphertext: await encryptJSON(c.key, row),
-      });
+      fresh.push({ name, row });
       if (row.updatedAt > maxUpdatedAt) maxUpdatedAt = row.updatedAt;
     }
   }
+  // Шифруем параллельно (Promise.all), а не последовательно await в цикле —
+  // не блокирует main-thread при правке задачи с большим набором изменений.
+  const out: RemoteRecord[] = await Promise.all(
+    fresh.map(async ({ name, row }) => ({
+      table: name,
+      id: row.id,
+      updatedAt: row.updatedAt,
+      deletedAt: row.deletedAt ?? null,
+      ciphertext: await encryptJSON(c.key, row),
+    })),
+  );
   for (let i = 0; i < out.length; i += PUSH_CHUNK) {
     const res = await fetch(`${WORKER_URL}/sync/push`, {
       method: 'POST',

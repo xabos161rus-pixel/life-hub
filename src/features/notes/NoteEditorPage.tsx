@@ -277,7 +277,7 @@ export function NoteEditorPage() {
       />
 
       {/* Панель форматирования над клавиатурой (таб-бар на этом экране скрыт). */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 border-t border-hairline bg-surface/95 p-2 pb-[calc(env(safe-area-inset-bottom)+8px)] backdrop-blur-xl">
+      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 border-t border-hairline bg-surface p-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
         <ToolBtn onClick={() => exec('bold')} label="Жирный" active={active.bold}>
           <Bold size={20} strokeWidth={2.25} />
         </ToolBtn>

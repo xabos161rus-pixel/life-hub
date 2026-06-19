@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { UserPlus, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { db } from '../../db/db';
 import { Button } from '../../components/ui/Button';
 import { getFamilyConfig } from '../../lib/family/familyState';
+import { subscribePresence } from '../../lib/family/familyChat';
 import { leaveFamily } from '../../lib/family/familyLifecycle';
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
@@ -14,6 +15,9 @@ export function MembersTab() {
   const config = useLiveQuery(() => getFamilyConfig(), []);
   const navigate = useNavigate();
   const selfId = config?.selfMemberId;
+  const [online, setOnline] = useState<string[]>([]);
+  useEffect(() => subscribePresence(setOnline), []);
+  const onlineSet = new Set(online);
   const [invite, setInvite] = useState(false);
   const [editName, setEditName] = useState(false);
 
@@ -42,15 +46,24 @@ export function MembersTab() {
             }}
             className="flex w-full items-center gap-3 p-3 text-left active:opacity-80"
           >
-            <span
-              className="flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-              style={{ background: m.color }}
-            >
-              {m.displayName.slice(0, 1).toUpperCase()}
+            <span className="relative shrink-0">
+              <span
+                className="flex size-9 items-center justify-center rounded-full text-sm font-semibold text-white"
+                style={{ background: m.color }}
+              >
+                {m.displayName.slice(0, 1).toUpperCase()}
+              </span>
+              {(onlineSet.has(m.id) || m.id === selfId) && (
+                <span className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-surface" />
+              )}
             </span>
             <span className="min-w-0 flex-1 truncate font-medium">
               {m.displayName}
-              {m.id === selfId && <span className="text-muted"> · вы</span>}
+              {m.id === selfId ? (
+                <span className="text-muted"> · вы</span>
+              ) : (
+                <span className="text-xs text-muted"> · {onlineSet.has(m.id) ? 'в сети' : 'не в сети'}</span>
+              )}
             </span>
           </button>
         ))}

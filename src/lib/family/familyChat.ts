@@ -20,8 +20,41 @@ type Channel = 'msg' | 'task' | 'member';
 let ws: WebSocket | null = null;
 let state: ConnState = 'offline';
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let pingTimer: ReturnType<typeof setInterval> | null = null;
+let connecting = false; // guard на фазу fetch-ticket (ws ещё null) — без гонки
 let wantConnected = false;
+const PING_MS = 25_000;
 const listeners = new Set<(s: ConnState) => void>();
+
+function startPing(sock: WebSocket) {
+  stopPing();
+  pingTimer = setInterval(() => {
+    if (sock.readyState === WebSocket.OPEN) sock.send('{"t":"ping"}');
+  }, PING_MS);
+}
+function stopPing() {
+  if (pingTimer) {
+    clearInterval(pingTimer);
+    pingTimer = null;
+  }
+}
+
+// Курсор lastSeq: держим в памяти и пишем в db.family с дебаунсом — иначе
+// запись на КАЖДЫЙ item бэкфилла дёргает 5 useLiveQuery-подписчиков (фриз
+// входа в чат). Несвоевременный flush безопасен: при реконнекте backfill
+// повторится идемпотентно (applyItem пропустит по seq).
+let maxSeqSeen = 0;
+let seqFlushTimer: ReturnType<typeof setTimeout> | null = null;
+function bumpSeq(seq: number) {
+  if (seq > maxSeqSeen) maxSeqSeen = seq;
+  if (seqFlushTimer) return;
+  seqFlushTimer = setTimeout(() => {
+    seqFlushTimer = null;
+    void getFamilyConfig().then((c) => {
+      if (c && maxSeqSeen > c.lastSeq) void patchFamilyConfig({ lastSeq: maxSeqSeen });
+    });
+  }, 600);
+}
 
 function setState(s: ConnState) {
   if (s === state) return;
@@ -37,6 +70,22 @@ export function subscribeConnection(fn: (s: ConnState) => void): () => void {
   listeners.add(fn);
   fn(state);
   return () => listeners.delete(fn);
+}
+
+// Presence: кто из участников сейчас онлайн (по WS-соединениям в DO).
+let onlineIds: string[] = [];
+const presenceListeners = new Set<(ids: string[]) => void>();
+function setPresence(ids: string[]) {
+  onlineIds = ids;
+  presenceListeners.forEach((l) => l(ids));
+}
+export function onlineMembers(): string[] {
+  return onlineIds;
+}
+export function subscribePresence(fn: (ids: string[]) => void): () => void {
+  presenceListeners.add(fn);
+  fn(onlineIds);
+  return () => presenceListeners.delete(fn);
 }
 
 // === Применение входящих записей (по channel, LWW по seq) ===
@@ -78,8 +127,51 @@ async function applyItem(c: FamilyConfig, item: {
     }
   }
   if (item.seq > c.lastSeq) {
-    c.lastSeq = item.seq;
-    await patchFamilyConfig({ lastSeq: item.seq });
+    c.lastSeq = item.seq; // in-memory, чтобы повторы в этом же цикле пропускались
+    bumpSeq(item.seq); // запись в БД — с дебаунсом
+  }
+}
+
+// Пакетное применение бэкфилла: расшифровка ВНЕ транзакции (crypto.subtle —
+// non-Dexie await разорвал бы транзакцию), запись — в ОДНОЙ транзакции, чтобы
+// useLiveQuery дёрнулся один раз, а не на каждое из сотен сообщений (фриз входа).
+type RawItem = { seq: number; channel: Channel; itemId: string; senderMemberId: string | null; createdAt: string; ciphertext: string };
+async function applyBatch(c: FamilyConfig, items: RawItem[]) {
+  const decoded: { it: RawItem; p: Record<string, unknown> }[] = [];
+  for (const it of items) {
+    try {
+      decoded.push({ it, p: await decryptJSON(c.familyKey, it.ciphertext) });
+    } catch {
+      /* чужой ключ / битый шифротекст */
+    }
+  }
+  await db.transaction('rw', db.familyMessages, db.familyTasks, db.familyMembers, async () => {
+    for (const { it, p } of decoded) {
+      if (it.channel === 'msg') {
+        const local = await db.familyMessages.get(it.itemId);
+        if (local && local.seq != null && it.seq <= local.seq) continue;
+        await db.familyMessages.put({
+          clientMsgId: it.itemId,
+          seq: it.seq,
+          senderMemberId: it.senderMemberId ?? '',
+          createdAt: it.createdAt,
+          text: String(p.text ?? ''),
+          status: 'acked',
+          deletedAt: (p.deletedAt as string | null) ?? null,
+        });
+      } else if (it.channel === 'task') {
+        const local = await db.familyTasks.get(it.itemId);
+        if (!local || it.seq > local.seq) await db.familyTasks.put({ ...(p as unknown as FamilyTask), id: it.itemId, seq: it.seq });
+      } else if (it.channel === 'member') {
+        const local = await db.familyMembers.get(it.itemId);
+        if (!local || it.seq > local.seq) await db.familyMembers.put({ ...(p as unknown as FamilyMember), id: it.itemId, seq: it.seq });
+      }
+    }
+  });
+  const maxSeq = items.reduce((mx, i) => Math.max(mx, i.seq), c.lastSeq);
+  if (maxSeq > c.lastSeq) {
+    c.lastSeq = maxSeq;
+    bumpSeq(maxSeq);
   }
 }
 
@@ -119,9 +211,11 @@ function stripMeta<T extends { id: string; seq: number }>(row: T) {
 // === Соединение ===
 export async function connect() {
   wantConnected = true;
+  if (connecting) return; // фаза fetch-ticket уже идёт — без гонки двух тикетов
   const c = await getFamilyConfig();
   if (!c || !c.enabled) return;
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+  connecting = true;
   setState('connecting');
   try {
     const tr = await fetch(`${WORKER_URL}/family/ticket?familyId=${c.familyId}`, {
@@ -133,17 +227,23 @@ export async function connect() {
     const sock = new WebSocket(`${WS_URL}/family/ws?familyId=${c.familyId}&ticket=${ticket}`);
     ws = sock;
     sock.onopen = () => {
+      connecting = false;
       sock.send(JSON.stringify({ type: 'hello', lastSeq: c.lastSeq, memberId: c.selfMemberId }));
     };
     sock.onmessage = async (ev) => {
       const m = JSON.parse(ev.data as string);
+      if (m.t === 'pong') return; // ответ на heartbeat
       if (m.type === 'backfill') {
         const fresh = await getFamilyConfig();
-        if (fresh) for (const it of m.items) await applyItem(fresh, it);
+        if (fresh && m.items?.length) await applyBatch(fresh, m.items);
       } else if (m.type === 'ready') {
         setState('online');
+        if (Array.isArray(m.online)) setPresence(m.online);
+        startPing(sock);
         await resendOutbox();
         await registerPush(c);
+      } else if (m.type === 'presence') {
+        setPresence(Array.isArray(m.online) ? m.online : []);
       } else if (m.type === 'item') {
         const fresh = await getFamilyConfig();
         if (fresh) await applyItem(fresh, m);
@@ -153,11 +253,15 @@ export async function connect() {
     };
     sock.onclose = () => {
       ws = null;
+      connecting = false;
+      stopPing();
+      setPresence([]);
       setState('offline');
       scheduleReconnect();
     };
     sock.onerror = () => sock.close();
   } catch {
+    connecting = false;
     setState('offline');
     scheduleReconnect();
   }
@@ -196,10 +300,13 @@ function scheduleReconnect() {
 
 export function disconnect() {
   wantConnected = false;
+  connecting = false;
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
   }
+  stopPing();
+  setPresence([]);
   ws?.close();
   ws = null;
   setState('offline');

@@ -7,7 +7,7 @@ import { FamilyScreen } from './FamilyScreen';
 export function FamilyPage() {
   const config = useLiveQuery(() => getFamilyConfig(), []);
   return (
-    <Screen title={config ? config.familyName : 'Семья'} backTo="/more">
+    <Screen title={config ? config.familyName : 'Семья'} backTo="/more" fill={!!config}>
       {config ? <FamilyScreen /> : <FamilyOnboarding />}
     </Screen>
   );
