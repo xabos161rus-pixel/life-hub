@@ -59,23 +59,23 @@ export default {
     try {
       if (url.pathname === '/health') return json({ ok: true }, 200, origin);
 
-      // === Напоминания (push) ===
+      // === Напоминания (push) — хранятся в D1 (cron делает SELECT, не KV list) ===
       if (url.pathname === '/schedule' && request.method === 'POST') {
         const { taskId, fireAt, title, body, subscription } = await request.json();
         if (!taskId || typeof fireAt !== 'number' || !subscription?.endpoint) {
           return json({ error: 'bad request' }, 400, origin);
         }
-        await env.REMINDERS.put(
-          `r:${taskId}`,
-          JSON.stringify({ taskId, fireAt, title, body, subscription }),
-          { metadata: { fireAt } },
-        );
+        await env.DB.prepare(
+          'INSERT OR REPLACE INTO reminders (task_id, fire_at, title, body, subscription) VALUES (?, ?, ?, ?, ?)',
+        )
+          .bind(taskId, fireAt, title || '', body || '', JSON.stringify(subscription))
+          .run();
         return json({ ok: true }, 200, origin);
       }
 
       if (url.pathname === '/cancel' && request.method === 'POST') {
         const { taskId } = await request.json();
-        if (taskId) await env.REMINDERS.delete(`r:${taskId}`);
+        if (taskId) await env.DB.prepare('DELETE FROM reminders WHERE task_id = ?').bind(taskId).run();
         return json({ ok: true }, 200, origin);
       }
 
@@ -159,33 +159,26 @@ async function sendDue(env) {
     privateKey: env.VAPID_PRIVATE,
     subject: env.VAPID_SUBJECT || 'mailto:noreply@life-hub.app',
   };
-  const now = Date.now();
-  let cursor;
-  do {
-    const list = await env.REMINDERS.list({ prefix: 'r:', cursor, limit: 1000 });
-    cursor = list.list_complete ? undefined : list.cursor;
-    for (const key of list.keys) {
-      const fireAt = key.metadata?.fireAt;
-      // ещё не пора (запас 30с — cron раз в минуту); пропускаем
-      if (typeof fireAt === 'number' && fireAt > now + 30_000) continue;
-      const raw = await env.REMINDERS.get(key.name);
-      if (!raw) continue;
-      const r = JSON.parse(raw);
-      try {
-        const { endpoint, headers, body } = await buildPushRequest({
-          subscription: r.subscription,
-          payload: JSON.stringify({ title: r.title || 'Напоминание', body: r.body || '', taskId: r.taskId }),
-          vapid,
-          ttl: 3600,
-          urgency: 'high',
-        });
-        const res = await fetch(endpoint, { method: 'POST', headers, body });
-        console.log(`push ${r.taskId}: ${res.status}`);
-      } catch (e) {
-        console.log(`push ${r.taskId} error: ${String(e)}`);
-      }
-      // снимаем в любом случае — напоминание одноразовое (404/410 = подписка мертва)
-      await env.REMINDERS.delete(key.name);
+  // Запас 30с (cron раз в минуту). Один SELECT по индексу fire_at вместо
+  // KV list — D1-чтения практически безлимитны на free-тарифе.
+  const due = await env.DB.prepare('SELECT task_id, fire_at, title, body, subscription FROM reminders WHERE fire_at <= ?')
+    .bind(Date.now() + 30_000)
+    .all();
+  for (const r of due.results || []) {
+    try {
+      const { endpoint, headers, body } = await buildPushRequest({
+        subscription: JSON.parse(r.subscription),
+        payload: JSON.stringify({ title: r.title || 'Напоминание', body: r.body || '', taskId: r.task_id }),
+        vapid,
+        ttl: 3600,
+        urgency: 'high',
+      });
+      const res = await fetch(endpoint, { method: 'POST', headers, body });
+      console.log(`push ${r.task_id}: ${res.status}`);
+    } catch (e) {
+      console.log(`push ${r.task_id} error: ${String(e)}`);
     }
-  } while (cursor);
+    // снимаем в любом случае — напоминание одноразовое (404/410 = подписка мертва)
+    await env.DB.prepare('DELETE FROM reminders WHERE task_id = ?').bind(r.task_id).run();
+  }
 }

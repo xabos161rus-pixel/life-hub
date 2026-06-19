@@ -9,3 +9,5 @@ verify-e2e.mjs
 e2e-crypto.mjs
 verify-family.mjs
 .mf-family/
+verify-reminders.mjs
+.mf-rem/
