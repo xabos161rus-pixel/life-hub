@@ -55,6 +55,8 @@ async function applyItem(c: FamilyConfig, item: {
     return; // чужой ключ / битый шифротекст — пропускаем
   }
   if (item.channel === 'msg') {
+    const localMsg = await db.familyMessages.get(item.itemId);
+    if (localMsg && localMsg.seq != null && item.seq <= localMsg.seq) return; // старая версия — не перезаписываем
     await db.familyMessages.put({
       clientMsgId: item.itemId,
       seq: item.seq,
@@ -95,6 +97,7 @@ async function resendOutbox() {
       clientMsgId: m.clientMsgId,
       senderMemberId: m.senderMemberId,
       createdAt: m.createdAt,
+      edit: true, // при реконнекте могут быть правки/удаления — пропускаем дедуп
       ciphertext: await encryptJSON(c.familyKey, { text: m.text, deletedAt: m.deletedAt }),
     }));
   }
@@ -160,6 +163,13 @@ export async function connect() {
   }
 }
 
+/** Зарегистрировать push-подписку этого устройства в семье (после включения
+ *  уведомлений), не дожидаясь следующего WS-ready. */
+export async function registerFamilyPush(): Promise<void> {
+  const c = await getFamilyConfig();
+  if (c) await registerPush(c);
+}
+
 // Регистрируем push-подписку этого участника в DO — чтобы получать
 // уведомления о сообщениях, когда приложение закрыто (WS мёртв).
 async function registerPush(c: FamilyConfig) {
@@ -211,6 +221,33 @@ export async function sendMessage(text: string): Promise<void> {
   const createdAt = new Date().toISOString();
   await db.familyMessages.put({ clientMsgId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: body, status: 'pending', deletedAt: null });
   trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encryptJSON(c.familyKey, { text: body, deletedAt: null }) });
+  if (!ws || ws.readyState !== WebSocket.OPEN) void connect();
+}
+
+/** Редактировать сообщение (любой участник). Новая версия побеждает по seq. */
+export async function editMessage(clientMsgId: string, newText: string): Promise<void> {
+  const text = newText.trim();
+  if (!text) return;
+  const c = await getFamilyConfig();
+  if (!c) return;
+  const m = await db.familyMessages.get(clientMsgId);
+  if (!m) return;
+  await db.familyMessages.update(clientMsgId, { text, status: 'pending', seq: null });
+  const ciphertext = await encryptJSON(c.familyKey, { text, deletedAt: m.deletedAt ?? null });
+  trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
+  if (!ws || ws.readyState !== WebSocket.OPEN) void connect();
+}
+
+/** Удалить сообщение (любой участник). Мягкое удаление, разъезжается по seq. */
+export async function deleteMessage(clientMsgId: string): Promise<void> {
+  const c = await getFamilyConfig();
+  if (!c) return;
+  const m = await db.familyMessages.get(clientMsgId);
+  if (!m) return;
+  const deletedAt = new Date().toISOString();
+  await db.familyMessages.update(clientMsgId, { deletedAt, status: 'pending', seq: null });
+  const ciphertext = await encryptJSON(c.familyKey, { text: m.text, deletedAt });
+  trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
   if (!ws || ws.readyState !== WebSocket.OPEN) void connect();
 }
 

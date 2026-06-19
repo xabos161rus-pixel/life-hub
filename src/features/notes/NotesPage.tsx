@@ -77,7 +77,7 @@ function NoteRow({
         Удалить
       </button>
       <div
-        className="relative flex touch-pan-y items-start gap-2 border border-hairline bg-surface p-3.5"
+        className="relative flex touch-pan-y items-start gap-2 rounded-[1.15rem] border border-hairline bg-surface p-3.5"
         style={{
           transform: `translateX(${dx}px)`,
           transition: dragging ? 'none' : 'transform 0.2s',

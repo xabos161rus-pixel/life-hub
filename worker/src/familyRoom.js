@@ -128,15 +128,17 @@ export class FamilyRoom extends DurableObject {
   }
 
   // === Запись (идемпотентная по client_msg_id для msg; новый seq для версии task/member) ===
-  async ingest({ channel, itemId, clientMsgId, senderMemberId, createdAt, ciphertext }) {
+  async ingest({ channel, itemId, clientMsgId, senderMemberId, createdAt, ciphertext, edit }) {
     if (!channel || !ciphertext || (channel === 'msg' && !clientMsgId) || (channel !== 'msg' && !itemId)) {
       return { error: 'bad request' };
     }
     const id = channel === 'msg' ? clientMsgId : itemId;
     const created = createdAt || new Date().toISOString();
 
-    // Дедуп ретрая сообщения: если client_msg_id уже есть — вернуть исходный seq.
-    if (channel === 'msg') {
+    // Дедуп ретрая ОТПРАВКИ (не редактирования): тот же client_msg_id и !edit →
+    // вернуть исходный seq. edit=true пропускает дедуп → правка/удаление получают
+    // новый seq (новая версия побеждает по seq на клиентах).
+    if (channel === 'msg' && !edit) {
       const dup = this.sql.exec('SELECT seq FROM items WHERE client_msg_id=?', clientMsgId).toArray()[0];
       if (dup) return { seq: dup.seq, channel, itemId: id, clientMsgId, duplicate: true };
     }
