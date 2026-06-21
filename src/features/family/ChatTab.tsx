@@ -128,7 +128,7 @@ export function ChatTab() {
             </button>
           </div>
         )}
-        <div className="flex items-end gap-2 pt-2">
+        <div className="flex items-end gap-2 px-0.5 pt-2">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -140,13 +140,13 @@ export function ChatTab() {
             }}
             rows={1}
             placeholder="Сообщение…"
-            className="max-h-28 min-h-[44px] flex-1 resize-none rounded-2xl border border-border bg-surface px-3 py-2.5 text-[15px]"
+            className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-2xl border border-border bg-surface px-3 py-2.5 text-[15px] outline-none focus:border-accent"
           />
           <button
             onClick={() => void submit()}
             disabled={!text.trim()}
             aria-label="Отправить"
-            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-white disabled:opacity-40 active:scale-95"
+            className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent to-accent-2 text-white disabled:opacity-40 active:scale-95"
           >
             <Send size={20} />
           </button>

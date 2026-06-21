@@ -93,7 +93,7 @@ export default function App() {
             <div aria-hidden className="aurora pointer-events-none absolute inset-0 -z-10" />
             <div
               className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-              style={{ contain: 'layout paint', overscrollBehavior: 'contain' }}
+              style={{ overscrollBehavior: 'contain' }}
             >
               <Routes>
                 <Route path="/" element={<TodayPage />} />
