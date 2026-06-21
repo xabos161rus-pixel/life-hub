@@ -15,41 +15,20 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { useToast } from '../../components/ui/Toast';
 
 interface TaskStats {
-  doneToday: number;
-  done7: number;
-  done30: number;
-  open: number;
-  overdue: number;
   /** последние 7 дней (старые → новые): подпись дня + число выполненных */
   week: { label: string; count: number }[];
 }
 
-/** Все производные от текущей даты считаем здесь, внутри useMemo. */
+/** Недельная гистограмма выполненных задач. Производные от текущей даты — здесь. */
 function computeTaskStats(tasks: Task[]): TaskStats {
   const today = todayKey();
-  const from7 = addDaysKey(today, -6); // включительно 7 дней с сегодня
-  const from30 = addDaysKey(today, -29);
-
-  let doneToday = 0;
-  let done7 = 0;
-  let done30 = 0;
-  let open = 0;
-  let overdue = 0;
-
-  // Бакеты по дням последней недели: ключ даты → счётчик.
+  // Бакеты по дням последней недели: ключ даты → счётчик выполненных.
   const weekKeys = Array.from({ length: 7 }, (_, i) => addDaysKey(today, -6 + i));
   const weekCount = new Map<string, number>(weekKeys.map((k) => [k, 0]));
 
   for (const t of tasks) {
-    if (!t.completedAt) {
-      open += 1;
-      if (t.dueDate !== null && t.dueDate < today) overdue += 1;
-      continue;
-    }
+    if (!t.completedAt) continue;
     const day = t.completedAt.slice(0, 10);
-    if (day === today) doneToday += 1;
-    if (day >= from7) done7 += 1;
-    if (day >= from30) done30 += 1;
     if (weekCount.has(day)) weekCount.set(day, (weekCount.get(day) ?? 0) + 1);
   }
 
@@ -58,7 +37,7 @@ function computeTaskStats(tasks: Task[]): TaskStats {
     count: weekCount.get(k) ?? 0,
   }));
 
-  return { doneToday, done7, done30, open, overdue, week };
+  return { week };
 }
 
 interface TaskBreakdown {
@@ -265,23 +244,8 @@ export function StatsPage() {
       }
     >
       <div className="flex flex-col gap-4">
-        {/* Задачи */}
-        <StatCard title="Задачи">
-          <div className="grid grid-cols-3 gap-y-4">
-            <StatNumber value={taskStats.doneToday} label="сегодня" color="var(--app-success)" />
-            <StatNumber value={taskStats.done7} label="за 7 дней" />
-            <StatNumber value={taskStats.done30} label="за 30 дней" />
-            <StatNumber value={taskStats.open} label="открыто" />
-            <StatNumber
-              value={taskStats.overdue}
-              label="просрочено"
-              color={taskStats.overdue > 0 ? 'var(--app-danger)' : undefined}
-            />
-          </div>
-        </StatCard>
-
-        {/* Разбор задач по статусам */}
-        <StatCard title="Разбор задач">
+        {/* Эффективность — разбор задач по статусам */}
+        <StatCard title="Эффективность">
           <div className="grid grid-cols-3 gap-y-4">
             <StatNumber value={taskBreakdown.total} label="всего активных" />
             <StatNumber value={taskBreakdown.completed} label="выполнено" color="var(--app-success)" />
