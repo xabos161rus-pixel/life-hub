@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { Plus, ScanLine } from 'lucide-react';
+import { Plus, ScanLine, ImageUp } from 'lucide-react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Field, Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -106,6 +106,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef(0);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Подключение через ref (стабильная ссылка для камеры-эффекта).
   const joinRef = useRef<(code: string) => void>(() => {});
@@ -182,6 +183,42 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
     };
   }, [open, tab]);
 
+  // Распознать QR из выбранной картинки (фото/скриншот из галереи телефона).
+  async function decodeImageFile(file: File) {
+    setError('');
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      await new Promise<void>((res, rej) => {
+        img.onload = () => res();
+        img.onerror = () => rej(new Error('image'));
+        img.src = url;
+      });
+      // Крупные фото уменьшаем — и быстрее, и jsQR стабильнее.
+      const max = 1600;
+      const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setError('Не удалось обработать картинку.');
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      const data = ctx.getImageData(0, 0, w, h);
+      const found = jsQR(data.data, data.width, data.height);
+      if (found?.data) joinRef.current(found.data);
+      else setError('На картинке не найден QR-код. Попробуйте другое фото или вставьте код вручную.');
+    } catch {
+      setError('Не удалось прочитать картинку.');
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
   return (
     <Sheet open={open} onClose={onClose} title="Войти по приглашению">
       <div className="space-y-4">
@@ -211,6 +248,27 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
             </Button>
           </div>
         )}
+        {/* Распознать QR из картинки в галерее телефона — доступно всегда */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = ''; // чтобы повторный выбор того же файла сработал
+            if (f) void decodeImageFile(f);
+          }}
+        />
+        <Button
+          variant="secondary"
+          className="inline-flex w-full items-center justify-center gap-2"
+          onClick={() => fileRef.current?.click()}
+        >
+          <ImageUp size={18} />
+          Выбрать фото с QR-кодом
+        </Button>
+
         {error && <p className="text-sm text-danger">{error}</p>}
       </div>
     </Sheet>
