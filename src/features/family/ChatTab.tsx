@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, Clock, Send, Pencil, Trash2, X } from 'lucide-react';
+import { Check, CheckCheck, Clock, Send, Pencil, Trash2, X } from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { getFamilyConfig } from '../../lib/family/familyState';
-import { sendMessage, editMessage, deleteMessage } from '../../lib/family/familyChat';
+import { sendMessage, editMessage, deleteMessage, subscribeReads, markSeen } from '../../lib/family/familyChat';
 
 // Порядок: подтверждённые по seq, неотправленные (seq=null) — в конец по времени.
 function ordered(msgs: FamilyMessage[]): FamilyMessage[] {
@@ -34,8 +34,22 @@ export function ChatTab() {
   const [text, setText] = useState('');
   const [actionMsg, setActionMsg] = useState<FamilyMessage | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [reads, setReadsState] = useState<Record<string, number>>({});
+  useEffect(() => subscribeReads(setReadsState), []);
+  // Максимальный seq, прочитанный ХОТЬ кем-то из других участников.
+  const maxOtherRead = useMemo(
+    () => Object.entries(reads).reduce((mx, [id, s]) => (id !== selfId ? Math.max(mx, s) : mx), 0),
+    [reads, selfId],
+  );
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Отмечаем прочитанным до последнего seq, когда чат открыт и виден.
+  useEffect(() => {
+    if (document.visibilityState !== 'visible') return;
+    const maxSeq = list.reduce((mx, m) => Math.max(mx, m.seq ?? 0), 0);
+    markSeen(maxSeq);
+  }, [list]);
 
   // Автоскролл к низу при новом сообщении — только если уже у низа ленты.
   // ВАЖНО: двигаем ТОЛЬКО свой scrollRef (el.scrollTop), а не scrollIntoView —
@@ -107,7 +121,14 @@ export function ChatTab() {
                   <p className="whitespace-pre-wrap break-words text-[15px]">{m.text}</p>
                   <span className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${own ? 'text-white/70' : 'text-muted'}`}>
                     {timeLabel(m.createdAt)}
-                    {own && (m.status === 'acked' ? <Check size={11} /> : <Clock size={11} />)}
+                    {own &&
+                      (m.status === 'pending' ? (
+                        <Clock size={11} />
+                      ) : m.seq != null && maxOtherRead >= m.seq ? (
+                        <CheckCheck size={13} className="text-sky-300" />
+                      ) : (
+                        <Check size={11} />
+                      ))}
                   </span>
                 </div>
               </div>

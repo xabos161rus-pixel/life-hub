@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { UserPlus, LogOut } from 'lucide-react';
+import { UserPlus, LogOut, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { db } from '../../db/db';
 import { Button } from '../../components/ui/Button';
+import { Sheet } from '../../components/ui/Sheet';
+import { Field, Input } from '../../components/ui/Input';
 import { getFamilyConfig } from '../../lib/family/familyState';
-import { subscribePresence } from '../../lib/family/familyChat';
+import { subscribePresence, renameFamily } from '../../lib/family/familyChat';
 import { leaveFamily } from '../../lib/family/familyLifecycle';
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
@@ -20,6 +22,7 @@ export function MembersTab() {
   const onlineSet = new Set(online);
   const [invite, setInvite] = useState(false);
   const [editName, setEditName] = useState(false);
+  const [renaming, setRenaming] = useState(false);
 
   const alive = members.filter((m) => !m.leftAt).sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
   const self = alive.find((m) => m.id === selfId);
@@ -32,6 +35,15 @@ export function MembersTab() {
 
   return (
     <div className="space-y-3">
+      <button
+        onClick={() => setRenaming(true)}
+        className="flex w-full items-center gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-left active:opacity-80"
+      >
+        <Pencil size={16} className="shrink-0 text-muted" />
+        <span className="flex-1 truncate font-medium">{config?.familyName || 'Семья'}</span>
+        <span className="text-sm text-muted">Переименовать</span>
+      </button>
+
       <Button onClick={() => setInvite(true)} className="w-full inline-flex items-center justify-center gap-2">
         <UserPlus size={18} />
         Пригласить родственника
@@ -76,6 +88,35 @@ export function MembersTab() {
 
       <FamilyInviteSheet open={invite} onClose={() => setInvite(false)} />
       <ProfileNameSheet open={editName} currentName={self?.displayName ?? ''} onClose={() => setEditName(false)} />
+      <RenameSheet
+        key={renaming ? `rn-${config?.familyName ?? ''}` : 'rn-closed'}
+        open={renaming}
+        current={config?.familyName ?? ''}
+        onClose={() => setRenaming(false)}
+      />
     </div>
+  );
+}
+
+function RenameSheet({ open, current, onClose }: { open: boolean; current: string; onClose: () => void }) {
+  const [name, setName] = useState(current);
+
+  async function save() {
+    if (!name.trim()) return;
+    await renameFamily(name);
+    onClose();
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Название семьи">
+      <div className="space-y-4">
+        <Field label="Название группы">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, «Наша семья»" autoFocus />
+        </Field>
+        <Button className="w-full" disabled={!name.trim()} onClick={() => void save()}>
+          Сохранить
+        </Button>
+      </div>
+    </Sheet>
   );
 }

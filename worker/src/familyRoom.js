@@ -255,7 +255,13 @@ export class FamilyRoom extends DurableObject {
         since = page.nextSince;
         if (!page.hasMore) break;
       }
-      ws.send(JSON.stringify({ type: 'ready', headSeq: this.headSeq(), online: this.onlineMemberIds() }));
+      ws.send(JSON.stringify({
+        type: 'ready',
+        headSeq: this.headSeq(),
+        online: this.onlineMemberIds(),
+        name: this.roomName(),
+        reads: this.allReads(),
+      }));
       this.broadcastPresence(); // остальным — что этот участник вошёл
       return;
     }
@@ -263,6 +269,49 @@ export class FamilyRoom extends DurableObject {
       const res = await this.ingest(msg);
       ws.send(JSON.stringify({ type: 'ack', clientMsgId: msg.clientMsgId || null, itemId: res.itemId, seq: res.seq }));
       return;
+    }
+    if (msg.type === 'rename' && typeof msg.name === 'string') {
+      const name = msg.name.trim().slice(0, 60);
+      if (name) {
+        this.sql.exec('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', 'room_name', name);
+        this.broadcastFrame({ type: 'name', name });
+      }
+      return;
+    }
+    if (msg.type === 'seen' && typeof msg.seq === 'number') {
+      const att = ws.deserializeAttachment();
+      if (att?.memberId) {
+        this.sql.exec(
+          'UPDATE members SET last_seen_seq = MAX(COALESCE(last_seen_seq, 0), ?) WHERE member_id = ?',
+          msg.seq,
+          att.memberId,
+        );
+        this.broadcastFrame({ type: 'read', memberId: att.memberId, seq: msg.seq });
+      }
+      return;
+    }
+  }
+
+  roomName() {
+    const r = this.sql.exec('SELECT v FROM meta WHERE k=?', 'room_name').toArray()[0];
+    return r ? r.v : null;
+  }
+
+  allReads() {
+    return this.sql
+      .exec('SELECT member_id, last_seen_seq FROM members WHERE last_seen_seq IS NOT NULL')
+      .toArray()
+      .map((r) => ({ memberId: r.member_id, seq: r.last_seen_seq }));
+  }
+
+  broadcastFrame(obj) {
+    const f = JSON.stringify(obj);
+    for (const ws of this.ctx.getWebSockets()) {
+      try {
+        ws.send(f);
+      } catch {
+        /* сокет закрывается */
+      }
     }
   }
 

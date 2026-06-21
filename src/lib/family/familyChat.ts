@@ -88,6 +88,37 @@ export function subscribePresence(fn: (ids: string[]) => void): () => void {
   return () => presenceListeners.delete(fn);
 }
 
+// Read-receipts: до какого seq каждый участник прочитал чат.
+let reads: Record<string, number> = {};
+const readsListeners = new Set<(r: Record<string, number>) => void>();
+function notifyReads() {
+  readsListeners.forEach((l) => l(reads));
+}
+function setReadFor(memberId: string, seq: number) {
+  if ((reads[memberId] ?? 0) >= seq) return;
+  reads = { ...reads, [memberId]: seq };
+  notifyReads();
+}
+function setAllReads(arr: { memberId: string; seq: number }[]) {
+  const next = { ...reads };
+  let changed = false;
+  for (const r of arr) {
+    if ((next[r.memberId] ?? 0) < r.seq) {
+      next[r.memberId] = r.seq;
+      changed = true;
+    }
+  }
+  if (changed) {
+    reads = next;
+    notifyReads();
+  }
+}
+export function subscribeReads(fn: (r: Record<string, number>) => void): () => void {
+  readsListeners.add(fn);
+  fn(reads);
+  return () => readsListeners.delete(fn);
+}
+
 // === Применение входящих записей: всё идёт через applyBatch (одна транзакция).
 // Пакетное применение бэкфилла И живого потока: расшифровка ВНЕ транзакции (crypto.subtle —
 // non-Dexie await разорвал бы транзакцию), запись — в ОДНОЙ транзакции, чтобы
@@ -211,11 +242,17 @@ export async function connect() {
       } else if (m.type === 'ready') {
         setState('online');
         if (Array.isArray(m.online)) setPresence(m.online);
+        if (Array.isArray(m.reads)) setAllReads(m.reads);
+        if (m.name) void patchFamilyConfig({ familyName: String(m.name) });
         startPing(sock);
         await resendOutbox();
         await registerPush(c);
       } else if (m.type === 'presence') {
         setPresence(Array.isArray(m.online) ? m.online : []);
+      } else if (m.type === 'name') {
+        void patchFamilyConfig({ familyName: String(m.name ?? '') });
+      } else if (m.type === 'read') {
+        if (m.memberId && typeof m.seq === 'number') setReadFor(m.memberId, m.seq);
       } else if (m.type === 'item') {
         queueItem(m); // батчим — пачка item за 50мс применяется одной транзакцией
       } else if (m.type === 'ack' && m.clientMsgId) {
@@ -327,6 +364,22 @@ export async function deleteMessage(clientMsgId: string): Promise<void> {
   const ciphertext = await encryptJSON(c.familyKey, { text: m.text, deletedAt });
   trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
   if (!ws || ws.readyState !== WebSocket.OPEN) void connect();
+}
+
+/** Переименовать семью (общее имя группы — синкается всем участникам). */
+export async function renameFamily(name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const c = await getFamilyConfig();
+  if (!c) return;
+  await patchFamilyConfig({ familyName: trimmed }); // оптимистично
+  trySendFrame({ type: 'rename', name: trimmed });
+  if (!ws || ws.readyState !== WebSocket.OPEN) void connect();
+}
+
+/** Отметить, что прочитаны сообщения до seq (отправляет read-receipt). */
+export function markSeen(seq: number): void {
+  if (seq > 0) trySendFrame({ type: 'seen', seq });
 }
 
 /** Отправить семейную запись (задача/участник). Локально seq=0 до подтверждения. */
