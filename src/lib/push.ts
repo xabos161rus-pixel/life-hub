@@ -72,6 +72,24 @@ export async function enablePush(): Promise<{ ok: boolean; reason?: string }> {
   }
 }
 
+/** Само-восстановление подписки. Если уведомления уже разрешены и push-подписка
+ *  существует — тихо до-регистрируем её в глобальном списке (для пуша «вышло
+ *  обновление») и обновляем localStorage. Вызывается при старте приложения,
+ *  чтобы НЕ зависеть от ручного «перевключить уведомления» после деплоя: тот,
+ *  кто хоть раз включил уведомления, остаётся в списке рассылки сам собой. */
+export async function ensurePushRegistered(): Promise<void> {
+  if (!pushSupported() || Notification.permission !== 'granted') return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return;
+    localStorage.setItem(SUB_KEY, JSON.stringify(sub));
+    await registerGlobalPush(sub);
+  } catch {
+    /* SW ещё не готов / офлайн — попробуется при следующем запуске */
+  }
+}
+
 /** Регистрирует подписку в глобальный список на Worker (для пуша «вышло обновление»). */
 async function registerGlobalPush(sub: unknown): Promise<void> {
   try {
