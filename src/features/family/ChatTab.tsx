@@ -99,7 +99,10 @@ export function ChatTab({ familyId }: { familyId: string }) {
     // Полная высота под чат от каркаса (Screen fill): лента растёт и скроллится,
     // композер прибит к низу. Без magic-number — высоту даёт родитель.
     <div className="flex h-full min-h-0 flex-col">
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-1">
+      {/* overscroll-contain: флик до края ленты НЕ чейнится в App-контейнер —
+          без этого на iOS-momentum «война скроллов» с предком насыщала
+          main-thread и чат замирал после прокруток вверх-вниз. */}
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
         {list.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted">Пока нет сообщений. Напишите первым!</p>
         ) : (
