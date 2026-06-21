@@ -95,36 +95,18 @@ export default {
         if ((request.headers.get('Authorization') || '') !== `Bearer ${env.UPDATE_TOKEN}`) {
           return json({ error: 'unauthorized' }, 401, origin);
         }
-        const vapid = {
-          publicKey: env.VAPID_PUBLIC,
-          privateKey: env.VAPID_PRIVATE,
-          subject: env.VAPID_SUBJECT || 'mailto:noreply@life-hub.app',
-        };
-        const subs = await env.DB.prepare('SELECT endpoint, sub FROM push_subs').all();
-        let sent = 0;
-        for (const r of subs.results || []) {
-          try {
-            const { endpoint, headers, body } = await buildPushRequest({
-              subscription: JSON.parse(r.sub),
-              payload: JSON.stringify({
-                title: 'Обновление Life Hub',
-                body: 'Вышла новая версия — откройте приложение и нажмите «Обновить»',
-                url: '/life-hub/',
-                tag: 'app-update',
-              }),
-              vapid,
-              ttl: 86400,
-              urgency: 'normal',
-            });
-            const res = await fetch(endpoint, { method: 'POST', headers, body });
-            if (res.ok) sent++;
-            else if (res.status === 404 || res.status === 410) {
-              await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ?').bind(r.endpoint).run();
-            }
-          } catch {
-            /* пропускаем мёртвую подписку */
-          }
+        // Опциональный текст «что нового»; иначе — текст по умолчанию.
+        let custom = {};
+        try {
+          custom = await request.json();
+        } catch {
+          /* тела нет */
         }
+        const notifyBody =
+          custom && typeof custom.body === 'string' && custom.body.trim()
+            ? custom.body.trim().slice(0, 140)
+            : DEFAULT_UPDATE_TEXT;
+        const sent = await broadcastUpdate(env, notifyBody);
         return json({ ok: true, sent }, 200, origin);
       }
 
@@ -199,8 +181,68 @@ export default {
 
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(sendDue(env));
+    ctx.waitUntil(checkAppVersion(env)); // сторож версии → авто-пуш об обновлении
   },
 };
+
+const DEFAULT_UPDATE_TEXT = 'Вышла новая версия — откройте приложение и нажмите «Обновить»';
+const APP_INDEX_URL = 'https://xabos161rus-pixel.github.io/life-hub/index.html';
+
+/** Разослать пуш «вышло обновление» всем подписчикам. Возвращает число доставок. */
+async function broadcastUpdate(env, bodyText) {
+  const vapid = {
+    publicKey: env.VAPID_PUBLIC,
+    privateKey: env.VAPID_PRIVATE,
+    subject: env.VAPID_SUBJECT || 'mailto:noreply@life-hub.app',
+  };
+  if (!vapid.privateKey) return 0;
+  const subs = await env.DB.prepare('SELECT endpoint, sub FROM push_subs').all();
+  let sent = 0;
+  for (const r of subs.results || []) {
+    try {
+      const { endpoint, headers, body } = await buildPushRequest({
+        subscription: JSON.parse(r.sub),
+        payload: JSON.stringify({ title: 'Обновление Life Hub', body: bodyText, url: '/life-hub/', tag: 'app-update' }),
+        vapid,
+        ttl: 86400,
+        urgency: 'normal',
+      });
+      const res = await fetch(endpoint, { method: 'POST', headers, body });
+      if (res.ok) sent++;
+      else if (res.status === 404 || res.status === 410) {
+        await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ?').bind(r.endpoint).run();
+      }
+    } catch {
+      /* мёртвая подписка — пропускаем */
+    }
+  }
+  return sent;
+}
+
+/** Cron-сторож версии: при каждом новом деплое (сменился хэш JS-бандла в
+ *  index.html живого сайта) — авто-рассылка пуша об обновлении. Первое
+ *  наблюдение лишь запоминает версию, не уведомляя. */
+async function checkAppVersion(env) {
+  try {
+    const res = await fetch(`${APP_INDEX_URL}?_=${Date.now()}`, {
+      headers: { 'cache-control': 'no-cache' },
+      cf: { cacheTtl: 0, cacheEverything: false },
+    });
+    if (!res.ok) return;
+    const html = await res.text();
+    const m = html.match(/assets\/index-[A-Za-z0-9_-]+\.js/);
+    if (!m) return;
+    const version = m[0];
+    const row = await env.DB.prepare('SELECT v FROM app_meta WHERE k = ?').bind('app_version').first();
+    const prev = row ? row.v : null;
+    if (prev === version) return; // версия не менялась
+    await env.DB.prepare('INSERT OR REPLACE INTO app_meta (k, v) VALUES (?, ?)').bind('app_version', version).run();
+    if (prev === null) return; // первое наблюдение — не уведомляем
+    await broadcastUpdate(env, DEFAULT_UPDATE_TEXT);
+  } catch {
+    /* транзиентная ошибка — попробуем на следующем тике cron */
+  }
+}
 
 async function sendDue(env) {
   const vapid = {
