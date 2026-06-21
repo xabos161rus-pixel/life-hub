@@ -97,6 +97,54 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
   };
 }
 
+/** Человекочитаемая длительность: «45м», «1ч», «1ч 30м». */
+function formatDuration(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h === 0) return `${m}м`;
+  return m === 0 ? `${h}ч` : `${h}ч ${m}м`;
+}
+
+/** Компактная подпись столбца графика: «45м», «2ч», «1.5ч». */
+function compactDuration(min: number): string {
+  if (min === 0) return '';
+  if (min < 60) return `${min}м`;
+  const h = min / 60;
+  return Number.isInteger(h) ? `${h}ч` : `${h.toFixed(1)}ч`;
+}
+
+interface TaskTimeStats {
+  today: number; // суммарная длительность задач на сегодня, мин
+  weekTotal: number; // за последние 7 дней, мин
+  /** последние 7 дней (старые → новые): подпись дня + суммарные минуты */
+  days: { label: string; minutes: number; isToday: boolean }[];
+}
+
+/** Запланированное время по задачам с заданной длительностью, сгруппированное
+ *  по дню (Task.dueDate). Берём только задачи, у которых задан duration. */
+function computeTaskTime(tasks: Task[]): TaskTimeStats {
+  const today = todayKey();
+  const keys = Array.from({ length: 7 }, (_, i) => addDaysKey(today, -6 + i));
+  const perDay = new Map<string, number>(keys.map((k) => [k, 0]));
+
+  for (const t of tasks) {
+    if (t.duration == null || t.dueDate == null) continue;
+    if (perDay.has(t.dueDate)) perDay.set(t.dueDate, (perDay.get(t.dueDate) ?? 0) + t.duration);
+  }
+
+  const days = keys.map((k) => ({
+    label: WEEKDAY_LABELS[getISODay(fromKey(k)) - 1],
+    minutes: perDay.get(k) ?? 0,
+    isToday: k === today,
+  }));
+
+  return {
+    today: perDay.get(today) ?? 0,
+    weekTotal: days.reduce((s, d) => s + d.minutes, 0),
+    days,
+  };
+}
+
 function StatCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="card p-4">
@@ -173,6 +221,7 @@ export function StatsPage() {
 
   const taskStats = useMemo(() => computeTaskStats(tasks), [tasks]);
   const taskBreakdown = useMemo(() => computeTaskBreakdown(tasks, deletedTasks), [tasks, deletedTasks]);
+  const taskTime = useMemo(() => computeTaskTime(tasks), [tasks]);
 
   const tasksByGoal = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -223,6 +272,8 @@ export function StatsPage() {
     () => Math.max(1, ...taskStats.week.map((d) => d.count)),
     [taskStats],
   );
+
+  const maxTime = useMemo(() => Math.max(1, ...taskTime.days.map((d) => d.minutes)), [taskTime]);
 
   const noData =
     tasks.length === 0 &&
@@ -291,6 +342,44 @@ export function StatsPage() {
             <StatTile value={`${taskBreakdown.avgChecklist}%`} label="чек-листы" />
           </div>
         </StatCard>
+
+        {/* Время на задачи — суммарная длительность задач по дням */}
+        {taskTime.weekTotal > 0 && (
+          <StatCard title="Время на задачи">
+            <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-medium">Сегодня на задачи</span>
+                <span className="text-xl font-bold" style={{ color: 'var(--app-accent-2)' }}>
+                  {taskTime.today > 0 ? formatDuration(taskTime.today) : '0м'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-end justify-between gap-2" style={{ height: 96 }}>
+              {taskTime.days.map((d, i) => (
+                <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+                  <span className="text-[10px] font-semibold text-muted">{compactDuration(d.minutes)}</span>
+                  <div className="flex w-full flex-1 items-end">
+                    <div
+                      className="w-full rounded-t-md transition-[height] duration-300"
+                      style={{
+                        height: `${Math.round((d.minutes / maxTime) * 100)}%`,
+                        minHeight: d.minutes > 0 ? 4 : 2,
+                        background: 'var(--app-accent-2)',
+                        opacity: d.minutes > 0 ? 1 : 0.25,
+                      }}
+                    />
+                  </div>
+                  <span className={`text-xs ${d.isToday ? 'font-bold text-text' : 'text-muted'}`}>{d.label}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-3 text-center text-xs text-muted">
+              За неделю всего: <span className="font-semibold text-text">{formatDuration(taskTime.weekTotal)}</span>
+            </p>
+          </StatCard>
+        )}
 
         {/* За неделю — гистограмма выполненных задач по дням */}
         <StatCard title="За неделю">
