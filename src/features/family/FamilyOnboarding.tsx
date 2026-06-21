@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { Users, ScanLine } from 'lucide-react';
+import { Plus, ScanLine } from 'lucide-react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Field, Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -12,32 +12,52 @@ const JOIN_TABS = [
   { value: 'paste' as const, label: 'Вставить код' },
 ];
 
-/** Первый экран семьи: создать группу или войти по приглашению.
+/** Первый экран семьи (групп ещё нет): крупная иконка «＋» с подсказкой.
+ *  По нажатию — выбор «Создать группу / Войти по приглашению».
  *  onReady получает familyId созданной/выбранной группы — чтобы её сразу открыть. */
 export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => void }) {
-  const [sheet, setSheet] = useState<null | 'create' | 'join'>(null);
+  const [mode, setMode] = useState<null | 'choose' | 'create' | 'join'>(null);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-surface p-6 text-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-accent/15 text-accent">
-          <Users size={28} />
-        </div>
-        <p className="font-semibold">Семейное пространство</p>
-        <p className="text-sm text-muted">
-          Общий чат и задачи с близкими. Содержимое шифруется на устройстве (E2E) — на сервере
-          только шифротекст.
-        </p>
+    <div className="flex flex-col items-center justify-center gap-5 py-20 text-center">
+      <button
+        onClick={() => setMode('choose')}
+        aria-label="Создать группу или войти по приглашению"
+        className="flex size-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-accent to-accent-2 text-white shadow-accent active:scale-95"
+      >
+        <Plus size={40} strokeWidth={2.4} />
+      </button>
+      <div className="space-y-1.5">
+        <p className="text-lg font-semibold">Создать или войти по приглашению</p>
+        <p className="px-6 text-sm text-muted">Общий чат и задачи с близкими. Содержимое шифруется на устройстве.</p>
       </div>
-      <Button className="w-full" onClick={() => setSheet('create')}>
-        Создать группу
-      </Button>
-      <Button variant="secondary" className="w-full" onClick={() => setSheet('join')}>
-        Войти по приглашению
-      </Button>
 
-      <CreateFamilySheet open={sheet === 'create'} onClose={() => setSheet(null)} onReady={onReady} />
-      <JoinFamilySheet open={sheet === 'join'} onClose={() => setSheet(null)} onReady={onReady} />
+      <Sheet open={mode === 'choose'} onClose={() => setMode(null)} title="Семейная группа">
+        <div className="space-y-3 pb-2">
+          <Button className="w-full" onClick={() => setMode('create')}>
+            Создать группу
+          </Button>
+          <Button variant="secondary" className="w-full" onClick={() => setMode('join')}>
+            Войти по приглашению
+          </Button>
+        </div>
+      </Sheet>
+      <CreateFamilySheet
+        open={mode === 'create'}
+        onClose={() => setMode(null)}
+        onReady={(id) => {
+          setMode(null);
+          onReady?.(id);
+        }}
+      />
+      <JoinFamilySheet
+        open={mode === 'join'}
+        onClose={() => setMode(null)}
+        onReady={(id) => {
+          setMode(null);
+          onReady?.(id);
+        }}
+      />
     </div>
   );
 }
