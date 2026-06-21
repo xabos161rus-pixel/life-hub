@@ -117,6 +117,19 @@ function StatNumber({ value, label, color }: { value: number; label: string; col
   );
 }
 
+/** Метрика-плитка: число в собственном фоне с бордером — чтобы пункты в плотной
+ *  сетке не сливались в стену цифр. */
+function StatTile({ value, label, color }: { value: ReactNode; label: string; color?: string }) {
+  return (
+    <div className="rounded-xl border border-hairline bg-surface-2 px-3 py-2.5">
+      <p className="text-[22px] font-bold leading-none" style={color ? { color } : undefined}>
+        {value}
+      </p>
+      <p className="mt-1.5 text-[11px] leading-tight text-muted">{label}</p>
+    </div>
+  );
+}
+
 /** Экран статистики/обзора продуктивности. */
 export function StatsPage() {
   const allTasks = useLiveQuery<Task[]>(() => db.tasks.toArray(), []) ?? [];
@@ -246,38 +259,36 @@ export function StatsPage() {
       <div className="flex flex-col gap-4">
         {/* Эффективность — разбор задач по статусам */}
         <StatCard title="Эффективность">
-          <div className="grid grid-cols-3 gap-y-4">
-            <StatNumber value={taskBreakdown.total} label="всего активных" />
-            <StatNumber value={taskBreakdown.completed} label="выполнено" color="var(--app-success)" />
-            <StatNumber value={taskBreakdown.open} label="не выполнено" />
-            <StatNumber
-              value={taskBreakdown.partial}
-              label="частично"
-              color={taskBreakdown.partial > 0 ? 'var(--app-warning)' : undefined}
-            />
-            <StatNumber
-              value={taskBreakdown.overdue}
-              label="просрочено"
-              color={taskBreakdown.overdue > 0 ? 'var(--app-danger)' : undefined}
-            />
-            <StatNumber value={taskBreakdown.deleted} label="в корзине" color="var(--app-muted)" />
-          </div>
-
-          <div className="mt-4">
-            <div className="mb-1 flex items-baseline justify-between">
-              <span className="text-xs text-muted">Выполнено из всех</span>
-              <span className="text-xs font-semibold">{taskBreakdown.completionRate}%</span>
+          {/* Хедлайн: процент выполнения + полоса */}
+          <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
+            <div className="mb-2 flex items-baseline justify-between">
+              <span className="text-sm font-medium">Выполнено из всех</span>
+              <span className="text-lg font-bold" style={{ color: 'var(--app-success)' }}>
+                {taskBreakdown.completionRate}%
+              </span>
             </div>
             <ProgressBar value={taskBreakdown.completionRate} color="var(--app-success)" />
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-y-4">
-            <StatNumber value={taskBreakdown.dueToday} label="срок сегодня" />
-            <StatNumber value={taskBreakdown.noDate} label="без срока" />
-            <div>
-              <p className="text-2xl font-bold">{taskBreakdown.avgChecklist}%</p>
-              <p className="text-xs text-muted">прогресс чек-листов</p>
-            </div>
+          {/* Каждая метрика — отдельная плитка, чтобы пункты не сливались */}
+          <div className="grid grid-cols-3 gap-2">
+            <StatTile value={taskBreakdown.total} label="всего активных" />
+            <StatTile value={taskBreakdown.completed} label="выполнено" color="var(--app-success)" />
+            <StatTile value={taskBreakdown.open} label="не выполнено" />
+            <StatTile
+              value={taskBreakdown.partial}
+              label="частично"
+              color={taskBreakdown.partial > 0 ? 'var(--app-warning)' : undefined}
+            />
+            <StatTile
+              value={taskBreakdown.overdue}
+              label="просрочено"
+              color={taskBreakdown.overdue > 0 ? 'var(--app-danger)' : undefined}
+            />
+            <StatTile value={taskBreakdown.deleted} label="в корзине" />
+            <StatTile value={taskBreakdown.dueToday} label="срок сегодня" />
+            <StatTile value={taskBreakdown.noDate} label="без срока" />
+            <StatTile value={`${taskBreakdown.avgChecklist}%`} label="чек-листы" />
           </div>
         </StatCard>
 
