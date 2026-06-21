@@ -85,7 +85,9 @@ export function FamilyScreen() {
         )}
         <SegmentedControl options={TABS} value={tab} onChange={setTab} />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* Для чата — без внешнего скролла (ChatTab имеет свой), иначе два
+          вложенных overflow-y-auto давали «войну скроллов» и заморозку. */}
+      <div className={`min-h-0 flex-1 ${tab === 'chat' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         {tab === 'chat' ? <ChatTab /> : tab === 'tasks' ? <FamilyTasksTab /> : <MembersTab />}
       </div>
     </div>

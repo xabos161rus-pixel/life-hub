@@ -88,51 +88,8 @@ export function subscribePresence(fn: (ids: string[]) => void): () => void {
   return () => presenceListeners.delete(fn);
 }
 
-// === Применение входящих записей (по channel, LWW по seq) ===
-async function applyItem(c: FamilyConfig, item: {
-  seq: number;
-  channel: Channel;
-  itemId: string;
-  senderMemberId: string | null;
-  createdAt: string;
-  ciphertext: string;
-}) {
-  let payload: Record<string, unknown>;
-  try {
-    payload = await decryptJSON(c.familyKey, item.ciphertext);
-  } catch {
-    return; // чужой ключ / битый шифротекст — пропускаем
-  }
-  if (item.channel === 'msg') {
-    const localMsg = await db.familyMessages.get(item.itemId);
-    if (localMsg && localMsg.seq != null && item.seq <= localMsg.seq) return; // старая версия — не перезаписываем
-    await db.familyMessages.put({
-      clientMsgId: item.itemId,
-      seq: item.seq,
-      senderMemberId: item.senderMemberId ?? '',
-      createdAt: item.createdAt,
-      text: String(payload.text ?? ''),
-      status: 'acked',
-      deletedAt: (payload.deletedAt as string | null) ?? null,
-    });
-  } else if (item.channel === 'task') {
-    const local = await db.familyTasks.get(item.itemId);
-    if (!local || item.seq > local.seq) {
-      await db.familyTasks.put({ ...(payload as unknown as FamilyTask), id: item.itemId, seq: item.seq });
-    }
-  } else if (item.channel === 'member') {
-    const local = await db.familyMembers.get(item.itemId);
-    if (!local || item.seq > local.seq) {
-      await db.familyMembers.put({ ...(payload as unknown as FamilyMember), id: item.itemId, seq: item.seq });
-    }
-  }
-  if (item.seq > c.lastSeq) {
-    c.lastSeq = item.seq; // in-memory, чтобы повторы в этом же цикле пропускались
-    bumpSeq(item.seq); // запись в БД — с дебаунсом
-  }
-}
-
-// Пакетное применение бэкфилла: расшифровка ВНЕ транзакции (crypto.subtle —
+// === Применение входящих записей: всё идёт через applyBatch (одна транзакция).
+// Пакетное применение бэкфилла И живого потока: расшифровка ВНЕ транзакции (crypto.subtle —
 // non-Dexie await разорвал бы транзакцию), запись — в ОДНОЙ транзакции, чтобы
 // useLiveQuery дёрнулся один раз, а не на каждое из сотен сообщений (фриз входа).
 type RawItem = { seq: number; channel: Channel; itemId: string; senderMemberId: string | null; createdAt: string; ciphertext: string };
@@ -173,6 +130,21 @@ async function applyBatch(c: FamilyConfig, items: RawItem[]) {
     c.lastSeq = maxSeq;
     bumpSeq(maxSeq);
   }
+}
+
+// Микро-очередь живых item: пачка пришедших за 50мс применяется одной
+// транзакцией (applyBatch) → один wake liveQuery вместо N перерисовок ленты.
+let itemBuf: RawItem[] = [];
+let itemFlush: ReturnType<typeof setTimeout> | null = null;
+function queueItem(m: RawItem) {
+  itemBuf.push(m);
+  if (itemFlush) return;
+  itemFlush = setTimeout(() => {
+    itemFlush = null;
+    const batch = itemBuf;
+    itemBuf = [];
+    void getFamilyConfig().then((fresh) => (fresh ? applyBatch(fresh, batch) : undefined));
+  }, 50);
 }
 
 // === Переотправка неподтверждённого (pending msg + task/member с seq=0) ===
@@ -245,8 +217,7 @@ export async function connect() {
       } else if (m.type === 'presence') {
         setPresence(Array.isArray(m.online) ? m.online : []);
       } else if (m.type === 'item') {
-        const fresh = await getFamilyConfig();
-        if (fresh) await applyItem(fresh, m);
+        queueItem(m); // батчим — пачка item за 50мс применяется одной транзакцией
       } else if (m.type === 'ack' && m.clientMsgId) {
         await db.familyMessages.update(m.clientMsgId, { status: 'acked', seq: m.seq });
       }

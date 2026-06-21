@@ -37,13 +37,20 @@ export function ChatTab() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Автоскролл к низу при новом сообщении — только если уже у низа ленты
-  // (иначе при чтении истории чужое сообщение дёргало бы прокрутку вверх).
+  // Автоскролл к низу при новом сообщении — только если уже у низа ленты.
+  // ВАЖНО: двигаем ТОЛЬКО свой scrollRef (el.scrollTop), а не scrollIntoView —
+  // тот по спецификации прокручивает ВСЕХ предков, что в паре вложенных
+  // overflow-контейнеров устраивало «войну скроллов» с ручной прокруткой и
+  // на iOS-momentum насыщало main-thread синхронными reflow (полная заморозка).
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-    if (nearBottom) bottomRef.current?.scrollIntoView({ block: 'end' });
+    if (nearBottom) {
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+    }
   }, [list.length]);
 
   async function submit() {
