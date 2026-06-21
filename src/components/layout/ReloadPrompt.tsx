@@ -1,7 +1,7 @@
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { RefreshCw } from 'lucide-react';
 
-const CHECK_INTERVAL = 60 * 60 * 1000; // раз в час проверять обновление
+const CHECK_INTERVAL = 20 * 60 * 1000; // раз в 20 мин проверять обновление
 
 /**
  * Баннер «Доступна новая версия» с кнопкой «Обновить». Решает проблему iOS-PWA,
@@ -15,8 +15,13 @@ export function ReloadPrompt() {
   } = useRegisterSW({
     onRegisteredSW(_url, registration) {
       if (!registration) return;
-      // периодически проверяем сервер на новую версию
-      setInterval(() => registration.update().catch(() => {}), CHECK_INTERVAL);
+      const check = () => registration.update().catch(() => {});
+      check(); // сразу при запуске
+      setInterval(check, CHECK_INTERVAL);
+      // при возврате в приложение (из фона/другой вкладки) — проверить снова
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
     },
   });
 
