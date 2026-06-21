@@ -169,6 +169,11 @@ export class FamilyRoom extends DurableObject {
       const dup = this.sql.exec('SELECT seq FROM items WHERE client_msg_id=?', clientMsgId).toArray()[0];
       if (dup) return { seq: dup.seq, channel, itemId: id, clientMsgId, duplicate: true };
     }
+    // Новая ли это задача (для пуша «новая задача») — проверяем ДО удаления
+    // прежней версии: при обновлении/выполнении задачи (тот же item_id) пуша нет.
+    const isNewTask =
+      channel === 'task' && !this.sql.exec('SELECT 1 FROM items WHERE channel=? AND item_id=? LIMIT 1', channel, id).toArray()[0];
+
     // task/member мутируемы: новая версия = новый seq, старая строка по item_id заменяется.
     this.sql.exec('DELETE FROM items WHERE channel=? AND item_id=?', channel, id);
     this.sql.exec(
@@ -185,11 +190,13 @@ export class FamilyRoom extends DurableObject {
 
     this.broadcast(item);
     if (channel === 'msg') {
-      this.ctx.waitUntil(this.pushOffline(item, senderMemberId));
+      this.ctx.waitUntil(this.pushOffline(item, senderMemberId, 'msg'));
       if (++this.insertsSincePrune >= PRUNE_EVERY) {
         this.insertsSincePrune = 0;
         this.prune();
       }
+    } else if (isNewTask) {
+      this.ctx.waitUntil(this.pushOffline(item, senderMemberId, 'task'));
     }
     return { seq, channel, itemId: id, clientMsgId: clientMsgId || null };
   }
@@ -331,7 +338,7 @@ export class FamilyRoom extends DurableObject {
   }
 
   // === Web Push оффлайн-участникам (сигнал, не транспорт) ===
-  async pushOffline(item, senderMemberId) {
+  async pushOffline(item, senderMemberId, kind = 'msg') {
     const online = new Set();
     for (const ws of this.ctx.getWebSockets()) {
       const att = ws.deserializeAttachment();
@@ -349,14 +356,17 @@ export class FamilyRoom extends DurableObject {
     // Адресный пуш по группе: имя группы в заголовке (если известно) и тег с
     // familyId — иначе уведомления двух групп схлопывались бы в одно.
     const familyId = this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]?.v || '';
-    const name = this.roomName() || 'Семейный чат';
+    const name = this.roomName() || 'Семья';
+    const isTask = kind === 'task';
+    const bodyText = isTask ? 'Новая общая задача' : 'Новое сообщение';
+    const tag = (isTask ? 'family-task:' : 'family-chat:') + (familyId || 'all');
     for (const m of subs) {
       if (online.has(m.member_id)) continue;
       try {
         const sub = JSON.parse(m.push_sub);
         const { endpoint, headers, body } = await buildPushRequest({
           subscription: sub,
-          payload: JSON.stringify({ title: name, body: 'Новое сообщение', family: true, familyId, tag: 'family-chat:' + (familyId || 'all') }),
+          payload: JSON.stringify({ title: name, body: bodyText, family: true, familyId, tag }),
           vapid,
           ttl: 3600,
           urgency: 'high',
