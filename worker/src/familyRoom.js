@@ -91,6 +91,12 @@ export class FamilyRoom extends DurableObject {
   async fetch(request) {
     const url = new URL(request.url);
     const path = url.pathname;
+    // Запоминаем familyId этой комнаты один раз — нужен для адресных пуш-тегов,
+    // чтобы уведомления разных групп на одном устройстве не схлопывались.
+    const fid = url.searchParams.get('familyId');
+    if (fid && !this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]) {
+      this.sql.exec('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', 'family_id', fid);
+    }
     const auth = request.headers.get('Authorization') || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : url.searchParams.get('token') || '';
 
@@ -340,13 +346,17 @@ export class FamilyRoom extends DurableObject {
     const subs = this.sql
       .exec('SELECT member_id, push_sub FROM members WHERE push_sub IS NOT NULL AND member_id != ?', senderMemberId || '')
       .toArray();
+    // Адресный пуш по группе: имя группы в заголовке (если известно) и тег с
+    // familyId — иначе уведомления двух групп схлопывались бы в одно.
+    const familyId = this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]?.v || '';
+    const name = this.roomName() || 'Семейный чат';
     for (const m of subs) {
       if (online.has(m.member_id)) continue;
       try {
         const sub = JSON.parse(m.push_sub);
         const { endpoint, headers, body } = await buildPushRequest({
           subscription: sub,
-          payload: JSON.stringify({ title: 'Семейный чат', body: 'Новое сообщение', family: true, tag: 'family-chat' }),
+          payload: JSON.stringify({ title: name, body: 'Новое сообщение', family: true, familyId, tag: 'family-chat:' + (familyId || 'all') }),
           vapid,
           ttl: 3600,
           urgency: 'high',

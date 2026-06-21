@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { UserPlus, LogOut, Pencil } from 'lucide-react';
-import { useNavigate } from 'react-router';
 import { db } from '../../db/db';
 import { Button } from '../../components/ui/Button';
 import { Sheet } from '../../components/ui/Sheet';
@@ -12,13 +11,12 @@ import { leaveFamily } from '../../lib/family/familyLifecycle';
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
 
-export function MembersTab() {
-  const members = useLiveQuery(() => db.familyMembers.toArray(), []) ?? [];
-  const config = useLiveQuery(() => getFamilyConfig(), []);
-  const navigate = useNavigate();
+export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () => void }) {
+  const members = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]) ?? [];
+  const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
   const selfId = config?.selfMemberId;
   const [online, setOnline] = useState<string[]>([]);
-  useEffect(() => subscribePresence(setOnline), []);
+  useEffect(() => subscribePresence(familyId, setOnline), [familyId]);
   const onlineSet = new Set(online);
   const [invite, setInvite] = useState(false);
   const [editName, setEditName] = useState(false);
@@ -28,9 +26,9 @@ export function MembersTab() {
   const self = alive.find((m) => m.id === selfId);
 
   async function leave() {
-    if (!window.confirm('Выйти из семьи? Общий чат и задачи перестанут синхронизироваться на этом устройстве.')) return;
-    await leaveFamily();
-    navigate('/more');
+    if (!window.confirm('Выйти из группы? Её общий чат и задачи перестанут синхронизироваться на этом устройстве.')) return;
+    await leaveFamily(familyId);
+    onLeft();
   }
 
   return (
@@ -46,7 +44,7 @@ export function MembersTab() {
 
       <Button onClick={() => setInvite(true)} className="w-full inline-flex items-center justify-center gap-2">
         <UserPlus size={18} />
-        Пригласить родственника
+        Пригласить участника
       </Button>
 
       <div className="divide-y divide-hairline overflow-hidden rounded-2xl border border-border bg-surface">
@@ -83,13 +81,14 @@ export function MembersTab() {
 
       <button onClick={() => void leave()} className="flex w-full items-center justify-center gap-2 pt-2 text-sm text-danger active:opacity-60">
         <LogOut size={16} />
-        Выйти из семьи
+        Выйти из группы
       </button>
 
-      <FamilyInviteSheet open={invite} onClose={() => setInvite(false)} />
-      <ProfileNameSheet open={editName} currentName={self?.displayName ?? ''} onClose={() => setEditName(false)} />
+      <FamilyInviteSheet familyId={familyId} open={invite} onClose={() => setInvite(false)} />
+      <ProfileNameSheet familyId={familyId} open={editName} currentName={self?.displayName ?? ''} onClose={() => setEditName(false)} />
       <RenameSheet
         key={renaming ? `rn-${config?.familyName ?? ''}` : 'rn-closed'}
+        familyId={familyId}
         open={renaming}
         current={config?.familyName ?? ''}
         onClose={() => setRenaming(false)}
@@ -98,17 +97,17 @@ export function MembersTab() {
   );
 }
 
-function RenameSheet({ open, current, onClose }: { open: boolean; current: string; onClose: () => void }) {
+function RenameSheet({ familyId, open, current, onClose }: { familyId: string; open: boolean; current: string; onClose: () => void }) {
   const [name, setName] = useState(current);
 
   async function save() {
     if (!name.trim()) return;
-    await renameFamily(name);
+    await renameFamily(familyId, name);
     onClose();
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Название семьи">
+    <Sheet open={open} onClose={onClose} title="Название группы">
       <div className="space-y-4">
         <Field label="Название группы">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, «Наша семья»" autoFocus />

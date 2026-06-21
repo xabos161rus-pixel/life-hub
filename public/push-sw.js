@@ -14,7 +14,7 @@ self.addEventListener('push', (event) => {
       icon: '/life-hub/icons/icon-192.png',
       badge: '/life-hub/icons/icon-192.png',
       tag: data.taskId || data.tag || undefined,
-      data: { url: data.family ? '/life-hub/more/family' : '/life-hub/' },
+      data: { url: data.family ? '/life-hub/more/family' + (data.familyId ? '?g=' + data.familyId : '') : '/life-hub/' },
     }),
   );
 });

@@ -12,8 +12,9 @@ const JOIN_TABS = [
   { value: 'paste' as const, label: 'Вставить код' },
 ];
 
-/** Первый экран семьи: создать семью или войти по приглашению. */
-export function FamilyOnboarding() {
+/** Первый экран семьи: создать группу или войти по приглашению.
+ *  onReady получает familyId созданной/выбранной группы — чтобы её сразу открыть. */
+export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => void }) {
   const [sheet, setSheet] = useState<null | 'create' | 'join'>(null);
 
   return (
@@ -29,19 +30,19 @@ export function FamilyOnboarding() {
         </p>
       </div>
       <Button className="w-full" onClick={() => setSheet('create')}>
-        Создать семью
+        Создать группу
       </Button>
       <Button variant="secondary" className="w-full" onClick={() => setSheet('join')}>
         Войти по приглашению
       </Button>
 
-      <CreateFamilySheet open={sheet === 'create'} onClose={() => setSheet(null)} onCreated={() => setSheet(null)} />
-      <JoinFamilySheet open={sheet === 'join'} onClose={() => setSheet(null)} />
+      <CreateFamilySheet open={sheet === 'create'} onClose={() => setSheet(null)} onReady={onReady} />
+      <JoinFamilySheet open={sheet === 'join'} onClose={() => setSheet(null)} onReady={onReady} />
     </div>
   );
 }
 
-function CreateFamilySheet({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
+export function CreateFamilySheet({ open, onClose, onReady }: { open: boolean; onClose: () => void; onReady?: (familyId: string) => void }) {
   const [familyName, setFamilyName] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -50,31 +51,32 @@ function CreateFamilySheet({ open, onClose, onCreated }: { open: boolean; onClos
     if (!familyName.trim() || !name.trim() || busy) return;
     setBusy(true);
     try {
-      await createFamily(familyName, name);
-      onCreated();
+      const id = await createFamily(familyName, name);
+      onClose();
+      onReady?.(id);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Создать семью">
+    <Sheet open={open} onClose={onClose} title="Создать группу">
       <div className="space-y-4">
-        <Field label="Название семьи">
+        <Field label="Название группы">
           <Input value={familyName} onChange={(e) => setFamilyName(e.target.value)} placeholder="Например, «Наша семья»" />
         </Field>
         <Field label="Ваше имя">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Влад" />
         </Field>
         <Button className="w-full" disabled={!familyName.trim() || !name.trim() || busy} onClick={() => void create()}>
-          {busy ? 'Создаю…' : 'Создать семью'}
+          {busy ? 'Создаю…' : 'Создать группу'}
         </Button>
       </div>
     </Sheet>
   );
 }
 
-function JoinFamilySheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onClose: () => void; onReady?: (familyId: string) => void }) {
   const [name, setName] = useState('');
   const [tab, setTab] = useState<'scan' | 'paste'>('scan');
   const [pasteVal, setPasteVal] = useState('');
@@ -97,7 +99,10 @@ function JoinFamilySheet({ open, onClose }: { open: boolean; onClose: () => void
       setBusy(true);
       setError('');
       void joinFamily(code.trim(), name)
-        .then(() => onClose())
+        .then((id) => {
+          onClose();
+          onReady?.(id);
+        })
         .catch(() => {
           setError('Не удалось войти. Проверьте код.');
           setBusy(false);

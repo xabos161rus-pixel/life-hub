@@ -21,7 +21,7 @@ import type {
   FamilyMessage,
 } from './types';
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -88,6 +88,34 @@ export class LifeHubDB extends Dexie {
       familyTasks: 'id, seq, assigneeId, completedAt',
       familyMessages: 'clientMsgId, seq, createdAt',
     });
+    // v6 — несколько семейных групп одновременно. Конфиг теперь по ключу
+    // familyId (много строк вместо одной 'config'), а семейные данные
+    // размечаются полем familyId (+ индекс для выборки по группе).
+    this.version(6)
+      .stores({
+        family: 'id',
+        familyMembers: 'id, familyId, seq',
+        familyTasks: 'id, familyId, seq, assigneeId, completedAt',
+        familyMessages: 'clientMsgId, familyId, seq, createdAt',
+      })
+      .upgrade(async (tx) => {
+        // Перекладываем единственную старую группу на новую модель: строку
+        // конфига id='config' перекеиваем в id=familyId, а все её данные
+        // (они принадлежали ровно этой группе) штампуем тем же familyId.
+        const cfg = await tx.table('family').get('config');
+        if (!cfg) return;
+        const fid: string = cfg.familyId;
+        await tx.table('family').delete('config');
+        await tx.table('family').put({ ...cfg, id: fid, lastReadSeq: cfg.lastReadSeq ?? 0 });
+        for (const t of ['familyMembers', 'familyTasks', 'familyMessages']) {
+          await tx
+            .table(t)
+            .toCollection()
+            .modify((row: { familyId?: string }) => {
+              if (!row.familyId) row.familyId = fid;
+            });
+        }
+      });
   }
 }
 

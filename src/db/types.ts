@@ -194,15 +194,18 @@ export interface Settings {
 // Отдельное E2E-пространство: общий семейный ключ, шарится между ЛЮДЬМИ по QR.
 // Источник истины — Durable Object на сервере (плотный seq), не личный D1-синк.
 
-// Конфиг семьи. НЕ синкается, НЕ в бэкап (как SyncConfig — содержит ключ/токен).
+// Конфиг семьи (одна строка на группу). НЕ синкается, НЕ в бэкап (как
+// SyncConfig — содержит ключ/токен). Первичный ключ id === familyId, поэтому
+// у пользователя может быть несколько групп одновременно.
 export interface FamilyConfig {
-  id: 'config';
+  id: string; // === familyId (первичный ключ строки)
   familyId: string;
   familyToken: string;
   familyKey: CryptoKey; // общий E2E-ключ семьи
   familyName: string;
   selfMemberId: string; // стабильный uuid этого пользователя в семье
   lastSeq: number; // курсор: последний полученный seq из DO-комнаты
+  lastReadSeq: number; // до какого seq Я прочитал чат (для бейджа непрочитанного)
   enabled: boolean;
   joinedAt: string;
 }
@@ -210,6 +213,7 @@ export interface FamilyConfig {
 // Участник семьи. Синкается через DO (канал 'member'). seq — серверный порядок.
 export interface FamilyMember {
   id: string; // memberId (uuid)
+  familyId: string; // к какой группе относится
   seq: number;
   displayName: string;
   color: string;
@@ -220,6 +224,7 @@ export interface FamilyMember {
 // Общая задача семьи. Можно ставить друг другу (assigneeId). Синк через DO ('task').
 export interface FamilyTask {
   id: string;
+  familyId: string; // к какой группе относится
   seq: number;
   title: string;
   notes: string;
@@ -236,6 +241,7 @@ export interface FamilyTask {
 // Сообщение чата. append-only, дедуп по clientMsgId; порядок по серверному seq.
 export interface FamilyMessage {
   clientMsgId: string; // uuid, первичный ключ
+  familyId: string; // к какой группе относится
   seq: number | null; // null пока сервер не присвоил
   senderMemberId: string;
   createdAt: string;

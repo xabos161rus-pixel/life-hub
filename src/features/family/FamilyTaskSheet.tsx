@@ -7,6 +7,7 @@ import type { FamilyTask, FamilyMember, Priority } from '../../db/types';
 import { createFamilyTask, updateFamilyTask, deleteFamilyTask } from '../../lib/family/familyRepo';
 
 interface Props {
+  familyId: string;
   open: boolean;
   onClose: () => void;
   task: FamilyTask | null;
@@ -21,15 +22,15 @@ const PRIORITIES: { value: PStr; label: string }[] = [
   { value: '3', label: 'Высокий' },
 ];
 
-export function FamilyTaskSheet({ open, onClose, task, members }: Props) {
+export function FamilyTaskSheet({ familyId, open, onClose, task, members }: Props) {
   return (
     <Sheet open={open} onClose={onClose} title={task ? 'Задача' : 'Новая задача'}>
-      <FamilyTaskForm key={task?.id ?? 'new'} task={task} members={members} onClose={onClose} />
+      <FamilyTaskForm key={task?.id ?? 'new'} familyId={familyId} task={task} members={members} onClose={onClose} />
     </Sheet>
   );
 }
 
-function FamilyTaskForm({ task, members, onClose }: { task: FamilyTask | null; members: FamilyMember[]; onClose: () => void }) {
+function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string; task: FamilyTask | null; members: FamilyMember[]; onClose: () => void }) {
   const [title, setTitle] = useState(task?.title ?? '');
   const [notes, setNotes] = useState(task?.notes ?? '');
   const [priority, setPriority] = useState<PStr>(String(task?.priority ?? 0) as PStr);
@@ -40,15 +41,15 @@ function FamilyTaskForm({ task, members, onClose }: { task: FamilyTask | null; m
   async function save() {
     if (!title.trim()) return;
     const data = { title, notes, priority: Number(priority) as Priority, dueDate: dueDate || null, assigneeId };
-    if (task) await updateFamilyTask(task.id, data);
-    else await createFamilyTask(data);
+    if (task) await updateFamilyTask(familyId, task.id, data);
+    else await createFamilyTask(familyId, data);
     onClose();
   }
 
   async function remove() {
     if (!task) return;
     if (!window.confirm('Удалить задачу?')) return;
-    await deleteFamilyTask(task.id);
+    await deleteFamilyTask(familyId, task.id);
     onClose();
   }
 

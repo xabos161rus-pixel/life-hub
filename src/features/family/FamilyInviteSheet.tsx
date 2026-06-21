@@ -6,24 +6,25 @@ import { Button } from '../../components/ui/Button';
 import { getFamilyInviteCode } from '../../lib/family/familyLifecycle';
 
 interface Props {
+  familyId: string;
   open: boolean;
   onClose: () => void;
 }
 
-/** Показ QR-кода приглашения в семью (для второго устройства/человека). */
-export function FamilyInviteSheet({ open, onClose }: Props) {
+/** Показ QR-кода приглашения в группу (для второго устройства/человека). */
+export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
   const [code, setCode] = useState('');
   const [qrUrl, setQrUrl] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    void getFamilyInviteCode().then(async (c) => {
+    void getFamilyInviteCode(familyId).then(async (c) => {
       if (!c) return;
       setCode(c);
       setQrUrl(await QRCode.toDataURL(c, { margin: 1, width: 260 }));
     });
-  }, [open]);
+  }, [open, familyId]);
 
   function copyCode() {
     void navigator.clipboard?.writeText(code).then(() => {
@@ -45,10 +46,10 @@ export function FamilyInviteSheet({ open, onClose }: Props) {
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Пригласить в семью">
+    <Sheet open={open} onClose={onClose} title="Пригласить в группу">
       <div className="space-y-4">
         <p className="text-sm text-muted">
-          Покажите этот QR родственнику: в его Life Hub — «Ещё → Семья → Войти по приглашению».
+          Покажите этот QR участнику: в его Life Hub — «Ещё → Семья → ＋ → Войти по приглашению».
         </p>
         {qrUrl && (
           <div className="flex justify-center">
@@ -68,7 +69,7 @@ export function FamilyInviteSheet({ open, onClose }: Props) {
         <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
           <AlertTriangle size={18} className="mt-0.5 shrink-0" />
           <span>
-            Любой, у кого есть этот код, войдёт в семью и увидит общий чат и задачи. Делитесь только
+            Любой, у кого есть этот код, войдёт в группу и увидит общий чат и задачи. Делитесь только
             с близкими.
           </span>
         </div>

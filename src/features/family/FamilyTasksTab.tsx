@@ -9,9 +9,9 @@ import { formatDueDate } from '../../lib/dates';
 import { toggleFamilyTask } from '../../lib/family/familyRepo';
 import { FamilyTaskSheet } from './FamilyTaskSheet';
 
-export function FamilyTasksTab() {
-  const tasksRaw = useLiveQuery(() => db.familyTasks.toArray(), []);
-  const membersRaw = useLiveQuery(() => db.familyMembers.toArray(), []);
+export function FamilyTasksTab({ familyId }: { familyId: string }) {
+  const tasksRaw = useLiveQuery(() => db.familyTasks.where('familyId').equals(familyId).toArray(), [familyId]);
+  const membersRaw = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]);
   const members = useMemo(() => membersRaw ?? [], [membersRaw]);
   const memberMap = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
 
@@ -57,7 +57,7 @@ export function FamilyTasksTab() {
               <div key={t.id} onClick={() => openEdit(t)} className="flex items-start gap-3 py-3 active:opacity-80">
                 <TaskCheck
                   checked={done}
-                  onChange={() => void toggleFamilyTask(t)}
+                  onChange={() => void toggleFamilyTask(familyId, t)}
                   color={assignee?.color}
                 />
                 <div className="min-w-0 flex-1">
@@ -76,7 +76,7 @@ export function FamilyTasksTab() {
         </div>
       )}
 
-      <FamilyTaskSheet open={open} onClose={() => setOpen(false)} task={editing} members={members} />
+      <FamilyTaskSheet familyId={familyId} open={open} onClose={() => setOpen(false)} task={editing} members={members} />
     </div>
   );
 }

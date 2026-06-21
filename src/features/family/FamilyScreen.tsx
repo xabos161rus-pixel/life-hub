@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { BellRing, X } from 'lucide-react';
 import { db } from '../../db/db';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
-import { connectionState, subscribeConnection, subscribePresence, registerFamilyPush } from '../../lib/family/familyChat';
+import { connectionState, subscribeConnection, subscribePresence, registerAllFamilyPush } from '../../lib/family/familyChat';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import { pushEnabled, pushSupported, isStandalone, enablePush } from '../../lib/push';
 import { MembersTab } from './MembersTab';
@@ -17,26 +17,26 @@ const TABS = [
   { value: 'members' as const, label: 'Участники' },
 ];
 
-function useConnection() {
-  const [s, setS] = useState(connectionState());
-  useEffect(() => subscribeConnection(setS), []);
+function useConnection(familyId: string) {
+  const [s, setS] = useState(connectionState(familyId));
+  useEffect(() => subscribeConnection(familyId, setS), [familyId]);
   return s;
 }
 
 const CONN_LABEL: Record<string, string> = { offline: 'не в сети', connecting: 'подключение…', online: 'на связи' };
 
-function usePresence() {
+function usePresence(familyId: string) {
   const [ids, setIds] = useState<string[]>([]);
-  useEffect(() => subscribePresence(setIds), []);
+  useEffect(() => subscribePresence(familyId, setIds), [familyId]);
   return ids;
 }
 
-export function FamilyScreen() {
+export function FamilyScreen({ familyId, onLeft }: { familyId: string; onLeft: () => void }) {
   const [tab, setTab] = useState<Tab>('chat');
-  const conn = useConnection();
-  const online = usePresence();
-  const config = useLiveQuery(() => getFamilyConfig(), []);
-  const membersRaw = useLiveQuery(() => db.familyMembers.toArray(), []);
+  const conn = useConnection(familyId);
+  const online = usePresence(familyId);
+  const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
+  const membersRaw = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]);
   // Онлайн «других» — пересечение presence с живыми участниками минус я сам.
   const onlineOthers = useMemo(() => {
     const alive = new Set((membersRaw ?? []).filter((m) => !m.leftAt).map((m) => m.id));
@@ -59,7 +59,7 @@ export function FamilyScreen() {
       alert(res.reason === 'denied' ? 'Разрешение не выдано. Включите в настройках устройства.' : 'Не удалось включить уведомления.');
       return;
     }
-    await registerFamilyPush();
+    await registerAllFamilyPush();
     setPushOn(true);
   }
 
@@ -88,7 +88,13 @@ export function FamilyScreen() {
       {/* Для чата — без внешнего скролла (ChatTab имеет свой), иначе два
           вложенных overflow-y-auto давали «войну скроллов» и заморозку. */}
       <div className={`min-h-0 flex-1 ${tab === 'chat' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-        {tab === 'chat' ? <ChatTab /> : tab === 'tasks' ? <FamilyTasksTab /> : <MembersTab />}
+        {tab === 'chat' ? (
+          <ChatTab familyId={familyId} />
+        ) : tab === 'tasks' ? (
+          <FamilyTasksTab familyId={familyId} />
+        ) : (
+          <MembersTab familyId={familyId} onLeft={onLeft} />
+        )}
       </div>
     </div>
   );

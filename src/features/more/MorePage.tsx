@@ -68,6 +68,19 @@ export function MorePage() {
       );
     }, []) ?? false;
 
+  // Есть ли непрочитанные сообщения хоть в одной семейной группе.
+  const familyUnread =
+    useLiveQuery(async () => {
+      const cfgs = await db.family.toArray();
+      if (!cfgs.length) return false;
+      const byId = Object.fromEntries(cfgs.map((c) => [c.familyId, c]));
+      const msgs = await db.familyMessages.toArray();
+      return msgs.some((m) => {
+        const c = byId[m.familyId];
+        return c && !m.deletedAt && m.seq != null && m.seq > c.lastReadSeq && m.senderMemberId !== c.selfMemberId;
+      });
+    }, []) ?? false;
+
   const learningCount = alive(learning ?? []).length;
 
   return (
@@ -80,7 +93,7 @@ export function MorePage() {
           subtitle="Обзор продуктивности"
         />
         <MenuCard to="/more/focus" icon={Timer} title="Фокус" subtitle="Таймер помодоро" />
-        <MenuCard to="/more/family" icon={Users} title="Семья" subtitle="Общий чат и задачи" />
+        <MenuCard to="/more/family" icon={Users} title="Семья" subtitle="Общий чат и задачи" badge={familyUnread} />
         <MenuCard
           to="/more/learning"
           icon={GraduationCap}

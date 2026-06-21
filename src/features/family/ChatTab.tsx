@@ -22,10 +22,10 @@ function timeLabel(iso: string): string {
   return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
-export function ChatTab() {
-  const messagesRaw = useLiveQuery(() => db.familyMessages.toArray(), []);
-  const membersRaw = useLiveQuery(() => db.familyMembers.toArray(), []);
-  const config = useLiveQuery(() => getFamilyConfig(), []);
+export function ChatTab({ familyId }: { familyId: string }) {
+  const messagesRaw = useLiveQuery(() => db.familyMessages.where('familyId').equals(familyId).toArray(), [familyId]);
+  const membersRaw = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]);
+  const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
   const selfId = config?.selfMemberId;
 
   const memberMap = useMemo(() => Object.fromEntries((membersRaw ?? []).map((m) => [m.id, m])), [membersRaw]);
@@ -35,7 +35,7 @@ export function ChatTab() {
   const [actionMsg, setActionMsg] = useState<FamilyMessage | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [reads, setReadsState] = useState<Record<string, number>>({});
-  useEffect(() => subscribeReads(setReadsState), []);
+  useEffect(() => subscribeReads(familyId, setReadsState), [familyId]);
   // Максимальный seq, прочитанный ХОТЬ кем-то из других участников.
   const maxOtherRead = useMemo(
     () => Object.entries(reads).reduce((mx, [id, s]) => (id !== selfId ? Math.max(mx, s) : mx), 0),
@@ -48,8 +48,8 @@ export function ChatTab() {
   useEffect(() => {
     if (document.visibilityState !== 'visible') return;
     const maxSeq = list.reduce((mx, m) => Math.max(mx, m.seq ?? 0), 0);
-    markSeen(maxSeq);
-  }, [list]);
+    markSeen(familyId, maxSeq);
+  }, [list, familyId]);
 
   // Автоскролл к низу при новом сообщении — только если уже у низа ленты.
   // ВАЖНО: двигаем ТОЛЬКО свой scrollRef (el.scrollTop), а не scrollIntoView —
@@ -74,9 +74,9 @@ export function ChatTab() {
     if (editingId) {
       const id = editingId;
       setEditingId(null);
-      await editMessage(id, body);
+      await editMessage(familyId, id, body);
     } else {
-      await sendMessage(body);
+      await sendMessage(familyId, body);
     }
   }
 
@@ -92,7 +92,7 @@ export function ChatTab() {
       setEditingId(null);
       setText('');
     }
-    await deleteMessage(m.clientMsgId);
+    await deleteMessage(familyId, m.clientMsgId);
   }
 
   return (

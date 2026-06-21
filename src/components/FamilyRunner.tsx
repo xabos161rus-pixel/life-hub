@@ -1,23 +1,33 @@
 import { useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getFamilyConfig } from '../lib/family/familyState';
-import { connect, disconnect } from '../lib/family/familyChat';
+import { listFamilyConfigs } from '../lib/family/familyState';
+import { connectAllFamilies, disconnectAllFamilies } from '../lib/family/familyChat';
 
-/** Держит семейный WebSocket живым, пока приложение открыто и семья настроена.
- *  Переподключается при возврате в приложение и появлении сети. connect сам
- *  идемпотентен; при разрыве движок делает backfill по курсору. */
+/** Держит семейные WebSocket-соединения живыми (по одному на группу), пока
+ *  приложение открыто и есть хотя бы одна включённая группа. Переподключается
+ *  при возврате в приложение и появлении сети. connectAllFamilies идемпотентен:
+ *  поднимает новые группы, снимает удалённые, по существующим — no-op. */
 export function FamilyRunner() {
-  const config = useLiveQuery(() => getFamilyConfig(), []);
-  const enabled = !!config?.enabled;
+  // Сигнатура включённых групп — пересоздаём эффект при добавлении/выходе.
+  const sig = useLiveQuery(async () => {
+    const cfgs = await listFamilyConfigs();
+    return cfgs
+      .filter((c) => c.enabled)
+      .map((c) => c.familyId)
+      .sort()
+      .join(',');
+  }, []);
+
   useEffect(() => {
-    if (!enabled) {
-      disconnect();
+    if (sig === undefined) return; // ещё грузится
+    if (!sig) {
+      disconnectAllFamilies();
       return;
     }
     const wake = () => {
-      if (document.visibilityState === 'visible') void connect();
+      if (document.visibilityState === 'visible') void connectAllFamilies();
     };
-    void connect();
+    void connectAllFamilies();
     document.addEventListener('visibilitychange', wake);
     window.addEventListener('online', wake);
     window.addEventListener('focus', wake);
@@ -26,6 +36,6 @@ export function FamilyRunner() {
       window.removeEventListener('online', wake);
       window.removeEventListener('focus', wake);
     };
-  }, [enabled]);
+  }, [sig]);
   return null;
 }
