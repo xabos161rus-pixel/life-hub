@@ -254,7 +254,7 @@ export function TaskItem({
             {task.title}
           </p>
           {task.notes && (
-            <p className="mt-1 line-clamp-4 whitespace-pre-line break-words border-l-2 border-hairline pl-2 font-mono text-[13px] leading-relaxed text-text/65">
+            <p className="mt-1 whitespace-pre-line break-words border-l-2 border-hairline pl-2 font-mono text-[13px] leading-relaxed text-text/65">
               {task.notes}
             </p>
           )}

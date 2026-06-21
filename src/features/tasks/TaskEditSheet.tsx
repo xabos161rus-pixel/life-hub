@@ -7,7 +7,7 @@ import { alive, create, remove, uid, update } from '../../db/repo';
 import type { ChecklistItem, Priority, Recurrence, Task } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { Field, Input, Textarea } from '../../components/ui/Input';
+import { Field, Input } from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toast';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -94,6 +94,7 @@ export function TaskEditSheet({
   const navigate = useNavigate();
   const pomodoro = usePomodoro();
   const titleRef = useRef<HTMLTextAreaElement>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   const handleFocus = () => {
     if (!task) return;
@@ -178,6 +179,16 @@ export function TaskEditSheet({
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
   }, [title, open]);
+
+  // Авто-подгон высоты поля заметок — поле растёт за текстом (без внутреннего
+  // скролла), а лента шита держит курсор в зоне видимости: текст больше не
+  // уходит в невидимый край, и при создании, и при просмотре виден целиком.
+  useEffect(() => {
+    const el = notesRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [notes, open]);
 
   const buildRecurrence = (): Recurrence | null => {
     const interval = Math.max(1, parseInt(recInterval, 10) || 1);
@@ -363,13 +374,14 @@ export function TaskEditSheet({
             </button>
           </div>
           <div className="flex items-start gap-2">
-            <Textarea
+            <textarea
+              ref={notesRef}
               rows={2}
               value={notes}
               placeholder="Детали…"
               onChange={(e) => setNotes(e.target.value)}
               onKeyDown={handleNotesKey}
-              className="flex-1 whitespace-pre-wrap font-mono"
+              className={`${inputBase} flex-1 resize-none overflow-hidden whitespace-pre-wrap font-mono`}
             />
             <MicButton
               onText={(t) => setNotes((prev) => (prev ? `${prev} ${t}` : t))}
