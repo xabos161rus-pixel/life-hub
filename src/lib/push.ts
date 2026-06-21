@@ -65,9 +65,23 @@ export async function enablePush(): Promise<{ ok: boolean; reason?: string }> {
       });
     }
     localStorage.setItem(SUB_KEY, JSON.stringify(sub));
+    void registerGlobalPush(sub); // в глобальный список — для рассылки об обновлении
     return { ok: true };
   } catch (e) {
     return { ok: false, reason: String(e) };
+  }
+}
+
+/** Регистрирует подписку в глобальный список на Worker (для пуша «вышло обновление»). */
+async function registerGlobalPush(sub: unknown): Promise<void> {
+  try {
+    await fetch(`${WORKER_URL}/push-register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub }),
+    });
+  } catch {
+    /* офлайн — зарегистрируется при следующем включении */
   }
 }
 

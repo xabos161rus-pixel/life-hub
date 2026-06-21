@@ -79,6 +79,55 @@ export default {
         return json({ ok: true }, 200, origin);
       }
 
+      // Регистрация подписки в глобальный список (для рассылки об обновлении).
+      if (url.pathname === '/push-register' && request.method === 'POST') {
+        const { subscription } = await request.json();
+        if (subscription?.endpoint) {
+          await env.DB.prepare('INSERT OR REPLACE INTO push_subs (endpoint, sub, created_at) VALUES (?, ?, ?)')
+            .bind(subscription.endpoint, JSON.stringify(subscription), new Date().toISOString())
+            .run();
+        }
+        return json({ ok: true }, 200, origin);
+      }
+
+      // Рассылка «вышло обновление» всем подписанным устройствам (по секрету).
+      if (url.pathname === '/notify-update' && request.method === 'POST') {
+        if ((request.headers.get('Authorization') || '') !== `Bearer ${env.UPDATE_TOKEN}`) {
+          return json({ error: 'unauthorized' }, 401, origin);
+        }
+        const vapid = {
+          publicKey: env.VAPID_PUBLIC,
+          privateKey: env.VAPID_PRIVATE,
+          subject: env.VAPID_SUBJECT || 'mailto:noreply@life-hub.app',
+        };
+        const subs = await env.DB.prepare('SELECT endpoint, sub FROM push_subs').all();
+        let sent = 0;
+        for (const r of subs.results || []) {
+          try {
+            const { endpoint, headers, body } = await buildPushRequest({
+              subscription: JSON.parse(r.sub),
+              payload: JSON.stringify({
+                title: 'Обновление Life Hub',
+                body: 'Вышла новая версия — откройте приложение и нажмите «Обновить»',
+                url: '/life-hub/',
+                tag: 'app-update',
+              }),
+              vapid,
+              ttl: 86400,
+              urgency: 'normal',
+            });
+            const res = await fetch(endpoint, { method: 'POST', headers, body });
+            if (res.ok) sent++;
+            else if (res.status === 404 || res.status === 410) {
+              await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ?').bind(r.endpoint).run();
+            }
+          } catch {
+            /* пропускаем мёртвую подписку */
+          }
+        }
+        return json({ ok: true, sent }, 200, origin);
+      }
+
       // === Синхронизация (E2E) ===
       if (url.pathname === '/sync/push' && request.method === 'POST') {
         const accountId = await authAccount(request, env);
