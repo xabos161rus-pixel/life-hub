@@ -61,6 +61,63 @@ function computeTaskStats(tasks: Task[]): TaskStats {
   return { doneToday, done7, done30, open, overdue, week };
 }
 
+interface TaskBreakdown {
+  total: number; // активных (не удалённых)
+  completed: number; // выполнено полностью
+  open: number; // не выполнено
+  partial: number; // выполнено не полностью (чеклист начат, но не закончен)
+  overdue: number; // просрочено (из невыполненных)
+  dueToday: number; // срок — сегодня
+  noDate: number; // без срока (из невыполненных)
+  deleted: number; // в корзине
+  completionRate: number; // % выполнения (выполнено / выполнено+открыто)
+  avgChecklist: number; // средний прогресс по всем пунктам чеклистов, %
+}
+
+/** Разбор задач по статусам. tasks — живые (без удалённых), deleted — счётчик корзины. */
+function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
+  const today = todayKey();
+  let completed = 0;
+  let open = 0;
+  let partial = 0;
+  let overdue = 0;
+  let dueToday = 0;
+  let noDate = 0;
+  let checkDone = 0;
+  let checkTotal = 0;
+
+  for (const t of tasks) {
+    const items = t.checklist ?? [];
+    const done = items.filter((c) => c.done).length;
+    checkTotal += items.length;
+    checkDone += done;
+
+    if (t.completedAt) {
+      completed += 1;
+      continue;
+    }
+    open += 1;
+    if (t.dueDate !== null && t.dueDate < today) overdue += 1;
+    else if (t.dueDate === today) dueToday += 1;
+    if (t.dueDate === null) noDate += 1;
+    if (items.length > 0 && done > 0 && done < items.length) partial += 1;
+  }
+
+  const closed = completed + open;
+  return {
+    total: tasks.length,
+    completed,
+    open,
+    partial,
+    overdue,
+    dueToday,
+    noDate,
+    deleted,
+    completionRate: closed === 0 ? 0 : Math.round((completed / closed) * 100),
+    avgChecklist: checkTotal === 0 ? 0 : Math.round((checkDone / checkTotal) * 100),
+  };
+}
+
 function StatCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="card p-4">
@@ -83,7 +140,9 @@ function StatNumber({ value, label, color }: { value: number; label: string; col
 
 /** Экран статистики/обзора продуктивности. */
 export function StatsPage() {
-  const tasks = alive(useLiveQuery<Task[]>(() => db.tasks.toArray(), []) ?? []);
+  const allTasks = useLiveQuery<Task[]>(() => db.tasks.toArray(), []) ?? [];
+  const tasks = alive(allTasks);
+  const deletedTasks = allTasks.length - tasks.length;
   const goals = alive(useLiveQuery<Goal[]>(() => db.goals.toArray(), []) ?? []);
   const learning = alive(useLiveQuery<LearningItem[]>(() => db.learningItems.toArray(), []) ?? []);
   const expenses = alive(useLiveQuery(() => db.expenseItems.toArray(), []) ?? []);
@@ -121,6 +180,7 @@ export function StatsPage() {
   }
 
   const taskStats = useMemo(() => computeTaskStats(tasks), [tasks]);
+  const taskBreakdown = useMemo(() => computeTaskBreakdown(tasks, deletedTasks), [tasks, deletedTasks]);
 
   const tasksByGoal = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -217,6 +277,43 @@ export function StatsPage() {
               label="просрочено"
               color={taskStats.overdue > 0 ? 'var(--app-danger)' : undefined}
             />
+          </div>
+        </StatCard>
+
+        {/* Разбор задач по статусам */}
+        <StatCard title="Разбор задач">
+          <div className="grid grid-cols-3 gap-y-4">
+            <StatNumber value={taskBreakdown.total} label="всего активных" />
+            <StatNumber value={taskBreakdown.completed} label="выполнено" color="var(--app-success)" />
+            <StatNumber value={taskBreakdown.open} label="не выполнено" />
+            <StatNumber
+              value={taskBreakdown.partial}
+              label="частично"
+              color={taskBreakdown.partial > 0 ? 'var(--app-warning)' : undefined}
+            />
+            <StatNumber
+              value={taskBreakdown.overdue}
+              label="просрочено"
+              color={taskBreakdown.overdue > 0 ? 'var(--app-danger)' : undefined}
+            />
+            <StatNumber value={taskBreakdown.deleted} label="в корзине" color="var(--app-muted)" />
+          </div>
+
+          <div className="mt-4">
+            <div className="mb-1 flex items-baseline justify-between">
+              <span className="text-xs text-muted">Выполнено из всех</span>
+              <span className="text-xs font-semibold">{taskBreakdown.completionRate}%</span>
+            </div>
+            <ProgressBar value={taskBreakdown.completionRate} color="var(--app-success)" />
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-y-4">
+            <StatNumber value={taskBreakdown.dueToday} label="срок сегодня" />
+            <StatNumber value={taskBreakdown.noDate} label="без срока" />
+            <div>
+              <p className="text-2xl font-bold">{taskBreakdown.avgChecklist}%</p>
+              <p className="text-xs text-muted">прогресс чек-листов</p>
+            </div>
           </div>
         </StatCard>
 
