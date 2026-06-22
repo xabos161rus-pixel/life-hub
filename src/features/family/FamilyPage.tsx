@@ -15,17 +15,18 @@ const ACTIVE_KEY = 'life-hub-active-family';
 
 export function FamilyPage() {
   const configs = useLiveQuery(() => listFamilyConfigs(), []);
-  const [sp] = useSearchParams();
-  const [picked, setPicked] = useState<string | null>(null);
+  const [sp, setSp] = useSearchParams();
   const [addMode, setAddMode] = useState<null | 'choose' | 'create' | 'join'>(null);
 
+  // Выбранная группа живёт в URL (?g=…): так переход по пуш-уведомлению (открыть
+  // конкретный чат) надёжно переключает группу, даже если открыта другая.
   const select = (id: string) => {
-    setPicked(id);
     try {
       localStorage.setItem(ACTIVE_KEY, id);
     } catch {
       /* приватный режим */
     }
+    setSp({ g: id }, { replace: true });
   };
 
   if (!configs)
@@ -44,8 +45,15 @@ export function FamilyPage() {
   }
 
   const ids = configs.map((c) => c.familyId);
-  const initial = sp.get('g') || localStorage.getItem(ACTIVE_KEY);
-  const selected = picked && ids.includes(picked) ? picked : initial && ids.includes(initial) ? initial : ids[0];
+  const fromUrl = sp.get('g');
+  const fromLs = (() => {
+    try {
+      return localStorage.getItem(ACTIVE_KEY);
+    } catch {
+      return null;
+    }
+  })();
+  const selected = fromUrl && ids.includes(fromUrl) ? fromUrl : fromLs && ids.includes(fromLs) ? fromLs : ids[0];
   const current = configs.find((c) => c.familyId === selected)!;
 
   return (
@@ -63,12 +71,12 @@ export function FamilyPage() {
               if (sib) {
                 select(sib);
               } else {
-                setPicked(null);
                 try {
                   localStorage.removeItem(ACTIVE_KEY);
                 } catch {
                   /* приватный режим */
                 }
+                setSp({}, { replace: true });
               }
             }}
           />

@@ -25,7 +25,17 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const c of clients) {
-        if ('focus' in c) return c.focus();
+        if ('focus' in c) {
+          // Уже открытое окно: просим приложение перейти на нужный экран (чат
+          // конкретной группы) без перезагрузки и наводим фокус. Раньше делался
+          // только focus() — поэтому открывалось приложение, а не сам чат.
+          try {
+            c.postMessage({ type: 'open-url', url: url });
+          } catch (e) {
+            /* клиент не принял сообщение */
+          }
+          return c.focus();
+        }
       }
       return self.clients.openWindow(url);
     }),
