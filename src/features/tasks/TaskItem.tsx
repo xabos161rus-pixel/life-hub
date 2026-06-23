@@ -221,22 +221,27 @@ export function TaskItem({
 
   return (
     <div className="relative -mx-4 overflow-hidden">
-      <div className="absolute inset-y-0 right-0 flex">
-        <button
-          type="button"
-          onClick={handleTomorrow}
-          className="flex w-[76px] items-center justify-center bg-surface-2 text-sm font-medium text-accent"
-        >
-          Завтра
-        </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          className="flex w-[76px] items-center justify-center bg-danger text-sm font-medium text-white"
-        >
-          Удалить
-        </button>
-      </div>
+      {/* Действия рендерим ТОЛЬКО при свайпе влево. В покое (dx=0) красной
+          кнопки нет в DOM — иначе на iOS она торчала квадратным углом за
+          скругление родительской .card (translateX у строки ломает обрезку). */}
+      {dx < 0 && (
+        <div className="absolute inset-y-0 right-0 flex">
+          <button
+            type="button"
+            onClick={handleTomorrow}
+            className="flex w-[76px] items-center justify-center bg-surface-2 text-sm font-medium text-accent"
+          >
+            Завтра
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="flex w-[76px] items-center justify-center bg-danger text-sm font-medium text-white"
+          >
+            Удалить
+          </button>
+        </div>
+      )}
       <div
         ref={rowRef}
         data-task-id={task.id}
@@ -244,7 +249,9 @@ export function TaskItem({
           draggable ? 'select-none [-webkit-user-select:none] [-webkit-touch-callout:none]' : ''
         } ${isDragSource ? 'scale-[0.97] opacity-40' : ''}`}
         style={{
-          transform: isDragSource ? undefined : `translateX(${dx}px)`,
+          // transform только во время свайпа: translateX(0px) в покое сам по
+          // себе ломал обрезку строки по скруглению .card на WebKit.
+          transform: isDragSource ? undefined : dx !== 0 ? `translateX(${dx}px)` : undefined,
           transition: dragging ? 'none' : 'transform 0.2s, opacity 0.15s',
         }}
         onPointerDown={onDown}
