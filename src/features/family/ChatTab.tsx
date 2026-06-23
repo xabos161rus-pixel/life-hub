@@ -226,7 +226,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         )}
       </div>
 
-      <div className="shrink-0 border-t border-hairline bg-bg pb-[calc(env(safe-area-inset-bottom)+6px)]">
+      <div className="shrink-0 border-t border-hairline bg-bg">
         {editingId && (
           <div className="flex items-center gap-2 px-1 pt-2 text-sm text-muted">
             <Pencil size={14} className="shrink-0 text-accent" />
@@ -244,7 +244,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
           </div>
         )}
         {rec.recording ? (
-          <div className="flex items-center gap-3 px-1 pt-2">
+          <div className="flex items-center gap-3 px-2 py-2">
             <button
               onClick={rec.cancel}
               aria-label="Отменить запись"
@@ -266,7 +266,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             </button>
           </div>
         ) : (
-          <div className="flex items-end gap-1.5 px-2 pb-1.5 pt-2">
+          <div className="flex items-end gap-1.5 px-2 py-2">
             <input
               ref={fileRef}
               type="file"
