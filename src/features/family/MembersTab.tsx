@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { UserPlus, LogOut, Pencil } from 'lucide-react';
+import { UserPlus, LogOut, Pencil, Phone } from 'lucide-react';
 import { db } from '../../db/db';
 import { Button } from '../../components/ui/Button';
 import { Sheet } from '../../components/ui/Sheet';
 import { Field, Input } from '../../components/ui/Input';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import { subscribePresence, renameFamily } from '../../lib/family/familyChat';
+import { callManager } from '../../lib/family/familyCall';
 import { leaveFamily } from '../../lib/family/familyLifecycle';
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
@@ -49,33 +50,43 @@ export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () 
 
       <div className="divide-y divide-hairline overflow-hidden rounded-2xl border border-border bg-surface">
         {alive.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => {
-              if (m.id === selfId) setEditName(true);
-            }}
-            className="flex w-full items-center gap-3 p-3 text-left active:opacity-80"
-          >
-            <span className="relative shrink-0">
-              <span
-                className="flex size-9 items-center justify-center rounded-full text-sm font-semibold text-white"
-                style={{ background: m.color }}
-              >
-                {m.displayName.slice(0, 1).toUpperCase()}
+          <div key={m.id} className="flex w-full items-center gap-3 p-3">
+            <button
+              onClick={() => {
+                if (m.id === selfId) setEditName(true);
+              }}
+              className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-80"
+            >
+              <span className="relative shrink-0">
+                <span
+                  className="flex size-9 items-center justify-center rounded-full text-sm font-semibold text-white"
+                  style={{ background: m.color }}
+                >
+                  {m.displayName.slice(0, 1).toUpperCase()}
+                </span>
+                {(onlineSet.has(m.id) || m.id === selfId) && (
+                  <span className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-surface" />
+                )}
               </span>
-              {(onlineSet.has(m.id) || m.id === selfId) && (
-                <span className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-success ring-2 ring-surface" />
-              )}
-            </span>
-            <span className="min-w-0 flex-1 truncate font-medium">
-              {m.displayName}
-              {m.id === selfId ? (
-                <span className="text-muted"> · вы</span>
-              ) : (
-                <span className="text-xs text-muted"> · {onlineSet.has(m.id) ? 'в сети' : 'не в сети'}</span>
-              )}
-            </span>
-          </button>
+              <span className="min-w-0 flex-1 truncate font-medium">
+                {m.displayName}
+                {m.id === selfId ? (
+                  <span className="text-muted"> · вы</span>
+                ) : (
+                  <span className="text-xs text-muted"> · {onlineSet.has(m.id) ? 'в сети' : 'не в сети'}</span>
+                )}
+              </span>
+            </button>
+            {m.id !== selfId && (
+              <button
+                onClick={() => void callManager.startCall(familyId, m.id)}
+                aria-label={`Позвонить ${m.displayName}`}
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success active:scale-95"
+              >
+                <Phone size={18} />
+              </button>
+            )}
+          </div>
         ))}
       </div>
 

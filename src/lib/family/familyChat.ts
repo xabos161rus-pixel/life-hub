@@ -20,6 +20,16 @@ const PING_MS = 25_000;
 
 type ConnState = 'offline' | 'connecting' | 'online';
 type Channel = 'msg' | 'task' | 'member';
+
+// Сигнал звонка (WebRTC): эфемерный, проходит через WS, в БД не пишется.
+export type SignalKind = 'offer' | 'answer' | 'ice' | 'decline' | 'hangup' | 'busy' | 'cancel';
+export interface SignalFrame {
+  from: string | null;
+  to: string | null;
+  call: string | null;
+  kind: SignalKind;
+  data: string | null; // шифротекст SDP/ICE (семейный ключ)
+}
 type RawItem = { seq: number; channel: Channel; itemId: string; senderMemberId: string | null; createdAt: string; ciphertext: string };
 
 function stripMeta<T extends { id: string; seq: number; familyId?: string }>(row: T) {
@@ -55,6 +65,7 @@ class FamilyEngine {
   private connListeners = new Set<(s: ConnState) => void>();
   private presenceListeners = new Set<(ids: string[]) => void>();
   private readsListeners = new Set<(r: Record<string, number>) => void>();
+  private signalListeners = new Set<(f: SignalFrame) => void>();
 
   constructor(familyId: string) {
     this.familyId = familyId;
@@ -85,6 +96,15 @@ class FamilyEngine {
     this.readsListeners.add(fn);
     fn(this.reads);
     return () => this.readsListeners.delete(fn);
+  }
+  subscribeSignals(fn: (f: SignalFrame) => void): () => void {
+    this.signalListeners.add(fn);
+    return () => this.signalListeners.delete(fn);
+  }
+  /** Отправить сигнал звонка адресату (to = memberId). */
+  sendSignal(frame: { to: string; call: string; kind: SignalKind; data: string | null }): void {
+    this.trySendFrame({ type: 'signal', ...frame });
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
   private setState(s: ConnState) {
@@ -291,6 +311,8 @@ class FamilyEngine {
           this.queueItem(m); // батчим — пачка item за 50мс применяется одной транзакцией
         } else if (m.type === 'ack' && m.clientMsgId) {
           await db.familyMessages.update(m.clientMsgId, { status: 'acked', seq: m.seq });
+        } else if (m.type === 'signal') {
+          this.signalListeners.forEach((l) => l(m as SignalFrame));
         }
       };
       sock.onclose = () => {
@@ -543,4 +565,13 @@ export function markSeen(familyId: string, seq: number): void {
 }
 export function sendItem(familyId: string, channel: 'task' | 'member', itemId: string, payload: object): Promise<void> {
   return getEngine(familyId).sendItem(channel, itemId, payload);
+}
+export function subscribeSignals(familyId: string, fn: (f: SignalFrame) => void): () => void {
+  return getEngine(familyId).subscribeSignals(fn);
+}
+export function sendSignal(
+  familyId: string,
+  frame: { to: string; call: string; kind: SignalKind; data: string | null },
+): void {
+  getEngine(familyId).sendSignal(frame);
 }

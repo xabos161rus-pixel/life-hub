@@ -1,0 +1,32 @@
+name: Deploy Worker
+
+# Деплой Cloudflare Worker (бэкенд: пуши, E2E-синк, семейный чат, звонки).
+# Запускается при изменениях в worker/ на main и вручную.
+# Требует один секрет репозитория: CLOUDFLARE_API_TOKEN
+#   (Cloudflare dashboard → My Profile → API Tokens → шаблон "Edit Cloudflare Workers").
+# Существующие секреты воркера (VAPID_PRIVATE, TURN_* и т.п.) деплой не трогает —
+# они хранятся на стороне Cloudflare и переживают редеплой.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+        working-directory: worker
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: worker

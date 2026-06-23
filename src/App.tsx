@@ -4,6 +4,7 @@ import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
 import { SyncRunner } from './components/SyncRunner';
 import { FamilyRunner } from './components/FamilyRunner';
+import { CallRunner } from './components/CallRunner';
 import { SwNavBridge } from './components/SwNavBridge';
 import { TabBar } from './components/layout/TabBar';
 import { ToastProvider } from './components/ui/Toast';
@@ -82,6 +83,7 @@ export default function App() {
         <ThemeApplier />
         <SyncRunner />
         <FamilyRunner />
+        <CallRunner />
         <SwNavBridge />
         <PomodoroProvider>
         <ErrorBoundary>
