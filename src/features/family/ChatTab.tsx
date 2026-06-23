@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, CheckCheck, Clock, Send, Pencil, Trash2, X, ImagePlus, Mic, Play, Pause } from 'lucide-react';
+import { Check, CheckCheck, Clock, Send, Pencil, Trash2, X, Paperclip, Mic, Play, Pause } from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
@@ -281,9 +281,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
             <button
               onClick={() => fileRef.current?.click()}
               aria-label="Прикрепить фото"
-              className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-surface-2 text-accent active:scale-95"
+              className="flex size-11 shrink-0 select-none items-center justify-center self-end text-muted transition-colors active:text-accent"
             >
-              <ImagePlus size={20} />
+              <Paperclip size={22} />
             </button>
             <textarea
               value={text}
