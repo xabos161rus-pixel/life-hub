@@ -1,18 +1,18 @@
+import { useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { RefreshCw } from 'lucide-react';
 
-const CHECK_INTERVAL = 20 * 60 * 1000; // раз в 20 мин проверять обновление
+const CHECK_INTERVAL = 15 * 60 * 1000; // проверять обновление раз в 15 мин
 
 /**
- * Баннер «Доступна новая версия» с кнопкой «Обновить». Решает проблему iOS-PWA,
- * где установленное приложение не обновлялось без ручного закрытия/открытия.
- * Теперь новая версия предлагается явной кнопкой (skipWaiting + reload).
+ * Тихое авто-обновление PWA (registerType: 'autoUpdate'). Новый service worker
+ * активируется сам (skipWaiting + clientsClaim), а при смене контроллера
+ * страница один раз перезагружается на свежую версию. Кнопки «Обновить» больше
+ * нет — на iOS-PWA она была ненадёжной и юзер застревал на старом кэше. UI не
+ * рендерит; периодически дёргает registration.update(), чтобы быстро подхватить
+ * свежий билд (iOS сам проверяет sw.js редко).
  */
 export function ReloadPrompt() {
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
+  useRegisterSW({
     onRegisteredSW(_url, registration) {
       if (!registration) return;
       const check = () => registration.update().catch(() => {});
@@ -25,38 +25,25 @@ export function ReloadPrompt() {
     },
   });
 
-  // Основной путь — skipWaiting + авто-reload по controllerchange (работает
-  // благодаря clientsClaim). iOS-подстраховка: если перезагрузка всё же не
-  // случилась за 2.5с, форсируем сами.
-  const handleUpdate = () => {
-    void updateServiceWorker(true);
-    setTimeout(() => window.location.reload(), 2500);
-  };
+  // Когда новый SW перехватывает страницу (controllerchange) — перезагружаемся
+  // на свежую версию. Гард hadController: при ПЕРВОЙ установке SW контроллер
+  // тоже меняется (null → SW), но контент уже свежий — лишний reload не нужен.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    let hadController = !!navigator.serviceWorker.controller;
+    let refreshing = false;
+    const onChange = () => {
+      if (!hadController) {
+        hadController = true; // первая установка — без перезагрузки
+        return;
+      }
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', onChange);
+    return () => navigator.serviceWorker.removeEventListener('controllerchange', onChange);
+  }, []);
 
-  if (!needRefresh) return null;
-
-  return (
-    <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+78px)] z-40 flex items-center gap-3 rounded-2xl border border-accent/40 bg-elevated p-3 shadow-[var(--shadow-pop)]">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-        <RefreshCw size={18} />
-      </span>
-      <div className="min-w-0 flex-1 text-sm">
-        <span className="font-semibold">Доступна новая версия</span>
-        <span className="block text-muted">Обновите, чтобы получить последние изменения</span>
-      </div>
-      <button
-        onClick={handleUpdate}
-        className="shrink-0 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white active:opacity-80"
-      >
-        Обновить
-      </button>
-      <button
-        aria-label="Позже"
-        className="shrink-0 px-1 text-sm text-muted"
-        onClick={() => setNeedRefresh(false)}
-      >
-        Позже
-      </button>
-    </div>
-  );
+  return null;
 }

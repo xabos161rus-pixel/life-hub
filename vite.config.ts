@@ -10,7 +10,11 @@ export default defineConfig(({ command }) => ({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'prompt',
+      // autoUpdate (а не 'prompt'): на iOS-PWA ручное «Обновить» ненадёжно — юзер
+      // застревал на старом кэше и не видел задеплоенных фиксов. Теперь новый SW
+      // активируется сам (skipWaiting + clientsClaim) и страница перезагружается
+      // на свежую версию без участия пользователя.
+      registerType: 'autoUpdate',
       manifest: {
         name: 'Life Hub',
         short_name: 'LifeHub',
@@ -31,9 +35,11 @@ export default defineConfig(({ command }) => ({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         navigateFallback: '/life-hub/index.html',
-        // clientsClaim: после skipWaiting новый SW сразу перехватывает открытую
-        // страницу → срабатывает controllerchange → кнопка «Обновить» реально
-        // перезагружает (без этого SW активировался, но reload не происходил).
+        // skipWaiting+clientsClaim: новый SW не ждёт в waiting, а сразу
+        // активируется и перехватывает открытую страницу → controllerchange →
+        // авто-reload на свежую версию (иначе обновление откладывалось до
+        // полного закрытия всех вкладок/иконки PWA — на iOS почти никогда).
+        skipWaiting: true,
         clientsClaim: true,
         // Свой обработчик push/notificationclick поверх сгенерированного SW.
         importScripts: ['push-sw.js'],
