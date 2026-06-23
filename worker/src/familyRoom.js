@@ -130,6 +130,12 @@ export class FamilyRoom extends DurableObject {
       return this.json(res);
     }
 
+    // ICE-серверы для звонков: STUN всегда бесплатен; TURN-креды генерим из
+    // Cloudflare Realtime, если заданы секреты (иначе остаёмся на STUN).
+    if (path.endsWith('/turn') && request.method === 'GET') {
+      return this.json({ iceServers: await this.iceServers() });
+    }
+
     if (path.endsWith('/push-sub') && request.method === 'POST') {
       const { memberId, subscription } = await request.json();
       if (memberId) {
@@ -303,6 +309,38 @@ export class FamilyRoom extends DurableObject {
       }
       return;
     }
+    // Сигналинг звонков (WebRTC): эфемерный релей — НЕ пишем в БД. data —
+    // шифротекст (SDP/ICE, зашифрован семейным ключом). Адресуется конкретному
+    // участнику (to). Если адресата нет онлайн и это приглашение (offer) —
+    // шлём пуш-нудж «открой приложение, чтобы ответить».
+    if (msg.type === 'signal') {
+      const att = ws.deserializeAttachment();
+      const from = att?.memberId || null;
+      const frame = JSON.stringify({
+        type: 'signal',
+        from,
+        to: msg.to ?? null,
+        call: msg.call ?? null,
+        kind: msg.kind ?? null,
+        data: msg.data ?? null,
+      });
+      let delivered = false;
+      for (const sock of this.ctx.getWebSockets()) {
+        if (sock === ws) continue;
+        const a = sock.deserializeAttachment();
+        if (msg.to && a?.memberId !== msg.to) continue;
+        try {
+          sock.send(frame);
+          delivered = true;
+        } catch {
+          /* сокет закрывается */
+        }
+      }
+      if (!delivered && msg.kind === 'offer' && msg.to) {
+        this.ctx.waitUntil(this.pushCall(msg.to));
+      }
+      return;
+    }
   }
 
   roomName() {
@@ -375,6 +413,76 @@ export class FamilyRoom extends DurableObject {
       } catch {
         /* мёртвая подписка — игнор */
       }
+    }
+  }
+
+  // ICE-серверы. STUN (Cloudflare + Google) бесплатен и безлимитен. TURN
+  // (relay для ~10–20% сетей за симметричным NAT) — Cloudflare Realtime:
+  // 1000 ГБ/мес бесплатно. Креды коротко-живущие, генерим на каждый звонок.
+  // Без секретов TURN — звонок всё равно работает на STUN для большинства сетей.
+  async iceServers() {
+    const servers = [
+      { urls: 'stun:stun.cloudflare.com:3478' },
+      { urls: 'stun:stun.l.google.com:19302' },
+    ];
+    const keyId = this.env.TURN_KEY_ID;
+    const apiToken = this.env.TURN_KEY_API_TOKEN;
+    if (keyId && apiToken) {
+      try {
+        const r = await fetch(
+          `https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ttl: 86400 }),
+          },
+        );
+        if (r.ok) {
+          const data = await r.json();
+          if (data.iceServers) servers.push(data.iceServers);
+        }
+      } catch {
+        /* TURN недоступен — остаёмся на STUN */
+      }
+    }
+    return servers;
+  }
+
+  // Пуш-нудж о входящем звонке участнику, которого нет онлайн (WS мёртв).
+  // Сам звонок эфемерен — это лишь сигнал «открой приложение, чтобы ответить»;
+  // звонящий переотправляет offer, и при подключении адресата звонок зазвонит.
+  async pushCall(toMemberId) {
+    const vapid = {
+      publicKey: this.env.VAPID_PUBLIC,
+      privateKey: this.env.VAPID_PRIVATE,
+      subject: this.env.VAPID_SUBJECT || 'mailto:noreply@life-hub.app',
+    };
+    if (!vapid.privateKey) return;
+    const row = this.sql
+      .exec('SELECT push_sub FROM members WHERE member_id=? AND push_sub IS NOT NULL', toMemberId)
+      .toArray()[0];
+    if (!row) return;
+    const familyId = this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]?.v || '';
+    const name = this.roomName() || 'Семья';
+    try {
+      const sub = JSON.parse(row.push_sub);
+      const { endpoint, headers, body } = await buildPushRequest({
+        subscription: sub,
+        payload: JSON.stringify({
+          title: name,
+          body: '📞 Входящий звонок',
+          family: true,
+          familyId,
+          call: true,
+          tag: 'family-call:' + (familyId || 'all'),
+        }),
+        vapid,
+        ttl: 60,
+        urgency: 'high',
+      });
+      await fetch(endpoint, { method: 'POST', headers, body });
+    } catch {
+      /* мёртвая подписка — игнор */
     }
   }
 

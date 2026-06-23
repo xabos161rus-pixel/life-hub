@@ -36,3 +36,11 @@ new_sqlite_classes = ["FamilyRoom"]
 crons = ["* * * * *"]
 
 # Секрет VAPID_PRIVATE задаётся через `wrangler secret put VAPID_PRIVATE` (не в файле).
+#
+# Аудиозвонки (WebRTC). STUN бесплатен и работает «из коробки». TURN-relay нужен
+# для ~10–20% сетей за симметричным NAT — Cloudflare Realtime даёт 1000 ГБ/мес
+# бесплатно. Чтобы включить TURN, создай TURN-ключ в дашборде Cloudflare
+# (Realtime → TURN) и задай два секрета:
+#   wrangler secret put TURN_KEY_ID
+#   wrangler secret put TURN_KEY_API_TOKEN
+# Без них звонки всё равно работают (STUN-only), просто без relay-фолбэка.
