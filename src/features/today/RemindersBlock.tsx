@@ -128,9 +128,10 @@ function ReminderSectionCard({
           ))}
           <button
             onClick={onAddItem}
-            className="inline-flex items-center gap-1.5 px-1 pt-0.5 text-sm font-medium text-accent active:opacity-70"
+            aria-label="Добавить напоминание"
+            className="inline-flex items-center justify-center px-1 pt-0.5 text-accent active:opacity-70"
           >
-            <Plus size={16} /> напоминание
+            <Plus size={18} />
           </button>
         </div>
       )}
