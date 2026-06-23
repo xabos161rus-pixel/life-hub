@@ -68,7 +68,7 @@ function NoteRow({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-[1.15rem] shadow-[var(--shadow-card)]">
+    <div className="relative transform-gpu overflow-hidden rounded-[1.15rem] shadow-[var(--shadow-card)]">
       <button
         type="button"
         onClick={onDelete}
