@@ -25,6 +25,14 @@ export function ReloadPrompt() {
     },
   });
 
+  // Основной путь — skipWaiting + авто-reload по controllerchange (работает
+  // благодаря clientsClaim). iOS-подстраховка: если перезагрузка всё же не
+  // случилась за 2.5с, форсируем сами.
+  const handleUpdate = () => {
+    void updateServiceWorker(true);
+    setTimeout(() => window.location.reload(), 2500);
+  };
+
   if (!needRefresh) return null;
 
   return (
@@ -37,7 +45,7 @@ export function ReloadPrompt() {
         <span className="block text-muted">Обновите, чтобы получить последние изменения</span>
       </div>
       <button
-        onClick={() => updateServiceWorker(true)}
+        onClick={handleUpdate}
         className="shrink-0 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white active:opacity-80"
       >
         Обновить

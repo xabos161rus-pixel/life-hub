@@ -31,6 +31,10 @@ export default defineConfig(({ command }) => ({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         navigateFallback: '/life-hub/index.html',
+        // clientsClaim: после skipWaiting новый SW сразу перехватывает открытую
+        // страницу → срабатывает controllerchange → кнопка «Обновить» реально
+        // перезагружает (без этого SW активировался, но reload не происходил).
+        clientsClaim: true,
         // Свой обработчик push/notificationclick поверх сгенерированного SW.
         importScripts: ['push-sw.js'],
       },
