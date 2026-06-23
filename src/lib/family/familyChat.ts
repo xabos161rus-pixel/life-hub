@@ -167,6 +167,8 @@ class FamilyEngine {
             createdAt: it.createdAt,
             text: String(p.text ?? ''),
             image: (p.image as string | null) ?? null,
+            audio: (p.audio as string | null) ?? null,
+            audioDur: typeof p.audioDur === 'number' ? p.audioDur : undefined,
             system: Boolean(p.system),
             status: 'acked',
             deletedAt: (p.deletedAt as string | null) ?? null,
@@ -213,7 +215,7 @@ class FamilyEngine {
         senderMemberId: m.senderMemberId,
         createdAt: m.createdAt,
         edit: true, // при реконнекте могут быть правки/удаления — пропускаем дедуп
-        ciphertext: await encryptJSON(c.familyKey, { text: m.text, deletedAt: m.deletedAt, image: m.image ?? null, system: m.system ?? false }),
+        ciphertext: await encryptJSON(c.familyKey, { text: m.text, deletedAt: m.deletedAt, image: m.image ?? null, audio: m.audio ?? null, audioDur: m.audioDur, system: m.system ?? false }),
       }));
     }
     for (const t of (await db.familyTasks.where('familyId').equals(this.familyId).toArray()).filter((x) => x.seq === 0)) {
@@ -373,7 +375,7 @@ class FamilyEngine {
     const m = await db.familyMessages.get(clientMsgId);
     if (!m) return;
     await db.familyMessages.update(clientMsgId, { text, status: 'pending', seq: null });
-    const ciphertext = await encryptJSON(c.familyKey, { text, deletedAt: m.deletedAt ?? null, image: m.image ?? null, system: m.system ?? false });
+    const ciphertext = await encryptJSON(c.familyKey, { text, deletedAt: m.deletedAt ?? null, image: m.image ?? null, audio: m.audio ?? null, audioDur: m.audioDur, system: m.system ?? false });
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
@@ -385,7 +387,7 @@ class FamilyEngine {
     if (!m) return;
     const deletedAt = new Date().toISOString();
     await db.familyMessages.update(clientMsgId, { deletedAt, status: 'pending', seq: null });
-    const ciphertext = await encryptJSON(c.familyKey, { text: m.text, deletedAt, image: m.image ?? null, system: m.system ?? false });
+    const ciphertext = await encryptJSON(c.familyKey, { text: m.text, deletedAt, image: m.image ?? null, audio: m.audio ?? null, audioDur: m.audioDur, system: m.system ?? false });
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
@@ -398,6 +400,17 @@ class FamilyEngine {
     const createdAt = new Date().toISOString();
     await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: '', image: dataUrl, status: 'pending', deletedAt: null });
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encryptJSON(c.familyKey, { text: '', deletedAt: null, image: dataUrl }) });
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
+  }
+
+  /** Отправить голосовое сообщение (аудио dataURL + длительность, сек). */
+  async sendAudio(dataUrl: string, durationSec: number): Promise<void> {
+    const c = await this.cfg();
+    if (!c) return;
+    const clientMsgId = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+    await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: '', audio: dataUrl, audioDur: durationSec, status: 'pending', deletedAt: null });
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encryptJSON(c.familyKey, { text: '', deletedAt: null, audio: dataUrl, audioDur: durationSec }) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -509,6 +522,9 @@ export function sendMessage(familyId: string, text: string): Promise<void> {
 }
 export function sendImage(familyId: string, dataUrl: string): Promise<void> {
   return getEngine(familyId).sendImage(dataUrl);
+}
+export function sendAudio(familyId: string, dataUrl: string, durationSec: number): Promise<void> {
+  return getEngine(familyId).sendAudio(dataUrl, durationSec);
 }
 export function sendSystemMessage(familyId: string, text: string): Promise<void> {
   return getEngine(familyId).sendSystemMessage(text);

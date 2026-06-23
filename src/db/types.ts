@@ -249,6 +249,8 @@ export interface FamilyMessage {
   createdAt: string;
   text: string;
   image?: string | null; // сжатый JPEG dataURL (если это сообщение-картинка)
+  audio?: string | null; // аудио dataURL (голосовое сообщение)
+  audioDur?: number; // длительность голосового, сек
   system?: boolean; // системное сообщение («X присоединился») — без пузыря
   status: 'pending' | 'sent' | 'acked'; // локальное состояние доставки (мимо синка)
   deletedAt: string | null;

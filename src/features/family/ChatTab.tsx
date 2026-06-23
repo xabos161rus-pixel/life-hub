@@ -1,12 +1,60 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, CheckCheck, Clock, Send, Pencil, Trash2, X, ImagePlus } from 'lucide-react';
+import { Check, CheckCheck, Clock, Send, Pencil, Trash2, X, ImagePlus, Mic, Play, Pause } from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { compressImage } from '../../lib/image';
 import { getFamilyConfig } from '../../lib/family/familyState';
-import { sendMessage, sendImage, editMessage, deleteMessage, subscribeReads, markSeen } from '../../lib/family/familyChat';
+import { sendMessage, sendImage, sendAudio, editMessage, deleteMessage, subscribeReads, markSeen } from '../../lib/family/familyChat';
+import { useVoiceRecorder } from './useVoiceRecorder';
+
+/** мм:сс из секунд. */
+function fmtDur(sec: number): string {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** Плеер голосового: play/pause + полоса прогресса + длительность. */
+function AudioBubble({ src, duration, own }: { src: string; duration: number; own: boolean }) {
+  const [playing, setPlaying] = useState(false);
+  const [pos, setPos] = useState(0);
+  const aRef = useRef<HTMLAudioElement>(null);
+  const total = duration || pos || 1;
+  return (
+    <div className="flex min-w-[170px] items-center gap-2.5 py-0.5">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          const a = aRef.current;
+          if (!a) return;
+          if (a.paused) void a.play();
+          else a.pause();
+        }}
+        aria-label={playing ? 'Пауза' : 'Воспроизвести'}
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'}`}
+      >
+        {playing ? <Pause size={16} /> : <Play size={16} />}
+      </button>
+      <div className={`h-1 flex-1 overflow-hidden rounded-full ${own ? 'bg-white/25' : 'bg-hairline'}`}>
+        <div className="h-full rounded-full bg-current" style={{ width: `${Math.min(100, (pos / total) * 100)}%` }} />
+      </div>
+      <span className="shrink-0 text-[11px] tabular-nums">{fmtDur(playing || pos ? pos : duration)}</span>
+      <audio
+        ref={aRef}
+        src={src}
+        preload="metadata"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => {
+          setPlaying(false);
+          setPos(0);
+        }}
+        onTimeUpdate={(e) => setPos((e.target as HTMLAudioElement).currentTime)}
+      />
+    </div>
+  );
+}
 
 // Порядок: подтверждённые по seq, неотправленные (seq=null) — в конец по времени.
 function ordered(msgs: FamilyMessage[]): FamilyMessage[] {
@@ -112,6 +160,10 @@ export function ChatTab({ familyId }: { familyId: string }) {
     }
   }
 
+  const rec = useVoiceRecorder((dataUrl, dur) => {
+    void sendAudio(familyId, dataUrl, dur);
+  });
+
   return (
     // Полная высота под чат от каркаса (Screen fill): лента растёт и скроллится,
     // композер прибит к низу. Без magic-number — высоту даёт родитель.
@@ -147,6 +199,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                       {author.displayName}
                     </p>
                   )}
+                  {m.audio && <AudioBubble src={m.audio} duration={m.audioDur ?? 0} own={own} />}
                   {m.image && (
                     <img src={m.image} alt="Фото" loading="lazy" className="block max-h-80 max-w-full rounded-xl" />
                   )}
@@ -190,53 +243,87 @@ export function ChatTab({ familyId }: { familyId: string }) {
             </button>
           </div>
         )}
-        <div className="flex items-end gap-2 px-0.5 pt-2">
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = '';
-              if (f) void handlePickImage(f);
-            }}
-          />
-          <button
-            onClick={() => fileRef.current?.click()}
-            aria-label="Прикрепить фото"
-            className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-surface-2 text-accent active:scale-95"
-          >
-            <ImagePlus size={20} />
-          </button>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                void submit();
-              }
-            }}
-            rows={1}
-            placeholder="Сообщение…"
-            className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-2xl border border-border bg-surface px-3 py-2.5 text-[15px] outline-none focus:border-accent"
-          />
-          <button
-            onClick={() => void submit()}
-            disabled={!text.trim()}
-            aria-label="Отправить"
-            className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent to-accent-2 text-white disabled:opacity-40 active:scale-95"
-          >
-            <Send size={20} />
-          </button>
-        </div>
+        {rec.recording ? (
+          <div className="flex items-center gap-3 px-1 pt-2">
+            <button
+              onClick={rec.cancel}
+              aria-label="Отменить запись"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95"
+            >
+              <Trash2 size={20} />
+            </button>
+            <div className="flex flex-1 items-center gap-2 text-sm">
+              <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-danger" />
+              <span className="font-mono tabular-nums">{fmtDur(rec.elapsed)}</span>
+              <span className="text-muted">запись…</span>
+            </div>
+            <button
+              onClick={rec.stop}
+              aria-label="Отправить голосовое"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-white active:scale-95"
+            >
+              <Send size={20} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-end gap-2 px-0.5 pt-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (f) void handlePickImage(f);
+              }}
+            />
+            <button
+              onClick={() => fileRef.current?.click()}
+              aria-label="Прикрепить фото"
+              className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-surface-2 text-accent active:scale-95"
+            >
+              <ImagePlus size={20} />
+            </button>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void submit();
+                }
+              }}
+              rows={1}
+              placeholder="Сообщение…"
+              className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-2xl border border-border bg-surface px-3 py-2.5 text-[15px] outline-none focus:border-accent"
+            />
+            {text.trim() || !rec.supported ? (
+              <button
+                onClick={() => void submit()}
+                disabled={!text.trim()}
+                aria-label="Отправить"
+                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent to-accent-2 text-white disabled:opacity-40 active:scale-95"
+              >
+                <Send size={20} />
+              </button>
+            ) : (
+              <button
+                onClick={() => void rec.start()}
+                aria-label="Записать голосовое"
+                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent to-accent-2 text-white active:scale-95"
+              >
+                <Mic size={20} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <Sheet open={actionMsg !== null} onClose={() => setActionMsg(null)} title="Сообщение">
         {actionMsg && (
           <div className="space-y-2 pb-2">
-            {!actionMsg.image && (
+            {!actionMsg.image && !actionMsg.audio && (
               <button
                 onClick={() => startEdit(actionMsg)}
                 className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
