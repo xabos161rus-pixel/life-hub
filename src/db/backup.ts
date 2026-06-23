@@ -15,6 +15,8 @@ const TABLES = [
   'placeItems',
   'metrics',
   'metricLogs',
+  'reminderSections',
+  'reminderItems',
 ] as const;
 
 type TableName = (typeof TABLES)[number];

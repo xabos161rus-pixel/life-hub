@@ -250,6 +250,19 @@ export interface FamilyMessage {
   deletedAt: string | null;
 }
 
+// === Напоминания — закреплённые подсказки по темам (сворачиваемые разделы) ===
+// Раздел (напр. «Работа») с набором напоминаний; раскрывается по ситуации.
+export interface ReminderSection extends BaseEntity {
+  title: string;
+  collapsed: boolean;
+  sortOrder: number;
+}
+export interface ReminderItem extends BaseEntity {
+  sectionId: string;
+  text: string; // может быть многострочным
+  sortOrder: number;
+}
+
 // Конфиг E2E-синхронизации. НЕ синкается и НЕ входит в бэкап (содержит ключ
 // и токен). key — extractable CryptoKey: нужно для повторного показа QR при
 // подключении ещё одного устройства и резервного сохранения ключа.

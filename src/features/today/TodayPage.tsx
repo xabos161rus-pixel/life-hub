@@ -13,6 +13,7 @@ import { QuickAddBar } from '../tasks/QuickAddBar';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { WeatherWidget } from './widgets/WeatherWidget';
+import { RemindersBlock } from './RemindersBlock';
 
 /** Список задач в карточке — как в TasksPage. */
 function TaskList({
@@ -85,6 +86,8 @@ export function TodayPage() {
       }
     >
       <WeatherWidget />
+
+      <RemindersBlock />
 
       <QuickAddBar defaultDueDate={today} />
 

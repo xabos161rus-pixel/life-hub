@@ -19,9 +19,11 @@ import type {
   FamilyMember,
   FamilyTask,
   FamilyMessage,
+  ReminderSection,
+  ReminderItem,
 } from './types';
 
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -43,6 +45,8 @@ export class LifeHubDB extends Dexie {
   familyMembers!: Table<FamilyMember, string>;
   familyTasks!: Table<FamilyTask, string>;
   familyMessages!: Table<FamilyMessage, string>;
+  reminderSections!: Table<ReminderSection, string>;
+  reminderItems!: Table<ReminderItem, string>;
 
   constructor() {
     super('life-hub');
@@ -116,6 +120,12 @@ export class LifeHubDB extends Dexie {
             });
         }
       });
+    // v7 — напоминания: разделы по темам + закреплённые подсказки. Только новые
+    // таблицы, существующие не трогаются → upgrade-функция не нужна.
+    this.version(7).stores({
+      reminderSections: 'id, sortOrder',
+      reminderItems: 'id, sectionId, sortOrder',
+    });
   }
 }
 

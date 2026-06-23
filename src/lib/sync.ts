@@ -37,6 +37,8 @@ const SYNCED_TABLES = [
   'placeItems',
   'metrics',
   'metricLogs',
+  'reminderSections',
+  'reminderItems',
 ] as const;
 type SyncedTable = (typeof SYNCED_TABLES)[number];
 const isSynced = (t: string): t is SyncedTable => (SYNCED_TABLES as readonly string[]).includes(t);
