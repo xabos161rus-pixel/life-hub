@@ -13,7 +13,7 @@ import {
 } from '../crypto';
 import { saveFamilyConfig, getFamilyConfig, listFamilyConfigs, clearFamily } from './familyState';
 import { upsertSelfMember } from './familyRepo';
-import { connectFamily, disconnectFamily } from './familyChat';
+import { connectFamily, disconnectFamily, sendSystemMessage } from './familyChat';
 
 /** Создать новую группу на этом устройстве (ты — первый участник). Возвращает
  *  familyId созданной группы (чтобы UI сразу её выбрал). */
@@ -61,6 +61,9 @@ export async function joinFamily(code: string, displayName: string): Promise<str
   });
   await upsertSelfMember(p.familyId, displayName);
   connectFamily(p.familyId);
+  // Системное сообщение всем участникам: кто-то присоединился (уйдёт из outbox
+  // при подключении; офлайн-участникам прилетит пушем как обычное сообщение).
+  void sendSystemMessage(p.familyId, `${displayName.trim() || 'Участник'} присоединился`);
   return p.familyId;
 }
 

@@ -280,7 +280,7 @@ export function TaskItem({
           {hasMeta && (
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
               {task.dueDate && (
-                <span className={overdue ? 'text-danger' : ''}>
+                <span className={overdue ? (task.skippedCount ? 'text-warning' : 'text-danger') : ''}>
                   {formatDueDate(task.dueDate)}
                   {task.dueTime
                     ? `, ${task.dueTime}${
@@ -289,6 +289,11 @@ export function TaskItem({
                     : ''}
                 </span>
               )}
+              {task.skippedCount ? (
+                <span className="text-warning">
+                  пропущено{task.skippedCount > 1 ? ` ×${task.skippedCount}` : ''}
+                </span>
+              ) : null}
               {task.remindBefore != null && (
                 <span className="flex items-center" aria-label="Напоминание включено">
                   <Bell size={11} />

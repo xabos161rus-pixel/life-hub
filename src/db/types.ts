@@ -248,6 +248,8 @@ export interface FamilyMessage {
   senderMemberId: string;
   createdAt: string;
   text: string;
+  image?: string | null; // сжатый JPEG dataURL (если это сообщение-картинка)
+  system?: boolean; // системное сообщение («X присоединился») — без пузыря
   status: 'pending' | 'sent' | 'acked'; // локальное состояние доставки (мимо синка)
   deletedAt: string | null;
 }

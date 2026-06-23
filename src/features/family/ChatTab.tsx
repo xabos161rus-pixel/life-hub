@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, CheckCheck, Clock, Send, Pencil, Trash2, X } from 'lucide-react';
+import { Check, CheckCheck, Clock, Send, Pencil, Trash2, X, ImagePlus } from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
+import { compressImage } from '../../lib/image';
 import { getFamilyConfig } from '../../lib/family/familyState';
-import { sendMessage, editMessage, deleteMessage, subscribeReads, markSeen } from '../../lib/family/familyChat';
+import { sendMessage, sendImage, editMessage, deleteMessage, subscribeReads, markSeen } from '../../lib/family/familyChat';
 
 // Порядок: подтверждённые по seq, неотправленные (seq=null) — в конец по времени.
 function ordered(msgs: FamilyMessage[]): FamilyMessage[] {
@@ -43,6 +44,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
   );
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Отмечаем прочитанным до последнего seq, когда чат открыт и виден.
   useEffect(() => {
@@ -51,14 +53,20 @@ export function ChatTab({ familyId }: { familyId: string }) {
     markSeen(familyId, maxSeq);
   }, [list, familyId]);
 
-  // Автоскролл к низу при новом сообщении — только если уже у низа ленты.
-  // ВАЖНО: двигаем ТОЛЬКО свой scrollRef (el.scrollTop), а не scrollIntoView —
-  // тот по спецификации прокручивает ВСЕХ предков, что в паре вложенных
-  // overflow-контейнеров устраивало «войну скроллов» с ручной прокруткой и
-  // на iOS-momentum насыщало main-thread синхронными reflow (полная заморозка).
+  // Автоскролл. ВАЖНО: двигаем ТОЛЬКО свой scrollRef (el.scrollTop), а не
+  // scrollIntoView — тот прокручивает ВСЕХ предков, что в паре вложенных
+  // overflow-контейнеров устраивало «войну скроллов» (заморозка на iOS).
+  const didInitialScroll = useRef(false);
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || list.length === 0) return;
+    // Первый показ ленты: сразу к последнему сообщению (а не к первому).
+    if (!didInitialScroll.current) {
+      didInitialScroll.current = true;
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
+    // Дальше — доскролл к низу при новом сообщении, только если уже у низа.
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
     if (nearBottom) {
       requestAnimationFrame(() => {
@@ -95,6 +103,15 @@ export function ChatTab({ familyId }: { familyId: string }) {
     await deleteMessage(familyId, m.clientMsgId);
   }
 
+  async function handlePickImage(file: File) {
+    try {
+      const dataUrl = await compressImage(file);
+      await sendImage(familyId, dataUrl);
+    } catch {
+      /* не удалось обработать картинку */
+    }
+  }
+
   return (
     // Полная высота под чат от каркаса (Screen fill): лента растёт и скроллится,
     // композер прибит к низу. Без magic-number — высоту даёт родитель.
@@ -108,21 +125,35 @@ export function ChatTab({ familyId }: { familyId: string }) {
         ) : (
           <div className="space-y-2 py-2">
             {list.map((m) => {
+            if (m.system) {
+              return (
+                <div key={m.clientMsgId} className="py-1 text-center">
+                  <span className="inline-block rounded-full bg-surface-2 px-3 py-1 text-xs text-muted">{m.text}</span>
+                </div>
+              );
+            }
             const own = m.senderMemberId === selfId;
             const author = memberMap[m.senderMemberId];
             return (
               <div key={m.clientMsgId} className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
                 <div
                   onClick={() => setActionMsg(m)}
-                  className={`max-w-[80%] cursor-pointer rounded-2xl px-3 py-2 active:opacity-80 ${own ? 'bg-accent text-white' : 'bg-surface-2 text-text'}`}
+                  className={`max-w-[80%] cursor-pointer overflow-hidden rounded-2xl active:opacity-80 ${
+                    m.image ? 'p-1' : 'px-3 py-2'
+                  } ${own ? 'bg-accent text-white' : 'bg-surface-2 text-text'}`}
                 >
                   {!own && author && (
-                    <p className="mb-0.5 text-xs font-semibold" style={{ color: author.color }}>
+                    <p className={`mb-0.5 text-xs font-semibold ${m.image ? 'px-2 pt-1' : ''}`} style={{ color: author.color }}>
                       {author.displayName}
                     </p>
                   )}
-                  <p className="whitespace-pre-wrap break-words text-[15px]">{m.text}</p>
-                  <span className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${own ? 'text-white/70' : 'text-muted'}`}>
+                  {m.image && (
+                    <img src={m.image} alt="Фото" loading="lazy" className="block max-h-80 max-w-full rounded-xl" />
+                  )}
+                  {m.text && (
+                    <p className={`whitespace-pre-wrap break-words text-[15px] ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
+                  )}
+                  <span className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${m.image ? 'px-2 pb-1' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
                     {timeLabel(m.createdAt)}
                     {own &&
                       (m.status === 'pending' ? (
@@ -160,6 +191,24 @@ export function ChatTab({ familyId }: { familyId: string }) {
           </div>
         )}
         <div className="flex items-end gap-2 px-0.5 pt-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void handlePickImage(f);
+            }}
+          />
+          <button
+            onClick={() => fileRef.current?.click()}
+            aria-label="Прикрепить фото"
+            className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-surface-2 text-accent active:scale-95"
+          >
+            <ImagePlus size={20} />
+          </button>
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -187,13 +236,15 @@ export function ChatTab({ familyId }: { familyId: string }) {
       <Sheet open={actionMsg !== null} onClose={() => setActionMsg(null)} title="Сообщение">
         {actionMsg && (
           <div className="space-y-2 pb-2">
-            <button
-              onClick={() => startEdit(actionMsg)}
-              className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
-            >
-              <Pencil size={18} className="text-accent" />
-              Редактировать
-            </button>
+            {!actionMsg.image && (
+              <button
+                onClick={() => startEdit(actionMsg)}
+                className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
+              >
+                <Pencil size={18} className="text-accent" />
+                Редактировать
+              </button>
+            )}
             <button
               onClick={() => void doDelete(actionMsg)}
               className="flex w-full items-center gap-3 rounded-xl bg-danger/15 p-3.5 text-left text-danger active:opacity-80"

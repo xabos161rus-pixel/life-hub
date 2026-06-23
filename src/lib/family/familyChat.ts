@@ -166,6 +166,8 @@ class FamilyEngine {
             senderMemberId: it.senderMemberId ?? '',
             createdAt: it.createdAt,
             text: String(p.text ?? ''),
+            image: (p.image as string | null) ?? null,
+            system: Boolean(p.system),
             status: 'acked',
             deletedAt: (p.deletedAt as string | null) ?? null,
           });
@@ -211,7 +213,7 @@ class FamilyEngine {
         senderMemberId: m.senderMemberId,
         createdAt: m.createdAt,
         edit: true, // при реконнекте могут быть правки/удаления — пропускаем дедуп
-        ciphertext: await encryptJSON(c.familyKey, { text: m.text, deletedAt: m.deletedAt }),
+        ciphertext: await encryptJSON(c.familyKey, { text: m.text, deletedAt: m.deletedAt, image: m.image ?? null, system: m.system ?? false }),
       }));
     }
     for (const t of (await db.familyTasks.where('familyId').equals(this.familyId).toArray()).filter((x) => x.seq === 0)) {
@@ -371,7 +373,7 @@ class FamilyEngine {
     const m = await db.familyMessages.get(clientMsgId);
     if (!m) return;
     await db.familyMessages.update(clientMsgId, { text, status: 'pending', seq: null });
-    const ciphertext = await encryptJSON(c.familyKey, { text, deletedAt: m.deletedAt ?? null });
+    const ciphertext = await encryptJSON(c.familyKey, { text, deletedAt: m.deletedAt ?? null, image: m.image ?? null, system: m.system ?? false });
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
@@ -383,8 +385,32 @@ class FamilyEngine {
     if (!m) return;
     const deletedAt = new Date().toISOString();
     await db.familyMessages.update(clientMsgId, { deletedAt, status: 'pending', seq: null });
-    const ciphertext = await encryptJSON(c.familyKey, { text: m.text, deletedAt });
+    const ciphertext = await encryptJSON(c.familyKey, { text: m.text, deletedAt, image: m.image ?? null, system: m.system ?? false });
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
+  }
+
+  /** Отправить картинку (сжатый JPEG dataURL) как сообщение-картинку. */
+  async sendImage(dataUrl: string): Promise<void> {
+    const c = await this.cfg();
+    if (!c) return;
+    const clientMsgId = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+    await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: '', image: dataUrl, status: 'pending', deletedAt: null });
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encryptJSON(c.familyKey, { text: '', deletedAt: null, image: dataUrl }) });
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
+  }
+
+  /** Системное сообщение (например, «X присоединился») — по центру, без пузыря. */
+  async sendSystemMessage(text: string): Promise<void> {
+    const body = text.trim();
+    if (!body) return;
+    const c = await this.cfg();
+    if (!c) return;
+    const clientMsgId = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+    await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: body, system: true, status: 'pending', deletedAt: null });
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encryptJSON(c.familyKey, { text: body, deletedAt: null, system: true }) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -480,6 +506,12 @@ export function subscribeReads(familyId: string, fn: (r: Record<string, number>)
 }
 export function sendMessage(familyId: string, text: string): Promise<void> {
   return getEngine(familyId).sendMessage(text);
+}
+export function sendImage(familyId: string, dataUrl: string): Promise<void> {
+  return getEngine(familyId).sendImage(dataUrl);
+}
+export function sendSystemMessage(familyId: string, text: string): Promise<void> {
+  return getEngine(familyId).sendSystemMessage(text);
 }
 export function editMessage(familyId: string, clientMsgId: string, newText: string): Promise<void> {
   return getEngine(familyId).editMessage(clientMsgId, newText);
