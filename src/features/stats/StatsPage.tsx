@@ -46,6 +46,7 @@ interface TaskBreakdown {
   open: number; // не выполнено
   partial: number; // выполнено не полностью (чеклист начат, но не закончен)
   overdue: number; // просрочено (из невыполненных)
+  skipped: number; // суммарно отмечено «пропущена» (исторически, для статистики)
   dueToday: number; // срок — сегодня
   noDate: number; // без срока (из невыполненных)
   deleted: number; // в корзине
@@ -64,12 +65,14 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
   let noDate = 0;
   let checkDone = 0;
   let checkTotal = 0;
+  let skipped = 0;
 
   for (const t of tasks) {
     const items = t.checklist ?? [];
     const done = items.filter((c) => c.done).length;
     checkTotal += items.length;
     checkDone += done;
+    skipped += t.skippedCount ?? 0;
 
     if (t.completedAt) {
       completed += 1;
@@ -89,6 +92,7 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
     open,
     partial,
     overdue,
+    skipped,
     dueToday,
     noDate,
     deleted,
@@ -335,6 +339,11 @@ export function StatsPage() {
               value={taskBreakdown.overdue}
               label="просрочено"
               color={taskBreakdown.overdue > 0 ? 'var(--app-danger)' : undefined}
+            />
+            <StatTile
+              value={taskBreakdown.skipped}
+              label="пропущено"
+              color={taskBreakdown.skipped > 0 ? 'var(--app-warning)' : undefined}
             />
             <StatTile value={taskBreakdown.deleted} label="в корзине" />
             <StatTile value={taskBreakdown.dueToday} label="срок сегодня" />

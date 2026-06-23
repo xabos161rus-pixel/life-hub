@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
-import { Bell, Copy, Repeat } from 'lucide-react';
+import { Bell, Copy, Repeat, SkipForward } from 'lucide-react';
 import type { Project, Task } from '../../db/types';
 import { TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressBar } from '../../components/ui/ProgressBar';
@@ -9,7 +9,7 @@ import { remove, update } from '../../db/repo';
 import { cancelReminder } from '../../lib/push';
 import { addDaysKey, formatDueDate, todayKey } from '../../lib/dates';
 import { describeRecurrence } from '../../lib/recurrence';
-import { toggleTask } from './taskActions';
+import { skipTask, toggleTask } from './taskActions';
 
 const PRIORITY_BAR: Record<number, string> = {
   3: 'bg-danger',
@@ -118,6 +118,12 @@ export function TaskItem({
     setDx(0);
     void update(db.tasks, task.id, { dueDate: addDaysKey(todayKey(), 1) });
     toast('Перенесено на завтра');
+  };
+
+  const handleSkip = async () => {
+    setDx(0);
+    await skipTask(task);
+    toast(task.recurrence ? 'Пропущено · к следующему повтору' : 'Пропущено · перенесено на сегодня');
   };
 
   const handleDelete = () => {
@@ -248,6 +254,19 @@ export function TaskItem({
         onClick={onClick}
       >
         <span className={`w-1 shrink-0 self-stretch rounded-full ${PRIORITY_BAR[task.priority]}`} />
+        {overdue && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleSkip();
+            }}
+            aria-label="Пропущено — не выполнено"
+            className="flex size-[22px] shrink-0 items-center justify-center rounded-[6px] active:scale-90"
+            style={{ color: 'var(--app-warning)' }}
+          >
+            <SkipForward size={18} />
+          </button>
+        )}
         <TaskCheck checked={done} onChange={handleToggle} color={project?.color} />
         <div className="min-w-0 flex-1">
           <p className={`break-words font-medium ${done ? 'text-muted line-through' : ''}`}>

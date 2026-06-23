@@ -2,6 +2,7 @@ import type { Task } from '../../db/types';
 import { db } from '../../db/db';
 import { create, now, uid, update } from '../../db/repo';
 import { nextOccurrence } from '../../lib/recurrence';
+import { todayKey } from '../../lib/dates';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
 
 /**
@@ -44,4 +45,17 @@ export async function toggleTask(task: Task): Promise<string | null> {
   }
 
   return null;
+}
+
+/**
+ * Отметить задачу «пропущена» (не выполнена): фиксируем пропуск для статистики
+ * и возвращаем задачу в штатный режим — повторяющаяся переходит к следующему
+ * повтору, разовая переносится на сегодня (перестаёт быть просроченной).
+ */
+export async function skipTask(task: Task): Promise<void> {
+  if (task.completedAt) return;
+  const skippedCount = (task.skippedCount ?? 0) + 1;
+  const nextDue = task.recurrence ? nextOccurrence(task.recurrence, task.dueDate) : todayKey();
+  await update(db.tasks, task.id, { dueDate: nextDue, skippedCount });
+  void scheduleReminder({ ...task, dueDate: nextDue });
 }

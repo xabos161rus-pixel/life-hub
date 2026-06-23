@@ -43,6 +43,8 @@ export interface Task extends BaseEntity {
   recurrence: Recurrence | null;
   tags: string[];
   sortOrder: number;
+  // Сколько раз задачу отмечали «пропущена» (для статистики). undefined = 0.
+  skippedCount?: number;
 }
 
 export type GoalStatus = 'active' | 'completed' | 'paused' | 'archived';
