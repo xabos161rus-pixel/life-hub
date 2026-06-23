@@ -72,7 +72,7 @@ function NoteRow({
       <button
         type="button"
         onClick={onDelete}
-        className="absolute inset-y-0 right-0 flex w-[88px] items-center justify-center bg-danger text-sm font-medium text-white"
+        className="absolute inset-y-0 right-0 flex w-[88px] items-center justify-center rounded-r-[1.15rem] bg-danger text-sm font-medium text-white"
       >
         Удалить
       </button>
