@@ -266,7 +266,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             </button>
           </div>
         ) : (
-          <div className="flex items-end gap-2 px-0.5 pt-2">
+          <div className="flex items-end gap-1.5 px-2 pb-1.5 pt-2">
             <input
               ref={fileRef}
               type="file"
@@ -281,9 +281,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
             <button
               onClick={() => fileRef.current?.click()}
               aria-label="Прикрепить фото"
-              className="flex size-11 shrink-0 select-none items-center justify-center self-end text-muted transition-colors active:text-accent"
+              className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted transition-colors active:bg-surface active:text-accent"
             >
-              <Paperclip size={22} />
+              <Paperclip size={21} />
             </button>
             <textarea
               value={text}
@@ -296,7 +296,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               }}
               rows={1}
               placeholder="Сообщение…"
-              className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-2xl border border-border bg-surface px-3 py-2.5 text-[15px] outline-none focus:border-accent"
+              className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-3xl border border-border bg-surface px-4 py-2.5 text-[15px] leading-tight outline-none focus:border-accent"
             />
             {text.trim() || !rec.supported ? (
               <button
