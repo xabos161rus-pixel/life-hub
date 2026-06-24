@@ -56,6 +56,7 @@ class CallManager {
   private peerId: string | null = null;
   private callId: string | null = null;
   private role: 'caller' | 'callee' | null = null;
+  private gen = 0; // поколение звонка: end() инкрементит → in-flight setup сверяет и бросает осиротевшие mic/pc
 
   private pendingOffer: string | null = null; // зашифрованный SDP входящего
   private pendingCandidates: RTCIceCandidateInit[] = [];
@@ -181,27 +182,60 @@ class CallManager {
     this.pendingCandidates = [];
   }
 
+  // Освобождает mic/pc, захваченные ПОСЛЕ того как звонок был снесён (gen сменился
+  // во время await). Чистит ТОЛЬКО переданные локальные ресурсы и отвязывает
+  // this.* лишь если они всё ещё указывают на них — чтобы не задеть уже начатый
+  // НОВЫЙ звонок.
+  private abortLocal(pc: RTCPeerConnection | null, stream: MediaStream | null): void {
+    if (pc) {
+      try {
+        pc.ontrack = null;
+        pc.onicecandidate = null;
+        pc.onconnectionstatechange = null;
+        pc.close();
+      } catch {
+        /* уже закрыт */
+      }
+      if (this.pc === pc) this.pc = null;
+    }
+    if (stream) {
+      for (const t of stream.getTracks()) t.stop();
+      if (this.localStream === stream) this.localStream = null;
+    }
+  }
+
   // === Исходящий звонок ===
   async startCall(familyId: string, peerId: string): Promise<void> {
     if (this.snap.status !== 'idle' && this.snap.status !== 'ended') return;
     this.cancelDismiss();
+    // Статус — СИНХРОННО до любого await: иначе двойной тап «позвонить» прошёл бы
+    // guard выше дважды и поднял бы два звонка (два микрофона/pc). Имя дозагрузим.
+    this.set({ status: 'outgoing', familyId, peerId, peerName: '', muted: false, startedAt: null, endReason: null });
     connectFamily(familyId);
     this.familyId = familyId;
     this.peerId = peerId;
     this.callId = crypto.randomUUID();
     this.role = 'caller';
     this.pendingCandidates = [];
+    const gen = this.gen;
     const name = await this.peerName(peerId);
-    this.set({ status: 'outgoing', familyId, peerId, peerName: name, muted: false, startedAt: null, endReason: null });
+    if (this.gen !== gen) return;
+    this.set({ peerName: name });
+    let stream: MediaStream;
     try {
-      this.localStream = await this.getMic();
+      stream = await this.getMic();
     } catch {
       this.end('Нет доступа к микрофону');
       return;
     }
+    if (this.gen !== gen) return this.abortLocal(null, stream); // снесли, пока брали микрофон
+    this.localStream = stream;
     const pc = await this.createPc(familyId);
+    if (this.gen !== gen) return this.abortLocal(pc, stream);
     await pc.setLocalDescription(await pc.createOffer());
+    if (this.gen !== gen) return this.abortLocal(pc, stream);
     await this.waitIce(pc);
+    if (this.gen !== gen) return this.abortLocal(pc, stream);
     const sendOffer = () => void this.signal('offer', { sdp: pc.localDescription });
     sendOffer();
     this.resendTimer = setInterval(sendOffer, OFFER_RESEND_MS);
@@ -215,25 +249,37 @@ class CallManager {
       clearTimeout(this.ringTimer);
       this.ringTimer = null;
     }
-    this.set({ status: 'connecting' });
-    const c = await getFamilyConfig(this.familyId);
+    this.set({ status: 'connecting' }); // синхронно до await — дедуп двойного «Принять»
+    const gen = this.gen;
+    const familyId = this.familyId;
+    const pendingOffer = this.pendingOffer; // захватываем: end() обнулит this.pendingOffer
+    const c = await getFamilyConfig(familyId);
     if (!c) {
       this.end('Ошибка');
       return;
     }
+    if (this.gen !== gen) return;
+    let stream: MediaStream;
     try {
-      this.localStream = await this.getMic();
+      stream = await this.getMic();
     } catch {
       void this.signal('decline', null);
       this.end('Нет доступа к микрофону');
       return;
     }
-    const offer = await decryptJSON<{ sdp: RTCSessionDescriptionInit }>(c.familyKey, this.pendingOffer);
-    const pc = await this.createPc(this.familyId);
+    if (this.gen !== gen) return this.abortLocal(null, stream); // снесли, пока брали микрофон
+    this.localStream = stream;
+    const offer = await decryptJSON<{ sdp: RTCSessionDescriptionInit }>(c.familyKey, pendingOffer);
+    if (this.gen !== gen) return this.abortLocal(null, stream);
+    const pc = await this.createPc(familyId);
+    if (this.gen !== gen) return this.abortLocal(pc, stream);
     await pc.setRemoteDescription(offer.sdp);
+    if (this.gen !== gen) return this.abortLocal(pc, stream);
     await this.drainCandidates();
     await pc.setLocalDescription(await pc.createAnswer());
+    if (this.gen !== gen) return this.abortLocal(pc, stream);
     await this.waitIce(pc);
+    if (this.gen !== gen) return this.abortLocal(pc, stream);
     void this.signal('answer', { sdp: pc.localDescription });
   }
 
@@ -301,9 +347,16 @@ class CallManager {
 
     if (f.kind === 'answer') {
       if (this.role !== 'caller' || !this.pc || !f.data) return;
+      const pc = this.pc;
       this.clearResend();
       const ans = await decryptJSON<{ sdp: RTCSessionDescriptionInit }>(c.familyKey, f.data);
-      await this.pc.setRemoteDescription(ans.sdp);
+      if (this.pc !== pc) return; // звонок снесён/заменён, пока расшифровывали
+      try {
+        await pc.setRemoteDescription(ans.sdp);
+      } catch {
+        return; // pc закрыт во время await
+      }
+      if (this.pc !== pc) return;
       await this.drainCandidates();
       if (this.snap.status === 'outgoing') this.set({ status: 'connecting' });
     } else if (f.kind === 'ice') {
@@ -342,6 +395,7 @@ class CallManager {
   }
 
   private end(reason: string) {
+    this.gen++; // инвалидирует любой in-flight setup (getMic/createPc/waitIce)
     this.clearResend();
     if (this.ringTimer) {
       clearTimeout(this.ringTimer);
