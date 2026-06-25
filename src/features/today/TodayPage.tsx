@@ -58,11 +58,11 @@ export function TodayPage() {
     (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99') || byPriorityThenOrder(a, b);
 
   const overdue = tasks
-    .filter((t) => !t.completedAt && t.dueDate !== null && t.dueDate < today)
+    .filter((t) => !t.completedAt && !t.frozenAt && t.dueDate !== null && t.dueDate < today)
     .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? '') || byPriorityThenOrder(a, b));
 
   const todayOpen = tasks
-    .filter((t) => !t.completedAt && t.dueDate === today)
+    .filter((t) => !t.completedAt && !t.frozenAt && t.dueDate === today)
     .sort(byTimeThenPriority);
   const todayDone = tasks
     .filter((t) => Boolean(t.completedAt) && t.dueDate === today)
@@ -93,7 +93,7 @@ export function TodayPage() {
 
       {overdue.length > 0 && (
         <section className="mb-5">
-          <h2 className="mb-2 text-sm font-semibold text-danger">Просрочено</h2>
+          <h2 className="mb-2 text-sm font-semibold text-warning">Просрочено</h2>
           <TaskList tasks={overdue} projectById={projectById} onEdit={openEdit} />
         </section>
       )}

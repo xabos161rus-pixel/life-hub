@@ -6,7 +6,17 @@ import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { compressImage } from '../../lib/image';
 import { getFamilyConfig } from '../../lib/family/familyState';
-import { sendMessage, sendImage, sendAudio, editMessage, deleteMessage, subscribeReads, markSeen } from '../../lib/family/familyChat';
+import {
+  sendMessage,
+  sendImage,
+  sendAudio,
+  editMessage,
+  deleteMessage,
+  subscribeReads,
+  subscribePresence,
+  subscribeLastSeen,
+  markSeen,
+} from '../../lib/family/familyChat';
 import { useVoiceRecorder } from './useVoiceRecorder';
 
 /** мм:сс из секунд. */
@@ -71,6 +81,20 @@ function timeLabel(iso: string): string {
   return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
+/** «5 мин назад» / «2 ч назад» / «вчера» / «3 июн». now передаётся state'ом,
+ *  чтобы не звать Date.now() в теле рендера (react-hooks/purity). */
+function relTime(iso: string, now: number): string {
+  const min = Math.floor((now - new Date(iso).getTime()) / 60000);
+  if (min < 1) return 'только что';
+  if (min < 60) return `${min} мин назад`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} ч назад`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return 'вчера';
+  if (d < 7) return `${d} дн назад`;
+  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+
 export function ChatTab({ familyId }: { familyId: string }) {
   const messagesRaw = useLiveQuery(() => db.familyMessages.where('familyId').equals(familyId).toArray(), [familyId]);
   const membersRaw = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]);
@@ -79,6 +103,27 @@ export function ChatTab({ familyId }: { familyId: string }) {
 
   const memberMap = useMemo(() => Object.fromEntries((membersRaw ?? []).map((m) => [m.id, m])), [membersRaw]);
   const list = useMemo(() => ordered(messagesRaw ?? []), [messagesRaw]);
+
+  // Presence в шапке чата: онлайн-статус собеседника(ов) + «был(а) в сети …».
+  const others = useMemo(
+    () => (membersRaw ?? []).filter((m) => !m.leftAt && m.id !== selfId),
+    [membersRaw, selfId],
+  );
+  const [online, setOnline] = useState<string[]>([]);
+  const [lastSeen, setLastSeen] = useState<Record<string, string>>({});
+  const [now, setNow] = useState(0);
+  useEffect(() => subscribePresence(familyId, setOnline), [familyId]);
+  useEffect(() => subscribeLastSeen(familyId, setLastSeen), [familyId]);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const raf = requestAnimationFrame(tick); // первый расчёт сразу, вне тела эффекта (purity)
+    const id = setInterval(tick, 60_000);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearInterval(id);
+    };
+  }, []);
+  const onlineSet = useMemo(() => new Set(online), [online]);
 
   const [text, setText] = useState('');
   const [actionMsg, setActionMsg] = useState<FamilyMessage | null>(null);
@@ -168,6 +213,36 @@ export function ChatTab({ familyId }: { familyId: string }) {
     // Полная высота под чат от каркаса (Screen fill): лента растёт и скроллится,
     // композер прибит к низу. Без magic-number — высоту даёт родитель.
     <div className="flex h-full min-h-0 flex-col">
+      {others.length > 0 && (
+        <div className="flex shrink-0 items-center gap-1.5 px-1 pb-1.5 text-xs">
+          {others.length === 1 ? (
+            <>
+              <span
+                className={`size-2 shrink-0 rounded-full ${onlineSet.has(others[0].id) ? 'bg-success' : 'bg-muted'}`}
+              />
+              <span className="font-medium" style={{ color: others[0].color }}>
+                {others[0].displayName}
+              </span>
+              <span className="text-muted">
+                {onlineSet.has(others[0].id)
+                  ? 'в сети'
+                  : lastSeen[others[0].id] && now
+                    ? `был(а) в сети ${relTime(lastSeen[others[0].id], now)}`
+                    : 'не в сети'}
+              </span>
+            </>
+          ) : (
+            <>
+              <span
+                className={`size-2 shrink-0 rounded-full ${
+                  others.some((o) => onlineSet.has(o.id)) ? 'bg-success' : 'bg-muted'
+                }`}
+              />
+              <span className="text-muted">{others.filter((o) => onlineSet.has(o.id)).length} в сети</span>
+            </>
+          )}
+        </div>
+      )}
       {/* overscroll-contain: флик до края ленты НЕ чейнится в App-контейнер —
           без этого на iOS-momentum «война скроллов» с предком насыщала
           main-thread и чат замирал после прокруток вверх-вниз. */}

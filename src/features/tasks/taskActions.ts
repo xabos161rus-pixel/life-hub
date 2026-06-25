@@ -59,3 +59,36 @@ export async function skipTask(task: Task): Promise<void> {
   await update(db.tasks, task.id, { dueDate: nextDue, skippedCount });
   void scheduleReminder({ ...task, dueDate: nextDue });
 }
+
+/**
+ * Заморозка: ставим задачи на паузу (frozenAt = сейчас) и снимаем их напоминания.
+ * Замороженная задача исключена из Today/статистики/активного списка и не
+ * краснеет/желтеет — «как будто для неё остановилось время».
+ */
+export async function freezeTasks(tasks: Task[]): Promise<void> {
+  const ts = now();
+  for (const t of tasks) {
+    if (t.frozenAt || t.completedAt) continue;
+    await update(db.tasks, t.id, { frozenAt: ts });
+    void cancelReminder(t.id);
+  }
+}
+
+/**
+ * Разморозка одной задачи. Если за время паузы срок утёк в прошлое — переносим
+ * на сегодня (повтор продолжится со следующего выполнения), чтобы задача не
+ * всплыла мгновенно просроченной. Возвращаем напоминание.
+ */
+export async function unfreezeTask(task: Task): Promise<void> {
+  if (!task.frozenAt) return;
+  const changes: Partial<Omit<Task, 'id' | 'createdAt'>> = { frozenAt: null };
+  if (task.dueDate && task.dueDate < todayKey()) changes.dueDate = todayKey();
+  await update(db.tasks, task.id, changes);
+  void scheduleReminder({ ...task, ...changes } as Task);
+}
+
+/** Разморозить все замороженные задачи разом. */
+export async function unfreezeAll(): Promise<void> {
+  const frozen = (await db.tasks.toArray()).filter((t) => !t.deletedAt && t.frozenAt);
+  for (const t of frozen) await unfreezeTask(t);
+}

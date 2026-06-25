@@ -45,6 +45,13 @@ export class FamilyRoom extends DurableObject {
       );
       CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
     `);
+    // last_online_at добавляем отдельным ALTER: у уже существующих DO таблица
+    // members создана без неё (CREATE TABLE IF NOT EXISTS колонку не добавит).
+    try {
+      this.sql.exec('ALTER TABLE members ADD COLUMN last_online_at TEXT');
+    } catch {
+      /* колонка уже есть */
+    }
     this.insertsSincePrune = 0;
   }
 
@@ -59,7 +66,7 @@ export class FamilyRoom extends DurableObject {
   }
 
   broadcastPresence() {
-    const frame = JSON.stringify({ type: 'presence', online: this.onlineMemberIds() });
+    const frame = JSON.stringify({ type: 'presence', online: this.onlineMemberIds(), lastSeen: this.lastSeenMap() });
     for (const ws of this.ctx.getWebSockets()) {
       try {
         ws.send(frame);
@@ -280,6 +287,7 @@ export class FamilyRoom extends DurableObject {
         online: this.onlineMemberIds(),
         name: this.roomName(),
         reads: this.allReads(),
+        lastSeen: this.lastSeenMap(),
       }));
       this.broadcastPresence(); // остальным — что этот участник вошёл
       return;
@@ -355,6 +363,17 @@ export class FamilyRoom extends DurableObject {
       .map((r) => ({ memberId: r.member_id, seq: r.last_seen_seq }));
   }
 
+  // Время последнего выхода из сети по участникам (для «был(а) в сети …»).
+  lastSeenMap() {
+    const out = {};
+    for (const r of this.sql
+      .exec('SELECT member_id, last_online_at FROM members WHERE last_online_at IS NOT NULL')
+      .toArray()) {
+      out[r.member_id] = r.last_online_at;
+    }
+    return out;
+  }
+
   broadcastFrame(obj) {
     const f = JSON.stringify(obj);
     for (const ws of this.ctx.getWebSockets()) {
@@ -367,6 +386,10 @@ export class FamilyRoom extends DurableObject {
   }
 
   webSocketClose(ws) {
+    const att = ws.deserializeAttachment();
+    if (att?.memberId) {
+      this.sql.exec('UPDATE members SET last_online_at = ? WHERE member_id = ?', new Date().toISOString(), att.memberId);
+    }
     try {
       ws.close();
     } catch {

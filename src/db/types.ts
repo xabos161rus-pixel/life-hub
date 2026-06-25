@@ -45,6 +45,10 @@ export interface Task extends BaseEntity {
   sortOrder: number;
   // Сколько раз задачу отмечали «пропущена» (для статистики). undefined = 0.
   skippedCount?: number;
+  // Заморозка: ISO-время постановки на паузу. null/undefined = активна.
+  // Замороженная задача исключена из Today/статистики/активного списка и не
+  // краснеет/желтеет — «как будто для неё остановилось время».
+  frozenAt?: string | null;
 }
 
 export type GoalStatus = 'active' | 'completed' | 'paused' | 'archived';

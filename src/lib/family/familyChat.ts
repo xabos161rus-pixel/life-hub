@@ -66,6 +66,8 @@ class FamilyEngine {
   private presenceListeners = new Set<(ids: string[]) => void>();
   private readsListeners = new Set<(r: Record<string, number>) => void>();
   private signalListeners = new Set<(f: SignalFrame) => void>();
+  private lastSeen: Record<string, string> = {}; // memberId → ISO последнего выхода из сети
+  private lastSeenListeners = new Set<(m: Record<string, string>) => void>();
 
   constructor(familyId: string) {
     this.familyId = familyId;
@@ -101,6 +103,11 @@ class FamilyEngine {
     this.signalListeners.add(fn);
     return () => this.signalListeners.delete(fn);
   }
+  subscribeLastSeen(fn: (m: Record<string, string>) => void): () => void {
+    this.lastSeenListeners.add(fn);
+    fn(this.lastSeen);
+    return () => this.lastSeenListeners.delete(fn);
+  }
   /** Отправить сигнал звонка адресату (to = memberId). */
   sendSignal(frame: { to: string; call: string; kind: SignalKind; data: string | null }): void {
     this.trySendFrame({ type: 'signal', ...frame });
@@ -115,6 +122,11 @@ class FamilyEngine {
   private setPresence(ids: string[]) {
     this.onlineIds = ids;
     this.presenceListeners.forEach((l) => l(ids));
+  }
+  private setLastSeen(map: unknown) {
+    if (!map || typeof map !== 'object') return;
+    this.lastSeen = { ...this.lastSeen, ...(map as Record<string, string>) };
+    this.lastSeenListeners.forEach((l) => l(this.lastSeen));
   }
   private notifyReads() {
     this.readsListeners.forEach((l) => l(this.reads));
@@ -296,6 +308,7 @@ class FamilyEngine {
         } else if (m.type === 'ready') {
           this.setState('online');
           if (Array.isArray(m.online)) this.setPresence(m.online);
+          this.setLastSeen(m.lastSeen);
           if (Array.isArray(m.reads)) this.setAllReads(m.reads);
           if (m.name) void patchFamilyConfig(this.familyId, { familyName: String(m.name) });
           this.startPing(sock);
@@ -303,6 +316,7 @@ class FamilyEngine {
           await this.registerPush(c);
         } else if (m.type === 'presence') {
           this.setPresence(Array.isArray(m.online) ? m.online : []);
+          this.setLastSeen(m.lastSeen);
         } else if (m.type === 'name') {
           void patchFamilyConfig(this.familyId, { familyName: String(m.name ?? '') });
         } else if (m.type === 'read') {
@@ -538,6 +552,9 @@ export function subscribePresence(familyId: string, fn: (ids: string[]) => void)
 }
 export function subscribeReads(familyId: string, fn: (r: Record<string, number>) => void): () => void {
   return getEngine(familyId).subscribeReads(fn);
+}
+export function subscribeLastSeen(familyId: string, fn: (m: Record<string, string>) => void): () => void {
+  return getEngine(familyId).subscribeLastSeen(fn);
 }
 export function sendMessage(familyId: string, text: string): Promise<void> {
   return getEngine(familyId).sendMessage(text);

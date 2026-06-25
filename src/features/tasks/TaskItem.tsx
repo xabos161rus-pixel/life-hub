@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
-import { Bell, Copy, Repeat, SkipForward } from 'lucide-react';
+import { Bell, Copy, Repeat, SkipForward, Snowflake } from 'lucide-react';
 import type { Project, Task } from '../../db/types';
 import { TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressBar } from '../../components/ui/ProgressBar';
@@ -60,7 +60,8 @@ export function TaskItem({
   // удержание шлёт строке pointercancel и перенос срывается.
   const draggable = Boolean(onDragStart);
   const showProject = Boolean(project) && !hideProject;
-  const overdue = !done && task.dueDate !== null && task.dueDate < todayKey();
+  const frozen = task.frozenAt != null;
+  const overdue = !done && !frozen && task.dueDate !== null && task.dueDate < todayKey();
   const checklistDone = task.checklist.filter((i) => i.done).length;
   const checklistPct = task.checklist.length
     ? (checklistDone / task.checklist.length) * 100
@@ -70,7 +71,8 @@ export function TaskItem({
     Boolean(task.recurrence) ||
     showProject ||
     task.checklist.length > 0 ||
-    task.tags.length > 0;
+    task.tags.length > 0 ||
+    frozen;
 
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -286,8 +288,14 @@ export function TaskItem({
           )}
           {hasMeta && (
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+              {frozen && (
+                <span className="flex items-center gap-0.5 text-accent">
+                  <Snowflake size={11} />
+                  заморожено
+                </span>
+              )}
               {task.dueDate && (
-                <span className={overdue ? (task.skippedCount ? 'text-warning' : 'text-danger') : ''}>
+                <span className={overdue ? 'text-warning' : ''}>
                   {formatDueDate(task.dueDate)}
                   {task.dueTime
                     ? `, ${task.dueTime}${

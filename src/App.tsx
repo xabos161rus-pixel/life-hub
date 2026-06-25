@@ -1,5 +1,5 @@
 import { Component, useEffect, type ReactNode } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router';
+import { BrowserRouter, Route, Routes, useLocation } from 'react-router';
 import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
 import { SyncRunner } from './components/SyncRunner';
@@ -30,6 +30,16 @@ import { FocusPage } from './features/focus/FocusPage';
 import { FamilyPage } from './features/family/FamilyPage';
 import { PomodoroProvider } from './features/focus/PomodoroProvider';
 import { MiniTimer } from './features/focus/MiniTimer';
+
+/** Сбрасывает прокрутку контейнера наверх при смене маршрута — иначе открытая
+ *  после прокрутки страница (например «Ещё») показывалась не с начала. */
+function ScrollReset() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    document.getElementById('app-scroll')?.scrollTo({ top: 0 });
+  }, [pathname]);
+  return null;
+}
 
 function ThemeApplier() {
   const { theme } = useSettings();
@@ -81,6 +91,7 @@ export default function App() {
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <ToastProvider>
         <ThemeApplier />
+        <ScrollReset />
         <SyncRunner />
         <FamilyRunner />
         <CallRunner />
@@ -96,6 +107,7 @@ export default function App() {
             {/* Аврора — неподвижный слой за контентом (не fixed-attachment) */}
             <div aria-hidden className="aurora pointer-events-none absolute inset-0 -z-10" />
             <div
+              id="app-scroll"
               className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
               style={{ overscrollBehavior: 'contain' }}
             >

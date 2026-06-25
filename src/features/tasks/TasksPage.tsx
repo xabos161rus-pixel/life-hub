@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronDown, ChevronRight, FolderPlus, ListChecks, Pencil, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, FolderPlus, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, update } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
@@ -19,12 +19,17 @@ import { Fab } from '../../components/layout/Fab';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useToast } from '../../components/ui/Toast';
+import { formatDueDate } from '../../lib/dates';
+import { describeRecurrence } from '../../lib/recurrence';
 import { ProjectEditSheet } from './ProjectEditSheet';
 import { QuickAddBar } from './QuickAddBar';
 import { TaskEditSheet } from './TaskEditSheet';
 import { TaskItem } from './TaskItem';
+import { FreezeSheet } from './FreezeSheet';
+import { unfreezeAll, unfreezeTask } from './taskActions';
 
 const NONE = '__none__';
+const FROZEN = '__frozen__'; // ключ свёрнутости секции «Заморожено»
 
 // Авто-скролл во время drag: зона у краёв скролл-контейнера и шаг за кадр.
 const SCROLL_EDGE = 72; // px от верх/низ края, где включается авто-скролл
@@ -270,6 +275,84 @@ function CompletedSubsection({
   );
 }
 
+/** Секция «Заморожено» — задачи на паузе. Каждую можно разморозить, либо все разом. */
+function FrozenSection({
+  tasks,
+  projectById,
+  collapsed,
+  onToggle,
+  onEdit,
+}: {
+  tasks: Task[];
+  projectById: Map<string, Project>;
+  collapsed: boolean;
+  onToggle: () => void;
+  onEdit: (t: Task) => void;
+}) {
+  const toast = useToast();
+  return (
+    <section className="mb-12">
+      <div className="mb-2 flex items-center gap-1 px-1">
+        <button onClick={onToggle} className="flex flex-1 items-center gap-1.5 text-left">
+          <ChevronDown
+            size={18}
+            className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
+          />
+          <Snowflake size={16} className="shrink-0 text-accent" />
+          <h2 className="text-lg font-bold tracking-tight">Заморожено</h2>
+          <span className="text-sm text-muted">{tasks.length}</span>
+        </button>
+        <button
+          onClick={() => void unfreezeAll().then(() => toast('Все задачи разморожены'))}
+          className="shrink-0 px-2 py-1 text-sm font-medium text-accent active:opacity-60"
+        >
+          Разморозить всё
+        </button>
+      </div>
+      {!collapsed && (
+        <div className="card divide-y divide-hairline px-4">
+          {tasks.map((t) => {
+            const project = t.projectId ? projectById.get(t.projectId) : null;
+            return (
+              <div key={t.id} className="flex items-center gap-3 py-3">
+                <button onClick={() => onEdit(t)} className="min-w-0 flex-1 text-left active:opacity-70">
+                  <p className="truncate font-medium">{t.title}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
+                    {t.dueDate && (
+                      <span>
+                        {formatDueDate(t.dueDate)}
+                        {t.dueTime ? `, ${t.dueTime}` : ''}
+                      </span>
+                    )}
+                    {t.recurrence && (
+                      <span className="flex items-center gap-0.5">
+                        <Repeat size={11} />
+                        {describeRecurrence(t.recurrence)}
+                      </span>
+                    )}
+                    {project && (
+                      <span className="truncate">
+                        {project.emoji} {project.name}
+                      </span>
+                    )}
+                  </div>
+                </button>
+                <button
+                  onClick={() => void unfreezeTask(t).then(() => toast('Разморожено'))}
+                  aria-label="Разморозить задачу"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent active:opacity-70"
+                >
+                  <Sun size={17} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 /** Линия-индикатор вставки при перетаскивании проекта — показывает, куда он встанет. */
 function DropLine() {
   return (
@@ -300,6 +383,7 @@ export function TasksPage() {
   const [projectSheetOpen, setProjectSheetOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [freezeSheetOpen, setFreezeSheetOpen] = useState(false);
 
   // --- Drag-and-drop переноса задачи между секциями-проектами ---
   // Задача, которую сейчас тащим (захвачена long-press внутри TaskItem).
@@ -590,7 +674,7 @@ export function TasksPage() {
   const activeByProject = useMemo(() => {
     const map = new Map<string, Task[]>();
     for (const t of tasks) {
-      if (t.completedAt) continue;
+      if (t.completedAt || t.frozenAt) continue; // замороженные — в отдельной секции
       const key = t.projectId ?? NONE;
       const arr = map.get(key);
       if (arr) arr.push(t);
@@ -625,6 +709,15 @@ export function TasksPage() {
   const noProjectTasks = activeByProject.get(NONE) ?? [];
   const noProjectCompleted = completedByProject.get(NONE) ?? [];
 
+  // Замороженные задачи — отдельной секцией внизу (вне активного списка и статистики).
+  const frozenTasks = useMemo(
+    () =>
+      tasks
+        .filter((t) => t.frozenAt && !t.completedAt)
+        .sort((a, b) => (b.frozenAt ?? '').localeCompare(a.frozenAt ?? '')),
+    [tasks],
+  );
+
   function toggle(id: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -657,7 +750,18 @@ export function TasksPage() {
   const empty = loaded && allTasks.length === 0 && projects.length === 0;
 
   return (
-    <Screen title="Задачи">
+    <Screen
+      title="Задачи"
+      right={
+        <button
+          onClick={() => setFreezeSheetOpen(true)}
+          aria-label="Заморозить задачи"
+          className="p-1 text-accent active:opacity-60"
+        >
+          <Snowflake size={22} />
+        </button>
+      }
+    >
       <QuickAddBar />
 
       {tagOptions.length > 0 && (
@@ -770,6 +874,18 @@ export function TasksPage() {
           >
             <FolderPlus size={16} /> Новый проект
           </button>
+
+          {frozenTasks.length > 0 && (
+            <div className="mt-12">
+              <FrozenSection
+                tasks={frozenTasks}
+                projectById={projectById}
+                collapsed={collapsed.has(FROZEN)}
+                onToggle={() => toggle(FROZEN)}
+                onEdit={(t) => openTask(t, t.projectId)}
+              />
+            </div>
+          )}
         </>
       )}
 
@@ -785,6 +901,11 @@ export function TasksPage() {
         open={projectSheetOpen}
         onClose={() => setProjectSheetOpen(false)}
         project={editingProject}
+      />
+      <FreezeSheet
+        key={freezeSheetOpen ? 'freeze-open' : 'freeze-closed'}
+        open={freezeSheetOpen}
+        onClose={() => setFreezeSheetOpen(false)}
       />
 
       {draggingTask && (

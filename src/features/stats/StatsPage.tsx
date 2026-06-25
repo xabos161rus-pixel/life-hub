@@ -68,6 +68,7 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
   let skipped = 0;
 
   for (const t of tasks) {
+    if (t.frozenAt) continue; // замороженные на паузе — в статистике не учитываем
     const items = t.checklist ?? [];
     const done = items.filter((c) => c.done).length;
     checkTotal += items.length;
@@ -87,7 +88,7 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
 
   const closed = completed + open;
   return {
-    total: tasks.length,
+    total: tasks.filter((t) => !t.frozenAt).length,
     completed,
     open,
     partial,
