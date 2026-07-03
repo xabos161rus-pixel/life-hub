@@ -26,7 +26,8 @@ export interface ChecklistItem {
 export type Recurrence =
   | { type: 'daily'; interval: number } // каждые N дней
   | { type: 'weekly'; interval: number; weekdays: number[] } // ISO 1=Пн..7=Вс
-  | { type: 'monthly'; interval: number; dayOfMonth: number };
+  | { type: 'monthly'; interval: number; dayOfMonth: number }
+  | { type: 'yearly'; interval: number }; // каждые N лет от исходной даты (дни рождения)
 
 export interface Task extends BaseEntity {
   title: string;

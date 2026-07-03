@@ -247,6 +247,7 @@ class FamilyEngine {
         senderMemberId: m.senderMemberId,
         createdAt: m.createdAt,
         edit: true, // при реконнекте могут быть правки/удаления — пропускаем дедуп
+        silent: m.system ?? false,
         ciphertext: await encryptJSON(c.familyKey, { text: m.text, deletedAt: m.deletedAt, image: m.image ?? null, audio: m.audio ?? null, audioDur: m.audioDur, system: m.system ?? false }),
       }));
     }
@@ -450,7 +451,9 @@ class FamilyEngine {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
-  /** Системное сообщение (например, «X присоединился») — по центру, без пузыря. */
+  /** Системное сообщение (например, «X присоединился») — по центру, без пузыря.
+   *  silent: сервер не шлёт пуш «Новое сообщение» (журнал звонков и прочая
+   *  служебка не должны дублировать собственные пуши звонка). */
   async sendSystemMessage(text: string): Promise<void> {
     const body = text.trim();
     if (!body) return;
@@ -459,7 +462,7 @@ class FamilyEngine {
     const clientMsgId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
     await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: body, system: true, status: 'pending', deletedAt: null });
-    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encryptJSON(c.familyKey, { text: body, deletedAt: null, system: true }) });
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, silent: true, ciphertext: await encryptJSON(c.familyKey, { text: body, deletedAt: null, system: true }) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 

@@ -18,7 +18,7 @@ import { PRESET_COLORS } from '../../lib/colors';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
 import { usePomodoro } from '../focus/PomodoroProvider';
 
-type RecType = 'none' | 'daily' | 'weekly' | 'monthly';
+type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 type PriorityStr = '0' | '1' | '2' | '3';
 
 const selectClass =
@@ -41,12 +41,14 @@ const REC_OPTIONS: { value: RecType; label: string }[] = [
   { value: 'daily', label: 'День' },
   { value: 'weekly', label: 'Неделя' },
   { value: 'monthly', label: 'Месяц' },
+  { value: 'yearly', label: 'Год' },
 ];
 
 const REC_INTERVAL_LABELS: Record<Exclude<RecType, 'none'>, string> = {
   daily: 'Интервал (дней)',
   weekly: 'Интервал (недель)',
   monthly: 'Интервал (месяцев)',
+  yearly: 'Интервал (лет)',
 };
 
 // Длительность — от 5 минут до 24 часов (мелкий шаг в начале, крупный дальше).
@@ -205,6 +207,8 @@ export function TaskEditSheet({
           interval,
           dayOfMonth: Math.min(31, Math.max(1, parseInt(recDayOfMonth, 10) || 1)),
         };
+      case 'yearly':
+        return { type: 'yearly', interval };
     }
   };
 

@@ -140,7 +140,9 @@ export function SettingsPage() {
         `• энергозатрат: ${p.counts.energyItems}\n` +
         `• мест: ${p.counts.placeItems}\n` +
         `• метрик: ${p.counts.metrics}\n` +
-        `• замеров метрик: ${p.counts.metricLogs}\n\nПродолжить?`;
+        `• замеров метрик: ${p.counts.metricLogs}\n` +
+        `• семейных сообщений: ${p.counts.familyMessages ?? 0}\n` +
+        `• семейных задач: ${p.counts.familyTasks ?? 0}\n\nПродолжить?`;
       if (!window.confirm(msg)) return;
       await importBackup(backup);
       toast('Данные восстановлены');

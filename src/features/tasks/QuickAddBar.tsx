@@ -33,7 +33,7 @@ export function QuickAddBar({
       notes: '',
       projectId: defaultProjectId ?? null,
       goalId: null,
-      priority: 0,
+      priority: p.priority,
       dueDate: p.dueDate ?? defaultDueDate ?? null,
       dueTime: p.dueTime,
       duration: null,
@@ -41,7 +41,7 @@ export function QuickAddBar({
       completedAt: null,
       checklist: [],
       recurrence: null,
-      tags: [],
+      tags: p.tags,
       sortOrder: Date.now(),
     });
     setText('');

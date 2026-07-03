@@ -2,8 +2,10 @@ import { useMemo, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   BatteryCharging,
+  Bell,
   ListTodo,
   MapPin,
+  MessagesSquare,
   Search,
   SearchX,
   NotebookText,
@@ -67,6 +69,8 @@ export function SearchPage() {
   const learning = useLiveQuery(() => db.learningItems.toArray(), []);
   const energy = useLiveQuery(() => db.energyItems.toArray(), []);
   const expenses = useLiveQuery(() => db.expenseItems.toArray(), []);
+  const familyMsgs = useLiveQuery(() => db.familyMessages.toArray(), []);
+  const reminders = useLiveQuery(() => db.reminderItems.toArray(), []);
 
   const sections = useMemo<SectionResult[]>(() => {
     if (!q) return [];
@@ -112,16 +116,34 @@ export function SearchPage() {
       .filter((x) => `${x.title}\n${x.category}`.toLowerCase().includes(q))
       .map((x) => ({ id: x.id, to: '/more/finance', title: x.title, context: x.category }));
 
+    // Чат append-only и без другой навигации, кроме скролла, — поиск обязан
+    // его видеть. Системные и удалённые сообщения пропускаем.
+    const chatHits: Hit[] = (familyMsgs ?? [])
+      .filter((m) => !m.deletedAt && !m.system && m.text.toLowerCase().includes(q))
+      .sort((a, b) => (b.seq ?? 0) - (a.seq ?? 0))
+      .map((m) => ({
+        id: m.clientMsgId,
+        to: `/more/family?g=${m.familyId}`,
+        title: m.text,
+        context: new Date(m.createdAt).toLocaleDateString('ru-RU'),
+      }));
+
+    const reminderHits: Hit[] = alive(reminders ?? [])
+      .filter((r) => r.text.toLowerCase().includes(q))
+      .map((r) => ({ id: r.id, to: '/', title: r.text, context: '' }));
+
     return [
       build('tasks', 'Задачи', ListTodo, taskHits),
       build('notes', 'Заметки', NotebookText, noteHits),
       build('goals', 'Цели', Target, goalHits),
+      build('reminders', 'Напоминания', Bell, reminderHits),
+      build('family', 'Семейный чат', MessagesSquare, chatHits),
       build('places', 'Места', MapPin, placeHits),
       build('learning', 'Обучение', GraduationCap, learningHits),
       build('energy', 'Энергия', BatteryCharging, energyHits),
       build('expenses', 'Финансы', Wallet, expenseHits),
     ].filter((s) => s.total > 0);
-  }, [q, tasks, notes, goals, places, learning, energy, expenses]);
+  }, [q, tasks, notes, goals, places, learning, energy, expenses, familyMsgs, reminders]);
 
   return (
     <Screen title="Поиск" backTo="/">

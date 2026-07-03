@@ -17,6 +17,12 @@ const TABLES = [
   'metricLogs',
   'reminderSections',
   'reminderItems',
+  // Семейный контент (расшифрован локально): без него потеря устройства =
+  // потеря всей истории чата. Конфиги семей (таблица family) НЕ включаем —
+  // там ключ шифрования и токен, бэкап-файлу им не место.
+  'familyMembers',
+  'familyTasks',
+  'familyMessages',
 ] as const;
 
 type TableName = (typeof TABLES)[number];

@@ -169,7 +169,7 @@ export class FamilyRoom extends DurableObject {
   }
 
   // === Запись (идемпотентная по client_msg_id для msg; новый seq для версии task/member) ===
-  async ingest({ channel, itemId, clientMsgId, senderMemberId, createdAt, ciphertext, edit }) {
+  async ingest({ channel, itemId, clientMsgId, senderMemberId, createdAt, ciphertext, edit, silent }) {
     if (!channel || !ciphertext || (channel === 'msg' && !clientMsgId) || (channel !== 'msg' && !itemId)) {
       return { error: 'bad request' };
     }
@@ -204,7 +204,9 @@ export class FamilyRoom extends DurableObject {
 
     this.broadcast(item);
     if (channel === 'msg') {
-      this.ctx.waitUntil(this.pushOffline(item, senderMemberId, 'msg'));
+      // silent — служебные сообщения (журнал звонков и т.п.): в ленту пишем,
+      // пушом «Новое сообщение» не дублируем (у звонка свои пуши).
+      if (!silent) this.ctx.waitUntil(this.pushOffline(item, senderMemberId, 'msg'));
       if (++this.insertsSincePrune >= PRUNE_EVERY) {
         this.insertsSincePrune = 0;
         this.prune();

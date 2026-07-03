@@ -11,7 +11,7 @@ import { useSyncExternalStore } from 'react';
 import { db } from '../../db/db';
 import { encryptJSON, decryptJSON } from '../crypto';
 import { getFamilyConfig } from './familyState';
-import { sendSignal, connectFamily, type SignalFrame, type SignalKind } from './familyChat';
+import { sendSignal, sendSystemMessage, connectFamily, type SignalFrame, type SignalKind } from './familyChat';
 import { startRingtone, stopRingtone } from './ringtone';
 
 const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
@@ -529,6 +529,20 @@ class CallManager {
   }
 
   private end(reason: string) {
+    // Журнал звонка в ленту чата пишет ТОЛЬКО звонящий — иначе обе стороны
+    // продублировали бы одно событие. Сервер писать не может (E2E: у него нет
+    // ключа), поэтому кейс «звонящий умер до таймаута» остаётся без записи —
+    // его прикрывает missed-пуш от alarm'а.
+    if (this.role === 'caller' && this.familyId && reason !== 'Нет доступа к микрофону') {
+      const dur = this.snap.startedAt ? Date.now() - this.snap.startedAt : null;
+      const s = dur ? Math.max(1, Math.floor(dur / 1000)) : 0;
+      void sendSystemMessage(
+        this.familyId,
+        dur
+          ? `📞 Аудиозвонок · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+          : '📵 Пропущенный аудиозвонок',
+      );
+    }
     this.gen++; // инвалидирует любой in-flight setup (getMic/createPc/waitIce)
     stopRingtone();
     this.clearCallNotifications(this.callId);

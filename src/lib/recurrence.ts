@@ -2,6 +2,7 @@ import {
   addDays,
   addMonths,
   addWeeks,
+  addYears,
   getDaysInMonth,
   getISODay,
   max,
@@ -64,6 +65,14 @@ export function nextOccurrence(rec: Recurrence, dueKey: string | null): string {
       }
       return toKey(setDate(m, clampDay(m)));
     }
+
+    case 'yearly': {
+      // Год от исходной даты; 29 февраля date-fns сам прижимает к 28-му.
+      const step = Math.max(1, rec.interval);
+      let d = addYears(anchor, step);
+      while (d <= after) d = addYears(d, step);
+      return toKey(d);
+    }
   }
 }
 
@@ -81,6 +90,8 @@ export function describeRecurrence(rec: Recurrence): string {
       return rec.interval === 1
         ? `${rec.dayOfMonth}-го числа`
         : `${rec.dayOfMonth}-го числа, раз в ${rec.interval} мес.`;
+    case 'yearly':
+      return rec.interval === 1 ? 'Каждый год' : `Каждые ${rec.interval} г.`;
   }
 }
 
