@@ -185,7 +185,7 @@ export default {
   },
 };
 
-const DEFAULT_UPDATE_TEXT = 'Вышла новая версия — откройте приложение и нажмите «Обновить»';
+const DEFAULT_UPDATE_TEXT = 'Открой приложение и нажми «Обновить»';
 const APP_INDEX_URL = 'https://xabos161rus-pixel.github.io/life-hub/index.html';
 
 /** Разослать пуш «вышло обновление» всем подписчикам. Возвращает число доставок. */
@@ -202,7 +202,7 @@ async function broadcastUpdate(env, bodyText) {
     try {
       const { endpoint, headers, body } = await buildPushRequest({
         subscription: JSON.parse(r.sub),
-        payload: JSON.stringify({ title: 'Обновление Life Hub', body: bodyText, url: '/life-hub/', tag: 'app-update' }),
+        payload: JSON.stringify({ title: '✨ Доступно обновление', body: bodyText, url: '/life-hub/', tag: 'app-update' }),
         vapid,
         ttl: 86400,
         urgency: 'normal',

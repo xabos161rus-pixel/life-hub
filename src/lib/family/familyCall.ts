@@ -12,6 +12,7 @@ import { db } from '../../db/db';
 import { encryptJSON, decryptJSON } from '../crypto';
 import { getFamilyConfig } from './familyState';
 import { sendSignal, connectFamily, type SignalFrame, type SignalKind } from './familyChat';
+import { startRingtone, stopRingtone } from './ringtone';
 
 const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
 const RING_TIMEOUT_MS = 30_000;
@@ -30,6 +31,8 @@ export interface CallSnapshot {
   peerId: string | null;
   peerName: string;
   muted: boolean;
+  speakerOn: boolean; // громкая связь (дефолт обеих платформ) или «к уху»
+  speakerAvailable: boolean; // платформа умеет переключать маршрут — иначе кнопки нет
   startedAt: number | null; // когда соединение стало active (для таймера)
   endReason: string | null;
 }
@@ -40,6 +43,8 @@ const IDLE: CallSnapshot = {
   peerId: null,
   peerName: '',
   muted: false,
+  speakerOn: true,
+  speakerAvailable: false,
   startedAt: null,
   endReason: null,
 };
@@ -60,6 +65,16 @@ class CallManager {
 
   private pendingOffer: string | null = null; // зашифрованный SDP входящего
   private pendingCandidates: RTCIceCandidateInit[] = [];
+
+  // Громкая связь. Оба дефолта — громкоговоритель; кнопка переключает «к уху».
+  // iOS 26+: Speaker Selection API — setSinkId на <audio> (receiver ищем по label).
+  // Android Chrome: выходы не выбираются, но смена МИКРОФОННОГО входа двигает
+  // весь коммуникационный маршрут (лейблы 'Speakerphone'/'Headset earpiece'
+  // захардкожены в Chromium не локализуясь). Ни один путь не доступен — кнопки нет.
+  private speakerMode: 'none' | 'sinkId' | 'inputSwitch' = 'none';
+  private receiverSinkId: string | null = null;
+  private earpieceInputId: string | null = null;
+  private speakerInputId: string | null = null;
 
   private ringTimer: ReturnType<typeof setTimeout> | null = null;
   private resendTimer: ReturnType<typeof setInterval> | null = null;
@@ -230,6 +245,7 @@ class CallManager {
     }
     if (this.gen !== gen) return this.abortLocal(null, stream); // снесли, пока брали микрофон
     this.localStream = stream;
+    void this.probeSpeaker();
     const pc = await this.createPc(familyId);
     if (this.gen !== gen) return this.abortLocal(pc, stream);
     await pc.setLocalDescription(await pc.createOffer());
@@ -239,7 +255,14 @@ class CallManager {
     const sendOffer = () => void this.signal('offer', { sdp: pc.localDescription });
     sendOffer();
     this.resendTimer = setInterval(sendOffer, OFFER_RESEND_MS);
-    this.ringTimer = setTimeout(() => this.end('Не ответили'), RING_TIMEOUT_MS);
+    this.ringTimer = setTimeout(() => {
+      // cancel — синхронно и напрямую (не this.signal: end() обнулит поля до
+      // его await). Недоставленный cancel сервер превратит в «пропущенный звонок».
+      if (this.familyId && this.peerId && this.callId) {
+        sendSignal(this.familyId, { to: this.peerId, call: this.callId, kind: 'cancel', data: null });
+      }
+      this.end('Не ответили');
+    }, RING_TIMEOUT_MS);
   }
 
   // === Приём входящего ===
@@ -249,6 +272,8 @@ class CallManager {
       clearTimeout(this.ringTimer);
       this.ringTimer = null;
     }
+    stopRingtone();
+    this.clearCallNotifications(this.callId);
     this.set({ status: 'connecting' }); // синхронно до await — дедуп двойного «Принять»
     const gen = this.gen;
     const familyId = this.familyId;
@@ -269,6 +294,7 @@ class CallManager {
     }
     if (this.gen !== gen) return this.abortLocal(null, stream); // снесли, пока брали микрофон
     this.localStream = stream;
+    void this.probeSpeaker();
     const offer = await decryptJSON<{ sdp: RTCSessionDescriptionInit }>(c.familyKey, pendingOffer);
     if (this.gen !== gen) return this.abortLocal(null, stream);
     const pc = await this.createPc(familyId);
@@ -310,6 +336,113 @@ class CallManager {
     this.set({ muted: newMuted });
   }
 
+  // Закрыть висящие пуш-карточки «звонит» ТЕКУЩЕГО дозвона: на Android
+  // requireInteraction держит их до ручного смахивания даже после ответа.
+  // Только свой callId — иначе стёрли бы непросмотренный «пропущенный звонок»
+  // другого вызова. На iOS getNotifications исторически пуст — тихий no-op.
+  private clearCallNotifications(callId: string | null): void {
+    if (!callId) return;
+    const tag = 'family-call:' + callId;
+    try {
+      void navigator.serviceWorker?.ready.then(async (reg) => {
+        const ns = await reg.getNotifications();
+        for (const n of ns) if (n.tag === tag) n.close();
+      });
+    } catch {
+      /* SW недоступен (например, не-PWA контекст) */
+    }
+  }
+
+  // Определяем, умеет ли платформа переключать маршрут. Зовётся после getMic —
+  // до выдачи разрешения лейблы устройств пустые.
+  private async probeSpeaker(): Promise<void> {
+    this.speakerMode = 'none';
+    this.receiverSinkId = null;
+    this.earpieceInputId = null;
+    this.speakerInputId = null;
+    const gen = this.gen;
+    try {
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      if (this.gen !== gen) return; // звонок снесли, пока перечисляли устройства
+      const audioEl = this.ensureAudio() as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
+      if (typeof audioEl.setSinkId === 'function') {
+        const outs = devs.filter((d) => d.kind === 'audiooutput');
+        const receiver = outs.find((d) => /receiver|earpiece|приёмник|приемник|трубк/i.test(d.label));
+        if (receiver && outs.length >= 2) {
+          this.speakerMode = 'sinkId';
+          this.receiverSinkId = receiver.deviceId;
+        }
+      }
+      if (this.speakerMode === 'none') {
+        const ins = devs.filter((d) => d.kind === 'audioinput');
+        const earpiece = ins.find((d) => d.label === 'Headset earpiece');
+        const speaker = ins.find((d) => d.label === 'Speakerphone');
+        if (earpiece && speaker) {
+          this.speakerMode = 'inputSwitch';
+          this.earpieceInputId = earpiece.deviceId;
+          this.speakerInputId = speaker.deviceId;
+        }
+      }
+    } catch {
+      /* enumerateDevices недоступен — остаёмся без кнопки */
+    }
+    this.set({ speakerAvailable: this.speakerMode !== 'none', speakerOn: true });
+  }
+
+  async toggleSpeaker(): Promise<void> {
+    const wantOn = !this.snap.speakerOn;
+    if (this.speakerMode === 'sinkId') {
+      const audioEl = this.ensureAudio() as HTMLAudioElement & { setSinkId: (id: string) => Promise<void> };
+      const target = wantOn ? '' : this.receiverSinkId!;
+      try {
+        await audioEl.setSinkId(target);
+      } catch {
+        try {
+          await audioEl.setSinkId(target); // Safari 26.0: первый switch мог падать — одна повторная попытка
+        } catch {
+          return; // маршрут не сменился — состояние кнопки не трогаем
+        }
+      }
+      this.set({ speakerOn: wantOn });
+    } else if (this.speakerMode === 'inputSwitch') {
+      const targetId = wantOn ? this.speakerInputId : this.earpieceInputId;
+      if (!targetId || !this.pc || !this.localStream) return;
+      const gen = this.gen;
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            deviceId: { exact: targetId },
+            // echoCancellation обязателен: только с ним Chrome держит Android
+            // в communication-режиме, где и работает переключение маршрута.
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: false,
+        });
+      } catch {
+        return;
+      }
+      if (this.gen !== gen || !this.pc || !this.localStream) {
+        for (const t of stream.getTracks()) t.stop();
+        return; // звонок снесли, пока меняли устройство
+      }
+      const newTrack = stream.getAudioTracks()[0];
+      newTrack.enabled = !this.snap.muted;
+      const sender = this.pc.getSenders().find((s) => s.track?.kind === 'audio');
+      try {
+        await sender?.replaceTrack(newTrack);
+      } catch {
+        for (const t of stream.getTracks()) t.stop();
+        return;
+      }
+      for (const t of this.localStream.getTracks()) t.stop();
+      this.localStream = stream;
+      this.set({ speakerOn: wantOn });
+    }
+  }
+
   // === Входящие сигналы (роутятся из CallRunner по каждой семье) ===
   async onSignal(familyId: string, f: SignalFrame): Promise<void> {
     if (!f.from || !f.call) return;
@@ -339,6 +472,7 @@ class CallManager {
       this.pendingCandidates = [];
       const name = await this.peerName(f.from);
       this.set({ status: 'incoming', familyId, peerId: f.from, peerName: name, muted: false, startedAt: null, endReason: null });
+      startRingtone();
       this.ringTimer = setTimeout(() => this.end('Пропущенный звонок'), RING_TIMEOUT_MS);
       return;
     }
@@ -396,6 +530,8 @@ class CallManager {
 
   private end(reason: string) {
     this.gen++; // инвалидирует любой in-flight setup (getMic/createPc/waitIce)
+    stopRingtone();
+    this.clearCallNotifications(this.callId);
     this.clearResend();
     if (this.ringTimer) {
       clearTimeout(this.ringTimer);
@@ -422,6 +558,11 @@ class CallManager {
       } catch {
         /* ignore */
       }
+      // Скрытый <audio> живёт между звонками: вернуть выход на системный дефолт
+      // (громкоговоритель), иначе «К уху» прошлого звонка молча унаследуется
+      // следующим при UI, показывающем «Динамик».
+      const el = this.audioEl as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };
+      if (typeof el.setSinkId === 'function') void el.setSinkId('').catch(() => {});
     }
     this.pendingOffer = null;
     this.pendingCandidates = [];
@@ -429,7 +570,11 @@ class CallManager {
     this.peerId = null;
     this.callId = null;
     this.role = null;
-    this.set({ status: 'ended', endReason: reason, muted: false, startedAt: null });
+    this.speakerMode = 'none';
+    this.receiverSinkId = null;
+    this.earpieceInputId = null;
+    this.speakerInputId = null;
+    this.set({ status: 'ended', endReason: reason, muted: false, speakerOn: true, speakerAvailable: false, startedAt: null });
     // Показать причину (~2.5с), затем скрыть оверлей.
     this.cancelDismiss();
     this.dismissTimer = setTimeout(() => {

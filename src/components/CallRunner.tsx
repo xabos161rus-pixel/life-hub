@@ -3,12 +3,14 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { listFamilyConfigs } from '../lib/family/familyState';
 import { subscribeSignals } from '../lib/family/familyChat';
 import { callManager, useCall } from '../lib/family/familyCall';
+import { armRingtoneUnlock } from '../lib/family/ringtone';
 import { CallOverlay } from '../features/family/CallOverlay';
 
 /** Слушает сигналы звонков по ВСЕМ включённым группам (чтобы входящий ловился
  *  на любом экране) и рендерит оверлей активного звонка поверх приложения.
  *  Соединения держит FamilyRunner — здесь только подписка на сигналы. */
 export function CallRunner() {
+  useEffect(() => armRingtoneUnlock(), []);
   const sig = useLiveQuery(async () => {
     const cfgs = await listFamilyConfigs();
     return cfgs

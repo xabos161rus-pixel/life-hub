@@ -8,12 +8,19 @@ self.addEventListener('push', (event) => {
     data = {};
   }
   const title = data.title || 'Напоминание';
+  // Звонок: renotify перезванивает одной карточкой на каждый пуш серии
+  // «дозвона», requireInteraction держит её на экране до ответа (Android;
+  // iOS оба флага игнорирует — там серия сама складывается в баннеры со звуком).
+  const isCall = !!data.call;
+  const tag = data.taskId || data.tag || undefined;
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || '',
       icon: '/life-hub/icons/icon-192.png',
       badge: '/life-hub/icons/icon-192.png',
-      tag: data.taskId || data.tag || undefined,
+      tag: tag,
+      renotify: isCall && !!tag, // renotify без tag — TypeError, уведомление не показалось бы вовсе
+      requireInteraction: isCall,
       data: { url: data.family ? '/life-hub/more/family' + (data.familyId ? '?g=' + data.familyId : '') : '/life-hub/' },
     }),
   );

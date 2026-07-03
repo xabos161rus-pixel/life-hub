@@ -121,7 +121,7 @@ export async function scheduleReminder(t: ReminderTask): Promise<void> {
     return;
   }
   const body =
-    t.remindBefore && t.remindBefore > 0 ? `через ${t.remindBefore} мин · в ${t.dueTime}` : `в ${t.dueTime}`;
+    t.remindBefore && t.remindBefore > 0 ? `⏰ через ${t.remindBefore} мин · ${t.dueTime}` : `⏰ пора · ${t.dueTime}`;
   try {
     await fetch(`${WORKER_URL}/schedule`, {
       method: 'POST',

@@ -11,6 +11,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { buildPushRequest } from './webpush.js';
 
 const TICKET_TTL_MS = 30_000;
+const CALL_PENDING_TTL_MS = 32_000; // 30с ринга + буфер: после этого недобитый дозвон = «пропущенный»
 const BACKFILL_PAGE = 500;
 const MSG_RETENTION_DAYS = 180;
 const MSG_RETENTION_MAX = 5000;
@@ -345,7 +346,23 @@ export class FamilyRoom extends DurableObject {
         }
       }
       if (!delivered && msg.kind === 'offer' && msg.to) {
-        this.ctx.waitUntil(this.pushCall(msg.to));
+        // ОДИН пуш на звонок (не серия): trackPendingCall вернёт true только на
+        // первый недоставленный offer; повторные offer каждые 2.5с пуш не дублируют.
+        if (this.trackPendingCall(msg.to, msg.call)) {
+          this.ctx.waitUntil(this.pushCall(msg.to, msg.call));
+        }
+      }
+      // Звонящий отменил (в т.ч. по таймауту «не ответили»), адресат так и не
+      // подключился — заменяем «звонит» на «пропущенный звонок».
+      if (!delivered && msg.kind === 'cancel' && msg.to) {
+        this.ctx.waitUntil(this.pushMissedCall(msg.to, msg.call));
+      }
+      // Любой сигнал, кроме недоставленного offer, снимает страховку alarm'а:
+      // доставленный offer — адресат онлайн, его клиент сам покажет исход;
+      // cancel — missed уже ушёл строкой выше; answer/decline/busy/hangup —
+      // адресат уже в приложении, «пропущенный» не нужен.
+      if (msg.call && (msg.kind !== 'offer' || delivered)) {
+        this.sql.exec('DELETE FROM meta WHERE k=?', `callpend:${msg.call}`);
       }
       return;
     }
@@ -419,7 +436,7 @@ export class FamilyRoom extends DurableObject {
     const familyId = this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]?.v || '';
     const name = this.roomName() || 'Семья';
     const isTask = kind === 'task';
-    const bodyText = isTask ? 'Новая общая задача' : 'Новое сообщение';
+    const bodyText = isTask ? '📋 Новая задача' : '💬 Новое сообщение';
     const tag = (isTask ? 'family-task:' : 'family-chat:') + (familyId || 'all');
     for (const m of subs) {
       if (online.has(m.member_id)) continue;
@@ -471,36 +488,110 @@ export class FamilyRoom extends DurableObject {
     return servers;
   }
 
-  // Пуш-нудж о входящем звонке участнику, которого нет онлайн (WS мёртв).
-  // Сам звонок эфемерен — это лишь сигнал «открой приложение, чтобы ответить»;
-  // звонящий переотправляет offer, и при подключении адресата звонок зазвонит.
-  async pushCall(toMemberId) {
+  // Пуш о входящем звонке участнику, которого нет онлайн (WS мёртв). Один на
+  // звонок (дедуп по callpend в trackPendingCall): юзер попросил без серии —
+  // единственное уведомление, дальше исход решает alarm/cancel («пропущенный»).
+  async pushCall(toMemberId, callId) {
+    const row = this.sql
+      .exec('SELECT push_sub FROM members WHERE member_id=? AND push_sub IS NOT NULL', toMemberId)
+      .toArray()[0];
+    if (!row) return;
+    let sub;
+    try {
+      sub = JSON.parse(row.push_sub);
+    } catch {
+      return;
+    }
+    const name = this.roomName() || 'Семья';
+    await this.sendPushTo(sub, {
+      title: '📞 Входящий звонок',
+      body: `${name} · открой, чтобы ответить`,
+      family: true,
+      familyId: this.familyIdMeta(),
+      call: true,
+      tag: 'family-call:' + (callId || this.familyIdMeta() || 'all'),
+    }, 10); // короткий TTL: опоздавший «звонит» после конца ринга не нужен
+  }
+
+  // «Пропущенный звонок»: тот же tag — на Android заменяет карточку «звонит».
+  async pushMissedCall(toMemberId, callId) {
+    const row = this.sql
+      .exec('SELECT push_sub FROM members WHERE member_id=? AND push_sub IS NOT NULL', toMemberId)
+      .toArray()[0];
+    if (!row) return;
+    let sub;
+    try {
+      sub = JSON.parse(row.push_sub);
+    } catch {
+      return;
+    }
+    const name = this.roomName() || 'Семья';
+    await this.sendPushTo(sub, {
+      title: '📵 Пропущенный звонок',
+      body: name,
+      family: true,
+      familyId: this.familyIdMeta(),
+      missed: true,
+      tag: 'family-call:' + (callId || this.familyIdMeta() || 'all'),
+    }, 3600);
+  }
+
+  familyIdMeta() {
+    return this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]?.v || '';
+  }
+
+  // Страховка от «вечной карточки звонит»: если приложение звонящего умрёт до
+  // таймаута ринга (свернул PWA — iOS убивает фон), cancel не придёт и missed
+  // некому послать. Запоминаем НАЧАЛО дозвона и alarm'ом добиваем сами.
+  // Возвращает true, если это ПЕРВЫЙ offer звонка (маркер «пуш ещё не слали»).
+  trackPendingCall(toMemberId, callId) {
+    if (!callId) return false;
+    const k = `callpend:${callId}`;
+    const exists = this.sql.exec('SELECT 1 FROM meta WHERE k=? LIMIT 1', k).toArray()[0];
+    if (!exists) {
+      this.sql.exec('INSERT INTO meta (k, v) VALUES (?, ?)', k, JSON.stringify({ to: toMemberId, at: Date.now() }));
+    }
+    this.ctx.waitUntil(this.ctx.storage.setAlarm(Date.now() + CALL_PENDING_TTL_MS + 3000));
+    return !exists;
+  }
+
+  async alarm() {
+    const rows = this.sql.exec("SELECT k, v FROM meta WHERE k LIKE 'callpend:%'").toArray();
+    let nextInMs = null;
+    for (const r of rows) {
+      let p;
+      try {
+        p = JSON.parse(r.v);
+      } catch {
+        this.sql.exec('DELETE FROM meta WHERE k=?', r.k);
+        continue;
+      }
+      const age = Date.now() - (p.at || 0);
+      if (age >= CALL_PENDING_TTL_MS) {
+        this.sql.exec('DELETE FROM meta WHERE k=?', r.k);
+        await this.pushMissedCall(p.to, r.k.slice('callpend:'.length));
+      } else {
+        const rem = CALL_PENDING_TTL_MS - age;
+        nextInMs = nextInMs == null ? rem : Math.min(nextInMs, rem);
+      }
+    }
+    // Ещё не протухшие дозвоны (перекрывающиеся звонки) — перевзводим будильник.
+    if (nextInMs != null) await this.ctx.storage.setAlarm(Date.now() + nextInMs + 1000);
+  }
+
+  async sendPushTo(sub, payload, ttl) {
     const vapid = {
       publicKey: this.env.VAPID_PUBLIC,
       privateKey: this.env.VAPID_PRIVATE,
       subject: this.env.VAPID_SUBJECT || 'mailto:noreply@life-hub.app',
     };
     if (!vapid.privateKey) return;
-    const row = this.sql
-      .exec('SELECT push_sub FROM members WHERE member_id=? AND push_sub IS NOT NULL', toMemberId)
-      .toArray()[0];
-    if (!row) return;
-    const familyId = this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]?.v || '';
-    const name = this.roomName() || 'Семья';
     try {
-      const sub = JSON.parse(row.push_sub);
       const { endpoint, headers, body } = await buildPushRequest({
         subscription: sub,
-        payload: JSON.stringify({
-          title: name,
-          body: '📞 Входящий звонок',
-          family: true,
-          familyId,
-          call: true,
-          tag: 'family-call:' + (familyId || 'all'),
-        }),
+        payload: JSON.stringify(payload),
         vapid,
-        ttl: 60,
+        ttl,
         urgency: 'high',
       });
       await fetch(endpoint, { method: 'POST', headers, body });
