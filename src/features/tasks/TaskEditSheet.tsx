@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Copy, Timer, X } from 'lucide-react';
+import { Copy, ImagePlus, Timer, X } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, create, remove, uid, update } from '../../db/repo';
-import type { ChecklistItem, Priority, Recurrence, Task } from '../../db/types';
+import type { ChecklistItem, Priority, Project, Recurrence, Task } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { ClearFieldButton, Field, Input } from '../../components/ui/Input';
@@ -17,6 +17,7 @@ import { MicButton } from '../../components/ui/MicButton';
 import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { PRESET_COLORS } from '../../lib/colors';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
+import { compressImage } from '../../lib/image';
 import { usePomodoro } from '../focus/PomodoroProvider';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -79,14 +80,16 @@ export function TaskEditSheet({
   task?: Task | null;
   defaults?: { projectId?: string | null; goalId?: string | null; dueDate?: string | null };
 }) {
-  const projects =
-    useLiveQuery(
-      async () =>
-        alive(await db.projects.toArray())
-          .filter((p) => !p.archivedAt)
-          .sort((a, b) => a.sortOrder - b.sortOrder),
-      [],
-    ) ?? [];
+  const projectsRaw = useLiveQuery(
+    async () =>
+      alive(await db.projects.toArray())
+        .filter((p) => !p.archivedAt)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [],
+  );
+  // Стабильная ссылка для useMemo ниже: «?? []» на каждый рендер давал бы
+  // новую идентичность и пересчёт orderedProjects впустую.
+  const projects = useMemo(() => projectsRaw ?? [], [projectsRaw]);
   const goals =
     useLiveQuery(
       async () => alive(await db.goals.toArray()).filter((g) => g.status === 'active'),
@@ -122,6 +125,22 @@ export function TaskEditSheet({
   const [recDayOfMonth, setRecDayOfMonth] = useState('1');
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newItem, setNewItem] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
+  // Просмотр фото на весь экран (null — закрыт).
+  const [viewPhoto, setViewPhoto] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  // Проекты в порядке иерархии: верхний уровень, за ним его подпроекты с отступом.
+  const orderedProjects = useMemo(() => {
+    const ids = new Set(projects.map((p) => p.id));
+    const tops = projects.filter((p) => !p.parentId || !ids.has(p.parentId));
+    const out: { p: Project; depth: number }[] = [];
+    for (const t of tops) {
+      out.push({ p: t, depth: 0 });
+      for (const c of projects.filter((x) => x.parentId === t.id)) out.push({ p: c, depth: 1 });
+    }
+    return out;
+  }, [projects]);
 
   // Инлайн-создание проекта прямо из шита задачи (#1).
   const [showNewProject, setShowNewProject] = useState(false);
@@ -144,6 +163,7 @@ export function TaskEditSheet({
       setDuration(task.duration ?? null);
       setRemindBefore(task.remindBefore ?? null);
       setChecklist(task.checklist.map((i) => ({ ...i })));
+      setPhotos(task.photos ? [...task.photos] : []);
       const rec = task.recurrence;
       setRecType(rec?.type ?? 'none');
       setRecInterval(String(rec?.interval ?? 1));
@@ -161,12 +181,14 @@ export function TaskEditSheet({
       setDuration(null);
       setRemindBefore(null);
       setChecklist([]);
+      setPhotos([]);
       setRecType('none');
       setRecInterval('1');
       setRecWeekdays([]);
       setRecDayOfMonth('1');
     }
     setNewItem('');
+    setViewPhoto(null);
     setShowNewProject(false);
     setNewProjectName('');
     setNewProjectColor(PRESET_COLORS[0]);
@@ -229,6 +251,7 @@ export function TaskEditSheet({
         duration: dueDate ? duration : null,
         remindBefore: dueDate ? remindBefore : null,
         checklist,
+        photos,
         recurrence: buildRecurrence(),
         tags: tagsText
           .split(',')
@@ -287,6 +310,21 @@ export function TaskEditSheet({
     if (!text) return;
     setChecklist((items) => [...items, { id: uid(), text, done: false }]);
     setNewItem('');
+  };
+
+  // Добавление фото: сжимаем в JPEG dataURL (как в «Местах»/чате), чтобы не
+  // раздувать IndexedDB и полезную нагрузку синка.
+  const addPhotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const added: string[] = [];
+    for (const f of Array.from(files).slice(0, 10)) {
+      try {
+        added.push(await compressImage(f, 1280, 0.72));
+      } catch {
+        /* нечитаемый файл — пропускаем */
+      }
+    }
+    if (added.length) setPhotos((prev) => [...prev, ...added]);
   };
 
   const handleNewItemKey = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -410,6 +448,50 @@ export function TaskEditSheet({
           </Hint>
         </div>
 
+        <div>
+          <span className="mb-1.5 block text-sm font-medium text-muted">Фото</span>
+          <div className="flex flex-wrap gap-2">
+            {photos.map((src, i) => (
+              <div key={i} className="relative">
+                <button type="button" onClick={() => setViewPhoto(src)} aria-label="Открыть фото">
+                  <img
+                    src={src}
+                    alt=""
+                    className="size-20 rounded-xl border border-hairline object-cover"
+                  />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Удалить фото"
+                  onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                  className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full border border-border bg-elevated text-muted active:opacity-60"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              aria-label="Добавить фото"
+              onClick={() => photoInputRef.current?.click()}
+              className="flex size-20 items-center justify-center rounded-xl border border-dashed border-border text-muted active:opacity-60"
+            >
+              <ImagePlus size={22} />
+            </button>
+          </div>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              void addPhotos(e.target.files);
+              e.target.value = ''; // позволяет выбрать те же файлы повторно
+            }}
+          />
+        </div>
+
         <Field label="Теги">
           <Input
             value={tagsText}
@@ -493,8 +575,9 @@ export function TaskEditSheet({
               onChange={(e) => setProjectId(e.target.value || null)}
             >
               <option value="">Без проекта</option>
-              {projects.map((p) => (
+              {orderedProjects.map(({ p, depth }) => (
                 <option key={p.id} value={p.id}>
+                  {depth > 0 ? '   ↳ ' : ''}
                   {p.emoji} {p.name}
                 </option>
               ))}
@@ -718,6 +801,20 @@ export function TaskEditSheet({
           </Button>
         </div>
       </div>
+
+      {/* Просмотр фото на весь экран — поверх шита, закрытие тапом. */}
+      {viewPhoto && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setViewPhoto(null)}
+        >
+          <img
+            src={viewPhoto}
+            alt=""
+            className="max-h-full max-w-full rounded-xl object-contain"
+          />
+        </div>
+      )}
     </Sheet>
   );
 }

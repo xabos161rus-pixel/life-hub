@@ -15,6 +15,9 @@ export interface Project extends BaseEntity {
   emoji: string;
   sortOrder: number;
   archivedAt: string | null;
+  // Подпроект: id родительского проекта. null/undefined — верхний уровень.
+  // Глубина ограничена двумя уровнями: проект → подпроекты.
+  parentId?: string | null;
 }
 
 export interface ChecklistItem {
@@ -50,6 +53,8 @@ export interface Task extends BaseEntity {
   // Замороженная задача исключена из Today/статистики/активного списка и не
   // краснеет/желтеет — «как будто для неё остановилось время».
   frozenAt?: string | null;
+  // Фото задачи: сжатые JPEG dataURL (как в «Местах»/чате). undefined = нет.
+  photos?: string[];
 }
 
 export type GoalStatus = 'active' | 'completed' | 'paused' | 'archived';

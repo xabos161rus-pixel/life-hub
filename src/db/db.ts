@@ -23,7 +23,7 @@ import type {
   ReminderItem,
 } from './types';
 
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -126,6 +126,18 @@ export class LifeHubDB extends Dexie {
       reminderSections: 'id, sortOrder',
       reminderItems: 'id, sectionId, sortOrder',
     });
+    // v8 — подпроекты: parentId у проекта (+ индекс для выборки детей).
+    // Существующие проекты нормализуются в parentId=null (верхний уровень).
+    this.version(8)
+      .stores({ projects: 'id, sortOrder, parentId' })
+      .upgrade((tx) =>
+        tx
+          .table('projects')
+          .toCollection()
+          .modify((p) => {
+            if (p.parentId === undefined) p.parentId = null;
+          }),
+      );
   }
 }
 
