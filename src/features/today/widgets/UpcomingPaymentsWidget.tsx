@@ -35,7 +35,7 @@ export function UpcomingPaymentsWidget() {
         {payments.map((p) => (
           <div key={p.item.id} className="flex items-baseline gap-2 py-3">
             <span className="min-w-0 flex-1 truncate">{p.item.title}</span>
-            <span className="shrink-0 font-semibold tabular-nums text-danger">
+            <span className="shrink-0 font-semibold tabular-nums text-muted">
               {formatRub(p.item.amount)}
             </span>
             <span className="shrink-0 text-xs text-muted">· {daysLeftLabel(p.daysLeft)}</span>

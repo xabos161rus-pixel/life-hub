@@ -4,6 +4,11 @@ name: Deploy Worker
 # Запускается при изменениях в worker/ на main и вручную.
 # Требует один секрет репозитория: CLOUDFLARE_API_TOKEN
 #   (Cloudflare dashboard → My Profile → API Tokens → шаблон "Edit Cloudflare Workers").
+# При ошибке «Authentication error [code: 10000]» на /memberships:
+#   1) пересоздать токен (он мог истечь — не задавайте срок действия) и обновить
+#      секрет CLOUDFLARE_API_TOKEN в Settings → Secrets and variables → Actions;
+#   2) добавить секрет CLOUDFLARE_ACCOUNT_ID (Cloudflare dashboard → Workers →
+#      справа «Account ID») — тогда wrangler не обращается к /memberships вовсе.
 # Существующие секреты воркера (VAPID_PRIVATE, TURN_* и т.п.) деплой не трогает —
 # они хранятся на стороне Cloudflare и переживают редеплой.
 
@@ -29,4 +34,7 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Пустое значение action игнорирует; с заданным — wrangler пропускает
+          # автоопределение аккаунта через /memberships (частый источник 10000).
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: worker
