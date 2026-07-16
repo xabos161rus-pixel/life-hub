@@ -1,10 +1,18 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { Bold, Italic, List, ListOrdered, Pin, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { MicButton } from '../../components/ui/MicButton';
+import { Hint } from '../../components/ui/Hint';
 import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
 
@@ -171,6 +179,85 @@ export function NoteEditorPage() {
     timerRef.current = setTimeout(() => void flush(), AUTOSAVE_MS);
   }, [flush]);
 
+  const toolbarRef = useRef<HTMLDivElement>(null);
+
+  // «Камера» следует за текстом: при наборе курсор уезжает под клавиатуру /
+  // панель форматирования, а контейнер сам не скроллится — докручиваем
+  // #app-scroll так, чтобы каретка оставалась в видимой зоне.
+  const keepCaretVisible = useCallback(() => {
+    requestAnimationFrame(() => {
+      const scroller = document.getElementById('app-scroll');
+      const el = editorRef.current;
+      const sel = document.getSelection();
+      if (!scroller || !el || !sel || sel.rangeCount === 0 || !el.contains(sel.anchorNode)) return;
+      const range = sel.getRangeAt(0).cloneRange();
+      range.collapse(false);
+      let rect = range.getBoundingClientRect();
+      if (rect.height === 0 && rect.width === 0) {
+        // Пустая строка: у схлопнутого range нет геометрии — берём её у блока строки.
+        const node = sel.anchorNode;
+        const near = node instanceof Element ? node : node?.parentElement;
+        if (!near) return;
+        rect = near.getBoundingClientRect();
+      }
+      // Видимая зона: visualViewport учитывает клавиатуру iOS; снизу вычитаем
+      // панель форматирования (если она выше края вьюпорта), сверху — шапку.
+      const vv = window.visualViewport;
+      const vvBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const toolbarTop = toolbarRef.current?.getBoundingClientRect().top ?? Infinity;
+      const bottom = Math.min(vvBottom, toolbarTop) - 12;
+      const top = (vv?.offsetTop ?? 0) + 108;
+      if (rect.bottom > bottom) scroller.scrollTop += rect.bottom - bottom;
+      else if (rect.top < top) scroller.scrollTop -= top - rect.top;
+    });
+  }, []);
+
+  // Автонумерация как в задачах: Enter после строки «N. текст» начинает новую
+  // с «N+1. »; Enter на пустом пункте «N. » убирает маркер (выход из списка).
+  // Настоящие <ol>/<ul> (кнопка в тулбаре) браузер продолжает сам — не трогаем.
+  const handleEditorKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey) {
+      if (e.key === 'Enter') keepCaretVisible();
+      return;
+    }
+    const el = editorRef.current;
+    const sel = document.getSelection();
+    if (!el || !sel || sel.rangeCount === 0 || !sel.isCollapsed) return;
+    const anchor = sel.anchorNode;
+    if (!anchor || !el.contains(anchor)) return;
+    const host = anchor instanceof Element ? anchor : anchor.parentElement;
+    if (host?.closest('li')) {
+      keepCaretVisible();
+      return; // внутри настоящего списка нумерацию ведёт браузер
+    }
+    // Блок текущей строки — ближайший предок, чей родитель сам редактор
+    // (строки contentEditable — это <div>; первая строка — голые текст-узлы).
+    let block: Node = anchor;
+    while (block.parentNode && block.parentNode !== el) block = block.parentNode;
+    const r = document.createRange();
+    r.setStart(block, 0);
+    r.setEnd(anchor, sel.anchorOffset);
+    const line = r.toString();
+    const m = /^(\d+)\.\s(.*)$/.exec(line);
+    if (!m) {
+      keepCaretVisible();
+      return; // строка не вида «N. …» — обычный перенос
+    }
+    e.preventDefault();
+    const [, numStr, rest] = m;
+    if (rest.trim() === '') {
+      // Пустой пункт — стираем маркер и остаёмся на строке.
+      sel.removeAllRanges();
+      sel.addRange(r);
+      document.execCommand('delete');
+    } else {
+      document.execCommand('insertParagraph');
+      document.execCommand('insertText', false, `${Number(numStr) + 1}. `);
+    }
+    touch();
+    keepCaretVisible();
+  };
+
   // Сохранение при уходе со страницы.
   useEffect(
     () => () => {
@@ -253,6 +340,11 @@ export function NoteEditorPage() {
         </div>
       }
     >
+      <Hint id="note-editor-tricks" className="mb-3">
+        Первая строка — заголовок заметки. Начните строку с «1. » — Enter продолжит
+        нумерацию сам. Панель внизу — форматирование и списки.
+      </Hint>
+
       <div
         ref={editorRef}
         className="note-editor"
@@ -269,7 +361,11 @@ export function NoteEditorPage() {
           document.execCommand('insertHTML', false, clean);
           touch();
         }}
-        onInput={touch}
+        onKeyDown={handleEditorKeyDown}
+        onInput={() => {
+          touch();
+          keepCaretVisible();
+        }}
         onBlur={() => {
           clearTimeout(timerRef.current);
           void flush();
@@ -277,7 +373,10 @@ export function NoteEditorPage() {
       />
 
       {/* Панель форматирования над клавиатурой (таб-бар на этом экране скрыт). */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 border-t border-hairline bg-surface p-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
+      <div
+        ref={toolbarRef}
+        className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 border-t border-hairline bg-surface p-2 pb-[calc(env(safe-area-inset-bottom)+8px)]"
+      >
         <ToolBtn onClick={() => exec('bold')} label="Жирный" active={active.bold}>
           <Bold size={20} strokeWidth={2.25} />
         </ToolBtn>

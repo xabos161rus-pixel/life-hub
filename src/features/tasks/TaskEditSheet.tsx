@@ -7,7 +7,8 @@ import { alive, create, remove, uid, update } from '../../db/repo';
 import type { ChecklistItem, Priority, Recurrence, Task } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { Field, Input } from '../../components/ui/Input';
+import { ClearFieldButton, Field, Input } from '../../components/ui/Input';
+import { Hint } from '../../components/ui/Hint';
 import { useToast } from '../../components/ui/Toast';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -350,15 +351,21 @@ export function TaskEditSheet({
             </button>
           </div>
           <div className="flex items-start gap-2">
-            <textarea
-              ref={titleRef}
-              rows={1}
-              value={title}
-              placeholder="Что нужно сделать?"
-              onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={handleTitleKey}
-              className={`${inputBase} flex-1 resize-none overflow-hidden`}
-            />
+            <div className="relative min-w-0 flex-1">
+              {title.length > 0 && (
+                <ClearFieldButton onClick={() => setTitle('')} className="top-3" />
+              )}
+              <textarea
+                ref={titleRef}
+                rows={1}
+                value={title}
+                placeholder="Что нужно сделать?"
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={handleTitleKey}
+                className={`${inputBase} resize-none overflow-hidden`}
+                style={title ? { paddingLeft: '2.5rem' } : undefined}
+              />
+            </div>
             <MicButton
               onText={(t) => setTitle((prev) => (prev ? `${prev} ${t}` : t))}
             />
@@ -378,19 +385,29 @@ export function TaskEditSheet({
             </button>
           </div>
           <div className="flex items-start gap-2">
-            <textarea
-              ref={notesRef}
-              rows={2}
-              value={notes}
-              placeholder="Детали…"
-              onChange={(e) => setNotes(e.target.value)}
-              onKeyDown={handleNotesKey}
-              className={`${inputBase} flex-1 resize-none overflow-hidden whitespace-pre-wrap font-mono`}
-            />
+            <div className="relative min-w-0 flex-1">
+              {notes.length > 0 && (
+                <ClearFieldButton onClick={() => setNotes('')} className="top-3" />
+              )}
+              <textarea
+                ref={notesRef}
+                rows={2}
+                value={notes}
+                placeholder="Детали…"
+                onChange={(e) => setNotes(e.target.value)}
+                onKeyDown={handleNotesKey}
+                className={`${inputBase} resize-none overflow-hidden whitespace-pre-wrap font-mono`}
+                style={notes ? { paddingLeft: '2.5rem' } : undefined}
+              />
+            </div>
             <MicButton
               onText={(t) => setNotes((prev) => (prev ? `${prev} ${t}` : t))}
             />
           </div>
+          <Hint id="task-notes-tricks" className="mt-2">
+            Начните строку с «1. » — Enter сам продолжит нумерацию («2. », «3. »…).
+            Крестик в начале текста стирает всё поле разом.
+          </Hint>
         </div>
 
         <Field label="Теги">
@@ -398,6 +415,7 @@ export function TaskEditSheet({
             value={tagsText}
             placeholder="через запятую: работа, дом"
             onChange={(e) => setTagsText(e.target.value)}
+            onClear={() => setTagsText('')}
           />
         </Field>
 
@@ -428,6 +446,7 @@ export function TaskEditSheet({
                   placeholder="Название проекта"
                   autoFocus
                   onChange={(e) => setNewProjectName(e.target.value)}
+                  onClear={() => setNewProjectName('')}
                   className="min-w-0 flex-1"
                 />
               </div>
@@ -674,6 +693,7 @@ export function TaskEditSheet({
             placeholder="Добавить пункт"
             onChange={(e) => setNewItem(e.target.value)}
             onKeyDown={handleNewItemKey}
+            onClear={() => setNewItem('')}
           />
         </div>
 

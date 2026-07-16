@@ -30,6 +30,7 @@ import { FocusPage } from './features/focus/FocusPage';
 import { FamilyPage } from './features/family/FamilyPage';
 import { PomodoroProvider } from './features/focus/PomodoroProvider';
 import { MiniTimer } from './features/focus/MiniTimer';
+import { OnboardingOverlay } from './features/onboarding/OnboardingOverlay';
 
 /** Сбрасывает прокрутку контейнера наверх при смене маршрута — иначе открытая
  *  после прокрутки страница (например «Ещё») показывалась не с начала. */
@@ -138,6 +139,8 @@ export default function App() {
             <MiniTimer />
             <TabBar />
           </div>
+          {/* Вводный тур для нового пользователя — поверх всего, пока не пройден. */}
+          <OnboardingOverlay />
         </ErrorBoundary>
         </PomodoroProvider>
       </ToastProvider>

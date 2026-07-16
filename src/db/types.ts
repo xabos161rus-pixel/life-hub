@@ -195,6 +195,12 @@ export interface Settings {
   lastBackupAt: string | null;
   schemaVersion: number;
   updatedAt: string;
+  // Обучение: ISO-время завершения вводного тура. null/undefined — не пройден,
+  // при первом запуске поверх приложения показывается OnboardingOverlay.
+  onboardingDone?: string | null;
+  // Показанные контекстные подсказки (id из useHint) — каждая всплывает один
+  // раз при первом использовании раздела и скрывается крестиком навсегда.
+  seenHints?: string[];
 }
 
 // === Семейный раздел (общие задачи + чат) ===

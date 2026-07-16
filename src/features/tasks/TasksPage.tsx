@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronDown, ChevronRight, FolderPlus, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
+import { ChevronDown, ChevronRight, Folder, FolderPlus, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, update } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
@@ -18,6 +18,7 @@ import { Screen } from '../../components/layout/Screen';
 import { Fab } from '../../components/layout/Fab';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Hint } from '../../components/ui/Hint';
 import { useToast } from '../../components/ui/Toast';
 import { formatDueDate } from '../../lib/dates';
 import { describeRecurrence } from '../../lib/recurrence';
@@ -50,11 +51,26 @@ function getScrollParent(node: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
+/** Иконка папки проекта: стандартная 📁 заменяется папкой в цвете проекта —
+ *  выбранный при создании цвет виден прямо в списке. Своё эмодзи — как есть. */
+function ProjectFolderIcon({ project }: { project: Project }) {
+  const emoji = project.emoji?.trim();
+  if (emoji && emoji !== '📁') return <span className="text-[17px] leading-none">{emoji}</span>;
+  return (
+    <Folder
+      size={18}
+      aria-hidden
+      style={{ color: project.color, fill: project.color, strokeWidth: 1.5 }}
+    />
+  );
+}
+
 /** Сворачиваемая секция с заголовком, счётчиком и (опц.) карандашом.
  *  dropRef/dropKey/highlight — для drag-and-drop: вся секция служит drop-зоной,
  *  ключ цели читается из data-drop-key узла. */
 function Section({
   title,
+  icon,
   count,
   collapsed,
   onToggle,
@@ -67,6 +83,8 @@ function Section({
   children,
 }: {
   title: string;
+  /** Иконка перед заголовком (цветная папка проекта / эмодзи). */
+  icon?: ReactNode;
   count: number;
   collapsed: boolean;
   onToggle: () => void;
@@ -172,6 +190,7 @@ function Section({
             size={18}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
+          {icon && <span className="flex shrink-0 items-center">{icon}</span>}
           <h2 className="text-lg font-bold tracking-tight">{title}</h2>
           <span className="text-sm text-muted">{count}</span>
         </button>
@@ -791,6 +810,13 @@ export function TasksPage() {
         />
       ) : (
         <>
+          {allTasks.length > 0 && (
+            <Hint id="tasks-gestures" className="mb-4">
+              Свайп по задаче вправо — выполнить, влево — «Завтра» или «Удалить».
+              Удержание задачи — перенести в другой проект, удержание заголовка
+              проекта — изменить порядок папок.
+            </Hint>
+          )}
           {projects.map((p, i) => {
             const list = activeByProject.get(p.id) ?? [];
             const doneList = completedByProject.get(p.id) ?? [];
@@ -798,7 +824,8 @@ export function TasksPage() {
               <Fragment key={p.id}>
                 {draggingProject && projInsertIndex === i && <DropLine />}
                 <Section
-                  title={`${p.emoji} ${p.name}`}
+                  title={p.name}
+                  icon={<ProjectFolderIcon project={p} />}
                   count={list.length}
                   collapsed={collapsed.has(p.id)}
                   onToggle={() => toggle(p.id)}

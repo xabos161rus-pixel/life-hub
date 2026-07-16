@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Folder } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, create, remove, update } from '../../db/repo';
 import type { Project } from '../../db/types';
@@ -66,6 +67,7 @@ export function ProjectEditSheet({
             value={name}
             placeholder="Например, «Ремонт»"
             onChange={(e) => setName(e.target.value)}
+            onClear={() => setName('')}
           />
         </Field>
 
@@ -87,6 +89,19 @@ export function ProjectEditSheet({
                 style={{ background: c }}
               />
             ))}
+          </div>
+          {/* Живой предпросмотр: так папка будет выглядеть в списке задач.
+              Цветная папка показывается вместо стандартного 📁; своё эмодзи — как есть. */}
+          <div className="mt-3 flex items-center gap-1.5 rounded-xl bg-surface-2 px-3 py-2.5">
+            {emoji.trim() && emoji.trim() !== '📁' ? (
+              <span className="text-[17px] leading-none">{emoji.trim()}</span>
+            ) : (
+              <Folder size={18} aria-hidden style={{ color, fill: color, strokeWidth: 1.5 }} />
+            )}
+            <span className="min-w-0 truncate text-[15px] font-bold tracking-tight">
+              {name.trim() || 'Проект'}
+            </span>
+            <span className="ml-auto text-xs text-muted">так будет в списке</span>
           </div>
         </div>
 
