@@ -8,7 +8,7 @@
 // живыми одновременно — две группы синкаются и шлют пуши параллельно.
 
 import { db } from '../../db/db';
-import type { FamilyConfig, FamilyTask, FamilyMember } from '../../db/types';
+import type { FamilyConfig, FamilyMessage, FamilyTask, FamilyMember } from '../../db/types';
 import { encryptJSON, decryptJSON } from '../crypto';
 import { getPushSubscription } from '../push';
 import { getFamilyConfig, patchFamilyConfig, listFamilyConfigs } from './familyState';
@@ -66,6 +66,8 @@ class FamilyEngine {
   private presenceListeners = new Set<(ids: string[]) => void>();
   private readsListeners = new Set<(r: Record<string, number>) => void>();
   private signalListeners = new Set<(f: SignalFrame) => void>();
+  private typingListeners = new Set<(memberId: string) => void>();
+  private lastTypingSentAt = 0; // троттл исходящего «печатает…»
   private lastSeen: Record<string, string> = {}; // memberId → ISO последнего выхода из сети
   private lastSeenListeners = new Set<(m: Record<string, string>) => void>();
 
@@ -102,6 +104,19 @@ class FamilyEngine {
   subscribeSignals(fn: (f: SignalFrame) => void): () => void {
     this.signalListeners.add(fn);
     return () => this.signalListeners.delete(fn);
+  }
+  subscribeTyping(fn: (memberId: string) => void): () => void {
+    this.typingListeners.add(fn);
+    return () => this.typingListeners.delete(fn);
+  }
+  /** «Печатает…»: эфемерный броадкаст, троттл 2.5 с. Не буферится — если WS
+   *  закрыт, просто молчим (индикатор не стоит реконнекта). */
+  sendTyping(): void {
+    const now = Date.now();
+    if (now - this.lastTypingSentAt < 2500) return;
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.lastTypingSentAt = now;
+    this.ws.send('{"type":"typing"}');
   }
   subscribeLastSeen(fn: (m: Record<string, string>) => void): () => void {
     this.lastSeenListeners.add(fn);
@@ -202,6 +217,9 @@ class FamilyEngine {
             audio: (p.audio as string | null) ?? null,
             audioDur: typeof p.audioDur === 'number' ? p.audioDur : undefined,
             system: Boolean(p.system),
+            replyTo: (p.replyTo as FamilyMessage['replyTo']) ?? null,
+            reaction: (p.reaction as FamilyMessage['reaction']) ?? null,
+            editedAt: (p.editedAt as string | null) ?? null,
             status: 'acked',
             deletedAt: (p.deletedAt as string | null) ?? null,
           });
@@ -247,8 +265,8 @@ class FamilyEngine {
         senderMemberId: m.senderMemberId,
         createdAt: m.createdAt,
         edit: true, // при реконнекте могут быть правки/удаления — пропускаем дедуп
-        silent: m.system ?? false,
-        ciphertext: await encryptJSON(c.familyKey, { text: m.text, deletedAt: m.deletedAt, image: m.image ?? null, audio: m.audio ?? null, audioDur: m.audioDur, system: m.system ?? false }),
+        silent: (m.system ?? false) || Boolean(m.reaction),
+        ciphertext: await encryptJSON(c.familyKey, this.msgPayload(m)),
       }));
     }
     for (const t of (await db.familyTasks.where('familyId').equals(this.familyId).toArray()).filter((x) => x.seq === 0)) {
@@ -328,6 +346,8 @@ class FamilyEngine {
           await db.familyMessages.update(m.clientMsgId, { status: 'acked', seq: m.seq });
         } else if (m.type === 'signal') {
           this.signalListeners.forEach((l) => l(m as SignalFrame));
+        } else if (m.type === 'typing' && typeof m.memberId === 'string') {
+          this.typingListeners.forEach((l) => l(m.memberId));
         }
       };
       sock.onclose = () => {
@@ -392,15 +412,46 @@ class FamilyEngine {
     // иначе оставляем в БД — уйдёт на ближайшем ready через resendOutbox
   }
 
-  async sendMessage(text: string): Promise<void> {
+  // Полный E2E-payload сообщения — ЕДИНСТВЕННОЕ место сборки: sendMessage /
+  // edit / delete / resendOutbox шифруют одно и то же, поля не теряются.
+  private msgPayload(m: FamilyMessage): object {
+    return {
+      text: m.text,
+      deletedAt: m.deletedAt ?? null,
+      image: m.image ?? null,
+      audio: m.audio ?? null,
+      audioDur: m.audioDur,
+      system: m.system ?? false,
+      replyTo: m.replyTo ?? null,
+      reaction: m.reaction ?? null,
+      editedAt: m.editedAt ?? null,
+    };
+  }
+
+  async sendMessage(text: string, replyTo?: FamilyMessage['replyTo']): Promise<void> {
     const body = text.trim();
     if (!body) return;
     const c = await this.cfg();
     if (!c) return;
     const clientMsgId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
-    await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: body, status: 'pending', deletedAt: null });
-    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encryptJSON(c.familyKey, { text: body, deletedAt: null }) });
+    const row: FamilyMessage = { clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: body, replyTo: replyTo ?? null, status: 'pending', deletedAt: null };
+    await db.familyMessages.put(row);
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encryptJSON(c.familyKey, this.msgPayload(row)) });
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
+  }
+
+  /** Реакция на сообщение: отдельная append-only запись (не правка чужого
+   *  сообщения — E2E-целостность и никаких гонок при одновременных реакциях).
+   *  Последняя реакция участника на target побеждает; emoji '' — снятие. */
+  async sendReaction(targetId: string, emoji: string): Promise<void> {
+    const c = await this.cfg();
+    if (!c) return;
+    const clientMsgId = crypto.randomUUID();
+    const createdAt = new Date().toISOString();
+    const row: FamilyMessage = { clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: '', reaction: { targetId, emoji }, status: 'pending', deletedAt: null };
+    await db.familyMessages.put(row);
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, silent: true, ciphertext: await encryptJSON(c.familyKey, this.msgPayload(row)) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -411,8 +462,9 @@ class FamilyEngine {
     if (!c) return;
     const m = await db.familyMessages.get(clientMsgId);
     if (!m) return;
-    await db.familyMessages.update(clientMsgId, { text, status: 'pending', seq: null });
-    const ciphertext = await encryptJSON(c.familyKey, { text, deletedAt: m.deletedAt ?? null, image: m.image ?? null, audio: m.audio ?? null, audioDur: m.audioDur, system: m.system ?? false });
+    const editedAt = new Date().toISOString();
+    await db.familyMessages.update(clientMsgId, { text, editedAt, status: 'pending', seq: null });
+    const ciphertext = await encryptJSON(c.familyKey, this.msgPayload({ ...m, text, editedAt }));
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
@@ -424,7 +476,7 @@ class FamilyEngine {
     if (!m) return;
     const deletedAt = new Date().toISOString();
     await db.familyMessages.update(clientMsgId, { deletedAt, status: 'pending', seq: null });
-    const ciphertext = await encryptJSON(c.familyKey, { text: m.text, deletedAt, image: m.image ?? null, audio: m.audio ?? null, audioDur: m.audioDur, system: m.system ?? false });
+    const ciphertext = await encryptJSON(c.familyKey, this.msgPayload({ ...m, deletedAt }));
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
@@ -559,8 +611,17 @@ export function subscribeReads(familyId: string, fn: (r: Record<string, number>)
 export function subscribeLastSeen(familyId: string, fn: (m: Record<string, string>) => void): () => void {
   return getEngine(familyId).subscribeLastSeen(fn);
 }
-export function sendMessage(familyId: string, text: string): Promise<void> {
-  return getEngine(familyId).sendMessage(text);
+export function sendMessage(familyId: string, text: string, replyTo?: FamilyMessage['replyTo']): Promise<void> {
+  return getEngine(familyId).sendMessage(text, replyTo);
+}
+export function sendReaction(familyId: string, targetId: string, emoji: string): Promise<void> {
+  return getEngine(familyId).sendReaction(targetId, emoji);
+}
+export function sendTyping(familyId: string): void {
+  getEngine(familyId).sendTyping();
+}
+export function subscribeTyping(familyId: string, fn: (memberId: string) => void): () => void {
+  return getEngine(familyId).subscribeTyping(fn);
 }
 export function sendImage(familyId: string, dataUrl: string): Promise<void> {
   return getEngine(familyId).sendImage(dataUrl);

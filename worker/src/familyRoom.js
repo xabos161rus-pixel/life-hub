@@ -320,6 +320,22 @@ export class FamilyRoom extends DurableObject {
       }
       return;
     }
+    // «Печатает…» — эфемерный броадкаст остальным. В БД не пишется, офлайнам
+    // не доставляется (индикатор живёт секунды — пуш ему не нужен).
+    if (msg.type === 'typing') {
+      const att = ws.deserializeAttachment();
+      if (!att?.memberId) return;
+      const frame = JSON.stringify({ type: 'typing', memberId: att.memberId });
+      for (const sock of this.ctx.getWebSockets()) {
+        if (sock === ws) continue;
+        try {
+          sock.send(frame);
+        } catch {
+          /* сокет закрывается */
+        }
+      }
+      return;
+    }
     // Сигналинг звонков (WebRTC): эфемерный релей — НЕ пишем в БД. data —
     // шифротекст (SDP/ICE, зашифрован семейным ключом). Адресуется конкретному
     // участнику (to). Если адресата нет онлайн и это приглашение (offer) —
@@ -438,7 +454,7 @@ export class FamilyRoom extends DurableObject {
     const familyId = this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]?.v || '';
     const name = this.roomName() || 'Семья';
     const isTask = kind === 'task';
-    const bodyText = isTask ? '📋 Новая задача' : '💬 Новое сообщение';
+    const bodyText = isTask ? 'Новая общая задача' : 'Новое сообщение';
     const tag = (isTask ? 'family-task:' : 'family-chat:') + (familyId || 'all');
     for (const m of subs) {
       if (online.has(m.member_id)) continue;
@@ -506,8 +522,8 @@ export class FamilyRoom extends DurableObject {
     }
     const name = this.roomName() || 'Семья';
     await this.sendPushTo(sub, {
-      title: '📞 Входящий звонок',
-      body: `${name} · открой, чтобы ответить`,
+      title: 'Входящий звонок',
+      body: `${name} — откройте, чтобы ответить`,
       family: true,
       familyId: this.familyIdMeta(),
       call: true,
@@ -529,7 +545,7 @@ export class FamilyRoom extends DurableObject {
     }
     const name = this.roomName() || 'Семья';
     await this.sendPushTo(sub, {
-      title: '📵 Пропущенный звонок',
+      title: 'Пропущенный звонок',
       body: name,
       family: true,
       familyId: this.familyIdMeta(),

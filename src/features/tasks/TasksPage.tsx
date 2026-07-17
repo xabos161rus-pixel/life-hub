@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronDown, ChevronRight, Folder, FolderPlus, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Folder, FolderPlus, GripVertical, Hand, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, update } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
@@ -909,11 +909,17 @@ export function TasksPage() {
       ) : (
         <>
           {allTasks.length > 0 && (
-            <Hint id="tasks-gestures" className="mb-4">
-              Свайп по задаче вправо — выполнить, влево — «Завтра» или «Удалить».
-              Удержание задачи — перенести в другой проект, удержание заголовка
-              проекта — изменить порядок папок.
-            </Hint>
+            <Hint
+              id="tasks-gestures"
+              title="Жесты списка"
+              className="mb-4"
+              items={[
+                { icon: ArrowRight, text: <>Свайп по задаче вправо — выполнить</> },
+                { icon: ArrowLeft, text: <>Свайп влево — «Завтра» или «Удалить»</> },
+                { icon: Hand, text: <>Удержание задачи — перенести в другую папку</> },
+                { icon: GripVertical, text: <>Удержание заголовка папки — поменять порядок</> },
+              ]}
+            />
           )}
           {topProjects.map((p, i) => {
             const list = activeByProject.get(p.id) ?? [];
