@@ -30,16 +30,26 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           TURN_ID: ${{ secrets.TURN_KEY_ID }}
           TURN_KEY: ${{ secrets.TURN_KEY_API_TOKEN }}
+          METERED_DOMAIN: ${{ secrets.METERED_DOMAIN }}
+          METERED_API_KEY: ${{ secrets.METERED_API_KEY }}
         run: |
           set -euo pipefail
+          DONE=false
           if [ -n "${TURN_ID}" ] && [ -n "${TURN_KEY}" ]; then
             printf '%s' "$TURN_ID" | npx wrangler secret put TURN_KEY_ID
             printf '%s' "$TURN_KEY" | npx wrangler secret put TURN_KEY_API_TOKEN
-            echo "done=true" >> "$GITHUB_OUTPUT"
-            echo "Готово: секреты воркера установлены из GitHub Secrets."
-          else
-            echo "done=false" >> "$GITHUB_OUTPUT"
-            echo "TURN_KEY_ID/TURN_KEY_API_TOKEN в GitHub Secrets не заданы — пробуем создать ключ через API."
+            DONE=true
+            echo "Секреты Cloudflare TURN установлены."
+          fi
+          if [ -n "${METERED_DOMAIN}" ] && [ -n "${METERED_API_KEY}" ]; then
+            printf '%s' "$METERED_DOMAIN" | npx wrangler secret put METERED_DOMAIN
+            printf '%s' "$METERED_API_KEY" | npx wrangler secret put METERED_API_KEY
+            DONE=true
+            echo "Секреты Metered TURN установлены."
+          fi
+          echo "done=$DONE" >> "$GITHUB_OUTPUT"
+          if [ "$DONE" = "false" ]; then
+            echo "Секреты TURN в GitHub не заданы — пробуем создать ключ через Cloudflare API."
           fi
       - name: Create TURN key via API and set worker secrets
         if: steps.direct.outputs.done != 'true'

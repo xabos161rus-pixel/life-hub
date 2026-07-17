@@ -475,11 +475,13 @@ export class FamilyRoom extends DurableObject {
   }
 
   // ICE-серверы. STUN (Cloudflare + Google) бесплатен и безлимитен. TURN
-  // (relay для сетей за симметричным NAT/VPN, где P2P не пробивается):
-  // приоритет — Cloudflare Realtime (1000 ГБ/мес, нужны секреты TURN_KEY_*);
-  // без секретов — публичный Open Relay (metered.ca, бесплатный): хуже
-  // гарантии, но звонки работают из коробки. Медиа шифруется SRTP —
-  // ретранслятор содержимое не видит.
+  // (relay для сетей за симметричным NAT/VPN, где P2P не пробивается),
+  // по приоритету:
+  //   1) Cloudflare Realtime (секреты TURN_KEY_*; 1000 ГБ/мес, нужна подписка);
+  //   2) Metered.ca (секреты METERED_DOMAIN + METERED_API_KEY; 20 ГБ/мес
+  //      бесплатно, без карты);
+  //   3) без секретов — только STUN (анонимный Open Relay мёртв — проверено).
+  // Медиа шифруется SRTP — ретранслятор содержимого не видит.
   async iceServers() {
     const servers = [
       { urls: 'stun:stun.cloudflare.com:3478' },
@@ -505,14 +507,24 @@ export class FamilyRoom extends DurableObject {
           }
         }
       } catch {
-        /* Cloudflare TURN недоступен — упадём на Open Relay ниже */
+        /* Cloudflare TURN недоступен — пробуем Metered ниже */
       }
     }
-    servers.push(
-      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-      { urls: 'turns:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-    );
+    const meteredDomain = this.env.METERED_DOMAIN;
+    const meteredKey = this.env.METERED_API_KEY;
+    if (meteredDomain && meteredKey) {
+      try {
+        const r = await fetch(
+          `https://${meteredDomain}/api/v1/turn/credentials?apiKey=${meteredKey}`,
+        );
+        if (r.ok) {
+          const list = await r.json();
+          if (Array.isArray(list) && list.length) servers.push(...list);
+        }
+      } catch {
+        /* Metered недоступен — остаёмся на STUN */
+      }
+    }
     return servers;
   }
 
