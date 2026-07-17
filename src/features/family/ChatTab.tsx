@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, CheckCheck, ChevronsDown, Clock, Copy, Hand, Heart, Send, Pencil, Reply, Trash2, X, Paperclip, Mic, Play, Pause } from 'lucide-react';
+import { ArrowRight, Check, CheckCheck, ChevronsDown, Clock, Copy, Hand, Heart, Send, Pencil, Reply, Trash2, X, Paperclip, Mic, Play, Pause } from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
@@ -638,7 +638,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         title="Жесты чата"
         className="mb-2 shrink-0"
         items={[
-          { icon: Reply, text: <>Свайп по сообщению вправо — ответить</> },
+          { icon: ArrowRight, text: <>Свайп по сообщению вправо — ответить</> },
           { icon: Heart, text: <>Двойной тап — быстрое ❤️</> },
           { icon: Hand, text: <>Тап или удержание — меню: реакции, копировать, править</> },
         ]}
