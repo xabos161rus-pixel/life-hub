@@ -1,12 +1,13 @@
 name: Setup TURN
 
-# Одноразовая настройка звонков: создаёт TURN-ключ в Cloudflare Realtime и
-# прописывает его секретами воркера (TURN_KEY_ID / TURN_KEY_API_TOKEN).
-# Значения маскируются и в логи не попадают. Требования:
-#   - подписка Realtime активирована (dash → Realtime);
-#   - у CLOUDFLARE_API_TOKEN есть право Calls/Realtime: Edit (если нет —
-#     шаг создания ключа вернёт ошибку авторизации, см. лог).
-# Повторный запуск безопасен: создаётся ещё один ключ, секреты перезаписываются.
+# Одноразовая настройка звонков: прописывает TURN-ключ Cloudflare Realtime
+# секретами воркера (TURN_KEY_ID / TURN_KEY_API_TOKEN). Два пути:
+#   1) Если в GitHub Secrets заданы TURN_KEY_ID и TURN_KEY_API_TOKEN
+#      (ключ создан руками в dash → Realtime → TURN) — просто переносим их
+#      в секреты воркера. Прав токена достаточно «Edit Workers».
+#   2) Иначе пытаемся создать ключ через Realtime API — требует права
+#      Calls/Realtime: Edit у CLOUDFLARE_API_TOKEN.
+# Значения маскируются и в логи не попадают. Повторный запуск безопасен.
 
 on:
   workflow_dispatch:
@@ -21,7 +22,27 @@ jobs:
           node-version: 20
       - run: npm ci
         working-directory: worker
-      - name: Create TURN key and set worker secrets
+      - name: Set worker secrets from GitHub secrets (if provided)
+        id: direct
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TURN_ID: ${{ secrets.TURN_KEY_ID }}
+          TURN_KEY: ${{ secrets.TURN_KEY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${TURN_ID}" ] && [ -n "${TURN_KEY}" ]; then
+            printf '%s' "$TURN_ID" | npx wrangler secret put TURN_KEY_ID
+            printf '%s' "$TURN_KEY" | npx wrangler secret put TURN_KEY_API_TOKEN
+            echo "done=true" >> "$GITHUB_OUTPUT"
+            echo "Готово: секреты воркера установлены из GitHub Secrets."
+          else
+            echo "done=false" >> "$GITHUB_OUTPUT"
+            echo "TURN_KEY_ID/TURN_KEY_API_TOKEN в GitHub Secrets не заданы — пробуем создать ключ через API."
+          fi
+      - name: Create TURN key via API and set worker secrets
+        if: steps.direct.outputs.done != 'true'
         working-directory: worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
