@@ -69,12 +69,14 @@ class CallManager {
   private pendingOffer: string | null = null; // зашифрованный SDP входящего
   private pendingCandidates: RTCIceCandidateInit[] = [];
 
-  // Громкая связь. Оба дефолта — громкоговоритель; кнопка переключает «к уху».
-  // iOS 26+: Speaker Selection API — setSinkId на <audio> (receiver ищем по label).
-  // Android Chrome: выходы не выбираются, но смена МИКРОФОННОГО входа двигает
-  // весь коммуникационный маршрут (лейблы 'Speakerphone'/'Headset earpiece'
-  // захардкожены в Chromium не локализуясь). Ни один путь не доступен — кнопки нет.
-  private speakerMode: 'none' | 'sinkId' | 'inputSwitch' = 'none';
+  // Громкая связь.
+  // iOS/Safari: Audio Session API — type 'play-and-record' ведёт звук «к уху»
+  // как обычный телефонный звонок (и позволяет аудио жить в фоне), 'playback' —
+  // громкоговоритель. Дефолт на iOS — «к уху», как у телефона.
+  // Прочие: setSinkId на <audio> (receiver по label) или смена микрофонного
+  // входа (Android Chrome, лейблы 'Speakerphone'/'Headset earpiece' захардкожены
+  // в Chromium). Ни один путь не доступен — кнопки нет.
+  private speakerMode: 'none' | 'audioSession' | 'sinkId' | 'inputSwitch' = 'none';
   private receiverSinkId: string | null = null;
   private earpieceInputId: string | null = null;
   private speakerInputId: string | null = null;
@@ -82,6 +84,55 @@ class CallManager {
   private ringTimer: ReturnType<typeof setTimeout> | null = null;
   private resendTimer: ReturnType<typeof setInterval> | null = null;
   private dismissTimer: ReturnType<typeof setTimeout> | null = null;
+  // Возврат в приложение: iOS мог заглушить/убить микрофон в фоне — оживляем.
+  private visHandler: (() => void) | null = null;
+
+  private armMicRecovery() {
+    this.disarmMicRecovery();
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return;
+      void this.recoverMicIfDead();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    this.visHandler = onVis;
+  }
+  private disarmMicRecovery() {
+    if (this.visHandler) {
+      document.removeEventListener('visibilitychange', this.visHandler);
+      this.visHandler = null;
+    }
+  }
+  /** Микрофонный трек умер/заглушён после фона — берём свежий и подменяем
+   *  в отправителе, собеседник снова слышит без переподключения звонка. */
+  private async recoverMicIfDead(): Promise<void> {
+    const pc = this.pc;
+    const stream = this.localStream;
+    if (!pc || !stream) return;
+    const track = stream.getAudioTracks()[0];
+    if (track && track.readyState === 'live' && !track.muted) return; // жив — не трогаем
+    const gen = this.gen;
+    let fresh: MediaStream;
+    try {
+      fresh = await this.getMic();
+    } catch {
+      return; // разрешение потеряно — восстановим при следующем возврате
+    }
+    if (this.gen !== gen || this.pc !== pc || this.localStream !== stream) {
+      for (const t of fresh.getTracks()) t.stop();
+      return;
+    }
+    const newTrack = fresh.getAudioTracks()[0];
+    newTrack.enabled = !this.snap.muted;
+    const sender = pc.getSenders().find((s) => s.track?.kind === 'audio');
+    try {
+      await sender?.replaceTrack(newTrack);
+    } catch {
+      for (const t of fresh.getTracks()) t.stop();
+      return;
+    }
+    for (const t of stream.getTracks()) t.stop();
+    this.localStream = fresh;
+  }
   // Страховка «Соединение…»: ICE не пробился (глухой NAT/VPN без TURN) —
   // честно завершаем вместо вечного спиннера.
   private connTimer: ReturnType<typeof setTimeout> | null = null;
@@ -111,6 +162,12 @@ class CallManager {
   private set(p: Partial<CallSnapshot>) {
     this.snap = { ...this.snap, ...p };
     this.listeners.forEach((l) => l());
+  }
+
+  // Audio Session API (Safari/iOS): управляет системным аудиомаршрутом.
+  private audioSession(): { type: string } | null {
+    const as = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+    return as ?? null;
   }
 
   private ensureAudio(): HTMLAudioElement {
@@ -269,6 +326,7 @@ class CallManager {
     if (this.gen !== gen) return this.abortLocal(null, stream); // снесли, пока брали микрофон
     this.localStream = stream;
     void this.probeSpeaker();
+    this.armMicRecovery();
     const pc = await this.createPc(familyId);
     if (this.gen !== gen) return this.abortLocal(pc, stream);
     await pc.setLocalDescription(await pc.createOffer());
@@ -319,6 +377,7 @@ class CallManager {
     if (this.gen !== gen) return this.abortLocal(null, stream); // снесли, пока брали микрофон
     this.localStream = stream;
     void this.probeSpeaker();
+    this.armMicRecovery();
     const offer = await decryptJSON<{ sdp: RTCSessionDescriptionInit }>(c.familyKey, pendingOffer);
     if (this.gen !== gen) return this.abortLocal(null, stream);
     const pc = await this.createPc(familyId);
@@ -384,6 +443,19 @@ class CallManager {
     this.receiverSinkId = null;
     this.earpieceInputId = null;
     this.speakerInputId = null;
+    // iOS/Safari: телефонная аудиосессия. Дефолт — «к уху», как обычный звонок;
+    // заодно iOS перестаёт глушить микрофон при сворачивании (VoIP-поведение).
+    const as = this.audioSession();
+    if (as) {
+      this.speakerMode = 'audioSession';
+      try {
+        as.type = 'play-and-record';
+      } catch {
+        /* тип не поддержан — остаёмся на системном дефолте */
+      }
+      this.set({ speakerAvailable: true, speakerOn: false });
+      return;
+    }
     const gen = this.gen;
     try {
       const devs = await navigator.mediaDevices.enumerateDevices();
@@ -415,6 +487,17 @@ class CallManager {
 
   async toggleSpeaker(): Promise<void> {
     const wantOn = !this.snap.speakerOn;
+    if (this.speakerMode === 'audioSession') {
+      const as = this.audioSession();
+      if (!as) return;
+      try {
+        as.type = wantOn ? 'playback' : 'play-and-record';
+      } catch {
+        return; // маршрут не сменился — состояние кнопки не трогаем
+      }
+      this.set({ speakerOn: wantOn });
+      return;
+    }
     if (this.speakerMode === 'sinkId') {
       const audioEl = this.ensureAudio() as HTMLAudioElement & { setSinkId: (id: string) => Promise<void> };
       const target = wantOn ? '' : this.receiverSinkId!;
@@ -575,6 +658,18 @@ class CallManager {
     this.clearCallNotifications(this.callId);
     this.clearResend();
     this.clearConnTimeout();
+    this.disarmMicRecovery();
+    // Вернуть системной аудиосессии обычный режим (iOS).
+    {
+      const as = this.audioSession();
+      if (as) {
+        try {
+          as.type = 'auto';
+        } catch {
+          /* не поддержано */
+        }
+      }
+    }
     if (this.ringTimer) {
       clearTimeout(this.ringTimer);
       this.ringTimer = null;
