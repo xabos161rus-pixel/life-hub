@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, CheckCheck, ChevronsDown, Clock, Copy, Send, Pencil, Reply, Trash2, X, Paperclip, Mic, Play, Pause } from 'lucide-react';
+import { Check, CheckCheck, ChevronsDown, Clock, Copy, Hand, Heart, Send, Pencil, Reply, Trash2, X, Paperclip, Mic, Play, Pause } from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
+import { Hint } from '../../components/ui/Hint';
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../lib/image';
 import { getFamilyConfig } from '../../lib/family/familyState';
@@ -127,6 +128,247 @@ function snippetOf(m: FamilyMessage): string {
   return 'Сообщение';
 }
 
+const SWIPE_REPLY_PX = 56; // порог свайпа вправо «ответить»
+const LONG_PRESS_MS = 450;
+const DOUBLE_TAP_MS = 300;
+
+/** Пузырь сообщения с жестами «как у всех»:
+ *  свайп вправо — ответить · долгое нажатие — меню · двойной тап — ❤️ ·
+ *  тап по фото — просмотр · обычный тап — меню (открываемость для новичков).
+ *  Вложенные кнопки (цитата, play) жестам не мешают — фильтруются по closest.
+ */
+function MessageRow({
+  m,
+  own,
+  authorName,
+  authorColor,
+  highlight,
+  chips,
+  maxOtherRead,
+  onMenu,
+  onReply,
+  onHeart,
+  onOpenImage,
+  onJumpTo,
+  onToggleChip,
+}: {
+  m: FamilyMessage;
+  own: boolean;
+  authorName: string | null;
+  authorColor: string | null;
+  highlight: boolean;
+  chips: { emoji: string; count: number; mine: boolean }[] | undefined;
+  maxOtherRead: number;
+  onMenu: (m: FamilyMessage) => void;
+  onReply: (m: FamilyMessage) => void;
+  onHeart: (m: FamilyMessage) => void;
+  onOpenImage: (src: string) => void;
+  onJumpTo: (id: string) => void;
+  onToggleChip: (m: FamilyMessage, emoji: string) => void;
+}) {
+  const [dragX, setDragX] = useState(0);
+  const g = useRef({
+    x0: 0,
+    y0: 0,
+    // Текущий сдвиг дублируется в ref: при быстром свайпе pointerup приходит
+    // до ре-рендера, и state в замыкании обработчика ещё старый.
+    dx: 0,
+    mode: 'idle' as 'idle' | 'swipe' | 'longpress' | 'skip',
+    lastTapAt: 0,
+    onImage: false,
+    lpTimer: null as ReturnType<typeof setTimeout> | null,
+    tapTimer: null as ReturnType<typeof setTimeout> | null,
+  });
+
+  const clearLp = () => {
+    if (g.current.lpTimer) {
+      clearTimeout(g.current.lpTimer);
+      g.current.lpTimer = null;
+    }
+  };
+
+  function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    // Тапы по интерактивам внутри пузыря (цитата, play) — не наши жесты.
+    if ((e.target as Element).closest('button, audio')) {
+      g.current.mode = 'skip';
+      return;
+    }
+    g.current.mode = 'idle';
+    g.current.x0 = e.clientX;
+    g.current.y0 = e.clientY;
+    g.current.onImage = Boolean((e.target as Element).closest('img'));
+    clearLp();
+    const msg = m;
+    g.current.lpTimer = setTimeout(() => {
+      g.current.mode = 'longpress';
+      try {
+        navigator.vibrate?.(10);
+      } catch {
+        /* iOS игнорирует */
+      }
+      onMenu(msg);
+    }, LONG_PRESS_MS);
+  }
+
+  function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    const s = g.current;
+    if (s.mode === 'skip' || s.mode === 'longpress') return;
+    const dx = e.clientX - s.x0;
+    const dy = e.clientY - s.y0;
+    if (s.mode === 'idle' && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      clearLp(); // палец пошёл — это не long-press
+      if (dx > 0 && Math.abs(dx) > Math.abs(dy)) {
+        s.mode = 'swipe';
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } else {
+        s.mode = 'skip'; // вертикаль — отдаём скроллу ленты
+      }
+    }
+    if (s.mode === 'swipe') {
+      s.dx = Math.max(0, Math.min(SWIPE_REPLY_PX + 24, dx));
+      setDragX(s.dx);
+    }
+  }
+
+  function onPointerUp() {
+    const s = g.current;
+    clearLp();
+    if (s.mode === 'swipe') {
+      if (s.dx >= SWIPE_REPLY_PX) onReply(m);
+      s.dx = 0;
+      setDragX(0);
+      s.mode = 'idle';
+      return;
+    }
+    if (s.mode === 'longpress' || s.mode === 'skip') {
+      s.mode = 'idle';
+      return;
+    }
+    // Тап: различаем одиночный и двойной.
+    const nowTs = Date.now();
+    if (nowTs - s.lastTapAt < DOUBLE_TAP_MS) {
+      s.lastTapAt = 0;
+      if (s.tapTimer) {
+        clearTimeout(s.tapTimer);
+        s.tapTimer = null;
+      }
+      onHeart(m); // двойной тап — быстрое ❤️
+      return;
+    }
+    s.lastTapAt = nowTs;
+    const openImage = s.onImage && m.image;
+    const msg = m;
+    s.tapTimer = setTimeout(() => {
+      s.tapTimer = null;
+      if (openImage) onOpenImage(msg.image!);
+      else onMenu(msg);
+    }, DOUBLE_TAP_MS);
+  }
+
+  function onPointerCancel() {
+    clearLp();
+    g.current.mode = 'idle';
+    g.current.dx = 0;
+    setDragX(0);
+  }
+
+  return (
+    <div className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
+      <div className={`flex max-w-[80%] flex-col ${own ? 'items-end' : 'items-start'}`}>
+        <div className="flex items-center">
+          {dragX > 4 && (
+            <span
+              className="flex shrink-0 items-center pr-2 text-accent"
+              style={{ opacity: Math.min(1, dragX / SWIPE_REPLY_PX) }}
+            >
+              <Reply size={18} />
+            </span>
+          )}
+          <div
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{
+              touchAction: 'pan-y',
+              transform: dragX ? `translateX(${dragX}px)` : undefined,
+              transition: dragX ? undefined : 'transform 160ms ease',
+              WebkitTouchCallout: 'none',
+            }}
+            className={`cursor-pointer select-none overflow-hidden rounded-2xl transition-shadow active:opacity-80 ${
+              m.image ? 'p-1' : 'px-3 py-2'
+            } ${own ? 'bg-accent text-white' : 'bg-surface-2 text-text'} ${
+              highlight ? 'ring-2 ring-frost' : ''
+            }`}
+          >
+            {!own && authorName && (
+              <p className={`mb-0.5 text-xs font-semibold ${m.image ? 'px-2 pt-1' : ''}`} style={{ color: authorColor ?? undefined }}>
+                {authorName}
+              </p>
+            )}
+            {m.replyTo && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onJumpTo(m.replyTo!.id);
+                }}
+                className={`mb-1 block w-full rounded-lg border-l-2 px-2 py-1 text-left ${
+                  m.image ? 'mx-2 mt-1 w-auto' : ''
+                } ${own ? 'border-white/60 bg-white/15' : 'border-accent bg-accent/10'}`}
+              >
+                <span className={`block text-[11px] font-semibold ${own ? 'text-white/90' : 'text-accent'}`}>
+                  {m.replyTo.name}
+                </span>
+                <span className={`block truncate text-xs ${own ? 'text-white/75' : 'text-muted'}`}>
+                  {m.replyTo.text}
+                </span>
+              </button>
+            )}
+            {m.audio && <AudioBubble src={m.audio} duration={m.audioDur ?? 0} own={own} />}
+            {m.image && (
+              <img src={m.image} alt="Фото" loading="lazy" className="block max-h-80 max-w-full rounded-xl" draggable={false} />
+            )}
+            {m.text && (
+              <p className={`whitespace-pre-wrap break-words text-[15px] ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
+            )}
+            <span className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${m.image ? 'px-2 pb-1' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
+              {m.editedAt && <span>изменено</span>}
+              {timeLabel(m.createdAt)}
+              {own &&
+                (m.status === 'pending' ? (
+                  <Clock size={11} />
+                ) : m.seq != null && maxOtherRead >= m.seq ? (
+                  <CheckCheck size={13} className="text-sky-300" />
+                ) : (
+                  <Check size={11} />
+                ))}
+            </span>
+          </div>
+        </div>
+        {chips && (
+          <div className={`mt-1 flex flex-wrap gap-1 ${own ? 'justify-end' : ''}`}>
+            {chips.map((c) => (
+              <button
+                key={c.emoji}
+                type="button"
+                onClick={() => onToggleChip(m, c.emoji)}
+                className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs active:scale-95 ${
+                  c.mine ? 'border-accent/50 bg-accent/15' : 'border-border bg-surface-2'
+                }`}
+              >
+                <span>{c.emoji}</span>
+                {c.count > 1 && <span className="tabular-nums text-muted">{c.count}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ChatTab({ familyId }: { familyId: string }) {
   const toast = useToast();
   const messagesRaw = useLiveQuery(() => db.familyMessages.where('familyId').equals(familyId).toArray(), [familyId]);
@@ -220,6 +462,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
   const [replyTo, setReplyTo] = useState<FamilyMessage | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [showJump, setShowJump] = useState(false);
+  const [viewImage, setViewImage] = useState<string | null>(null);
   const [reads, setReadsState] = useState<Record<string, number>>({});
   useEffect(() => subscribeReads(familyId, setReadsState), [familyId]);
   // Максимальный seq, прочитанный ХОТЬ кем-то из других участников.
@@ -390,6 +633,16 @@ export function ChatTab({ familyId }: { familyId: string }) {
           )}
         </div>
       )}
+      <Hint
+        id="chat-gestures"
+        title="Жесты чата"
+        className="mb-2 shrink-0"
+        items={[
+          { icon: Reply, text: <>Свайп по сообщению вправо — ответить</> },
+          { icon: Heart, text: <>Двойной тап — быстрое ❤️</> },
+          { icon: Hand, text: <>Тап или удержание — меню: реакции, копировать, править</> },
+        ]}
+      />
       {/* overscroll-contain: флик до края ленты НЕ чейнится в App-контейнер —
           без этого на iOS-momentum «война скроллов» с предком насыщала
           main-thread и чат замирал после прокруток вверх-вниз. */}
@@ -431,78 +684,22 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 return (
                   <div key={m.clientMsgId}>
                     {divider}
-                    <div data-msg-id={m.clientMsgId} className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`flex max-w-[80%] flex-col ${own ? 'items-end' : 'items-start'}`}>
-                        <div
-                          onClick={() => setActionMsg(m)}
-                          className={`cursor-pointer overflow-hidden rounded-2xl transition-shadow active:opacity-80 ${
-                            m.image ? 'p-1' : 'px-3 py-2'
-                          } ${own ? 'bg-accent text-white' : 'bg-surface-2 text-text'} ${
-                            highlightId === m.clientMsgId ? 'ring-2 ring-frost' : ''
-                          }`}
-                        >
-                          {!own && author && (
-                            <p className={`mb-0.5 text-xs font-semibold ${m.image ? 'px-2 pt-1' : ''}`} style={{ color: author.color }}>
-                              {author.displayName}
-                            </p>
-                          )}
-                          {m.replyTo && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                jumpToMessage(m.replyTo!.id);
-                              }}
-                              className={`mb-1 block w-full rounded-lg border-l-2 px-2 py-1 text-left ${
-                                m.image ? 'mx-2 mt-1 w-auto' : ''
-                              } ${own ? 'border-white/60 bg-white/15' : 'border-accent bg-accent/10'}`}
-                            >
-                              <span className={`block text-[11px] font-semibold ${own ? 'text-white/90' : 'text-accent'}`}>
-                                {m.replyTo.name}
-                              </span>
-                              <span className={`block truncate text-xs ${own ? 'text-white/75' : 'text-muted'}`}>
-                                {m.replyTo.text}
-                              </span>
-                            </button>
-                          )}
-                          {m.audio && <AudioBubble src={m.audio} duration={m.audioDur ?? 0} own={own} />}
-                          {m.image && (
-                            <img src={m.image} alt="Фото" loading="lazy" className="block max-h-80 max-w-full rounded-xl" />
-                          )}
-                          {m.text && (
-                            <p className={`whitespace-pre-wrap break-words text-[15px] ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
-                          )}
-                          <span className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${m.image ? 'px-2 pb-1' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
-                            {m.editedAt && <span>изменено</span>}
-                            {timeLabel(m.createdAt)}
-                            {own &&
-                              (m.status === 'pending' ? (
-                                <Clock size={11} />
-                              ) : m.seq != null && maxOtherRead >= m.seq ? (
-                                <CheckCheck size={13} className="text-sky-300" />
-                              ) : (
-                                <Check size={11} />
-                              ))}
-                          </span>
-                        </div>
-                        {chips && (
-                          <div className={`mt-1 flex flex-wrap gap-1 ${own ? 'justify-end' : ''}`}>
-                            {chips.map((c) => (
-                              <button
-                                key={c.emoji}
-                                type="button"
-                                onClick={() => void toggleReaction(m, c.emoji)}
-                                className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs active:scale-95 ${
-                                  c.mine ? 'border-accent/50 bg-accent/15' : 'border-border bg-surface-2'
-                                }`}
-                              >
-                                <span>{c.emoji}</span>
-                                {c.count > 1 && <span className="tabular-nums text-muted">{c.count}</span>}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                    <div data-msg-id={m.clientMsgId}>
+                      <MessageRow
+                        m={m}
+                        own={own}
+                        authorName={author?.displayName ?? null}
+                        authorColor={author?.color ?? null}
+                        highlight={highlightId === m.clientMsgId}
+                        chips={chips}
+                        maxOtherRead={maxOtherRead}
+                        onMenu={setActionMsg}
+                        onReply={startReply}
+                        onHeart={(msg) => void toggleReaction(msg, '❤️')}
+                        onOpenImage={setViewImage}
+                        onJumpTo={jumpToMessage}
+                        onToggleChip={(msg, emoji) => void toggleReaction(msg, emoji)}
+                      />
                     </div>
                   </div>
                 );
@@ -698,6 +895,16 @@ export function ChatTab({ familyId }: { familyId: string }) {
           </div>
         )}
       </Sheet>
+
+      {/* Фото на весь экран (тап по фото в ленте) — закрытие тапом. */}
+      {viewImage && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95 p-3"
+          onClick={() => setViewImage(null)}
+        >
+          <img src={viewImage} alt="" className="max-h-full max-w-full rounded-xl object-contain" />
+        </div>
+      )}
     </div>
   );
 }
