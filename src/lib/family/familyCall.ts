@@ -79,6 +79,25 @@ class CallManager {
   private ringTimer: ReturnType<typeof setTimeout> | null = null;
   private resendTimer: ReturnType<typeof setInterval> | null = null;
   private dismissTimer: ReturnType<typeof setTimeout> | null = null;
+  // Страховка «Соединение…»: ICE не пробился (глухой NAT/VPN без TURN) —
+  // честно завершаем вместо вечного спиннера.
+  private connTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private armConnTimeout() {
+    this.clearConnTimeout();
+    this.connTimer = setTimeout(() => {
+      this.connTimer = null;
+      if (this.snap.status === 'connecting') {
+        this.end('Не удалось соединиться — сеть не пропускает звонок');
+      }
+    }, 25_000);
+  }
+  private clearConnTimeout() {
+    if (this.connTimer) {
+      clearTimeout(this.connTimer);
+      this.connTimer = null;
+    }
+  }
 
   // === стор для useSyncExternalStore ===
   subscribe = (cb: () => void): (() => void) => {
@@ -171,6 +190,7 @@ class CallManager {
       const s = pc.connectionState;
       if (s === 'connected') {
         this.clearResend();
+        this.clearConnTimeout();
         if (this.ringTimer) {
           clearTimeout(this.ringTimer);
           this.ringTimer = null;
@@ -275,6 +295,7 @@ class CallManager {
     stopRingtone();
     this.clearCallNotifications(this.callId);
     this.set({ status: 'connecting' }); // синхронно до await — дедуп двойного «Принять»
+    this.armConnTimeout();
     const gen = this.gen;
     const familyId = this.familyId;
     const pendingOffer = this.pendingOffer; // захватываем: end() обнулит this.pendingOffer
@@ -492,7 +513,10 @@ class CallManager {
       }
       if (this.pc !== pc) return;
       await this.drainCandidates();
-      if (this.snap.status === 'outgoing') this.set({ status: 'connecting' });
+      if (this.snap.status === 'outgoing') {
+        this.set({ status: 'connecting' });
+        this.armConnTimeout();
+      }
     } else if (f.kind === 'ice') {
       if (!f.data) return;
       const { candidate } = await decryptJSON<{ candidate: RTCIceCandidateInit }>(c.familyKey, f.data);
@@ -547,6 +571,7 @@ class CallManager {
     stopRingtone();
     this.clearCallNotifications(this.callId);
     this.clearResend();
+    this.clearConnTimeout();
     if (this.ringTimer) {
       clearTimeout(this.ringTimer);
       this.ringTimer = null;
