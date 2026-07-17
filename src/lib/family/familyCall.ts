@@ -21,6 +21,11 @@ const ICE_GATHER_CAP_MS = 2000;
 const DEFAULT_ICE: RTCIceServer[] = [
   { urls: 'stun:stun.cloudflare.com:3478' },
   { urls: 'stun:stun.l.google.com:19302' },
+  // Публичный TURN-фолбэк (Open Relay): если /family/turn недоступен, чтобы
+  // звонок пробивал VPN/симметричный NAT. Медиа шифруется SRTP.
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turns:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
 ];
 
 export type CallStatus = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'active' | 'ended';
