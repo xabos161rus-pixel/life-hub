@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronDown, ChevronRight, FolderPlus, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
+import { ChevronDown, ChevronRight, Folder, FolderPlus, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, update } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
@@ -18,6 +18,7 @@ import { Screen } from '../../components/layout/Screen';
 import { Fab } from '../../components/layout/Fab';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { Hint } from '../../components/ui/Hint';
 import { useToast } from '../../components/ui/Toast';
 import { formatDueDate } from '../../lib/dates';
 import { describeRecurrence } from '../../lib/recurrence';
@@ -50,11 +51,82 @@ function getScrollParent(node: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
+/** Иконка папки проекта: стандартная 📁 заменяется папкой в цвете проекта —
+ *  выбранный при создании цвет виден прямо в списке. Своё эмодзи — как есть. */
+function ProjectFolderIcon({ project, size = 18 }: { project: Project; size?: number }) {
+  const emoji = project.emoji?.trim();
+  if (emoji && emoji !== '📁')
+    return <span style={{ fontSize: size - 1 }} className="leading-none">{emoji}</span>;
+  return (
+    <Folder
+      size={size}
+      aria-hidden
+      style={{ color: project.color, fill: project.color, strokeWidth: 1.5 }}
+    />
+  );
+}
+
+/** Вложенная секция подпроекта внутри секции родителя: свой заголовок с цветной
+ *  папкой, счётчиком и карандашом, свои задачи и «+ Задача». Тоже drop-зона —
+ *  задачу можно перетащить прямо в подпроект. */
+function SubSection({
+  project,
+  count,
+  collapsed,
+  onToggle,
+  onEdit,
+  dropRef,
+  highlight = false,
+  children,
+}: {
+  project: Project;
+  count: number;
+  collapsed: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  dropRef: (el: HTMLElement | null) => void;
+  highlight?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      ref={dropRef}
+      data-drop-key={project.id}
+      className={`mt-3 ml-1.5 rounded-2xl border-l-2 border-hairline pl-3 transition-[background-color] ${
+        highlight ? 'border-accent bg-accent/10 ring-2 ring-accent' : ''
+      }`}
+    >
+      <div className="mb-1.5 flex items-center gap-1 pr-1">
+        <button onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+          <ChevronDown
+            size={15}
+            className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
+          />
+          <span className="flex shrink-0 items-center">
+            <ProjectFolderIcon project={project} size={15} />
+          </span>
+          <h3 className="truncate text-[15px] font-semibold tracking-tight">{project.name}</h3>
+          <span className="text-xs text-muted">{count}</span>
+        </button>
+        <button
+          onClick={onEdit}
+          aria-label="Редактировать подпроект"
+          className="p-1.5 text-muted active:opacity-60"
+        >
+          <Pencil size={13} />
+        </button>
+      </div>
+      {!collapsed && children}
+    </div>
+  );
+}
+
 /** Сворачиваемая секция с заголовком, счётчиком и (опц.) карандашом.
  *  dropRef/dropKey/highlight — для drag-and-drop: вся секция служит drop-зоной,
  *  ключ цели читается из data-drop-key узла. */
 function Section({
   title,
+  icon,
   count,
   collapsed,
   onToggle,
@@ -67,6 +139,8 @@ function Section({
   children,
 }: {
   title: string;
+  /** Иконка перед заголовком (цветная папка проекта / эмодзи). */
+  icon?: ReactNode;
   count: number;
   collapsed: boolean;
   onToggle: () => void;
@@ -172,6 +246,7 @@ function Section({
             size={18}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
+          {icon && <span className="flex shrink-0 items-center">{icon}</span>}
           <h2 className="text-lg font-bold tracking-tight">{title}</h2>
           <span className="text-sm text-muted">{count}</span>
         </button>
@@ -298,13 +373,13 @@ function FrozenSection({
             size={18}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
-          <Snowflake size={16} className="shrink-0 text-accent" />
+          <Snowflake size={16} className="shrink-0 text-frost" />
           <h2 className="text-lg font-bold tracking-tight">Заморожено</h2>
           <span className="text-sm text-muted">{tasks.length}</span>
         </button>
         <button
           onClick={() => void unfreezeAll().then(() => toast('Все задачи разморожены'))}
-          className="shrink-0 px-2 py-1 text-sm font-medium text-accent active:opacity-60"
+          className="shrink-0 px-2 py-1 text-sm font-medium text-frost active:opacity-60"
         >
           Разморозить всё
         </button>
@@ -316,7 +391,7 @@ function FrozenSection({
             return (
               <div key={t.id} className="flex items-center gap-3 py-3">
                 <button onClick={() => onEdit(t)} className="min-w-0 flex-1 text-left active:opacity-70">
-                  <p className="truncate font-medium">{t.title}</p>
+                  <p lang="ru" className="break-words text-pretty hyphens-auto font-medium">{t.title}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
                     {t.dueDate && (
                       <span>
@@ -340,7 +415,8 @@ function FrozenSection({
                 <button
                   onClick={() => void unfreezeTask(t).then(() => toast('Разморожено'))}
                   aria-label="Разморозить задачу"
-                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent active:opacity-70"
+                  // Тёплое солнце-«разморозка» — контраст к голубой теме секции.
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning active:opacity-70"
                 >
                   <Sun size={17} />
                 </button>
@@ -363,15 +439,26 @@ function DropLine() {
   );
 }
 
-function AddTaskRow({ onClick }: { onClick: () => void }) {
+function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; onAddSubproject?: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      aria-label="Добавить задачу"
-      className="mt-1.5 flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
-    >
-      <Plus size={15} /> Задача
-    </button>
+    <div className="mt-1.5 flex items-center gap-4">
+      <button
+        onClick={onClick}
+        aria-label="Добавить задачу"
+        className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
+      >
+        <Plus size={15} /> Задача
+      </button>
+      {onAddSubproject && (
+        <button
+          onClick={onAddSubproject}
+          aria-label="Добавить подпроект"
+          className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-muted active:opacity-60"
+        >
+          <FolderPlus size={15} /> Подпроект
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -382,6 +469,8 @@ export function TasksPage() {
   const [taskDefaultProject, setTaskDefaultProject] = useState<string | null>(null);
   const [projectSheetOpen, setProjectSheetOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  // Родитель по умолчанию для нового проекта («+ Подпроект» внутри секции).
+  const [projectDefaultParent, setProjectDefaultParent] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [freezeSheetOpen, setFreezeSheetOpen] = useState(false);
 
@@ -431,13 +520,20 @@ export function TasksPage() {
   }, []);
 
   // Какая секция под точкой Y. Узлы, выпавшие из DOM, отсеиваются по rect=0.
+  // Подпроект вложен в секцию родителя (прямоугольники перекрываются) —
+  // побеждает самый маленький (внутренний), иначе в подпроект не попасть.
   const hitTest = useCallback((y: number): string | null => {
+    let best: string | null = null;
+    let bestH = Infinity;
     for (const [key, el] of sectionNodes.current) {
       if (!el.isConnected) continue;
       const r = el.getBoundingClientRect();
-      if (y >= r.top && y <= r.bottom) return key;
+      if (y >= r.top && y <= r.bottom && r.height < bestH) {
+        best = key;
+        bestH = r.height;
+      }
     }
-    return null;
+    return best;
   }, []);
 
   const onDragStart = useCallback((t: Task, at: { x: number; y: number }) => {
@@ -664,11 +760,30 @@ export function TasksPage() {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
+
+  // Иерархия: верхний уровень + подпроекты по родителю. Подпроект с пропавшим
+  // родителем (родителя удалили/архивировали) поднимается на верхний уровень.
+  const topProjects = useMemo(
+    () => projects.filter((p) => !p.parentId || !projectById.has(p.parentId)),
+    [projects, projectById],
+  );
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string, Project[]>();
+    for (const p of projects) {
+      if (!p.parentId || !projectById.has(p.parentId)) continue;
+      const arr = map.get(p.parentId);
+      if (arr) arr.push(p);
+      else map.set(p.parentId, [p]);
+    }
+    return map;
+  }, [projects, projectById]);
+
   // Синк имён проектов в ref для тоста переноса (читается в pointerup-обработчике).
   useEffect(() => {
     projectNamesRef.current = new Map(projects.map((p) => [p.id, p.name]));
-    projectsRef.current = projects; // для finish-обработчика drag без устаревания
-  }, [projects]);
+    // Переупорядочивание перетаскиванием — только для секций верхнего уровня.
+    projectsRef.current = topProjects;
+  }, [projects, topProjects]);
   const loaded = tasksRaw !== undefined;
 
   const activeByProject = useMemo(() => {
@@ -742,8 +857,9 @@ export function TasksPage() {
     setTaskSheetOpen(true);
   }
 
-  function openProject(project: Project | null) {
+  function openProject(project: Project | null, defaultParentId: string | null = null) {
     setEditingProject(project);
+    setProjectDefaultParent(defaultParentId);
     setProjectSheetOpen(true);
   }
 
@@ -756,9 +872,10 @@ export function TasksPage() {
         <button
           onClick={() => setFreezeSheetOpen(true)}
           aria-label="Заморозить задачи"
-          className="p-1 text-accent active:opacity-60"
+          // Голубой «морозный» кружок со свечением — видно, что это кнопка.
+          className="flex size-10 items-center justify-center rounded-full bg-frost/15 text-frost shadow-[0_0_16px_-6px_var(--app-frost)] transition-transform active:scale-90"
         >
-          <Snowflake size={22} />
+          <Snowflake size={21} style={{ strokeWidth: 2 }} />
         </button>
       }
     >
@@ -791,14 +908,23 @@ export function TasksPage() {
         />
       ) : (
         <>
-          {projects.map((p, i) => {
+          {allTasks.length > 0 && (
+            <Hint id="tasks-gestures" className="mb-4">
+              Свайп по задаче вправо — выполнить, влево — «Завтра» или «Удалить».
+              Удержание задачи — перенести в другой проект, удержание заголовка
+              проекта — изменить порядок папок.
+            </Hint>
+          )}
+          {topProjects.map((p, i) => {
             const list = activeByProject.get(p.id) ?? [];
             const doneList = completedByProject.get(p.id) ?? [];
+            const subs = childrenByParent.get(p.id) ?? [];
             return (
               <Fragment key={p.id}>
                 {draggingProject && projInsertIndex === i && <DropLine />}
                 <Section
-                  title={`${p.emoji} ${p.name}`}
+                  title={p.name}
+                  icon={<ProjectFolderIcon project={p} />}
                   count={list.length}
                   collapsed={collapsed.has(p.id)}
                   onToggle={() => toggle(p.id)}
@@ -828,12 +954,54 @@ export function TasksPage() {
                       dropIndex={draggingTask && dropKey === p.id ? taskDropIndex : null}
                     />
                   )}
-                  <AddTaskRow onClick={() => openTask(null, p.id)} />
+                  <AddTaskRow
+                    onClick={() => openTask(null, p.id)}
+                    onAddSubproject={() => openProject(null, p.id)}
+                  />
+                  {subs.map((sub) => {
+                    const subList = activeByProject.get(sub.id) ?? [];
+                    const subDone = completedByProject.get(sub.id) ?? [];
+                    return (
+                      <SubSection
+                        key={sub.id}
+                        project={sub}
+                        count={subList.length}
+                        collapsed={collapsed.has(sub.id)}
+                        onToggle={() => toggle(sub.id)}
+                        onEdit={() => openProject(sub)}
+                        dropRef={registerSection}
+                        highlight={Boolean(draggingTask) && dropKey === sub.id}
+                      >
+                        {subDone.length > 0 && (
+                          <CompletedSubsection
+                            tasks={subDone}
+                            projectById={projectById}
+                            onEdit={(t) => openTask(t, t.projectId)}
+                            expanded={expandedCompleted.has(sub.id)}
+                            onToggle={() => toggleCompleted(sub.id)}
+                          />
+                        )}
+                        {subList.length > 0 && (
+                          <TaskCard
+                            tasks={subList}
+                            projectById={projectById}
+                            onEdit={(t) => openTask(t, t.projectId)}
+                            onDragStart={onDragStart}
+                            draggingId={draggingTask?.id ?? null}
+                            dropIndex={
+                              draggingTask && dropKey === sub.id ? taskDropIndex : null
+                            }
+                          />
+                        )}
+                        <AddTaskRow onClick={() => openTask(null, sub.id)} />
+                      </SubSection>
+                    );
+                  })}
                 </Section>
               </Fragment>
             );
           })}
-          {draggingProject && projInsertIndex === projects.length && <DropLine />}
+          {draggingProject && projInsertIndex === topProjects.length && <DropLine />}
 
           {(noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
             <Section
@@ -901,6 +1069,7 @@ export function TasksPage() {
         open={projectSheetOpen}
         onClose={() => setProjectSheetOpen(false)}
         project={editingProject}
+        defaults={{ parentId: projectDefaultParent }}
       />
       <FreezeSheet
         key={freezeSheetOpen ? 'freeze-open' : 'freeze-closed'}

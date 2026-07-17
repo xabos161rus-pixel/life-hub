@@ -278,7 +278,12 @@ export function TaskItem({
         )}
         <TaskCheck checked={done} onChange={handleToggle} color={project?.color} />
         <div className="min-w-0 flex-1">
-          <p className={`break-words font-medium ${done ? 'text-muted line-through' : ''}`}>
+          {/* text-pretty + hyphens-auto: длинные слова переносятся по слогам с
+              дефисом, а не прыгают целиком на новую строку, оставляя дыры. */}
+          <p
+            lang="ru"
+            className={`break-words text-pretty hyphens-auto font-medium ${done ? 'text-muted line-through' : ''}`}
+          >
             {task.title}
           </p>
           {task.notes && (
@@ -286,10 +291,27 @@ export function TaskItem({
               {task.notes}
             </p>
           )}
+          {task.photos && task.photos.length > 0 && (
+            <div className="mt-1.5 flex gap-1.5">
+              {task.photos.slice(0, 4).map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt=""
+                  className="size-12 rounded-lg border border-hairline object-cover"
+                />
+              ))}
+              {task.photos.length > 4 && (
+                <span className="flex size-12 items-center justify-center rounded-lg bg-surface-2 text-xs text-muted">
+                  +{task.photos.length - 4}
+                </span>
+              )}
+            </div>
+          )}
           {hasMeta && (
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
               {frozen && (
-                <span className="flex items-center gap-0.5 text-accent">
+                <span className="flex items-center gap-0.5 text-frost">
                   <Snowflake size={11} />
                   заморожено
                 </span>

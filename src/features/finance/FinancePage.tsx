@@ -5,6 +5,7 @@ import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ProgressBar } from '../../components/ui/ProgressBar';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { ExpenseItem, ExpenseRecurrence } from '../../db/types';
@@ -20,26 +21,50 @@ const RECURRENCE_LABEL: Record<ExpenseRecurrence, string> = {
 };
 
 function SummaryCard({ items }: { items: ExpenseItem[] }) {
+  // Месяц/Год: одна карточка, суммы (включая категории) пересчитываются —
+  // категории за год видны без второго списка, ничего не дублируем.
+  const [period, setPeriod] = useState<'month' | 'year'>('month');
   const summary = financeSummary(items);
+  const mul = period === 'year' ? 12 : 1;
   const balancePositive = summary.balance >= 0;
   return (
     <div className="card p-4">
-      <p className="text-sm font-medium text-muted">Расходы в месяц</p>
-      <p className="mt-0.5 text-3xl font-bold tracking-[-0.02em]">{formatRub(summary.expense)}</p>
-      <p className="mt-1 text-sm text-muted">≈ {formatRub(summary.expense * 12)} в год</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-muted">
+          {period === 'month' ? 'Расходы в месяц' : 'Расходы в год'}
+        </p>
+        <div className="w-32 shrink-0">
+          <SegmentedControl
+            options={[
+              { value: 'month', label: 'Месяц' },
+              { value: 'year', label: 'Год' },
+            ]}
+            value={period}
+            onChange={setPeriod}
+          />
+        </div>
+      </div>
+      <p className="mt-1 text-3xl font-bold tracking-[-0.02em] tabular-nums">
+        {formatRub(summary.expense * mul)}
+      </p>
+      <p className="mt-1 text-sm text-muted">
+        ≈ {period === 'month'
+          ? `${formatRub(summary.expense * 12)} в год`
+          : `${formatRub(summary.expense)} в месяц`}
+      </p>
 
       {(summary.income > 0 || summary.balance !== 0) && (
         <div className="mt-3 flex gap-2">
           {summary.income > 0 && (
             <div className="flex-1 rounded-xl bg-surface-2 px-3 py-2">
               <p className="text-xs text-muted">Доход</p>
-              <p className="font-semibold text-success">{formatRub(summary.income)}</p>
+              <p className="font-semibold text-success">{formatRub(summary.income * mul)}</p>
             </div>
           )}
           <div className="flex-1 rounded-xl bg-surface-2 px-3 py-2">
             <p className="text-xs text-muted">Баланс</p>
             <p className={`font-semibold ${balancePositive ? 'text-success' : 'text-danger'}`}>
-              {formatRub(summary.balance)}
+              {formatRub(summary.balance * mul)}
             </p>
           </div>
         </div>
@@ -51,7 +76,7 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
             <div key={c.category}>
               <div className="flex items-baseline justify-between gap-2 text-sm">
                 <span className="truncate text-text">{c.category}</span>
-                <span className="shrink-0 text-muted">{formatRub(c.amount)}</span>
+                <span className="shrink-0 tabular-nums text-muted">{formatRub(c.amount * mul)}</span>
               </div>
               <div className="mt-1">
                 <ProgressBar
@@ -92,8 +117,10 @@ function ExpenseRow({ item, onOpen }: { item: ExpenseItem; onOpen: () => void })
           <span className="text-xs text-muted">{RECURRENCE_LABEL[item.recurrence]}</span>
         </div>
       </div>
+      {/* Расходы — нейтральным серым (красный оставлен настоящим алертам),
+          доходы — зелёным: список не сливается в сплошное красное полотно. */}
       <span
-        className={`shrink-0 font-semibold tabular-nums ${isIncome ? 'text-success' : 'text-danger'}`}
+        className={`shrink-0 font-semibold tabular-nums ${isIncome ? 'text-success' : 'text-muted'}`}
       >
         {sign} {formatRub(item.amount)}
       </span>
@@ -144,7 +171,7 @@ export function FinancePage() {
                   <div key={item.id} className="flex items-baseline justify-between gap-3 py-3">
                     <p className="truncate font-medium">{item.title}</p>
                     <div className="shrink-0 text-right">
-                      <p className="font-semibold tabular-nums text-danger">
+                      <p className="font-semibold tabular-nums text-muted">
                         {formatRub(item.amount)}
                       </p>
                       <p className="text-xs text-muted">

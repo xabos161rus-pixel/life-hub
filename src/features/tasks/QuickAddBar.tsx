@@ -4,6 +4,7 @@ import { db } from '../../db/db';
 import { create } from '../../db/repo';
 import { Input } from '../../components/ui/Input';
 import { MicButton } from '../../components/ui/MicButton';
+import { Hint } from '../../components/ui/Hint';
 import { describeParsed, parseQuickTask } from '../../lib/nlDate';
 
 /**
@@ -58,29 +59,36 @@ export function QuickAddBar({
   const canSend = text.trim().length > 0;
 
   return (
-    <div ref={wrapRef} className="card mb-4 px-3 py-2">
-      <div className="flex items-center gap-1">
-        <Input
-          value={text}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setText(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Что нужно сделать?"
-          className="border-0 bg-transparent px-1 py-2 focus:ring-0"
-        />
-        <MicButton onText={(t) => setText((cur) => (cur ? `${cur} ${t}` : t))} />
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={!canSend}
-          aria-label="Добавить задачу"
-          className={`shrink-0 rounded-full p-2 transition-transform active:scale-90 ${
-            canSend ? 'text-accent' : 'text-muted opacity-40'
-          }`}
-        >
-          <Send size={20} />
-        </button>
+    <div className="mb-4">
+      <div ref={wrapRef} className="card px-3 py-2">
+        <div className="flex items-center gap-1">
+          <Input
+            value={text}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setText(e.target.value)}
+            onKeyDown={onKeyDown}
+            onClear={() => setText('')}
+            placeholder="Что нужно сделать?"
+            className="border-0 bg-transparent px-1 py-2 focus:ring-0"
+          />
+          <MicButton onText={(t) => setText((cur) => (cur ? `${cur} ${t}` : t))} />
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={!canSend}
+            aria-label="Добавить задачу"
+            className={`shrink-0 rounded-full p-2 transition-transform active:scale-90 ${
+              canSend ? 'text-accent' : 'text-muted opacity-40'
+            }`}
+          >
+            <Send size={20} />
+          </button>
+        </div>
+        {hint && <p className="px-1 pt-0.5 pb-1 text-xs text-accent">{hint}</p>}
       </div>
-      {hint && <p className="px-1 pt-0.5 pb-1 text-xs text-accent">{hint}</p>}
+      <Hint id="tasks-quick-add" className="mt-2">
+        Пишите естественно: «завтра в 10 позвонить маме» — дата и время подставятся сами.
+        Enter — добавить задачу, крестик слева — стереть всё написанное.
+      </Hint>
     </div>
   );
 }

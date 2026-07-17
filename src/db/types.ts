@@ -15,6 +15,9 @@ export interface Project extends BaseEntity {
   emoji: string;
   sortOrder: number;
   archivedAt: string | null;
+  // Подпроект: id родительского проекта. null/undefined — верхний уровень.
+  // Глубина ограничена двумя уровнями: проект → подпроекты.
+  parentId?: string | null;
 }
 
 export interface ChecklistItem {
@@ -50,6 +53,8 @@ export interface Task extends BaseEntity {
   // Замороженная задача исключена из Today/статистики/активного списка и не
   // краснеет/желтеет — «как будто для неё остановилось время».
   frozenAt?: string | null;
+  // Фото задачи: сжатые JPEG dataURL (как в «Местах»/чате). undefined = нет.
+  photos?: string[];
 }
 
 export type GoalStatus = 'active' | 'completed' | 'paused' | 'archived';
@@ -195,6 +200,12 @@ export interface Settings {
   lastBackupAt: string | null;
   schemaVersion: number;
   updatedAt: string;
+  // Обучение: ISO-время завершения вводного тура. null/undefined — не пройден,
+  // при первом запуске поверх приложения показывается OnboardingOverlay.
+  onboardingDone?: string | null;
+  // Показанные контекстные подсказки (id из useHint) — каждая всплывает один
+  // раз при первом использовании раздела и скрывается крестиком навсегда.
+  seenHints?: string[];
 }
 
 // === Семейный раздел (общие задачи + чат) ===

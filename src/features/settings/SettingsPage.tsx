@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronRight, GraduationCap, Trash2 } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -246,6 +246,17 @@ export function SettingsPage() {
               <span className="flex-1">Корзина</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </Link>
+            <button
+              type="button"
+              // Сброс тура и всех контекстных подсказок: тур откроется сразу,
+              // подсказки снова всплывут по разделам.
+              onClick={() => void updateSettings({ onboardingDone: null, seenHints: [] })}
+              className="flex w-full items-center gap-2 border-b border-border p-4 text-left"
+            >
+              <GraduationCap size={20} className="shrink-0 text-muted" />
+              <span className="flex-1">Показать обучение заново</span>
+              <ChevronRight size={20} className="shrink-0 text-muted" />
+            </button>
             <Link
               to="/more/settings/install"
               className="flex items-center justify-between gap-2 p-4"
