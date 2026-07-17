@@ -475,9 +475,11 @@ export class FamilyRoom extends DurableObject {
   }
 
   // ICE-серверы. STUN (Cloudflare + Google) бесплатен и безлимитен. TURN
-  // (relay для ~10–20% сетей за симметричным NAT) — Cloudflare Realtime:
-  // 1000 ГБ/мес бесплатно. Креды коротко-живущие, генерим на каждый звонок.
-  // Без секретов TURN — звонок всё равно работает на STUN для большинства сетей.
+  // (relay для сетей за симметричным NAT/VPN, где P2P не пробивается):
+  // приоритет — Cloudflare Realtime (1000 ГБ/мес, нужны секреты TURN_KEY_*);
+  // без секретов — публичный Open Relay (metered.ca, бесплатный): хуже
+  // гарантии, но звонки работают из коробки. Медиа шифруется SRTP —
+  // ретранслятор содержимое не видит.
   async iceServers() {
     const servers = [
       { urls: 'stun:stun.cloudflare.com:3478' },
@@ -497,12 +499,20 @@ export class FamilyRoom extends DurableObject {
         );
         if (r.ok) {
           const data = await r.json();
-          if (data.iceServers) servers.push(data.iceServers);
+          if (data.iceServers) {
+            servers.push(data.iceServers);
+            return servers;
+          }
         }
       } catch {
-        /* TURN недоступен — остаёмся на STUN */
+        /* Cloudflare TURN недоступен — упадём на Open Relay ниже */
       }
     }
+    servers.push(
+      { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turns:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    );
     return servers;
   }
 
