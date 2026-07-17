@@ -120,8 +120,9 @@ export async function scheduleReminder(t: ReminderTask): Promise<void> {
     await cancelReminder(t.id);
     return;
   }
+  // Тон уведомлений: без эмодзи, коротко и по делу (title — название задачи).
   const body =
-    t.remindBefore && t.remindBefore > 0 ? `⏰ через ${t.remindBefore} мин · ${t.dueTime}` : `⏰ пора · ${t.dueTime}`;
+    t.remindBefore && t.remindBefore > 0 ? `Через ${t.remindBefore} мин · ${t.dueTime}` : `Уже пора · ${t.dueTime}`;
   try {
     await fetch(`${WORKER_URL}/schedule`, {
       method: 'POST',

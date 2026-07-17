@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, CheckCheck, Clock, Send, Pencil, Trash2, X, Paperclip, Mic, Play, Pause } from 'lucide-react';
+import { Check, CheckCheck, ChevronsDown, Clock, Copy, Send, Pencil, Reply, Trash2, X, Paperclip, Mic, Play, Pause } from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
+import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../lib/image';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import {
   sendMessage,
   sendImage,
   sendAudio,
+  sendReaction,
+  sendTyping,
+  subscribeTyping,
   editMessage,
   deleteMessage,
   subscribeReads,
@@ -18,6 +22,9 @@ import {
   markSeen,
 } from '../../lib/family/familyChat';
 import { useVoiceRecorder } from './useVoiceRecorder';
+
+// Палитра быстрых реакций — как в WhatsApp/Telegram, шесть базовых.
+const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
 
 /** мм:сс из секунд. */
 function fmtDur(sec: number): string {
@@ -66,19 +73,36 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
   );
 }
 
-// Порядок: подтверждённые по seq, неотправленные (seq=null) — в конец по времени.
+// Единый порядок сообщений: подтверждённые по seq, неотправленные — в конец
+// по времени. Реакции — служебные записи, в ленте не показываются.
+function msgOrder(a: FamilyMessage, b: FamilyMessage): number {
+  if (a.seq != null && b.seq != null) return a.seq - b.seq;
+  if (a.seq == null && b.seq == null) return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
+  return a.seq == null ? 1 : -1;
+}
 function ordered(msgs: FamilyMessage[]): FamilyMessage[] {
-  return [...msgs]
-    .filter((m) => !m.deletedAt)
-    .sort((a, b) => {
-      if (a.seq != null && b.seq != null) return a.seq - b.seq;
-      if (a.seq == null && b.seq == null) return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
-      return a.seq == null ? 1 : -1;
-    });
+  return [...msgs].filter((m) => !m.deletedAt && !m.reaction).sort(msgOrder);
 }
 
 function timeLabel(iso: string): string {
   return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+
+/** «Сегодня» / «Вчера» / «5 июля» — разделители дней в ленте. */
+function dayLabel(iso: string, now: number): string {
+  const d = new Date(iso);
+  const today = new Date(now);
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOf(today) - startOf(d)) / 86_400_000);
+  if (diffDays === 0) return 'Сегодня';
+  if (diffDays === 1) return 'Вчера';
+  const opts: Intl.DateTimeFormatOptions =
+    d.getFullYear() === today.getFullYear() ? { day: 'numeric', month: 'long' } : { day: 'numeric', month: 'long', year: 'numeric' };
+  return d.toLocaleDateString('ru-RU', opts);
+}
+function dayKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
 /** «5 мин назад» / «2 ч назад» / «вчера» / «3 июн». now передаётся state'ом,
@@ -95,7 +119,16 @@ function relTime(iso: string, now: number): string {
   return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
+/** Сниппет сообщения для цитаты ответа. */
+function snippetOf(m: FamilyMessage): string {
+  if (m.text) return m.text.slice(0, 120);
+  if (m.image) return 'Фото';
+  if (m.audio) return 'Голосовое сообщение';
+  return 'Сообщение';
+}
+
 export function ChatTab({ familyId }: { familyId: string }) {
+  const toast = useToast();
   const messagesRaw = useLiveQuery(() => db.familyMessages.where('familyId').equals(familyId).toArray(), [familyId]);
   const membersRaw = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]);
   const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
@@ -103,6 +136,37 @@ export function ChatTab({ familyId }: { familyId: string }) {
 
   const memberMap = useMemo(() => Object.fromEntries((membersRaw ?? []).map((m) => [m.id, m])), [membersRaw]);
   const list = useMemo(() => ordered(messagesRaw ?? []), [messagesRaw]);
+
+  // Реакции: append-only записи; последняя реакция участника на target
+  // побеждает (порядок как в ленте: seq, потом pending по времени).
+  const { reactionChips, myReactions } = useMemo(() => {
+    const raws = (messagesRaw ?? []).filter((m) => m.reaction && !m.deletedAt).sort(msgOrder);
+    const perSender = new Map<string, Map<string, string>>(); // target → sender → emoji
+    for (const r of raws) {
+      const { targetId, emoji } = r.reaction!;
+      let m = perSender.get(targetId);
+      if (!m) {
+        m = new Map();
+        perSender.set(targetId, m);
+      }
+      m.set(r.senderMemberId, emoji);
+    }
+    const chips = new Map<string, { emoji: string; count: number; mine: boolean }[]>();
+    const mine = new Map<string, string>();
+    for (const [target, senders] of perSender) {
+      const agg = new Map<string, { count: number; mine: boolean }>();
+      for (const [sender, emoji] of senders) {
+        if (sender === selfId && emoji) mine.set(target, emoji);
+        if (!emoji) continue;
+        const a = agg.get(emoji) ?? { count: 0, mine: false };
+        a.count += 1;
+        if (sender === selfId) a.mine = true;
+        agg.set(emoji, a);
+      }
+      if (agg.size) chips.set(target, [...agg.entries()].map(([emoji, a]) => ({ emoji, ...a })));
+    }
+    return { reactionChips: chips, myReactions: mine };
+  }, [messagesRaw, selfId]);
 
   // Presence в шапке чата: онлайн-статус собеседника(ов) + «был(а) в сети …».
   const others = useMemo(
@@ -125,9 +189,37 @@ export function ChatTab({ familyId }: { familyId: string }) {
   }, []);
   const onlineSet = useMemo(() => new Set(online), [online]);
 
+  // «Печатает…»: memberId → момент, когда индикатор погаснет.
+  const [typingUntil, setTypingUntil] = useState<Record<string, number>>({});
+  useEffect(
+    () =>
+      subscribeTyping(familyId, (memberId) => {
+        setTypingUntil((prev) => ({ ...prev, [memberId]: Date.now() + 4000 }));
+      }),
+    [familyId],
+  );
+  useEffect(() => {
+    if (Object.keys(typingUntil).length === 0) return;
+    const id = setInterval(() => {
+      setTypingUntil((prev) => {
+        const t = Date.now();
+        const next = Object.fromEntries(Object.entries(prev).filter(([, until]) => until > t));
+        return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [typingUntil]);
+  const typers = useMemo(
+    () => Object.keys(typingUntil).filter((id) => id !== selfId && memberMap[id] && !memberMap[id].leftAt),
+    [typingUntil, selfId, memberMap],
+  );
+
   const [text, setText] = useState('');
   const [actionMsg, setActionMsg] = useState<FamilyMessage | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<FamilyMessage | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [showJump, setShowJump] = useState(false);
   const [reads, setReadsState] = useState<Record<string, number>>({});
   useEffect(() => subscribeReads(familyId, setReadsState), [familyId]);
   // Максимальный seq, прочитанный ХОТЬ кем-то из других участников.
@@ -138,6 +230,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Отмечаем прочитанным до последнего seq, когда чат открыт и виден.
   useEffect(() => {
@@ -168,6 +261,19 @@ export function ChatTab({ familyId }: { familyId: string }) {
     }
   }, [list.length]);
 
+  // Прыжок к сообщению (тап по цитате): свой scrollTop + подсветка на секунду.
+  function jumpToMessage(id: string) {
+    const scrollEl = scrollRef.current;
+    const node = scrollEl?.querySelector<HTMLElement>(`[data-msg-id="${id}"]`);
+    if (!scrollEl || !node) return;
+    const nr = node.getBoundingClientRect();
+    const sr = scrollEl.getBoundingClientRect();
+    scrollEl.scrollTop += nr.top - sr.top - 72;
+    setHighlightId(id);
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlightId(null), 1300);
+  }
+
   async function submit() {
     const body = text.trim();
     if (!body) return;
@@ -177,14 +283,45 @@ export function ChatTab({ familyId }: { familyId: string }) {
       setEditingId(null);
       await editMessage(familyId, id, body);
     } else {
-      await sendMessage(familyId, body);
+      const quote = replyTo
+        ? {
+            id: replyTo.clientMsgId,
+            name: memberMap[replyTo.senderMemberId]?.displayName || 'Участник',
+            text: snippetOf(replyTo),
+          }
+        : undefined;
+      setReplyTo(null);
+      await sendMessage(familyId, body, quote);
     }
   }
 
   function startEdit(m: FamilyMessage) {
     setEditingId(m.clientMsgId);
+    setReplyTo(null);
     setText(m.text);
     setActionMsg(null);
+  }
+
+  function startReply(m: FamilyMessage) {
+    setReplyTo(m);
+    setEditingId(null);
+    setActionMsg(null);
+  }
+
+  async function copyText(m: FamilyMessage) {
+    setActionMsg(null);
+    try {
+      await navigator.clipboard.writeText(m.text);
+      toast('Скопировано');
+    } catch {
+      toast('Не удалось скопировать');
+    }
+  }
+
+  async function toggleReaction(m: FamilyMessage, emoji: string) {
+    setActionMsg(null);
+    const current = myReactions.get(m.clientMsgId);
+    await sendReaction(familyId, m.clientMsgId, current === emoji ? '' : emoji);
   }
 
   async function doDelete(m: FamilyMessage) {
@@ -209,6 +346,22 @@ export function ChatTab({ familyId }: { familyId: string }) {
     void sendAudio(familyId, dataUrl, dur);
   });
 
+  const headerStatus = (() => {
+    if (others.length === 0) return null;
+    if (typers.length > 0) {
+      const name = memberMap[typers[0]]?.displayName;
+      return others.length === 1 ? 'печатает…' : `${name || 'Кто-то'} печатает…`;
+    }
+    if (others.length === 1) {
+      return onlineSet.has(others[0].id)
+        ? 'в сети'
+        : lastSeen[others[0].id] && now
+          ? `был(а) в сети ${relTime(lastSeen[others[0].id], now)}`
+          : 'не в сети';
+    }
+    return `${others.filter((o) => onlineSet.has(o.id)).length} в сети`;
+  })();
+
   return (
     // Полная высота под чат от каркаса (Screen fill): лента растёт и скроллится,
     // композер прибит к низу. Без magic-number — высоту даёт родитель.
@@ -223,13 +376,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               <span className="font-medium" style={{ color: others[0].color }}>
                 {others[0].displayName}
               </span>
-              <span className="text-muted">
-                {onlineSet.has(others[0].id)
-                  ? 'в сети'
-                  : lastSeen[others[0].id] && now
-                    ? `был(а) в сети ${relTime(lastSeen[others[0].id], now)}`
-                    : 'не в сети'}
-              </span>
+              <span className={typers.length > 0 ? 'text-accent' : 'text-muted'}>{headerStatus}</span>
             </>
           ) : (
             <>
@@ -238,7 +385,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   others.some((o) => onlineSet.has(o.id)) ? 'bg-success' : 'bg-muted'
                 }`}
               />
-              <span className="text-muted">{others.filter((o) => onlineSet.has(o.id)).length} в сети</span>
+              <span className={typers.length > 0 ? 'text-accent' : 'text-muted'}>{headerStatus}</span>
             </>
           )}
         </div>
@@ -246,58 +393,136 @@ export function ChatTab({ familyId }: { familyId: string }) {
       {/* overscroll-contain: флик до края ленты НЕ чейнится в App-контейнер —
           без этого на iOS-momentum «война скроллов» с предком насыщала
           main-thread и чат замирал после прокруток вверх-вниз. */}
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
-        {list.length === 0 ? (
-          <p className="py-12 text-center text-sm text-muted">Пока нет сообщений. Напишите первым!</p>
-        ) : (
-          <div className="space-y-2 py-2">
-            {list.map((m) => {
-            if (m.system) {
-              return (
-                <div key={m.clientMsgId} className="py-1 text-center">
-                  <span className="inline-block rounded-full bg-surface-2 px-3 py-1 text-xs text-muted">{m.text}</span>
-                </div>
-              );
-            }
-            const own = m.senderMemberId === selfId;
-            const author = memberMap[m.senderMemberId];
-            return (
-              <div key={m.clientMsgId} className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  onClick={() => setActionMsg(m)}
-                  className={`max-w-[80%] cursor-pointer overflow-hidden rounded-2xl active:opacity-80 ${
-                    m.image ? 'p-1' : 'px-3 py-2'
-                  } ${own ? 'bg-accent text-white' : 'bg-surface-2 text-text'}`}
-                >
-                  {!own && author && (
-                    <p className={`mb-0.5 text-xs font-semibold ${m.image ? 'px-2 pt-1' : ''}`} style={{ color: author.color }}>
-                      {author.displayName}
-                    </p>
-                  )}
-                  {m.audio && <AudioBubble src={m.audio} duration={m.audioDur ?? 0} own={own} />}
-                  {m.image && (
-                    <img src={m.image} alt="Фото" loading="lazy" className="block max-h-80 max-w-full rounded-xl" />
-                  )}
-                  {m.text && (
-                    <p className={`whitespace-pre-wrap break-words text-[15px] ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
-                  )}
-                  <span className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${m.image ? 'px-2 pb-1' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
-                    {timeLabel(m.createdAt)}
-                    {own &&
-                      (m.status === 'pending' ? (
-                        <Clock size={11} />
-                      ) : m.seq != null && maxOtherRead >= m.seq ? (
-                        <CheckCheck size={13} className="text-sky-300" />
-                      ) : (
-                        <Check size={11} />
-                      ))}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-            <div ref={bottomRef} />
-          </div>
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={scrollRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            setShowJump(el.scrollHeight - el.scrollTop - el.clientHeight > 320);
+          }}
+          className="h-full overflow-y-auto overscroll-contain px-1"
+        >
+          {list.length === 0 ? (
+            <p className="py-12 text-center text-sm text-muted">Пока нет сообщений. Напишите первым!</p>
+          ) : (
+            <div className="space-y-2 py-2">
+              {list.map((m, i) => {
+                const divider =
+                  i === 0 || dayKey(list[i - 1].createdAt) !== dayKey(m.createdAt) ? (
+                    <div key={`d-${m.clientMsgId}`} className="flex items-center justify-center py-1.5">
+                      <span className="rounded-full bg-surface-2/80 px-3 py-0.5 text-[11px] font-medium text-muted">
+                        {now ? dayLabel(m.createdAt, now) : ''}
+                      </span>
+                    </div>
+                  ) : null;
+                if (m.system) {
+                  return (
+                    <div key={m.clientMsgId}>
+                      {divider}
+                      <div className="py-1 text-center">
+                        <span className="inline-block rounded-full bg-surface-2 px-3 py-1 text-xs text-muted">{m.text}</span>
+                      </div>
+                    </div>
+                  );
+                }
+                const own = m.senderMemberId === selfId;
+                const author = memberMap[m.senderMemberId];
+                const chips = reactionChips.get(m.clientMsgId);
+                return (
+                  <div key={m.clientMsgId}>
+                    {divider}
+                    <div data-msg-id={m.clientMsgId} className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`flex max-w-[80%] flex-col ${own ? 'items-end' : 'items-start'}`}>
+                        <div
+                          onClick={() => setActionMsg(m)}
+                          className={`cursor-pointer overflow-hidden rounded-2xl transition-shadow active:opacity-80 ${
+                            m.image ? 'p-1' : 'px-3 py-2'
+                          } ${own ? 'bg-accent text-white' : 'bg-surface-2 text-text'} ${
+                            highlightId === m.clientMsgId ? 'ring-2 ring-frost' : ''
+                          }`}
+                        >
+                          {!own && author && (
+                            <p className={`mb-0.5 text-xs font-semibold ${m.image ? 'px-2 pt-1' : ''}`} style={{ color: author.color }}>
+                              {author.displayName}
+                            </p>
+                          )}
+                          {m.replyTo && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                jumpToMessage(m.replyTo!.id);
+                              }}
+                              className={`mb-1 block w-full rounded-lg border-l-2 px-2 py-1 text-left ${
+                                m.image ? 'mx-2 mt-1 w-auto' : ''
+                              } ${own ? 'border-white/60 bg-white/15' : 'border-accent bg-accent/10'}`}
+                            >
+                              <span className={`block text-[11px] font-semibold ${own ? 'text-white/90' : 'text-accent'}`}>
+                                {m.replyTo.name}
+                              </span>
+                              <span className={`block truncate text-xs ${own ? 'text-white/75' : 'text-muted'}`}>
+                                {m.replyTo.text}
+                              </span>
+                            </button>
+                          )}
+                          {m.audio && <AudioBubble src={m.audio} duration={m.audioDur ?? 0} own={own} />}
+                          {m.image && (
+                            <img src={m.image} alt="Фото" loading="lazy" className="block max-h-80 max-w-full rounded-xl" />
+                          )}
+                          {m.text && (
+                            <p className={`whitespace-pre-wrap break-words text-[15px] ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
+                          )}
+                          <span className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${m.image ? 'px-2 pb-1' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
+                            {m.editedAt && <span>изменено</span>}
+                            {timeLabel(m.createdAt)}
+                            {own &&
+                              (m.status === 'pending' ? (
+                                <Clock size={11} />
+                              ) : m.seq != null && maxOtherRead >= m.seq ? (
+                                <CheckCheck size={13} className="text-sky-300" />
+                              ) : (
+                                <Check size={11} />
+                              ))}
+                          </span>
+                        </div>
+                        {chips && (
+                          <div className={`mt-1 flex flex-wrap gap-1 ${own ? 'justify-end' : ''}`}>
+                            {chips.map((c) => (
+                              <button
+                                key={c.emoji}
+                                type="button"
+                                onClick={() => void toggleReaction(m, c.emoji)}
+                                className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs active:scale-95 ${
+                                  c.mine ? 'border-accent/50 bg-accent/15' : 'border-border bg-surface-2'
+                                }`}
+                              >
+                                <span>{c.emoji}</span>
+                                {c.count > 1 && <span className="tabular-nums text-muted">{c.count}</span>}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={bottomRef} />
+            </div>
+          )}
+        </div>
+        {showJump && (
+          <button
+            type="button"
+            aria-label="К последним сообщениям"
+            onClick={() => {
+              const el = scrollRef.current;
+              if (el) el.scrollTop = el.scrollHeight;
+            }}
+            className="absolute bottom-3 right-2 flex size-10 items-center justify-center rounded-full border border-border bg-elevated/95 text-muted shadow-lg shadow-black/20 active:scale-95"
+          >
+            <ChevronsDown size={20} />
+          </button>
         )}
       </div>
 
@@ -313,6 +538,24 @@ export function ChatTab({ familyId }: { familyId: string }) {
               }}
               aria-label="Отменить редактирование"
               className="p-1 active:opacity-60"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+        {replyTo && (
+          <div className="flex items-center gap-2 px-1 pt-2 text-sm">
+            <Reply size={15} className="shrink-0 text-accent" />
+            <div className="min-w-0 flex-1 border-l-2 border-accent pl-2">
+              <p className="text-xs font-semibold text-accent">
+                {memberMap[replyTo.senderMemberId]?.displayName || 'Участник'}
+              </p>
+              <p className="truncate text-xs text-muted">{snippetOf(replyTo)}</p>
+            </div>
+            <button
+              onClick={() => setReplyTo(null)}
+              aria-label="Отменить ответ"
+              className="p-1 text-muted active:opacity-60"
             >
               <X size={16} />
             </button>
@@ -362,7 +605,10 @@ export function ChatTab({ familyId }: { familyId: string }) {
             </button>
             <textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => {
+                setText(e.target.value);
+                if (e.target.value.trim()) sendTyping(familyId);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -398,7 +644,40 @@ export function ChatTab({ familyId }: { familyId: string }) {
       <Sheet open={actionMsg !== null} onClose={() => setActionMsg(null)} title="Сообщение">
         {actionMsg && (
           <div className="space-y-2 pb-2">
-            {!actionMsg.image && !actionMsg.audio && (
+            {!actionMsg.system && (
+              <div className="flex justify-between gap-1 rounded-2xl bg-surface-2 p-2">
+                {REACTIONS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => void toggleReaction(actionMsg, emoji)}
+                    aria-label={`Реакция ${emoji}`}
+                    className={`flex size-10 items-center justify-center rounded-full text-[22px] transition-transform active:scale-90 ${
+                      myReactions.get(actionMsg.clientMsgId) === emoji ? 'bg-accent/20 ring-1 ring-accent/50' : ''
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => startReply(actionMsg)}
+              className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
+            >
+              <Reply size={18} className="text-accent" />
+              Ответить
+            </button>
+            {actionMsg.text && (
+              <button
+                onClick={() => void copyText(actionMsg)}
+                className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
+              >
+                <Copy size={18} className="text-accent" />
+                Копировать
+              </button>
+            )}
+            {actionMsg.senderMemberId === selfId && !actionMsg.image && !actionMsg.audio && (
               <button
                 onClick={() => startEdit(actionMsg)}
                 className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
@@ -407,13 +686,15 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 Редактировать
               </button>
             )}
-            <button
-              onClick={() => void doDelete(actionMsg)}
-              className="flex w-full items-center gap-3 rounded-xl bg-danger/15 p-3.5 text-left text-danger active:opacity-80"
-            >
-              <Trash2 size={18} />
-              Удалить
-            </button>
+            {actionMsg.senderMemberId === selfId && (
+              <button
+                onClick={() => void doDelete(actionMsg)}
+                className="flex w-full items-center gap-3 rounded-xl bg-danger/15 p-3.5 text-left text-danger active:opacity-80"
+              >
+                <Trash2 size={18} />
+                Удалить
+              </button>
+            )}
           </div>
         )}
       </Sheet>

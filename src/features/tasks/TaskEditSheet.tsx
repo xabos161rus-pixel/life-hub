@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Copy, ImagePlus, Timer, X } from 'lucide-react';
+import { Copy, Eraser, ImagePlus, ListOrdered, Timer, X } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, create, remove, uid, update } from '../../db/repo';
 import type { ChecklistItem, Priority, Project, Recurrence, Task } from '../../db/types';
@@ -442,10 +442,15 @@ export function TaskEditSheet({
               onText={(t) => setNotes((prev) => (prev ? `${prev} ${t}` : t))}
             />
           </div>
-          <Hint id="task-notes-tricks" className="mt-2">
-            Начните строку с «1. » — Enter сам продолжит нумерацию («2. », «3. »…).
-            Крестик в начале текста стирает всё поле разом.
-          </Hint>
+          <Hint
+            id="task-notes-tricks"
+            title="Удобный ввод"
+            className="mt-2"
+            items={[
+              { icon: ListOrdered, text: <>Начните строку с «1. » — Enter продолжит нумерацию сам</> },
+              { icon: Eraser, text: <>Крестик в начале текста стирает всё поле</> },
+            ]}
+          />
         </div>
 
         <div>

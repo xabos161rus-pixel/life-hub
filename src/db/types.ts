@@ -268,6 +268,12 @@ export interface FamilyMessage {
   audio?: string | null; // аудио dataURL (голосовое сообщение)
   audioDur?: number; // длительность голосового, сек
   system?: boolean; // системное сообщение («X присоединился») — без пузыря
+  // Ответ: сниппет оригинала внутри payload (E2E). Тап по цитате скроллит к id.
+  replyTo?: { id: string; name: string; text: string } | null;
+  // Сообщение-реакция: не рендерится пузырём, агрегируется по targetId.
+  // Последняя реакция участника на target побеждает; emoji '' — снятие.
+  reaction?: { targetId: string; emoji: string } | null;
+  editedAt?: string | null; // метка «изменено»
   status: 'pending' | 'sent' | 'acked'; // локальное состояние доставки (мимо синка)
   deletedAt: string | null;
 }

@@ -8,7 +8,7 @@ import {
 } from 'react';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { Bold, Italic, List, ListOrdered, Pin, Trash2 } from 'lucide-react';
+import { Bold, Italic, List, ListOrdered, Pin, SlidersHorizontal, Trash2, Type } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { MicButton } from '../../components/ui/MicButton';
@@ -340,10 +340,16 @@ export function NoteEditorPage() {
         </div>
       }
     >
-      <Hint id="note-editor-tricks" className="mb-3">
-        Первая строка — заголовок заметки. Начните строку с «1. » — Enter продолжит
-        нумерацию сам. Панель внизу — форматирование и списки.
-      </Hint>
+      <Hint
+        id="note-editor-tricks"
+        title="Редактор заметок"
+        className="mb-3"
+        items={[
+          { icon: Type, text: <>Первая строка — заголовок заметки</> },
+          { icon: ListOrdered, text: <>Начните строку с «1. » — Enter продолжит нумерацию сам</> },
+          { icon: SlidersHorizontal, text: <>Панель внизу — форматирование и списки</> },
+        ]}
+      />
 
       <div
         ref={editorRef}
