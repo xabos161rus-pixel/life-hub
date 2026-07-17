@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
-import { CornerDownLeft, Eraser, Send, Sparkles } from 'lucide-react';
+import { CircleX, CornerDownLeft, Send, Sparkles } from 'lucide-react';
 import { db } from '../../db/db';
 import { create } from '../../db/repo';
 import { Input } from '../../components/ui/Input';
@@ -92,7 +92,7 @@ export function QuickAddBar({
         items={[
           { icon: Sparkles, text: <>Пишите естественно: «завтра в 10 позвонить маме» — дата и время подставятся сами</> },
           { icon: CornerDownLeft, text: <>Enter — добавить задачу</> },
-          { icon: Eraser, text: <>Крестик слева стирает всё написанное</> },
+          { icon: CircleX, text: <>Крестик слева стирает всё написанное</> },
         ]}
       />
     </div>
