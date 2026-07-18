@@ -7,7 +7,7 @@ import { alive, create, remove, uid, update } from '../../db/repo';
 import type { ChecklistItem, Priority, Project, Recurrence, Task } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { ClearFieldButton, Field, Input } from '../../components/ui/Input';
+import { ClearFieldButton, Field, Input, Select } from '../../components/ui/Input';
 import { Hint } from '../../components/ui/Hint';
 import { useToast } from '../../components/ui/Toast';
 import { Chip, ChipRow } from '../../components/ui/Chip';
@@ -22,9 +22,6 @@ import { usePomodoro } from '../focus/PomodoroProvider';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 type PriorityStr = '0' | '1' | '2' | '3';
-
-const selectClass =
-  'w-full appearance-none rounded-xl bg-surface-2 border border-border px-3.5 py-3 text-text outline-none focus:border-accent';
 
 // Стили Input для авто-grow textarea названия (#7) — компонент Textarea не
 // прокидывает ref, поэтому используем нативный textarea с теми же классами.
@@ -574,11 +571,7 @@ export function TaskEditSheet({
               </div>
             </div>
           ) : (
-            <select
-              className={selectClass}
-              value={projectId ?? ''}
-              onChange={(e) => setProjectId(e.target.value || null)}
-            >
+            <Select value={projectId ?? ''} onChange={(e) => setProjectId(e.target.value || null)}>
               <option value="">Без проекта</option>
               {orderedProjects.map(({ p, depth }) => (
                 <option key={p.id} value={p.id}>
@@ -586,23 +579,19 @@ export function TaskEditSheet({
                   {p.emoji} {p.name}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </div>
 
         <Field label="Цель">
-          <select
-            className={selectClass}
-            value={goalId ?? ''}
-            onChange={(e) => setGoalId(e.target.value || null)}
-          >
+          <Select value={goalId ?? ''} onChange={(e) => setGoalId(e.target.value || null)}>
             <option value="">Без цели</option>
             {goals.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.title}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
 
         <Field label="Приоритет">
@@ -666,8 +655,7 @@ export function TaskEditSheet({
               </div>
             </Field>
             <Field label="Длительность">
-              <select
-                className={selectClass}
+              <Select
                 value={duration ?? ''}
                 onChange={(e) => setDuration(e.target.value ? Number(e.target.value) : null)}
               >
@@ -677,12 +665,11 @@ export function TaskEditSheet({
                     {formatDuration(m)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             {dueTime && (
               <Field label="Напоминание">
-                <select
-                  className={selectClass}
+                <Select
                   value={remindBefore ?? ''}
                   onChange={(e) =>
                     setRemindBefore(e.target.value === '' ? null : Number(e.target.value))
@@ -695,7 +682,7 @@ export function TaskEditSheet({
                       за {formatDuration(m)}
                     </option>
                   ))}
-                </select>
+                </Select>
               </Field>
             )}
           </>

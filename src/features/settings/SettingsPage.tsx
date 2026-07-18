@@ -201,7 +201,7 @@ export function SettingsPage() {
     <Screen title="Настройки" backTo="/more">
       <div className="space-y-6">
         <Section title="Тема">
-          <div className="rounded-2xl border border-border bg-surface p-4">
+          <div className="card p-4">
             <SegmentedControl
               options={THEME_OPTIONS}
               value={settings.theme}
@@ -211,7 +211,7 @@ export function SettingsPage() {
         </Section>
 
         <Section title="Уведомления">
-          <div className="rounded-2xl border border-border bg-surface">
+          <div className="card">
             <div className="p-4">
               {pushOn ? (
                 <p className="text-sm">
@@ -230,7 +230,7 @@ export function SettingsPage() {
                 </>
               )}
             </div>
-            <div className="flex items-center gap-2 border-t border-border p-4">
+            <div className="flex items-center gap-2 border-t border-hairline p-4">
               <BellRing size={20} className="shrink-0 text-muted" />
               <span className="flex-1">Звук сообщений</span>
               {/* Выбор сразу проигрывает звук — слышно, что выбираешь. */}
@@ -241,7 +241,7 @@ export function SettingsPage() {
                   void updateSettings({ messageSound: v });
                   void playMessageSound(v);
                 }}
-                className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
+                className="rounded-lg border border-hairline bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
               >
                 {MESSAGE_SOUNDS.map((s) => (
                   <option key={s.value} value={s.value}>
@@ -250,7 +250,7 @@ export function SettingsPage() {
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-2 border-t border-border p-4">
+            <div className="flex items-center gap-2 border-t border-hairline p-4">
               <PhoneCall size={20} className="shrink-0 text-muted" />
               <span className="flex-1">Звук звонка</span>
               {/* Выбор сразу проигрывает короткий фрагмент рингтона. */}
@@ -261,7 +261,7 @@ export function SettingsPage() {
                   void updateSettings({ callSound: v });
                   previewRingtone(v);
                 }}
-                className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
+                className="rounded-lg border border-hairline bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
               >
                 {RINGTONES.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -278,7 +278,7 @@ export function SettingsPage() {
         </Section>
 
         <Section title="Данные">
-          <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+          <div className="card space-y-3 p-4">
             {/* Автоматическая облачная копия — переживает потерю телефона */}
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-medium">Автокопия в облако</span>
@@ -377,7 +377,7 @@ export function SettingsPage() {
         </Section>
 
         <Section title="Хранилище">
-          <div className="space-y-1.5 rounded-2xl border border-border bg-surface p-4 text-sm">
+          <div className="card space-y-1.5 p-4 text-sm">
             <p>
               Защищённое хранилище:{' '}
               <span className="font-medium">
@@ -397,8 +397,8 @@ export function SettingsPage() {
         </Section>
 
         <Section title="Приложение">
-          <div className="rounded-2xl border border-border bg-surface">
-            <Link to="/more/trash" className="flex items-center gap-2 border-b border-border p-4">
+          <div className="card">
+            <Link to="/more/trash" className="flex items-center gap-2 border-b border-hairline p-4">
               <Trash2 size={20} className="shrink-0 text-muted" />
               <span className="flex-1">Корзина</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
@@ -408,7 +408,7 @@ export function SettingsPage() {
               // Сброс тура и всех контекстных подсказок: тур откроется сразу,
               // подсказки снова всплывут по разделам.
               onClick={() => void updateSettings({ onboardingDone: null, seenHints: [] })}
-              className="flex w-full items-center gap-2 border-b border-border p-4 text-left"
+              className="flex w-full items-center gap-2 border-b border-hairline p-4 text-left"
             >
               <GraduationCap size={20} className="shrink-0 text-muted" />
               <span className="flex-1">Показать обучение заново</span>
@@ -421,7 +421,7 @@ export function SettingsPage() {
               <span>Как установить на экран «Домой»</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </Link>
-            <p className="border-t border-border px-4 py-3 text-sm text-muted">
+            <p className="border-t border-hairline px-4 py-3 text-sm text-muted">
               Версия 1.0.0 · данные хранятся только на этом устройстве
             </p>
           </div>

@@ -41,7 +41,7 @@ function EnergyCard({ item, onOpen }: { item: EnergyItem; onOpen: () => void }) 
   return (
     <div
       onClick={onOpen}
-      className="rounded-2xl border border-hairline bg-surface p-4 active:opacity-90"
+      className="card p-4 active:opacity-90"
     >
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 flex-1 truncate font-semibold">{item.title}</p>
@@ -89,7 +89,7 @@ export function EnergyPage() {
   return (
     <Screen title="Энергия" backTo="/more">
       <div className="space-y-3">
-        <div className="rounded-2xl border border-hairline bg-surface p-4">
+        <div className="card p-4">
           <p className="text-sm leading-relaxed text-muted">
             Когда ничего не хочется — выберите способ под свои силы.
           </p>

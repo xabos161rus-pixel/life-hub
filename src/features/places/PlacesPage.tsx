@@ -55,7 +55,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
   return (
     <div
       onClick={onOpen}
-      className="overflow-hidden rounded-2xl border border-hairline bg-surface active:opacity-90"
+      className="card active:opacity-90"
     >
       {item.photo && <img src={item.photo} alt="" className="h-40 w-full object-cover" />}
       <div className="flex items-start gap-3 p-4">

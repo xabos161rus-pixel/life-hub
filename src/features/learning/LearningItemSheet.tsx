@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Button } from '../../components/ui/Button';
-import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
+import { AutoGrowTextarea, Field, Input, Select } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
@@ -10,9 +10,6 @@ import type { LearningItem, LearningKind } from '../../db/types';
 
 type EditableStatus = 'planned' | 'inProgress' | 'done';
 type ProgressUnit = LearningItem['progressUnit'];
-
-const SELECT_CLASS =
-  'w-full appearance-none rounded-xl bg-surface-2 border border-border px-3.5 py-3 text-text outline-none focus:border-accent';
 
 interface Props {
   open: boolean;
@@ -177,10 +174,9 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
           </Field>
         )}
         <Field label="Цель">
-          <select
+          <Select
             value={goalId}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setGoalId(e.target.value)}
-            className={SELECT_CLASS}
           >
             <option value="">Без цели</option>
             {goals.map((g) => (
@@ -188,7 +184,7 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
                 {g.title}
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
         <Field label="Заметки">
           <AutoGrowTextarea
