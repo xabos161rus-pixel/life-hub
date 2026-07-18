@@ -11,7 +11,7 @@ import { useToast } from '../../components/ui/Toast';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { db } from '../../db/db';
 import { alive, now } from '../../db/repo';
-import { enablePush, isStandalone, pushEnabled, pushSupported, rescheduleAll } from '../../lib/push';
+import { enablePush, isIOS, isStandalone, pushEnabled, pushSupported, rescheduleAll } from '../../lib/push';
 import {
   exportBackup,
   backupFilename,
@@ -59,7 +59,7 @@ export function SettingsPage() {
       alert('Уведомления не поддерживаются этим браузером.');
       return;
     }
-    if (!isStandalone()) {
+    if (isIOS() && !isStandalone()) {
       alert(
         'На iPhone уведомления работают только в установленном приложении. Добавьте Life Hub на экран «Домой» и откройте оттуда.',
       );
