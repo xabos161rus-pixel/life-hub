@@ -34,8 +34,10 @@ export interface CallSnapshot {
   peerId: string | null;
   peerName: string;
   muted: boolean;
-  speakerOn: boolean; // громкая связь (дефолт обеих платформ) или «к уху»
+  speakerOn: boolean; // громкая связь или «к уху»
   speakerAvailable: boolean; // платформа умеет переключать маршрут — иначе кнопки нет
+  // Системный выбор аудиовыхода (AirPods/наушники/колонка) — AirPlay-пикер iOS.
+  outputPickerAvailable: boolean;
   startedAt: number | null; // когда соединение стало active (для таймера)
   endReason: string | null;
 }
@@ -48,6 +50,7 @@ const IDLE: CallSnapshot = {
   muted: false,
   speakerOn: true,
   speakerAvailable: false,
+  outputPickerAvailable: false,
   startedAt: null,
   endReason: null,
 };
@@ -453,7 +456,12 @@ class CallManager {
       } catch {
         /* тип не поддержан — остаёмся на системном дефолте */
       }
-      this.set({ speakerAvailable: true, speakerOn: false });
+      // AirPlay-пикер WebKit: системный выбор выхода (AirPods/колонка/телефон).
+      const el = this.ensureAudio() as HTMLAudioElement & {
+        webkitShowPlaybackTargetPicker?: () => void;
+      };
+      const hasPicker = typeof el.webkitShowPlaybackTargetPicker === 'function';
+      this.set({ speakerAvailable: true, speakerOn: false, outputPickerAvailable: hasPicker });
       return;
     }
     const gen = this.gen;
@@ -483,6 +491,19 @@ class CallManager {
       /* enumerateDevices недоступен — остаёмся без кнопки */
     }
     this.set({ speakerAvailable: this.speakerMode !== 'none', speakerOn: true });
+  }
+
+  /** Системный выбор аудиовыхода (AirPlay-пикер): AirPods, наушники, колонки.
+   *  Требует жеста пользователя — вызывается из кнопки оверлея. */
+  showOutputPicker(): void {
+    const el = this.ensureAudio() as HTMLAudioElement & {
+      webkitShowPlaybackTargetPicker?: () => void;
+    };
+    try {
+      el.webkitShowPlaybackTargetPicker?.();
+    } catch {
+      /* пикер недоступен */
+    }
   }
 
   async toggleSpeaker(): Promise<void> {
@@ -711,7 +732,7 @@ class CallManager {
     this.receiverSinkId = null;
     this.earpieceInputId = null;
     this.speakerInputId = null;
-    this.set({ status: 'ended', endReason: reason, muted: false, speakerOn: true, speakerAvailable: false, startedAt: null });
+    this.set({ status: 'ended', endReason: reason, muted: false, speakerOn: true, speakerAvailable: false, outputPickerAvailable: false, startedAt: null });
     // Показать причину (~2.5с), затем скрыть оверлей.
     this.cancelDismiss();
     this.dismissTimer = setTimeout(() => {

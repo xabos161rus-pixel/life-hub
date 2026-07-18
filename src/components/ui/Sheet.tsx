@@ -78,7 +78,7 @@ export function Sheet({ open, onClose, title, children }: Props) {
       <div className="absolute inset-0 animate-fade-in bg-black/60" onClick={onClose} />
       <div
         ref={panelRef}
-        className="absolute inset-x-0 bottom-0 max-h-[88dvh] animate-sheet-up overflow-y-auto rounded-t-[1.6rem] border-t border-hairline bg-elevated pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
+        className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto rounded-t-[1.6rem] border-t border-hairline bg-elevated pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
         style={
           dragging
             ? { transform: `translateY(${dragY}px)`, transition: 'none' }

@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { CircleX, CornerDownLeft, Send, Sparkles } from 'lucide-react';
+import { isTouch } from '../../lib/platform';
 import { db } from '../../db/db';
 import { create } from '../../db/repo';
 import { Input } from '../../components/ui/Input';
@@ -91,7 +92,9 @@ export function QuickAddBar({
         className="mt-2"
         items={[
           { icon: Sparkles, text: <>Пишите естественно: «завтра в 10 позвонить маме» — дата и время подставятся сами</> },
-          { icon: CornerDownLeft, text: <>Enter — добавить задачу</> },
+          isTouch
+            ? { icon: Send, text: <>Стрелка справа — добавить задачу</> }
+            : { icon: CornerDownLeft, text: <>Enter — добавить задачу</> },
           { icon: CircleX, text: <>Крестик слева стирает всё написанное</> },
         ]}
       />

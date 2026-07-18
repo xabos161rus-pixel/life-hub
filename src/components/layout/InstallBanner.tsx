@@ -24,7 +24,7 @@ export function InstallBanner() {
   if (dismissed || isStandalone()) return null;
 
   return (
-    <div className="card fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+78px)] z-30 flex items-center gap-3 p-3">
+    <div className="card fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+78px)] z-30 mx-auto flex max-w-lg items-center gap-3 p-3">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
         <Share size={18} />
       </span>

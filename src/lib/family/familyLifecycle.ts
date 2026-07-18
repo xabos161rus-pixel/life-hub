@@ -31,6 +31,7 @@ export async function createFamily(familyName: string, displayName: string): Pro
     lastReadSeq: 0,
     enabled: true,
     joinedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(), // конфиг уедет на другие устройства аккаунта
   });
   await upsertSelfMember(familyId, displayName);
   connectFamily(familyId);
@@ -58,6 +59,7 @@ export async function joinFamily(code: string, displayName: string): Promise<str
     lastReadSeq: 0,
     enabled: true,
     joinedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(), // конфиг уедет на другие устройства аккаунта
   });
   await upsertSelfMember(p.familyId, displayName);
   connectFamily(p.familyId);

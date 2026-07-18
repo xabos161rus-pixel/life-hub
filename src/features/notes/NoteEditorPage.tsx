@@ -81,8 +81,14 @@ export function NoteEditorPage() {
   // Активность кнопок форматирования для подсветки в тулбаре.
   const [active, setActive] = useState({ bold: false, italic: false, ul: false, ol: false });
 
-  // Пересчитываем активные форматы по текущему выделению (в обработчике, не в рендере).
+  // Пересчитываем активные форматы по текущему выделению (в обработчике, не в
+  // рендере). Тротл: selectionchange стреляет на каждый символ, а 4 вызова
+  // queryCommandState на iOS дороги — на длинной заметке подвешивали ввод.
+  const activeThrottle = useRef(0);
   const syncActive = useCallback(() => {
+    const now = Date.now();
+    if (now - activeThrottle.current < 200) return;
+    activeThrottle.current = now;
     const el = editorRef.current;
     const sel = document.getSelection();
     if (!el || !sel || sel.rangeCount === 0 || !el.contains(sel.anchorNode)) return;
@@ -225,6 +231,12 @@ export function NoteEditorPage() {
     if (!el || !sel || sel.rangeCount === 0 || !sel.isCollapsed) return;
     const anchor = sel.anchorNode;
     if (!anchor || !el.contains(anchor)) return;
+    // Каретка «между блоками» (anchorNode — сам редактор): iOS так ставит её
+    // после Enter на пустой строке. Автонумерации тут нет — обычный перенос.
+    if (anchor === el) {
+      keepCaretVisible();
+      return;
+    }
     const host = anchor instanceof Element ? anchor : anchor.parentElement;
     if (host?.closest('li')) {
       keepCaretVisible();
@@ -232,8 +244,16 @@ export function NoteEditorPage() {
     }
     // Блок текущей строки — ближайший предок, чей родитель сам редактор
     // (строки contentEditable — это <div>; первая строка — голые текст-узлы).
+    // КРИТИЧНО не выйти за пределы редактора: range шире него превратил бы
+    // «стирание маркера» в удаление куска страницы (мёртвый UI до перезагрузки).
     let block: Node = anchor;
-    while (block.parentNode && block.parentNode !== el) block = block.parentNode;
+    while (block.parentNode !== el) {
+      if (!block.parentNode) {
+        keepCaretVisible();
+        return; // структура неожиданная — не трогаем DOM
+      }
+      block = block.parentNode;
+    }
     const r = document.createRange();
     r.setStart(block, 0);
     r.setEnd(anchor, sel.anchorOffset);
@@ -381,8 +401,9 @@ export function NoteEditorPage() {
       {/* Панель форматирования над клавиатурой (таб-бар на этом экране скрыт). */}
       <div
         ref={toolbarRef}
-        className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 border-t border-hairline bg-surface p-2 pb-[calc(env(safe-area-inset-bottom)+8px)]"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface p-2 pb-[calc(env(safe-area-inset-bottom)+8px)]"
       >
+        <div className="mx-auto flex w-full max-w-lg items-center gap-1">
         <ToolBtn onClick={() => exec('bold')} label="Жирный" active={active.bold}>
           <Bold size={20} strokeWidth={2.25} />
         </ToolBtn>
@@ -402,6 +423,7 @@ export function NoteEditorPage() {
         >
           Сохранено
         </span>
+        </div>
       </div>
     </Screen>
   );

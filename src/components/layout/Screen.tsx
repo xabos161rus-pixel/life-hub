@@ -21,8 +21,10 @@ interface Props {
 export function Screen({ title, backTo, right, subtitle, fill = false, children }: Props) {
   return (
     <div className={fill ? 'flex h-full flex-col' : 'min-h-full pb-20'}>
+      {/* Широкие экраны (Mac/Windows/iPad): контент — центральная колонка
+          max-w-lg, той же ширины, что таб-бар. На телефоне ничего не меняет. */}
       <header className="sticky top-0 z-30 shrink-0 border-b border-hairline bg-bg px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3">
-        <div className="flex items-center gap-2">
+        <div className="mx-auto flex w-full max-w-lg items-center gap-2">
           {backTo && (
             <Link to={backTo} aria-label="Назад" className="-ml-2 p-1 text-accent active:opacity-60">
               <ChevronLeft size={26} />
@@ -35,7 +37,15 @@ export function Screen({ title, backTo, right, subtitle, fill = false, children 
           {right}
         </div>
       </header>
-      <main className={fill ? 'min-h-0 flex-1 overflow-hidden px-4 pt-4' : 'px-4 pt-4'}>{children}</main>
+      <main
+        className={
+          fill
+            ? 'mx-auto min-h-0 w-full max-w-lg flex-1 overflow-hidden px-4 pt-4'
+            : 'mx-auto w-full max-w-lg px-4 pt-4'
+        }
+      >
+        {children}
+      </main>
     </div>
   );
 }

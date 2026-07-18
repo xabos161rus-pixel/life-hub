@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, GraduationCap, Trash2 } from 'lucide-react';
+import { BellRing, ChevronRight, GraduationCap, Trash2 } from 'lucide-react';
+import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/sounds';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -257,6 +258,26 @@ export function SettingsPage() {
               <span className="flex-1">Показать обучение заново</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </button>
+            <div className="flex items-center gap-2 border-b border-border p-4">
+              <BellRing size={20} className="shrink-0 text-muted" />
+              <span className="flex-1">Звук сообщений</span>
+              {/* Выбор сразу проигрывает звук — слышно, что выбираешь. */}
+              <select
+                value={settings.messageSound ?? 'tritone'}
+                onChange={(e) => {
+                  const v = e.target.value as MessageSound;
+                  void updateSettings({ messageSound: v });
+                  void playMessageSound(v);
+                }}
+                className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
+              >
+                {MESSAGE_SOUNDS.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <Link
               to="/more/settings/install"
               className="flex items-center justify-between gap-2 p-4"

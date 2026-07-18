@@ -17,7 +17,8 @@ export function Fab({ onClick, label = 'Добавить' }: Props) {
       style={{
         backgroundImage: 'linear-gradient(140deg, var(--app-accent), var(--app-accent-2))',
       }}
-      className={`fixed right-5 z-40 flex size-14 items-center justify-center rounded-full text-white shadow-[var(--shadow-accent)] transition-[transform,bottom] duration-200 active:scale-90 ${
+      // right: на широких экранах держится у края центральной колонки max-w-lg
+      className={`fixed right-[max(1.25rem,calc(50vw-16rem))] z-40 flex size-14 items-center justify-center rounded-full text-white shadow-[var(--shadow-accent)] transition-[transform,bottom] duration-200 active:scale-90 ${
         active
           ? 'bottom-[calc(env(safe-area-inset-bottom)+128px)]'
           : 'bottom-[calc(env(safe-area-inset-bottom)+80px)]'

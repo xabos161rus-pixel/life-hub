@@ -176,6 +176,22 @@ select {
   font-size: 16px;
 }
 
+/* Мышь и трекпад (Mac/Windows/iPad с курсором): живой отклик наведения —
+   кнопки и ссылки слегка приглушаются под курсором. На таче не активен. */
+@media (hover: hover) and (pointer: fine) {
+  @layer base {
+    button:hover,
+    a:hover {
+      opacity: 0.88;
+    }
+    button,
+    a {
+      transition-property: opacity;
+      transition-duration: 120ms;
+    }
+  }
+}
+
 @keyframes sheet-up {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
