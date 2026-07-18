@@ -111,6 +111,7 @@ export function parseQuickTask(raw: string): ParsedTask {
       let h = parseInt(hourM[1], 10);
       const suffix = hourM[2]?.toLowerCase();
       if ((suffix === 'вечера' || suffix === 'дня') && h < 12) h += 12; // «в 7 вечера» → 19:00
+      if (suffix === 'ночи' && h === 12) h = 0; // «в 12 ночи» → 00:00
       if (h >= 0 && h <= 23) dueTime = `${pad2(h)}:00`;
     }
   }
@@ -194,6 +195,10 @@ export function parseQuickTask(raw: string): ParsedTask {
       }
     }
   }
+
+  // Явное время без даты («позвонить в 18:00») — как части дня: значит сегодня.
+  // Иначе время терялось бы: dueTime обнулялся при пустой дате (см. return).
+  if (dueTime && !dueDate) dueDate = todayKey();
 
   const title = text.replace(/\s+/g, ' ').trim();
   return {

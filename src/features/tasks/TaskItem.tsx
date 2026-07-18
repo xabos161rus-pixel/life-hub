@@ -6,7 +6,7 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 import { useToast } from '../../components/ui/Toast';
 import { db } from '../../db/db';
 import { remove, update } from '../../db/repo';
-import { cancelReminder } from '../../lib/push';
+import { cancelReminder, scheduleReminder } from '../../lib/push';
 import { addDaysKey, formatDueDate, todayKey } from '../../lib/dates';
 import { describeRecurrence } from '../../lib/recurrence';
 import { skipTask, toggleTask } from './taskActions';
@@ -118,7 +118,11 @@ export function TaskItem({
 
   const handleTomorrow = () => {
     setDx(0);
-    void update(db.tasks, task.id, { dueDate: addDaysKey(todayKey(), 1) });
+    const dueDate = addDaysKey(todayKey(), 1);
+    void update(db.tasks, task.id, { dueDate });
+    // Переносим и пуш-напоминание (иначе оно осталось бы на сегодня, а завтра
+    // не сработало бы). scheduleReminder сам снимет пуш, если времени нет.
+    void scheduleReminder({ ...task, dueDate });
     toast('Перенесено на завтра');
   };
 
@@ -331,7 +335,7 @@ export function TaskItem({
                   пропущено{task.skippedCount > 1 ? ` ×${task.skippedCount}` : ''}
                 </span>
               ) : null}
-              {task.remindBefore != null && (
+              {task.remindBefore != null && task.dueTime && (
                 <span className="flex items-center" aria-label="Напоминание включено">
                   <Bell size={11} />
                 </span>
