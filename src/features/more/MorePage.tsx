@@ -8,6 +8,7 @@ import {
   ChartColumnBig,
   Timer,
   Users,
+  Sparkles,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -86,6 +87,12 @@ export function MorePage() {
   return (
     <Screen title="Ещё">
       <div className="space-y-3">
+        <MenuCard
+          to="/share"
+          icon={Sparkles}
+          title="Быстрый захват"
+          subtitle="Вставить текст → задача или заметка"
+        />
         <MenuCard
           to="/stats"
           icon={ChartColumnBig}

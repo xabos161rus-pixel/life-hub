@@ -31,6 +31,20 @@ export default defineConfig(({ command }) => ({
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
           { src: 'icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
+        // Приём «Поделиться» (Android/десктоп Chromium; iOS WebKit это не
+        // поддерживает — там вход в /share идёт через ярлык Shortcuts и кнопку
+        // «Вставить из буфера»). GET-навигация ловится SPA-роутером на /share.
+        share_target: {
+          action: '/life-hub/share',
+          method: 'GET',
+          params: { title: 'title', text: 'text', url: 'url' },
+        },
+        // Пункты по долгому нажатию на иконку (это WebKit поддерживает и на iOS).
+        shortcuts: [
+          { name: 'Быстрый захват', url: '/life-hub/share' },
+          { name: 'Новая заметка', url: '/life-hub/notes/new' },
+          { name: 'Новая задача', url: '/life-hub/tasks' },
+        ],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],

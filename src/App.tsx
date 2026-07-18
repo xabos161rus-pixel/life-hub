@@ -22,6 +22,7 @@ import { FinancePage } from './features/finance/FinancePage';
 import { EnergyPage } from './features/energy/EnergyPage';
 import { PlacesPage } from './features/places/PlacesPage';
 import { SearchPage } from './features/search/SearchPage';
+import { SharePage } from './features/share/SharePage';
 import { StatsPage } from './features/stats/StatsPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { TrashPage } from './features/trash/TrashPage';
@@ -117,6 +118,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<TodayPage />} />
                 <Route path="/search" element={<SearchPage />} />
+                <Route path="/share" element={<SharePage />} />
                 <Route path="/stats" element={<StatsPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/tasks" element={<TasksPage />} />
