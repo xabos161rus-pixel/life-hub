@@ -210,23 +210,45 @@ export function SettingsPage() {
         </Section>
 
         <Section title="Уведомления">
-          <div className="rounded-2xl border border-border bg-surface p-4">
-            {pushOn ? (
-              <p className="text-sm">
-                <span className="font-medium text-success">Включены</span> · напоминания о
-                задачах придут даже при закрытом приложении
-              </p>
-            ) : (
-              <>
-                <Button className="w-full" onClick={() => void handleEnablePush()}>
-                  Включить уведомления
-                </Button>
-                <p className="mt-2 text-sm text-muted">
-                  Нужны для напоминаний о задачах («напомнить за N мин»). На iPhone работают
-                  только в установленном приложении.
+          <div className="rounded-2xl border border-border bg-surface">
+            <div className="p-4">
+              {pushOn ? (
+                <p className="text-sm">
+                  <span className="font-medium text-success">Включены</span> · напоминания о
+                  задачах придут даже при закрытом приложении
                 </p>
-              </>
-            )}
+              ) : (
+                <>
+                  <Button className="w-full" onClick={() => void handleEnablePush()}>
+                    Включить уведомления
+                  </Button>
+                  <p className="mt-2 text-sm text-muted">
+                    Нужны для напоминаний о задачах («напомнить за N мин»). На iPhone работают
+                    только в установленном приложении.
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2 border-t border-border p-4">
+              <BellRing size={20} className="shrink-0 text-muted" />
+              <span className="flex-1">Звук сообщений</span>
+              {/* Выбор сразу проигрывает звук — слышно, что выбираешь. */}
+              <select
+                value={settings.messageSound ?? 'tritone'}
+                onChange={(e) => {
+                  const v = e.target.value as MessageSound;
+                  void updateSettings({ messageSound: v });
+                  void playMessageSound(v);
+                }}
+                className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
+              >
+                {MESSAGE_SOUNDS.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </Section>
 
@@ -371,26 +393,6 @@ export function SettingsPage() {
               <span className="flex-1">Показать обучение заново</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </button>
-            <div className="flex items-center gap-2 border-b border-border p-4">
-              <BellRing size={20} className="shrink-0 text-muted" />
-              <span className="flex-1">Звук сообщений</span>
-              {/* Выбор сразу проигрывает звук — слышно, что выбираешь. */}
-              <select
-                value={settings.messageSound ?? 'tritone'}
-                onChange={(e) => {
-                  const v = e.target.value as MessageSound;
-                  void updateSettings({ messageSound: v });
-                  void playMessageSound(v);
-                }}
-                className="rounded-lg border border-border bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
-              >
-                {MESSAGE_SOUNDS.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
             <Link
               to="/more/settings/install"
               className="flex items-center justify-between gap-2 p-4"
