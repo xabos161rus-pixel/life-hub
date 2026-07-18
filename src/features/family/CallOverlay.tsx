@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Volume2 } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, Headphones } from 'lucide-react';
 import { callManager, type CallSnapshot } from '../../lib/family/familyCall';
 
 function fmtElapsed(ms: number): string {
@@ -85,6 +85,15 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
                   onClick={() => void callManager.toggleSpeaker()}
                 >
                   <Volume2 size={26} />
+                </CallButton>
+              )}
+              {snap.outputPickerAvailable && (
+                <CallButton
+                  color="surface"
+                  label="Наушники"
+                  onClick={() => callManager.showOutputPicker()}
+                >
+                  <Headphones size={26} />
                 </CallButton>
               )}
               <CallButton color="danger" label="Завершить" onClick={() => callManager.hangup()}>

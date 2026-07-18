@@ -12,6 +12,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Folder, FolderPlus, GripVertical, Hand, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
 import { db } from '../../db/db';
+import { isTouch } from '../../lib/platform';
 import { alive, update } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
@@ -740,7 +741,22 @@ export function TasksPage() {
   }, [draggingProject, hitTest, toast]);
 
   // Свёрнутые группы (проекты/«Без проекта»). По умолчанию все развёрнуты.
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  // Персистим в localStorage — иначе перезапуск приложения раскрывал всё назад.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('life-hub-collapsed-projects');
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('life-hub-collapsed-projects', JSON.stringify([...collapsed]));
+    } catch {
+      /* приватный режим */
+    }
+  }, [collapsed]);
   // Развёрнутые под-секции выполненных по ключу группы. По умолчанию — свёрнуты.
   const [expandedCompleted, setExpandedCompleted] = useState<Set<string>>(() => new Set());
 
@@ -913,12 +929,21 @@ export function TasksPage() {
               id="tasks-gestures"
               title="Жесты списка"
               className="mb-4"
-              items={[
-                { icon: ArrowRight, text: <>Свайп по задаче вправо — выполнить</> },
-                { icon: ArrowLeft, text: <>Свайп влево — «Завтра» или «Удалить»</> },
-                { icon: Hand, text: <>Удержание задачи — перенести в другую папку</> },
-                { icon: GripVertical, text: <>Удержание заголовка папки — поменять порядок</> },
-              ]}
+              items={
+                isTouch
+                  ? [
+                      { icon: ArrowRight, text: <>Свайп по задаче вправо — выполнить</> },
+                      { icon: ArrowLeft, text: <>Свайп влево — «Завтра» или «Удалить»</> },
+                      { icon: Hand, text: <>Удержание задачи — перенести в другую папку</> },
+                      { icon: GripVertical, text: <>Удержание заголовка папки — поменять порядок</> },
+                    ]
+                  : [
+                      { icon: ArrowRight, text: <>Потяните задачу мышью вправо — выполнить</> },
+                      { icon: ArrowLeft, text: <>Влево — «Завтра» или «Удалить»</> },
+                      { icon: Hand, text: <>Зажмите задачу — перенести в другую папку</> },
+                      { icon: GripVertical, text: <>Зажмите заголовок папки — поменять порядок</> },
+                    ]
+              }
             />
           )}
           {topProjects.map((p, i) => {

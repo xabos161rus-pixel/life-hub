@@ -98,7 +98,7 @@ function NoteRow({
       >
         {note.pinned && <Pin size={13} className="mt-1 shrink-0 text-accent" fill="currentColor" />}
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">{title}</p>
+          <p className="line-clamp-2 break-words font-semibold">{title}</p>
           <p className="mt-0.5 flex gap-1.5 text-sm text-muted">
             <span className="shrink-0">{formatRu(toKey(new Date(note.updatedAt)))}</span>
             {preview && <span className="truncate">{preview}</span>}

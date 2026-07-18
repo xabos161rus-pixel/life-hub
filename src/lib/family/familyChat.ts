@@ -192,7 +192,9 @@ class FamilyEngine {
 
   // Пакетное применение бэкфилла И живого потока: расшифровка ВНЕ транзакции,
   // запись — в ОДНОЙ транзакции (один wake useLiveQuery вместо сотен).
-  private async applyBatch(c: FamilyConfig, items: RawItem[]) {
+  // live=true — сообщения пришли в реальном времени (не бэкфилл истории):
+  // чужой видимый текст/фото/голос дёргает слушателей звука уведомления.
+  private async applyBatch(c: FamilyConfig, items: RawItem[], live = false) {
     const decoded: { it: RawItem; p: Record<string, unknown> }[] = [];
     for (const it of items) {
       try {
@@ -237,6 +239,20 @@ class FamilyEngine {
       c.lastSeq = maxSeq;
       this.bumpSeq(maxSeq);
     }
+    if (
+      live &&
+      decoded.some(
+        ({ it, p }) =>
+          it.channel === 'msg' &&
+          it.senderMemberId &&
+          it.senderMemberId !== c.selfMemberId &&
+          !p.system &&
+          !p.reaction &&
+          !p.deletedAt,
+      )
+    ) {
+      incomingListeners.forEach((l) => l(this.familyId));
+    }
   }
 
   // Микро-очередь живых item: пачка за 50мс применяется одной транзакцией.
@@ -247,7 +263,7 @@ class FamilyEngine {
       this.itemFlush = null;
       const batch = this.itemBuf;
       this.itemBuf = [];
-      void this.cfg().then((fresh) => (fresh ? this.applyBatch(fresh, batch) : undefined));
+      void this.cfg().then((fresh) => (fresh ? this.applyBatch(fresh, batch, true) : undefined));
     }, 50);
   }
 
@@ -543,6 +559,13 @@ class FamilyEngine {
     this.trySendFrame({ type: 'send', channel, itemId, senderMemberId: c.selfMemberId, ciphertext: await encryptJSON(c.familyKey, payload) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
+}
+
+// Слушатели живых входящих сообщений (для звука уведомления в приложении).
+const incomingListeners = new Set<(familyId: string) => void>();
+export function subscribeIncoming(fn: (familyId: string) => void): () => void {
+  incomingListeners.add(fn);
+  return () => incomingListeners.delete(fn);
 }
 
 // === Реестр движков (по одному на семью) ===

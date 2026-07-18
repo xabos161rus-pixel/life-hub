@@ -53,6 +53,20 @@ interface RemoteRecord {
 
 type Row = Record<string, unknown> & { id: string; updatedAt: string; deletedAt: string | null };
 
+// Полезная нагрузка записи familyShare: семейное подключение, реплицируемое
+// между устройствами ОДНОГО аккаунта. Ключ семьи — в сыром base64url виде,
+// но только внутри шифротекста аккаунтного ключа.
+interface FamilySharePayload {
+  familyId: string;
+  familyToken: string;
+  keyRaw: string;
+  familyName: string;
+  selfMemberId: string;
+  joinedAt: string;
+  enabled: boolean;
+  updatedAt: string;
+}
+
 /** Применять ли удалённую правку: если локальной нет или удалённая новее (LWW). */
 export function shouldApply(localUpdatedAt: string | undefined, remoteUpdatedAt: string): boolean {
   return !localUpdatedAt || remoteUpdatedAt > localUpdatedAt;
@@ -78,6 +92,39 @@ async function pullPage(
   const data = (await res.json()) as { records: RemoteRecord[]; hasMore: boolean; nextSince: string };
   let applied = 0;
   for (const r of data.records) {
+    // Семейное подключение с другого МОЕГО устройства: восстанавливаем конфиг
+    // (ключ/токен зашифрованы аккаунтным ключом). Курсоры чтения — свои,
+    // с нуля: бэкфилл комнаты доберёт историю. FamilyRunner увидит новую
+    // группу через liveQuery и сам поднимет соединение.
+    if (r.table === 'familyShare') {
+      const p = await decryptJSON<FamilySharePayload>(c.key, r.ciphertext);
+      const local = await db.family.get(p.familyId);
+      if (!local) {
+        await db.family.put({
+          id: p.familyId,
+          familyId: p.familyId,
+          familyToken: p.familyToken,
+          familyKey: await importKeyRaw(p.keyRaw),
+          familyName: p.familyName,
+          selfMemberId: p.selfMemberId,
+          lastSeq: 0,
+          lastReadSeq: 0,
+          enabled: p.enabled,
+          joinedAt: p.joinedAt,
+          updatedAt: p.updatedAt,
+        });
+        applied++;
+      } else if (shouldApply(local.updatedAt, p.updatedAt)) {
+        await db.family.update(p.familyId, {
+          familyToken: p.familyToken,
+          familyName: p.familyName,
+          enabled: p.enabled,
+          updatedAt: p.updatedAt,
+        });
+        applied++;
+      }
+      continue;
+    }
     if (!isSynced(r.table)) continue; // незнакомая таблица — пропускаем
     const table = db.table<Row>(r.table);
     const local = await table.get(r.id);
@@ -130,6 +177,31 @@ async function push(c: SyncConfig): Promise<number> {
       ciphertext: await encryptJSON(c.key, row),
     })),
   );
+  // Семейные подключения — на другие МОИ устройства (ключ семьи внутри
+  // шифротекста аккаунтного ключа; серверу, как и всё остальное, не виден).
+  const famFresh = (await db.family.toArray()).filter(
+    (f) => typeof f.updatedAt === 'string' && f.updatedAt > c.lastPushAt,
+  );
+  for (const f of famFresh) {
+    const payload: FamilySharePayload = {
+      familyId: f.familyId,
+      familyToken: f.familyToken,
+      keyRaw: await exportKeyRaw(f.familyKey),
+      familyName: f.familyName,
+      selfMemberId: f.selfMemberId,
+      joinedAt: f.joinedAt,
+      enabled: f.enabled,
+      updatedAt: f.updatedAt!,
+    };
+    out.push({
+      table: 'familyShare',
+      id: f.familyId,
+      updatedAt: f.updatedAt!,
+      deletedAt: null,
+      ciphertext: await encryptJSON(c.key, payload),
+    });
+    if (f.updatedAt! > maxUpdatedAt) maxUpdatedAt = f.updatedAt!;
+  }
   for (let i = 0; i < out.length; i += PUSH_CHUNK) {
     const res = await fetch(`${WORKER_URL}/sync/push`, {
       method: 'POST',

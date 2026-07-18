@@ -7,6 +7,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Hint } from '../../components/ui/Hint';
 import { useToast } from '../../components/ui/Toast';
 import { compressImage } from '../../lib/image';
+import { isTouch } from '../../lib/platform';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import {
   sendMessage,
@@ -637,11 +638,19 @@ export function ChatTab({ familyId }: { familyId: string }) {
         id="chat-gestures"
         title="Жесты чата"
         className="mb-2 shrink-0"
-        items={[
-          { icon: ArrowRight, text: <>Свайп по сообщению вправо — ответить</> },
-          { icon: Heart, text: <>Двойной тап — быстрое ❤️</> },
-          { icon: Hand, text: <>Тап или удержание — меню: реакции, копировать, править</> },
-        ]}
+        items={
+          isTouch
+            ? [
+                { icon: ArrowRight, text: <>Свайп по сообщению вправо — ответить</> },
+                { icon: Heart, text: <>Двойной тап — быстрое ❤️</> },
+                { icon: Hand, text: <>Тап или удержание — меню: реакции, копировать, править</> },
+              ]
+            : [
+                { icon: ArrowRight, text: <>Потяните сообщение мышью вправо — ответить</> },
+                { icon: Heart, text: <>Двойной клик — быстрое ❤️</> },
+                { icon: Hand, text: <>Клик — меню: реакции, копировать, править</> },
+              ]
+        }
       />
       {/* overscroll-contain: флик до края ленты НЕ чейнится в App-контейнер —
           без этого на iOS-momentum «война скроллов» с предком насыщала
