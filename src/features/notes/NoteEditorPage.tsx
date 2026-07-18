@@ -25,11 +25,13 @@ const SANITIZE = {
   ALLOWED_ATTR: [],
 };
 
-/** Заголовок заметки = первая непустая строка её текста (как в iOS). */
+/** Заголовок заметки = первая непустая строка её текста (как в iOS).
+ *  Без жёсткого лимита: режем лишь на 300 символов — защита от «заголовка» в
+ *  абзац, но обычные длинные названия сохраняются целиком. */
 function deriveTitle(text: string): string {
   for (const line of text.split('\n')) {
     const t = line.trim();
-    if (t) return t.slice(0, 140);
+    if (t) return t.slice(0, 300);
   }
   return '';
 }

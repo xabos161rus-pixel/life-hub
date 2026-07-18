@@ -214,15 +214,27 @@ select {
 .note-editor {
   outline: none;
   min-height: 62dvh;
-  font-size: 17px;
-  line-height: 1.5;
   word-break: break-word;
-}
-/* Первая визуальная строка — крупный заголовок, как в iOS Notes. */
-.note-editor::first-line {
+  /* База редактора = стиль ЗАГОЛОВКА. Заголовок — это первая строка заметки
+     («голый» ведущий текст до первого блока; строки тела редактор оборачивает
+     в <div>). Раньше заголовок красил ::first-line — но он затрагивает лишь
+     первую ВИЗУАЛЬНУЮ строку, поэтому длинный заголовок обрывался, а перенос
+     выглядел как тело. Теперь крупным/жирным становится весь ведущий текст —
+     заголовок переносится целиком, без ограничения в одну строку. */
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1.35;
+}
+/* Тело заметки — блоки после заголовка: обычный размер и насыщенность. */
+.note-editor div,
+.note-editor p,
+.note-editor ul,
+.note-editor ol,
+.note-editor h1,
+.note-editor h2 {
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.5;
 }
 .note-editor:empty::before {
   content: attr(data-placeholder);
