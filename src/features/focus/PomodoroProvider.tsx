@@ -497,6 +497,6 @@ export function formatClock(ms: number): string {
 export function formatFocusTime(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
-  if (h === 0) return `${m} мин`;
-  return m === 0 ? `${h} ч` : `${h} ч ${m} мин`;
+  if (h === 0) return `${m}\u00A0мин`;
+  return m === 0 ? `${h}\u00A0ч` : `${h}\u00A0ч ${m}\u00A0мин`;
 }

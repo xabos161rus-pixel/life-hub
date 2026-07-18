@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { Field, Input, Textarea } from '../../components/ui/Input';
+import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
@@ -121,9 +121,10 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
   return (
     <div className="space-y-4 pb-2">
       <Field label="Название">
-        <Input
+        <AutoGrowTextarea
           value={title}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
+          onClear={() => setTitle('')}
           placeholder="Например, «Кафе у моря»"
         />
       </Field>
@@ -141,11 +142,11 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
         />
       </Field>
       <Field label="Описание">
-        <Textarea
+        <AutoGrowTextarea
           value={description}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
           placeholder="Совет, опыт, рекомендация…"
-          rows={3}
+          className="min-h-[4.5rem]"
         />
       </Field>
       <Field label="От кого">

@@ -179,7 +179,7 @@ export function FinancePage() {
                           ? 'сегодня'
                           : daysLeft === 1
                             ? 'завтра'
-                            : `через ${daysLeft} дн.`}{' '}
+                            : `через ${daysLeft}\u00A0дн.`}{' '}
                         ({formatRu(date)})
                       </p>
                     </div>

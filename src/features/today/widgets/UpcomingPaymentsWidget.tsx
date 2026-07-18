@@ -11,7 +11,7 @@ import { formatRub, upcomingExpenses } from '../../../lib/finance';
 function daysLeftLabel(daysLeft: number): string {
   if (daysLeft === 0) return 'сегодня';
   if (daysLeft === 1) return 'завтра';
-  return `через ${daysLeft} дн.`;
+  return `через ${daysLeft}\u00A0дн.`;
 }
 
 /** «Ближайшие платежи» — ежемесячные списания в пределах 7 дней. */
