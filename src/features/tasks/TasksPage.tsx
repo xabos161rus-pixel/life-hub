@@ -20,6 +20,7 @@ import { Fab } from '../../components/layout/Fab';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Hint } from '../../components/ui/Hint';
+import { useHint } from '../../hooks/useHint';
 import { useToast } from '../../components/ui/Toast';
 import { formatDueDate } from '../../lib/dates';
 import { describeRecurrence } from '../../lib/recurrence';
@@ -465,6 +466,9 @@ function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; onAddSu
 
 export function TasksPage() {
   const toast = useToast();
+  // Подсказки показываем по одной: жесты — после закрытия «Быстрого добавления»,
+  // иначе две обучающие карточки подряд прячут сам список задач за складкой.
+  const quickAddHint = useHint('tasks-quick-add');
   const [taskSheetOpen, setTaskSheetOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskDefaultProject, setTaskDefaultProject] = useState<string | null>(null);
@@ -924,7 +928,7 @@ export function TasksPage() {
         />
       ) : (
         <>
-          {allTasks.length > 0 && (
+          {allTasks.length > 0 && !quickAddHint.visible && (
             <Hint
               id="tasks-gestures"
               title="Жесты списка"

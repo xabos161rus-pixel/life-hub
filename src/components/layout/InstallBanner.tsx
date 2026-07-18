@@ -1,27 +1,15 @@
-import { useState } from 'react';
 import { Link } from 'react-router';
 import { Share, X } from 'lucide-react';
-
-const DISMISS_KEY = 'life-hub-install-dismissed';
-
-function isStandalone(): boolean {
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    // старый Safari-флаг
-    (navigator as unknown as { standalone?: boolean }).standalone === true
-  );
-}
+import { dismissInstallBanner, useInstallBannerVisible } from '../../hooks/useInstallBanner';
 
 /**
  * iOS не поддерживает beforeinstallprompt — показываем баннер с инструкцией,
  * пока приложение открыто во вкладке Safari, а не с экрана «Домой».
+ * Логика видимости — в useInstallBanner (её же читает Fab).
  */
 export function InstallBanner() {
-  const [dismissed, setDismissed] = useState(
-    () => localStorage.getItem(DISMISS_KEY) === '1',
-  );
-
-  if (dismissed || isStandalone()) return null;
+  const visible = useInstallBannerVisible();
+  if (!visible) return null;
 
   return (
     <div className="card fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+78px)] z-30 mx-auto flex max-w-lg items-center gap-3 p-3">
@@ -37,10 +25,7 @@ export function InstallBanner() {
       <button
         aria-label="Скрыть"
         className="shrink-0 p-1 text-muted"
-        onClick={() => {
-          localStorage.setItem(DISMISS_KEY, '1');
-          setDismissed(true);
-        }}
+        onClick={dismissInstallBanner}
       >
         <X size={18} />
       </button>
