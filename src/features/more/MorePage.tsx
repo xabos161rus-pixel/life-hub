@@ -117,7 +117,7 @@ export function MorePage() {
           to="/more/settings"
           icon={SettingsIcon}
           title="Настройки"
-          subtitle={backupDue ? 'Пора сделать бэкап' : undefined}
+          subtitle={backupDue ? 'Пора сделать резервную копию' : undefined}
           subtitleWarning={backupDue}
           badge={backupDue}
         />

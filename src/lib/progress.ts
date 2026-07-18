@@ -1,4 +1,6 @@
 import type { Goal, Task } from '../db/types';
+import { formatNum } from './finance';
+import { plural } from './plural';
 
 function clamp(n: number): number {
   return Math.max(0, Math.min(100, Math.round(n)));
@@ -27,10 +29,10 @@ export function goalProgressLabel(goal: Goal, linkedTasks: Task[] = []): string 
     case 'manual':
       return `${clamp(goal.progressManual)}%`;
     case 'numeric':
-      return `${goal.currentValue ?? 0} из ${goal.targetValue ?? 0}${goal.unitLabel ? ` ${goal.unitLabel}` : ''}`;
+      return `${formatNum(goal.currentValue ?? 0)} из ${formatNum(goal.targetValue ?? 0)}${goal.unitLabel ? ` ${goal.unitLabel}` : ''}`;
     case 'tasks': {
       const done = linkedTasks.filter((t) => t.completedAt).length;
-      return `${done} из ${linkedTasks.length} задач`;
+      return `${done} из ${linkedTasks.length} ${plural(linkedTasks.length, ['задачи', 'задач', 'задач'])}`;
     }
   }
 }

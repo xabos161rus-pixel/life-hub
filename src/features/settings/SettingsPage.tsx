@@ -128,7 +128,7 @@ export function SettingsPage() {
       const backup = validateBackup(parsed);
       const p = previewBackup(backup);
       const msg =
-        'Импорт заменит ВСЕ текущие данные.\n\nВ бэкапе:\n' +
+        'Импорт заменит ВСЕ текущие данные.\n\nВ резервной копии:\n' +
         `• проектов: ${p.counts.projects}\n` +
         `• задач: ${p.counts.tasks}\n` +
         `• целей: ${p.counts.goals}\n` +
@@ -138,7 +138,7 @@ export function SettingsPage() {
         `• материалов обучения: ${p.counts.learningItems}\n` +
         `• записей прогресса: ${p.counts.learningLogs}\n` +
         `• расходов: ${p.counts.expenseItems}\n` +
-        `• энергозатрат: ${p.counts.energyItems}\n` +
+        `• записей энергии: ${p.counts.energyItems}\n` +
         `• мест: ${p.counts.placeItems}\n` +
         `• метрик: ${p.counts.metrics}\n` +
         `• замеров метрик: ${p.counts.metricLogs}\n` +
@@ -148,7 +148,7 @@ export function SettingsPage() {
       await importBackup(backup);
       toast('Данные восстановлены');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Не удалось прочитать файл бэкапа');
+      alert(err instanceof Error ? err.message : 'Не удалось прочитать файл резервной копии');
     }
   }
 
@@ -193,10 +193,10 @@ export function SettingsPage() {
         <Section title="Данные">
           <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">
             <Button className="w-full" onClick={() => void handleExport()}>
-              Экспортировать бэкап
+              Экспортировать резервную копию
             </Button>
             <p className="text-sm text-muted">
-              Последний бэкап:{' '}
+              Последняя копия:{' '}
               {settings.lastBackupAt ? (
                 formatRu(settings.lastBackupAt.slice(0, 10), 'd MMMM yyyy')
               ) : (
@@ -208,7 +208,7 @@ export function SettingsPage() {
               className="w-full"
               onClick={() => fileRef.current?.click()}
             >
-              Импортировать бэкап
+              Импортировать резервную копию
             </Button>
             <input
               ref={fileRef}
@@ -235,7 +235,7 @@ export function SettingsPage() {
               </span>
             </p>
             {(persisted === false || settings.lastBackupAt === null) && (
-              <p className="text-warning">Регулярно делайте бэкап.</p>
+              <p className="text-warning">Регулярно делайте резервную копию.</p>
             )}
           </div>
         </Section>

@@ -321,7 +321,7 @@ export function TaskItem({
                   {formatDueDate(task.dueDate)}
                   {task.dueTime
                     ? `, ${task.dueTime}${
-                        task.duration ? ` – ${addMinutesToTime(task.dueTime, task.duration)}` : ''
+                        task.duration ? `–${addMinutesToTime(task.dueTime, task.duration)}` : ''
                       }`
                     : ''}
                 </span>

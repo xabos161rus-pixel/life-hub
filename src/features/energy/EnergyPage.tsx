@@ -91,7 +91,7 @@ export function EnergyPage() {
       <div className="space-y-3">
         <div className="rounded-2xl border border-hairline bg-surface p-4">
           <p className="text-sm leading-relaxed text-muted">
-            Когда ничего не хочется — выбери способ под свои силы.
+            Когда ничего не хочется — выберите способ под свои силы.
           </p>
         </div>
         <SegmentedControl<Filter>

@@ -55,17 +55,17 @@ export interface ImportPreview {
 export function validateBackup(parsed: unknown): BackupFile {
   const b = parsed as BackupFile;
   if (!b || typeof b !== 'object' || b.app !== 'life-hub') {
-    throw new Error('Это не файл бэкапа Life Hub');
+    throw new Error('Это не файл резервной копии Life Hub');
   }
   if (typeof b.schemaVersion !== 'number' || b.schemaVersion > SCHEMA_VERSION) {
-    throw new Error('Бэкап создан более новой версией приложения');
+    throw new Error('Резервная копия создана более новой версией приложения');
   }
   if (!b.data || typeof b.data !== 'object') {
-    throw new Error('Файл бэкапа повреждён: нет данных');
+    throw new Error('Файл резервной копии повреждён: нет данных');
   }
   for (const name of TABLES) {
     if (b.data[name] !== undefined && !Array.isArray(b.data[name])) {
-      throw new Error(`Файл бэкапа повреждён: таблица ${name}`);
+      throw new Error('Файл резервной копии повреждён: неверная структура данных');
     }
   }
   return b;
