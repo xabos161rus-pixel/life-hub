@@ -249,7 +249,7 @@ export function TaskEditSheet({
         dueDate,
         dueTime: dueDate ? dueTime : null,
         duration: dueDate ? duration : null,
-        remindBefore: dueDate ? remindBefore : null,
+        remindBefore: dueTime ? remindBefore : null,
         checklist,
         photos,
         recurrence: buildRecurrence(),
@@ -679,23 +679,25 @@ export function TaskEditSheet({
                 ))}
               </select>
             </Field>
-            <Field label="Напоминание">
-              <select
-                className={selectClass}
-                value={remindBefore ?? ''}
-                onChange={(e) =>
-                  setRemindBefore(e.target.value === '' ? null : Number(e.target.value))
-                }
-              >
-                <option value="">Выкл</option>
-                <option value="0">Вовремя</option>
-                {REMIND_PRESETS.map((m) => (
-                  <option key={m} value={m}>
-                    за {formatDuration(m)}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {dueTime && (
+              <Field label="Напоминание">
+                <select
+                  className={selectClass}
+                  value={remindBefore ?? ''}
+                  onChange={(e) =>
+                    setRemindBefore(e.target.value === '' ? null : Number(e.target.value))
+                  }
+                >
+                  <option value="">Выкл</option>
+                  <option value="0">Вовремя</option>
+                  {REMIND_PRESETS.map((m) => (
+                    <option key={m} value={m}>
+                      за {formatDuration(m)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
           </>
         )}
 

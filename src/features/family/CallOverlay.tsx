@@ -59,7 +59,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
 
       {/* Управление */}
       {!ended && (
-        <div className="flex w-full items-center justify-center gap-10">
+        <div className="flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-4">
           {incoming ? (
             <>
               <CallButton color="danger" label="Отклонить" onClick={() => callManager.decline()}>

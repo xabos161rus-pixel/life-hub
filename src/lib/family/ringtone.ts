@@ -89,7 +89,9 @@ function beginRingtone(kind: RingtoneKind): void {
 
   let cancels: (() => void)[] = [];
   const scheduleCycle = () => {
-    if (typeof navigator.vibrate === 'function') navigator.vibrate([700, 300, 700]);
+    // Вибрация длиной с трель (а не фикс. паттерн) — иначе у короткого «Яркого»
+    // цикла паттерн длиннее периода и вибро «слипается» в непрерывное.
+    if (typeof navigator.vibrate === 'function') navigator.vibrate(Math.round(burstDur * 1000));
     // У suspended контекста currentTime заморожен: запланированные трели легли
     // бы стопкой на одну и ту же отметку и при разлочке грянули бы все разом
     // клиппованным залпом. Пока не running — просто пропускаем тик.
@@ -140,9 +142,14 @@ export function stopRingtone(): void {
   }
 }
 
-/** Короткий предпрослушивание варианта (для настроек): одна трель, затем стоп. */
+/** Короткое прослушивание варианта (для настроек): одна трель, затем стоп.
+ *  Останавливаем только СВОЙ предпрослушиваемый рингтон: если за 2.2 с придёт
+ *  реальный входящий (сменит startToken), его трель мы не глушим. */
 export function previewRingtone(kind: RingtoneKind): void {
   stopRingtone();
+  const token = startToken;
   beginRingtone(kind);
-  setTimeout(() => stopRingtone(), 2200);
+  setTimeout(() => {
+    if (startToken === token) stopRingtone();
+  }, 2200);
 }
