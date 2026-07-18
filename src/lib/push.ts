@@ -34,6 +34,17 @@ export function isStandalone(): boolean {
   );
 }
 
+/** iOS/iPadOS — только там web push требует установки на «Домой». На десктопе
+ *  (Mac/Windows) и Android пуши работают и в обычной вкладке. iPadOS 13+
+ *  маскируется под Mac — отличаем его по числу тач-точек. */
+export function isIOS(): boolean {
+  const ua = navigator.userAgent;
+  return (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua))
+  );
+}
+
 export function pushEnabled(): boolean {
   return (
     pushSupported() && Notification.permission === 'granted' && !!localStorage.getItem(SUB_KEY)
