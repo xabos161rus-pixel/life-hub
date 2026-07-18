@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Button } from '../../components/ui/Button';
-import { Field, Input, Textarea } from '../../components/ui/Input';
+import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
@@ -106,9 +106,10 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
   return (
     <div className="space-y-4 pb-2">
         <Field label="Название">
-          <Input
+          <AutoGrowTextarea
             value={title}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
+            onClear={() => setTitle('')}
             placeholder="Например, «Атомные привычки»"
           />
         </Field>
@@ -190,11 +191,11 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
           </select>
         </Field>
         <Field label="Заметки">
-          <Textarea
+          <AutoGrowTextarea
             value={notes}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
             placeholder="Мысли, цитаты, выводы…"
-            rows={3}
+            className="min-h-[4.5rem]"
           />
         </Field>
         <div className="flex gap-2 pt-1">

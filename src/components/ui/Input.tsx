@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 import { X } from 'lucide-react';
 
@@ -63,6 +64,44 @@ export function Textarea({
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea className={`${base} resize-none ${className}`} {...props} />;
+}
+
+/** Поле, растущее за текстом — для названий и описаний без ограничения длины.
+ *  Заменяет однострочный Input там, где текст может быть длинным: строка
+ *  переносится и поле само тянется вниз, ничего не обрезается и не прячется в
+ *  горизонтальный скролл. min-height задаётся через className (напр. min-h-…).
+ *  onClear — крестик очистки в начале, как в остальных полях. */
+export function AutoGrowTextarea({
+  className = '',
+  onClear,
+  style,
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement> & { onClear?: () => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const { value } = props;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  const showClear = Boolean(onClear) && typeof value === 'string' && value.length > 0;
+  const ta = (
+    <textarea
+      ref={ref}
+      rows={1}
+      className={`${base} resize-none overflow-hidden ${className}`}
+      style={showClear ? { ...style, paddingLeft: '2.5rem' } : style}
+      {...props}
+    />
+  );
+  if (!onClear) return ta;
+  return (
+    <div className="relative w-full min-w-0">
+      {showClear && <ClearFieldButton onClick={onClear} className="top-3" />}
+      {ta}
+    </div>
+  );
 }
 
 /** Подпись + контрол — стандартная строка формы в шитах. */

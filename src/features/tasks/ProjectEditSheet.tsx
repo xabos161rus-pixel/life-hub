@@ -6,7 +6,7 @@ import { alive, create, remove, update } from '../../db/repo';
 import type { Project } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { Field, Input } from '../../components/ui/Input';
+import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { PRESET_COLORS } from '../../lib/colors';
 
 const selectClass =
@@ -94,7 +94,7 @@ export function ProjectEditSheet({
     <Sheet open={open} onClose={onClose} title={project ? 'Проект' : 'Новый проект'}>
       <div className="flex flex-col gap-4 pb-2">
         <Field label="Название">
-          <Input
+          <AutoGrowTextarea
             value={name}
             placeholder="Например, «Ремонт»"
             onChange={(e) => setName(e.target.value)}
