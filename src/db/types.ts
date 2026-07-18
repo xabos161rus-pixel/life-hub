@@ -209,6 +209,8 @@ export interface Settings {
   // Звук нового сообщения чата при открытом приложении (lib/sounds.ts).
   // undefined = 'tritone'. Для закрытого приложения звук пуша — системный.
   messageSound?: 'tritone' | 'ding' | 'pop' | 'none';
+  // Рингтон входящего звонка (lib/family/ringtone.ts). undefined = 'classic'.
+  callSound?: 'classic' | 'soft' | 'bright';
   // Автоматическая резервная копия. 'cloud' — зашифрованный снапшот аккаунта
   // на сервер (нужна включённая синхронизация). undefined/'off' — выключено.
   autoBackup?: 'off' | 'cloud';
