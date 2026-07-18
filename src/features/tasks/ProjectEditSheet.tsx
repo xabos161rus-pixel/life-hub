@@ -6,11 +6,8 @@ import { alive, create, remove, update } from '../../db/repo';
 import type { Project } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
+import { AutoGrowTextarea, Field, Input, Select } from '../../components/ui/Input';
 import { PRESET_COLORS } from '../../lib/colors';
-
-const selectClass =
-  'w-full appearance-none rounded-xl bg-surface-2 border border-border px-3.5 py-3 text-text outline-none focus:border-accent';
 
 /** Шит создания/редактирования проекта. project=null → создание.
  *  defaults.parentId — предзаполненный родитель («+ Подпроект» из секции). */
@@ -113,18 +110,14 @@ export function ProjectEditSheet({
               У этого проекта есть подпроекты — его нельзя вложить в другой.
             </p>
           ) : (
-            <select
-              className={selectClass}
-              value={parentId ?? ''}
-              onChange={(e) => setParentId(e.target.value || null)}
-            >
+            <Select value={parentId ?? ''} onChange={(e) => setParentId(e.target.value || null)}>
               <option value="">Верхний уровень</option>
               {parentOptions.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.emoji} {p.name}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </div>
 

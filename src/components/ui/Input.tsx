@@ -1,6 +1,11 @@
 import { useLayoutEffect, useRef } from 'react';
-import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
-import { Search, X } from 'lucide-react';
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react';
+import { ChevronDown, Search, X } from 'lucide-react';
 
 const base =
   'w-full rounded-xl bg-surface-2 border border-hairline px-3.5 py-3 text-text placeholder:text-muted outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent/25';
@@ -64,6 +69,27 @@ export function Textarea({
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea className={`${base} resize-none ${className}`} {...props} />;
+}
+
+/** Выпадающий список в едином со всеми полями виде: та же тонкая граница и
+ *  фокус-кольцо, что у Input, плюс своя стрелка (нативную убирает
+ *  appearance-none — без неё поле не читалось бы как «список»). */
+export function Select({
+  className = '',
+  children,
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className="relative w-full min-w-0">
+      <select className={`${base} cursor-pointer appearance-none pr-10 ${className}`} {...props}>
+        {children}
+      </select>
+      <ChevronDown
+        size={18}
+        className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-muted"
+      />
+    </div>
+  );
 }
 
 /** Поле, растущее за текстом — для названий и описаний без ограничения длины.
