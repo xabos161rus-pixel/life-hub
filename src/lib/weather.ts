@@ -27,25 +27,38 @@ function getCoords(): Promise<{ lat: number; lon: number }> {
   });
 }
 
-/** Текущая погода (с кэшем). null — сеть/данные недоступны. */
-export async function getWeather(): Promise<Weather | null> {
+function readCache(): Weather | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
-    if (raw) {
-      const w = JSON.parse(raw) as Weather;
-      if (Date.now() - w.fetchedAt < TTL_MS) return w;
-    }
+    return raw ? (JSON.parse(raw) as Weather) : null;
   } catch {
-    /* приватный режим / битый кэш */
+    return null; // приватный режим / битый кэш
   }
+}
+
+/** Текущая погода (с кэшем). null — сеть/данные недоступны.
+ *  Если сеть пропала, а кэш устарел — возвращаем устаревший кэш:
+ *  вчерашняя температура полезнее внезапно исчезнувшего виджета. */
+export async function getWeather(): Promise<Weather | null> {
+  const cached = readCache();
+  if (cached && Date.now() - cached.fetchedAt < TTL_MS) return cached;
   try {
     const { lat, lon } = await getCoords();
     const url =
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
       `&current=temperature_2m,weather_code,is_day,apparent_temperature` +
       `&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`;
-    const r = await fetch(url);
-    if (!r.ok) return null;
+    // Таймаут: без него на «мёртвой» сети запрос висит бесконечно, а виджет
+    // остаётся серым скелетоном навсегда. 7 с — и отдаём кэш (или прячемся).
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 7000);
+    let r: Response;
+    try {
+      r = await fetch(url, { signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!r.ok) return cached;
     const d = await r.json();
     const w: Weather = {
       tempC: Math.round(d.current.temperature_2m),
@@ -63,7 +76,7 @@ export async function getWeather(): Promise<Weather | null> {
     }
     return w;
   } catch {
-    return null;
+    return cached;
   }
 }
 

@@ -162,7 +162,11 @@ export function SearchPage() {
       </div>
 
       {!q ? (
-        <p className="px-1 text-sm text-muted">Введите запрос</p>
+        <EmptyState
+          icon={Search}
+          title="Поиск по всему"
+          hint="Задачи, заметки, цели, финансы и обучение — всё найдётся здесь"
+        />
       ) : sections.length === 0 ? (
         <EmptyState icon={SearchX} title="Ничего не найдено" hint="Попробуйте другой запрос" />
       ) : (
