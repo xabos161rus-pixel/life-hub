@@ -50,6 +50,23 @@ async function authAccount(request, env) {
 
 const PULL_LIMIT = 500;
 
+// Таблицу резервных копий создаём лениво (миграции D1 в этом проекте применяются
+// вручную; ленивое создание убирает этот шаг — фича работает сразу после деплоя).
+let backupTableReady = false;
+async function ensureBackupTable(env) {
+  if (backupTableReady) return;
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS backups (
+       account_id TEXT NOT NULL,
+       chunk INTEGER NOT NULL DEFAULT 0,
+       updated_at TEXT NOT NULL,
+       ciphertext TEXT NOT NULL,
+       PRIMARY KEY (account_id, chunk)
+     )`,
+  ).run();
+  backupTableReady = true;
+}
+
 export default {
   async fetch(request, env) {
     const origin = env.ALLOW_ORIGIN || '*';
@@ -159,6 +176,54 @@ export default {
         }));
         const nextSince = out.length ? out[out.length - 1].updatedAt : since;
         return json({ records: out, hasMore, nextSince }, 200, origin);
+      }
+
+      // === Резервная копия аккаунта (E2E, только шифротекст) ===
+      // Отдельно от /sync/*: снапшот — крупный блоб, не должен попадать в
+      // дельта-поток синка. Модель latest-only: одна копия на аккаунт,
+      // при необходимости разбита на чанки (лимит значения колонки D1 — 2 МБ).
+      if (url.pathname === '/backup/put' && request.method === 'POST') {
+        const accountId = await authAccount(request, env);
+        if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
+        await ensureBackupTable(env);
+        const { chunks, total } = await request.json();
+        if (!Array.isArray(chunks) || typeof total !== 'number') {
+          return json({ error: 'bad request' }, 400, origin);
+        }
+        const at = new Date().toISOString();
+        // Удаляем «хвост» от прошлой, более длинной копии, затем перезаписываем.
+        const batch = [
+          env.DB.prepare('DELETE FROM backups WHERE account_id = ? AND chunk >= ?').bind(accountId, total),
+        ];
+        const put = env.DB.prepare(
+          'INSERT OR REPLACE INTO backups (account_id, chunk, updated_at, ciphertext) VALUES (?, ?, ?, ?)',
+        );
+        for (const c of chunks) {
+          if (!c || typeof c.chunk !== 'number' || typeof c.ciphertext !== 'string') continue;
+          batch.push(put.bind(accountId, c.chunk, at, c.ciphertext));
+        }
+        await env.DB.batch(batch);
+        return json({ ok: true, at }, 200, origin);
+      }
+
+      if (url.pathname === '/backup/get' && request.method === 'GET') {
+        const accountId = await authAccount(request, env);
+        if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
+        await ensureBackupTable(env);
+        const res = await env.DB.prepare(
+          'SELECT chunk, updated_at AS u, ciphertext AS c FROM backups WHERE account_id = ? ORDER BY chunk',
+        )
+          .bind(accountId)
+          .all();
+        const rows = res.results || [];
+        return json(
+          {
+            chunks: rows.map((r) => ({ chunk: r.chunk, ciphertext: r.c })),
+            updatedAt: rows.length ? rows[0].u : null,
+          },
+          200,
+          origin,
+        );
       }
 
       // === Семья: проксируем в Durable Object (1 комната на семью) ===

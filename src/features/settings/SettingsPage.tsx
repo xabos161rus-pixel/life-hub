@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
 import { BellRing, ChevronRight, GraduationCap, Trash2 } from 'lucide-react';
 import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/sounds';
@@ -16,7 +17,9 @@ import {
   validateBackup,
   previewBackup,
   importBackup,
+  type BackupFile,
 } from '../../db/backup';
+import { pushAccountSnapshot, pullAccountSnapshot } from '../../lib/cloudBackup';
 import { formatRu } from '../../lib/dates';
 import { usePersistentStorage } from './usePersistentStorage';
 import { SyncSection } from './sync/SyncSection';
@@ -46,6 +49,9 @@ export function SettingsPage() {
   // Защита от повторного запуска async-операций при быстрых повторных кликах.
   const pushingRef = useRef(false);
   const exportingRef = useRef(false);
+  const cloudRef = useRef(false);
+  const syncCfg = useLiveQuery(() => db.sync.get('config'), []);
+  const syncOn = Boolean(syncCfg?.enabled);
 
   async function handleEnablePush() {
     if (!pushSupported()) {
@@ -112,10 +118,35 @@ export function SettingsPage() {
       }
 
       await updateSettings({ lastBackupAt: now() });
-      toast('Бэкап сохранён');
+      toast('Резервная копия сохранена');
     } finally {
       exportingRef.current = false;
     }
+  }
+
+  // Подтверждение + применение копии (файл или облако) — общая логика.
+  async function confirmAndImport(backup: BackupFile): Promise<void> {
+    const p = previewBackup(backup);
+    const msg =
+      'Импорт заменит ВСЕ текущие данные.\n\nВ резервной копии:\n' +
+      `• проектов: ${p.counts.projects}\n` +
+      `• задач: ${p.counts.tasks}\n` +
+      `• целей: ${p.counts.goals}\n` +
+      `• привычек: ${p.counts.habits}\n` +
+      `• отметок привычек: ${p.counts.habitLogs}\n` +
+      `• заметок: ${p.counts.notes}\n` +
+      `• материалов обучения: ${p.counts.learningItems}\n` +
+      `• записей прогресса: ${p.counts.learningLogs}\n` +
+      `• расходов: ${p.counts.expenseItems}\n` +
+      `• записей энергии: ${p.counts.energyItems}\n` +
+      `• мест: ${p.counts.placeItems}\n` +
+      `• метрик: ${p.counts.metrics}\n` +
+      `• замеров метрик: ${p.counts.metricLogs}\n` +
+      `• семейных сообщений: ${p.counts.familyMessages ?? 0}\n` +
+      `• семейных задач: ${p.counts.familyTasks ?? 0}\n\nПродолжить?`;
+    if (!window.confirm(msg)) return;
+    await importBackup(backup);
+    toast('Данные восстановлены');
   }
 
   async function handleImport(e: ChangeEvent<HTMLInputElement>) {
@@ -123,32 +154,45 @@ export function SettingsPage() {
     e.target.value = ''; // позволяет выбрать тот же файл повторно
     if (!file) return;
     try {
-      const text = await file.text();
-      const parsed: unknown = JSON.parse(text);
-      const backup = validateBackup(parsed);
-      const p = previewBackup(backup);
-      const msg =
-        'Импорт заменит ВСЕ текущие данные.\n\nВ резервной копии:\n' +
-        `• проектов: ${p.counts.projects}\n` +
-        `• задач: ${p.counts.tasks}\n` +
-        `• целей: ${p.counts.goals}\n` +
-        `• привычек: ${p.counts.habits}\n` +
-        `• отметок привычек: ${p.counts.habitLogs}\n` +
-        `• заметок: ${p.counts.notes}\n` +
-        `• материалов обучения: ${p.counts.learningItems}\n` +
-        `• записей прогресса: ${p.counts.learningLogs}\n` +
-        `• расходов: ${p.counts.expenseItems}\n` +
-        `• записей энергии: ${p.counts.energyItems}\n` +
-        `• мест: ${p.counts.placeItems}\n` +
-        `• метрик: ${p.counts.metrics}\n` +
-        `• замеров метрик: ${p.counts.metricLogs}\n` +
-        `• семейных сообщений: ${p.counts.familyMessages ?? 0}\n` +
-        `• семейных задач: ${p.counts.familyTasks ?? 0}\n\nПродолжить?`;
-      if (!window.confirm(msg)) return;
-      await importBackup(backup);
-      toast('Данные восстановлены');
+      const parsed: unknown = JSON.parse(await file.text());
+      await confirmAndImport(validateBackup(parsed));
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Не удалось прочитать файл резервной копии');
+    }
+  }
+
+  async function handleCloudBackupNow() {
+    if (cloudRef.current) return;
+    cloudRef.current = true;
+    try {
+      const n = await pushAccountSnapshot();
+      if (!n) {
+        alert('Сначала включите синхронизацию — облачная копия хранится под вашим ключом.');
+        return;
+      }
+      await updateSettings({ lastCloudBackupAt: now() });
+      toast('Копия сохранена в облако');
+    } catch {
+      alert('Не удалось сохранить копию в облако. Проверьте связь и попробуйте ещё раз.');
+    } finally {
+      cloudRef.current = false;
+    }
+  }
+
+  async function handleCloudRestore() {
+    if (cloudRef.current) return;
+    cloudRef.current = true;
+    try {
+      const backup = await pullAccountSnapshot();
+      if (!backup) {
+        alert('В облаке пока нет резервной копии.');
+        return;
+      }
+      await confirmAndImport(backup);
+    } catch {
+      alert('Не удалось получить копию из облака. Проверьте связь и попробуйте ещё раз.');
+    } finally {
+      cloudRef.current = false;
     }
   }
 
@@ -192,6 +236,75 @@ export function SettingsPage() {
 
         <Section title="Данные">
           <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+            {/* Автоматическая облачная копия — переживает потерю телефона */}
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium">Авто-копия в облако</span>
+              {syncOn && (
+                <div className="w-32 shrink-0">
+                  <SegmentedControl<'off' | 'cloud'>
+                    options={[
+                      { value: 'off', label: 'Выкл' },
+                      { value: 'cloud', label: 'Вкл' },
+                    ]}
+                    value={settings.autoBackup === 'cloud' ? 'cloud' : 'off'}
+                    onChange={(v) => void updateSettings({ autoBackup: v })}
+                  />
+                </div>
+              )}
+            </div>
+            {!syncOn ? (
+              <p className="text-sm text-muted">
+                Доступна при включённой синхронизации: зашифрованная копия всех данных хранится
+                в облаке под вашим ключом и переживает потерю или замену телефона.
+              </p>
+            ) : settings.autoBackup === 'cloud' ? (
+              <>
+                <label className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted">Как часто</span>
+                  <select
+                    value={settings.autoBackupEvery ?? 'daily'}
+                    onChange={(e) =>
+                      void updateSettings({
+                        autoBackupEvery: e.target.value as 'daily' | 'weekly',
+                      })
+                    }
+                    className="rounded-lg bg-surface-2 px-2.5 py-1.5 font-medium"
+                  >
+                    <option value="daily">Каждый день</option>
+                    <option value="weekly">Каждую неделю</option>
+                  </select>
+                </label>
+                <p className="text-sm text-muted">
+                  Облачная копия:{' '}
+                  {settings.lastCloudBackupAt ? (
+                    formatRu(settings.lastCloudBackupAt.slice(0, 10), 'd MMMM yyyy')
+                  ) : (
+                    <span className="font-bold text-warning">ещё не создана</span>
+                  )}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => void handleCloudBackupNow()}
+                  >
+                    Сохранить сейчас
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => void handleCloudRestore()}
+                  >
+                    Восстановить
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted">
+                Зашифрованная копия всех данных будет сама сохраняться в облако.
+              </p>
+            )}
+            <div className="h-px bg-hairline" />
             <Button className="w-full" onClick={() => void handleExport()}>
               Экспортировать резервную копию
             </Button>
