@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus } from 'lucide-react';
+import { Plus, SlidersHorizontal } from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyConfig } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { listFamilyConfigs } from '../../lib/family/familyState';
 import { FamilyOnboarding, CreateFamilySheet, JoinFamilySheet } from './FamilyOnboarding';
 import { FamilyScreen } from './FamilyScreen';
+import { ManageGroupsSheet } from './ManageGroupsSheet';
 
 const ACTIVE_KEY = 'life-hub-active-family';
 
@@ -17,6 +18,7 @@ export function FamilyPage() {
   const configs = useLiveQuery(() => listFamilyConfigs(), []);
   const [sp, setSp] = useSearchParams();
   const [addMode, setAddMode] = useState<null | 'choose' | 'create' | 'join'>(null);
+  const [manageOpen, setManageOpen] = useState(false);
 
   // Выбранная группа живёт в URL (?g=…): так переход по пуш-уведомлению (открыть
   // конкретный чат) надёжно переключает группу, даже если открыта другая.
@@ -59,7 +61,13 @@ export function FamilyPage() {
   return (
     <Screen title={current.familyName} backTo="/more" fill>
       <div className="flex h-full flex-col">
-        <GroupSwitcher configs={configs} selected={selected} onSelect={select} onAdd={() => setAddMode('choose')} />
+        <GroupSwitcher
+          configs={configs}
+          selected={selected}
+          onSelect={select}
+          onAdd={() => setAddMode('choose')}
+          onManage={() => setManageOpen(true)}
+        />
         <div className="min-h-0 flex-1">
           {/* key=selected: смена группы полностью перемонтирует экран (чистый
               сброс вкладки/подписок), без ручного разбора переходов. */}
@@ -109,6 +117,7 @@ export function FamilyPage() {
           select(id);
         }}
       />
+      <ManageGroupsSheet open={manageOpen} onClose={() => setManageOpen(false)} configs={configs} />
     </Screen>
   );
 }
@@ -118,11 +127,13 @@ function GroupSwitcher({
   selected,
   onSelect,
   onAdd,
+  onManage,
 }: {
   configs: FamilyConfig[];
   selected: string;
   onSelect: (id: string) => void;
   onAdd: () => void;
+  onManage: () => void;
 }) {
   const msgs = useLiveQuery(() => db.familyMessages.toArray(), []);
   const unread = useMemo(() => {
@@ -170,6 +181,15 @@ function GroupSwitcher({
       >
         <Plus size={18} />
       </button>
+      {configs.length > 0 && (
+        <button
+          onClick={onManage}
+          aria-label="Управление группами"
+          className="flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-surface-2 text-muted active:opacity-80"
+        >
+          <SlidersHorizontal size={16} />
+        </button>
+      )}
     </div>
   );
 }
