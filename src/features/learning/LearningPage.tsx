@@ -10,6 +10,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { LearningItem, LearningKind } from '../../db/types';
+import { formatNum } from '../../lib/finance';
 import { LearningItemSheet } from './LearningItemSheet';
 import { ProgressStepper } from './ProgressStepper';
 
@@ -33,9 +34,9 @@ const EMPTY_HINTS: Record<Filter, string> = {
 function progressLabel(item: LearningItem): string {
   switch (item.progressUnit) {
     case 'pages':
-      return `стр. ${item.progressCurrent} из ${item.progressTarget}`;
+      return `стр. ${formatNum(item.progressCurrent)} из ${formatNum(item.progressTarget)}`;
     case 'lessons':
-      return `уроков ${item.progressCurrent} из ${item.progressTarget}`;
+      return `уроков ${formatNum(item.progressCurrent)} из ${formatNum(item.progressTarget)}`;
     case 'percent':
       return `${item.progressCurrent}%`;
   }

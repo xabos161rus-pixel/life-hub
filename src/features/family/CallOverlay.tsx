@@ -73,7 +73,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
             <>
               <CallButton
                 color={snap.muted ? 'active' : 'surface'}
-                label={snap.muted ? 'Вкл. микро' : 'Микрофон'}
+                label={snap.muted ? 'Включить' : 'Микрофон'}
                 onClick={() => callManager.toggleMute()}
               >
                 {snap.muted ? <MicOff size={26} /> : <Mic size={26} />}

@@ -358,7 +358,7 @@ export function FocusPage() {
             {p.taskTitle ? (
               <span className="mt-1 max-w-[60%] truncate text-sm text-muted">{p.taskTitle}</span>
             ) : idleWork ? (
-              <span className="mt-1 text-xs text-muted">крути кольцо ↻</span>
+              <span className="mt-1 text-xs text-muted">крутите кольцо ↻</span>
             ) : null}
           </div>
         </div>

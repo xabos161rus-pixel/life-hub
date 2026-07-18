@@ -13,6 +13,7 @@ import {
 } from 'date-fns';
 import type { Recurrence } from '../db/types';
 import { fromKey, toKey, WEEKDAY_LABELS } from './dates';
+import { plural } from './plural';
 
 /**
  * Следующая дата повторяющейся задачи после её выполнения.
@@ -80,10 +81,15 @@ export function nextOccurrence(rec: Recurrence, dueKey: string | null): string {
 export function describeRecurrence(rec: Recurrence): string {
   switch (rec.type) {
     case 'daily':
-      return rec.interval === 1 ? 'Каждый день' : `Каждые ${rec.interval} дн.`;
+      return rec.interval === 1
+        ? 'Каждый день'
+        : `${plural(rec.interval, ['Каждый', 'Каждые', 'Каждые'])} ${rec.interval} ${plural(rec.interval, ['день', 'дня', 'дней'])}`;
     case 'weekly': {
       const days = [...rec.weekdays].sort((a, b) => a - b).map((d) => WEEKDAY_LABELS[d - 1]);
-      const prefix = rec.interval === 1 ? '' : `Каждые ${rec.interval} нед. `;
+      const prefix =
+        rec.interval === 1
+          ? ''
+          : `${plural(rec.interval, ['Каждую', 'Каждые', 'Каждые'])} ${rec.interval} ${plural(rec.interval, ['неделю', 'недели', 'недель'])} `;
       return days.length ? `${prefix}По ${days.join(', ')}` : `${prefix}Еженедельно`;
     }
     case 'monthly':
@@ -91,7 +97,9 @@ export function describeRecurrence(rec: Recurrence): string {
         ? `${rec.dayOfMonth}-го числа`
         : `${rec.dayOfMonth}-го числа, раз в ${rec.interval} мес.`;
     case 'yearly':
-      return rec.interval === 1 ? 'Каждый год' : `Каждые ${rec.interval} г.`;
+      return rec.interval === 1
+        ? 'Каждый год'
+        : `${plural(rec.interval, ['Каждый', 'Каждые', 'Каждые'])} ${rec.interval} ${plural(rec.interval, ['год', 'года', 'лет'])}`;
   }
 }
 

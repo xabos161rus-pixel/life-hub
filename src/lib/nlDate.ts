@@ -1,5 +1,5 @@
 import { addDays, addMonths, addWeeks, getISODay, startOfDay, startOfWeek } from 'date-fns';
-import { toKey, todayKey } from './dates';
+import { formatDueDate, toKey, todayKey } from './dates';
 import type { Priority } from '../db/types';
 
 // Лёгкий разбор естественной даты/времени из текста быстрого ввода задачи.
@@ -211,8 +211,8 @@ const PRIORITY_HINT: Record<Priority, string> = { 0: '', 1: '!низкий', 2: 
 export function describeParsed(p: ParsedTask): string | null {
   const parts: string[] = [];
   if (p.dueDate) {
-    const t = todayKey();
-    parts.push(p.dueDate === t ? 'сегодня' : p.dueDate);
+    const label = formatDueDate(p.dueDate);
+    parts.push(label.charAt(0).toLowerCase() + label.slice(1));
     if (p.dueTime) parts.push(`в ${p.dueTime}`);
   }
   if (p.priority > 0) parts.push(PRIORITY_HINT[p.priority]);

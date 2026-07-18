@@ -4,6 +4,7 @@ import type { Task } from '../db/types';
 import { todayKey, formatRu } from './dates';
 import { financeSummary, formatRub } from './finance';
 import { goalProgress, goalProgressLabel } from './progress';
+import { plur } from './plural';
 
 // Человекочитаемый markdown-отчёт по всем разделам. Для экспорта/печати.
 
@@ -51,7 +52,7 @@ export async function buildReport(): Promise<string> {
 
   const activeGoals = goals.filter((g) => g.status === 'active');
   if (activeGoals.length) {
-    L.push(`## Цели (${activeGoals.length} активных)`);
+    L.push(`## Цели (${plur(activeGoals.length, ['активная цель', 'активные цели', 'активных целей'])})`);
     for (const g of activeGoals) {
       const linked = tasksByGoal.get(g.id) ?? [];
       L.push(`- **${g.title}** — ${goalProgressLabel(g, linked)} (${goalProgress(g, linked)}%)`);

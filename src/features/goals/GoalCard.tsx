@@ -6,6 +6,7 @@ import { alive } from '../../db/repo';
 import type { Goal, Task } from '../../db/types';
 import { fromKey } from '../../lib/dates';
 import { goalProgress, goalProgressLabel } from '../../lib/progress';
+import { plur, plural } from '../../lib/plural';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 
 /** Карточка цели — ссылка на детальную страницу, с кольцом прогресса и сроком. */
@@ -29,7 +30,10 @@ export function GoalCard({ goal }: { goal: Goal }) {
     deadline =
       days < 0
         ? { text: 'Просрочена', danger: true }
-        : { text: `Осталось ${days} дн.`, danger: days < 7 };
+        : {
+            text: `${plural(days, ['Остался', 'Осталось', 'Осталось'])} ${plur(days, ['день', 'дня', 'дней'])}`,
+            danger: days < 7,
+          };
   }
 
   return (

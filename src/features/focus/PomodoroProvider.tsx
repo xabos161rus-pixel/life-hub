@@ -80,7 +80,7 @@ const POMO_PUSH_ID = 'pomodoro-end';
 function phaseEndText(phase: Phase): { title: string; body: string } {
   return phase === 'work'
     ? { title: '🍅 Фокус завершён', body: 'Время для перерыва' }
-    : { title: 'Перерыв окончен', body: 'Возвращайся к фокусу' };
+    : { title: 'Перерыв окончен', body: 'Возвращайтесь к фокусу' };
 }
 
 /** Локальное системное уведомление о конце фазы (когда приложение активно). */

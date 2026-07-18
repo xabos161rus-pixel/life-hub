@@ -18,6 +18,7 @@ import { db } from '../../db/db';
 import { alive, update } from '../../db/repo';
 import type { LearningItem, LearningKind, Task } from '../../db/types';
 import { formatRu } from '../../lib/dates';
+import { formatNum } from '../../lib/finance';
 import { goalProgress, goalProgressLabel } from '../../lib/progress';
 import { Screen } from '../../components/layout/Screen';
 import { Input } from '../../components/ui/Input';
@@ -192,7 +193,7 @@ export function GoalDetailPage() {
         {goal.progressMode === 'numeric' && (
           <div className="rounded-2xl border border-border bg-surface p-4">
             <p className="mb-2 text-sm font-medium text-muted">
-              {current} из {goal.targetValue ?? 0}
+              {formatNum(current)} из {formatNum(goal.targetValue ?? 0)}
               {goal.unitLabel ? ` ${goal.unitLabel}` : ''}
             </p>
             <div className="flex items-center gap-2">

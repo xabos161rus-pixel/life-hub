@@ -12,7 +12,7 @@ import { Screen } from '../../components/layout/Screen';
 const STEPS: { icon: LucideIcon; text: string }[] = [
   { icon: Compass, text: 'Откройте этот сайт в Safari' },
   { icon: Share, text: 'Нажмите «Поделиться»' },
-  { icon: SquarePlus, text: 'Выберите «На экран "Домой"»' },
+  { icon: SquarePlus, text: 'Выберите «На экран „Домой“»' },
   { icon: Smartphone, text: 'Откройте Life Hub с экрана «Домой»' },
 ];
 
@@ -47,7 +47,7 @@ export function InstallInstructionsPage() {
               Данные Safari и установленного приложения хранятся раздельно. Сначала
               установите приложение, и только потом вводите данные — иначе они
               останутся во вкладке Safari. Перенести уже введённые данные можно через
-              Настройки → Экспорт/Импорт бэкапа.
+              Настройки → Экспорт/Импорт резервной копии.
             </p>
           </div>
         </div>
