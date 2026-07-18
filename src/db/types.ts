@@ -209,6 +209,11 @@ export interface Settings {
   // Звук нового сообщения чата при открытом приложении (lib/sounds.ts).
   // undefined = 'tritone'. Для закрытого приложения звук пуша — системный.
   messageSound?: 'tritone' | 'ding' | 'pop' | 'none';
+  // Автоматическая резервная копия. 'cloud' — зашифрованный снапшот аккаунта
+  // на сервер (нужна включённая синхронизация). undefined/'off' — выключено.
+  autoBackup?: 'off' | 'cloud';
+  autoBackupEvery?: 'daily' | 'weekly';
+  lastCloudBackupAt?: string | null; // ISO последней успешной облачной копии
 }
 
 // === Семейный раздел (общие задачи + чат) ===

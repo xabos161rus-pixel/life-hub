@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes, useLocation } from 'react-router';
 import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
 import { SyncRunner } from './components/SyncRunner';
+import { BackupRunner } from './components/BackupRunner';
 import { FamilyRunner } from './components/FamilyRunner';
 import { CallRunner } from './components/CallRunner';
 import { SwNavBridge } from './components/SwNavBridge';
@@ -94,6 +95,7 @@ export default function App() {
         <ThemeApplier />
         <ScrollReset />
         <SyncRunner />
+        <BackupRunner />
         <FamilyRunner />
         <CallRunner />
         <SwNavBridge />
