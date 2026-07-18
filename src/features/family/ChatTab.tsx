@@ -112,12 +112,12 @@ function dayKey(iso: string): string {
 function relTime(iso: string, now: number): string {
   const min = Math.floor((now - new Date(iso).getTime()) / 60000);
   if (min < 1) return 'только что';
-  if (min < 60) return `${min} мин назад`;
+  if (min < 60) return `${min}\u00A0мин назад`;
   const h = Math.floor(min / 60);
-  if (h < 24) return `${h} ч назад`;
+  if (h < 24) return `${h}\u00A0ч назад`;
   const d = Math.floor(h / 24);
   if (d === 1) return 'вчера';
-  if (d < 7) return `${d} дн назад`;
+  if (d < 7) return `${d}\u00A0дн назад`;
   return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
@@ -816,7 +816,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 if (e.target.value.trim()) sendTyping(familyId);
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                // На тач-устройствах Enter = перенос строки (отправка — кнопкой):
+                // экранная клавиатура ставит «ввод», а не «отправить».
+                if (e.key === 'Enter' && !e.shiftKey && !isTouch) {
                   e.preventDefault();
                   void submit();
                 }

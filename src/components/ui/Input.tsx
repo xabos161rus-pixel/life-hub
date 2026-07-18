@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
-import { X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 
 const base =
   'w-full rounded-xl bg-surface-2 border border-hairline px-3.5 py-3 text-text placeholder:text-muted outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent/25';
@@ -100,6 +100,52 @@ export function AutoGrowTextarea({
     <div className="relative w-full min-w-0">
       {showClear && <ClearFieldButton onClick={onClear} className="top-3" />}
       {ta}
+    </div>
+  );
+}
+
+/** Поле поиска: лупа слева, крестик очистки справа (появляется, когда есть
+ *  текст). Единый вид на всех экранах со списком (Поиск, Заметки, Места…). */
+export function SearchField({
+  value,
+  onChange,
+  placeholder = 'Поиск',
+  autoFocus,
+  className = '',
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  autoFocus?: boolean;
+  className?: string;
+}) {
+  const show = value.length > 0;
+  return (
+    <div className={`relative ${className}`}>
+      <Search
+        size={18}
+        className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted"
+      />
+      <input
+        autoFocus={autoFocus}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={`${base} ${show ? 'pr-11 pl-10' : 'pl-10'}`}
+      />
+      {show && (
+        <button
+          type="button"
+          aria-label="Очистить поиск"
+          // Не отдаём фокус из поля: тап по крестику не должен прятать клавиатуру.
+          onPointerDown={(e) => e.preventDefault()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onChange('')}
+          className="absolute top-1/2 right-2.5 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-muted/20 text-muted transition-transform active:scale-90"
+        >
+          <X size={13} strokeWidth={2.5} />
+        </button>
+      )}
     </div>
   );
 }

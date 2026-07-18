@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   BatteryCharging,
@@ -17,7 +17,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Input } from '../../components/ui/Input';
+import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 
@@ -147,19 +147,13 @@ export function SearchPage() {
 
   return (
     <Screen title="Поиск" backTo="/">
-      <div className="relative mb-4">
-        <Search
-          size={18}
-          className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted"
-        />
-        <Input
-          autoFocus
-          value={query}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-          placeholder="Искать везде…"
-          className="pl-10"
-        />
-      </div>
+      <SearchField
+        autoFocus
+        value={query}
+        onChange={setQuery}
+        placeholder="Искать везде…"
+        className="mb-4"
+      />
 
       {!q ? (
         <EmptyState

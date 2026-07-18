@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronDown, Plus, Pencil, Trash2 } from 'lucide-react';
 import { db } from '../../db/db';
@@ -6,7 +6,7 @@ import { alive, create, update, remove } from '../../db/repo';
 import type { ReminderItem, ReminderSection } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { Field, Input } from '../../components/ui/Input';
+import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 
 /** Закреплённые напоминания на «Сегодня»: разделы по темам (Работа и т.п.),
  *  каждый сворачивается/разворачивается по ситуации. */
@@ -198,15 +198,6 @@ function ItemSheet({
   onClose: () => void;
 }) {
   const [text, setText] = useState(item?.text ?? '');
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  // Авто-рост поля под текст (напоминание может быть длинным/многострочным).
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
-  }, [text]);
 
   async function save() {
     const t = text.trim();
@@ -226,13 +217,11 @@ function ItemSheet({
     <Sheet open onClose={onClose} title={item ? 'Напоминание' : 'Новое напоминание'}>
       <div className="space-y-4 pb-2">
         <Field label="Текст напоминания">
-          <textarea
-            ref={ref}
-            rows={2}
+          <AutoGrowTextarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Например: максимальные расходы на работе 465 ₽"
-            className="w-full resize-none overflow-hidden whitespace-pre-wrap rounded-xl border border-hairline bg-surface-2 px-3.5 py-3 text-text placeholder:text-muted outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent/25"
+            className="min-h-[4.5rem]"
             autoFocus
           />
         </Field>

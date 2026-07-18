@@ -1,11 +1,11 @@
-import { useMemo, useRef, useState, type ChangeEvent, type PointerEvent } from 'react';
+import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Pin, Search, NotebookText } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Input } from '../../components/ui/Input';
+import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
 import { alive, remove } from '../../db/repo';
 import type { Note } from '../../db/types';
@@ -160,18 +160,7 @@ export function NotesPage() {
 
   return (
     <Screen title="Заметки">
-      <div className="relative mb-3">
-        <Search
-          size={18}
-          className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted"
-        />
-        <Input
-          value={query}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-          placeholder="Поиск"
-          className="pl-10"
-        />
-      </div>
+      <SearchField value={query} onChange={setQuery} className="mb-3" />
 
       {notes.length === 0 ? (
         <EmptyState icon={NotebookText} title="Пока нет заметок" hint="Нажмите +, чтобы создать первую" />

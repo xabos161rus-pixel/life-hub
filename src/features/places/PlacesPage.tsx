@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   ExternalLink,
@@ -6,7 +6,6 @@ import {
   MapPin,
   Package,
   Plane,
-  Search,
   UtensilsCrossed,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -14,7 +13,7 @@ import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { Input } from '../../components/ui/Input';
+import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { PlaceItem, PlaceKind, PlaceStatus } from '../../db/types';
@@ -177,18 +176,7 @@ export function PlacesPage() {
           ))}
         </ChipRow>
 
-        <div className="relative">
-          <Search
-            size={18}
-            className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-muted"
-          />
-          <Input
-            value={query}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-            placeholder="Поиск"
-            className="pl-10"
-          />
-        </div>
+        <SearchField value={query} onChange={setQuery} />
 
         {items.length === 0 ? (
           <EmptyState

@@ -45,10 +45,11 @@ export function financeSummary(items: ExpenseItem[]): FinanceSummary {
   return { expense, income, balance: income - expense, byCategory };
 }
 
-/** «12 500 ₽» — рубли без копеек, с неразрывным пробелом-разделителем тысяч. */
+/** «12 500 ₽» — рубли без копеек; неразрывные пробелы и в разряде тысяч, и
+ *  перед знаком валюты (сумма не разрывается переносом строки). */
 export function formatRub(amount: number): string {
   const rounded = Math.round(amount);
-  return `${rounded.toLocaleString('ru-RU')} ₽`;
+  return `${rounded.toLocaleString('ru-RU')}\u00A0₽`;
 }
 
 /** Число с русским разделителем тысяч: 150000 → «150 000» (дробные — через запятую). */

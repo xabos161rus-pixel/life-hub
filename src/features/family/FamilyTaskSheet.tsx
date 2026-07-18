@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Sheet } from '../../components/ui/Sheet';
-import { Field, Input, Textarea } from '../../components/ui/Input';
+import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { FamilyTask, FamilyMember, Priority } from '../../db/types';
@@ -40,7 +40,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
 
   async function save() {
     if (!title.trim()) return;
-    const data = { title, notes, priority: Number(priority) as Priority, dueDate: dueDate || null, assigneeId };
+    const data = { title: title.trim(), notes: notes.trim(), priority: Number(priority) as Priority, dueDate: dueDate || null, assigneeId };
     if (task) await updateFamilyTask(familyId, task.id, data);
     else await createFamilyTask(familyId, data);
     onClose();
@@ -56,7 +56,12 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
   return (
     <div className="space-y-4 pb-2">
       <Field label="Что нужно сделать">
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Название задачи" />
+        <AutoGrowTextarea
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onClear={() => setTitle('')}
+          placeholder="Название задачи"
+        />
       </Field>
       <Field label="Кому">
         <div className="flex flex-wrap gap-2">
@@ -87,7 +92,12 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
         <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
       </Field>
       <Field label="Детали">
-        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Заметки…" rows={2} />
+        <AutoGrowTextarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Заметки…"
+          className="min-h-[4.5rem]"
+        />
       </Field>
       <div className="flex gap-2 pt-1">
         {task && (

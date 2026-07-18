@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Chip, ChipRow } from '../../components/ui/Chip';
-import { Field, Input, Textarea } from '../../components/ui/Input';
+import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
@@ -104,18 +104,19 @@ function ItemForm({ item, onClose }: { item: EnergyItem | null; onClose: () => v
   return (
     <div className="space-y-4 pb-2">
       <Field label="Название">
-        <Input
+        <AutoGrowTextarea
           value={title}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
+          onClear={() => setTitle('')}
           placeholder="Например, «Прогулка без телефона»"
         />
       </Field>
       <Field label="Что именно делать">
-        <Textarea
+        <AutoGrowTextarea
           value={description}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
           placeholder="Опишите способ так, чтобы потом не пришлось думать"
-          rows={3}
+          className="min-h-[4.5rem]"
         />
       </Field>
       <Field label="Категория">

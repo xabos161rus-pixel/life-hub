@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Chip, ChipRow } from '../../components/ui/Chip';
-import { Field, Input, Textarea } from '../../components/ui/Input';
+import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
@@ -80,9 +80,10 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
   return (
     <div className="space-y-4 pb-2">
       <Field label="Название">
-        <Input
+        <AutoGrowTextarea
           value={title}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
+          onClear={() => setTitle('')}
           placeholder="Например, «Аренда квартиры»"
         />
       </Field>
@@ -151,11 +152,11 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
         </Field>
       )}
       <Field label="Заметки">
-        <Textarea
+        <AutoGrowTextarea
           value={notes}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
           placeholder="Детали, способ оплаты…"
-          rows={2}
+          className="min-h-[4.5rem]"
         />
       </Field>
       <button

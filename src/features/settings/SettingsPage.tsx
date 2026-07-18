@@ -281,7 +281,7 @@ export function SettingsPage() {
           <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">
             {/* Автоматическая облачная копия — переживает потерю телефона */}
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium">Авто-копия в облако</span>
+              <span className="text-sm font-medium">Автокопия в облако</span>
               {syncOn && (
                 <div className="w-32 shrink-0">
                   <SegmentedControl<'off' | 'cloud'>
@@ -387,7 +387,7 @@ export function SettingsPage() {
             <p>
               Занято:{' '}
               <span className="font-medium">
-                {usageMb === null ? 'неизвестно' : `${usageMb.toFixed(1).replace('.', ',')} МБ`}
+                {usageMb === null ? 'неизвестно' : `${usageMb.toFixed(1).replace('.', ',')}\u00A0МБ`}
               </span>
             </p>
             {(persisted === false || settings.lastBackupAt === null) && (
