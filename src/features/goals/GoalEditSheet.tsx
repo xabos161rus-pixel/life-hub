@@ -5,7 +5,7 @@ import { alive, create, remove, update } from '../../db/repo';
 import type { Goal, GoalProgressMode, GoalStatus } from '../../db/types';
 import { PRESET_COLORS, isLightColor, ON_COLOR_DARK } from '../../lib/colors';
 import { Button } from '../../components/ui/Button';
-import { Field, Input, Textarea } from '../../components/ui/Input';
+import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 
@@ -106,19 +106,20 @@ export function GoalEditSheet({
     <Sheet open={open} onClose={onClose} title={goal ? 'Редактировать цель' : 'Новая цель'}>
       <div className="flex flex-col gap-4 pb-2">
         <Field label="Название">
-          <Input
+          <AutoGrowTextarea
             value={title}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
+            onClear={() => setTitle('')}
             placeholder="Например: Прочитать 20 книг"
           />
         </Field>
 
         <Field label="Описание">
-          <Textarea
+          <AutoGrowTextarea
             value={description}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
             placeholder="Зачем эта цель и что считается результатом"
-            rows={3}
+            className="min-h-[4.5rem]"
           />
         </Field>
 
