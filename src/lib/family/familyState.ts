@@ -9,10 +9,22 @@ export async function getFamilyConfig(familyId: string): Promise<FamilyConfig | 
   return db.family.get(familyId);
 }
 
-/** Все семейные группы пользователя (по joinedAt — старые сверху). */
+/** Все семейные группы пользователя. Порядок — по sortOrder (перестановка в
+ *  «Управлении группами»), у кого его нет — в хвост по joinedAt. */
 export async function listFamilyConfigs(): Promise<FamilyConfig[]> {
   const all = await db.family.toArray();
-  return all.sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
+  const so = (c: FamilyConfig) => c.sortOrder ?? Number.MAX_SAFE_INTEGER;
+  return all.sort((a, b) => so(a) - so(b) || a.joinedAt.localeCompare(b.joinedAt));
+}
+
+/** Зафиксировать новый порядок групп: sortOrder = позиция в списке. */
+export async function reorderFamilies(orderedIds: string[]): Promise<void> {
+  await db.transaction('rw', db.family, async () => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      const c = await db.family.get(orderedIds[i]);
+      if (c) await db.family.put({ ...c, sortOrder: i });
+    }
+  });
 }
 
 export async function saveFamilyConfig(c: FamilyConfig): Promise<void> {
