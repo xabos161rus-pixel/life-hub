@@ -1,4 +1,4 @@
-import { addDays, format, parse, startOfDay, startOfWeek } from 'date-fns';
+import { addDays, format, getISODay, parse, startOfDay, startOfWeek } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 // Календарные даты в приложении — локальные строки 'YYYY-MM-DD'.
@@ -24,6 +24,11 @@ export function addDaysKey(key: string, days: number): string {
 /** Понедельник недели, в которую входит дата. */
 export function weekStartKey(key: string): string {
   return toKey(startOfWeek(fromKey(key), { weekStartsOn: 1 }));
+}
+
+/** День недели по ISO: 1=Пн … 7=Вс (совпадает с индексом WEEKDAY_LABELS + 1). */
+export function isoWeekday(key: string): number {
+  return getISODay(fromKey(key));
 }
 
 /** «11 июня», «11 июня 2027» и т.п. */

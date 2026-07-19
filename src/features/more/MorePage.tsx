@@ -7,6 +7,7 @@ import {
   MapPin,
   ChartColumnBig,
   Timer,
+  CalendarCheck,
   Users,
   Sparkles,
   Settings as SettingsIcon,
@@ -100,6 +101,12 @@ export function MorePage() {
           subtitle="Обзор продуктивности"
         />
         <MenuCard to="/more/focus" icon={Timer} title="Фокус" subtitle="Таймер помодоро" />
+        <MenuCard
+          to="/more/habits"
+          icon={CalendarCheck}
+          title="Привычки"
+          subtitle="Ежедневные ритуалы и серии"
+        />
         <MenuCard to="/more/family" icon={Users} title="Семья" subtitle="Общий чат и задачи" badge={familyUnread} />
         <MenuCard
           to="/more/learning"

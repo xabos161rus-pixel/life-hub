@@ -20,6 +20,7 @@ import { NoteEditorPage } from './features/notes/NoteEditorPage';
 import { LearningPage } from './features/learning/LearningPage';
 import { FinancePage } from './features/finance/FinancePage';
 import { EnergyPage } from './features/energy/EnergyPage';
+import { HabitsPage } from './features/habits/HabitsPage';
 import { PlacesPage } from './features/places/PlacesPage';
 import { SearchPage } from './features/search/SearchPage';
 import { SharePage } from './features/share/SharePage';
@@ -133,6 +134,7 @@ export default function App() {
                 <Route path="/more/learning" element={<LearningPage />} />
                 <Route path="/more/finance" element={<FinancePage />} />
                 <Route path="/more/energy" element={<EnergyPage />} />
+                <Route path="/more/habits" element={<HabitsPage />} />
                 <Route path="/more/places" element={<PlacesPage />} />
                 <Route path="/more/settings" element={<SettingsPage />} />
                 <Route path="/more/settings/install" element={<InstallInstructionsPage />} />
