@@ -23,7 +23,7 @@ import type {
   ReminderItem,
 } from './types';
 
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -138,6 +138,28 @@ export class LifeHubDB extends Dexie {
             if (p.parentId === undefined) p.parentId = null;
           }),
       );
+    // v9 — количественные привычки: target/unit у привычки и value у отметки.
+    // Индексы не меняются; существующие записи нормализуем (простые галочки).
+    this.version(9)
+      .stores({
+        habits: 'id, goalId',
+        habitLogs: 'id, habitId, date, &[habitId+date]',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('habits')
+          .toCollection()
+          .modify((h) => {
+            if (h.target === undefined) h.target = null;
+            if (h.unit === undefined) h.unit = '';
+          });
+        await tx
+          .table('habitLogs')
+          .toCollection()
+          .modify((l) => {
+            if (l.value === undefined) l.value = null;
+          });
+      });
   }
 }
 
