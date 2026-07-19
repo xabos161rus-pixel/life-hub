@@ -1,23 +1,38 @@
 import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
 
+function findLog(habitId: string, date: string) {
+  return db.habitLogs.where('[habitId+date]').equals([habitId, date]).first();
+}
+
 /**
- * Отмечает/снимает выполнение привычки за конкретный день.
- *
- * У habitLogs уникальный индекс [habitId+date], а remove() — это soft-delete
- * (строка физически остаётся). Поэтому повторную отметку делаем «воскрешением»
- * уже существующего лога (deletedAt=null), а не вторым create — иначе дубль
- * по уникальному индексу. Так же корректно для синка (LWW по updatedAt).
+ * Upsert значения отметки за день. У habitLogs уникальный индекс [habitId+date],
+ * а remove() — soft-delete (строка остаётся), поэтому повторную отметку делаем
+ * «воскрешением» существующего лога, а не вторым create. Корректно и для синка
+ * (LWW по updatedAt). value=null — простая отметка-галочка.
  */
-export async function setHabitDay(habitId: string, date: string, done: boolean): Promise<void> {
-  const existing = await db.habitLogs.where('[habitId+date]').equals([habitId, date]).first();
-  if (done) {
-    if (!existing) {
-      await create(db.habitLogs, { habitId, date });
-    } else if (existing.deletedAt) {
-      await update(db.habitLogs, existing.id, { deletedAt: null });
-    }
-  } else if (existing && !existing.deletedAt) {
-    await remove(db.habitLogs, existing.id);
+async function upsertLog(habitId: string, date: string, value: number | null): Promise<void> {
+  const existing = await findLog(habitId, date);
+  if (existing) {
+    await update(db.habitLogs, existing.id, { value, deletedAt: null });
+  } else {
+    await create(db.habitLogs, { habitId, date, value });
   }
+}
+
+async function clearLog(habitId: string, date: string): Promise<void> {
+  const existing = await findLog(habitId, date);
+  if (existing && !existing.deletedAt) await remove(db.habitLogs, existing.id);
+}
+
+/** Простая привычка-галочка: отметить/снять день. */
+export async function toggleHabitDone(habitId: string, date: string, done: boolean): Promise<void> {
+  if (done) await upsertLog(habitId, date, null);
+  else await clearLog(habitId, date);
+}
+
+/** Количественная привычка: записать значение за день (0 или меньше — снять отметку). */
+export async function setHabitValue(habitId: string, date: string, value: number): Promise<void> {
+  if (value > 0) await upsertLog(habitId, date, value);
+  else await clearLog(habitId, date);
 }

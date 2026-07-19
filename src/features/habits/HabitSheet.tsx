@@ -4,12 +4,13 @@ import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
-import { create, remove, update } from '../../db/repo';
+import { create, now, remove, update } from '../../db/repo';
 import { PRESET_COLORS } from '../../lib/colors';
 import { WEEKDAY_LABELS } from '../../lib/dates';
 import type { Habit, HabitSchedule } from '../../db/types';
 
 type SchedType = 'daily' | 'weekdays';
+type Mode = 'check' | 'count';
 
 interface Props {
   open: boolean;
@@ -37,13 +38,20 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
   const [weekdays, setWeekdays] = useState<number[]>(
     item?.schedule.type === 'weekdays' ? item.schedule.weekdays : [1, 2, 3, 4, 5, 6, 7],
   );
+  const [mode, setMode] = useState<Mode>(item?.target != null ? 'count' : 'check');
+  const [targetRaw, setTargetRaw] = useState(item?.target != null ? String(item.target) : '');
+  const [unit, setUnit] = useState(item?.unit ?? '');
 
   const toggleDay = (d: number) =>
     setWeekdays((w) =>
       w.includes(d) ? w.filter((x) => x !== d) : [...w, d].sort((a, b) => a - b),
     );
 
-  const valid = Boolean(name.trim()) && (schedType === 'daily' || weekdays.length > 0);
+  const targetNum = Number(targetRaw) || 0;
+  const valid =
+    Boolean(name.trim()) &&
+    (schedType === 'daily' || weekdays.length > 0) &&
+    (mode === 'check' || targetNum > 0);
 
   const savingRef = useRef(false);
   const handleSave = async () => {
@@ -53,7 +61,14 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
     try {
       const schedule: HabitSchedule =
         schedType === 'daily' ? { type: 'daily' } : { type: 'weekdays', weekdays };
-      const base = { name: name.trim(), emoji: emoji.trim() || '✅', color, schedule };
+      const base = {
+        name: name.trim(),
+        emoji: emoji.trim() || '✅',
+        color,
+        schedule,
+        target: mode === 'count' ? targetNum : null,
+        unit: mode === 'count' ? unit.trim() : '',
+      };
       if (item) {
         await update(db.habits, item.id, base);
       } else {
@@ -68,6 +83,12 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
     } finally {
       savingRef.current = false;
     }
+  };
+
+  const handleArchive = async () => {
+    if (!item) return;
+    await update(db.habits, item.id, { archivedAt: item.archivedAt ? null : now() });
+    onClose();
   };
 
   const handleDelete = async () => {
@@ -94,6 +115,37 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
           onChange={(e: ChangeEvent<HTMLInputElement>) => setEmoji(e.target.value)}
         />
       </Field>
+
+      <Field label="Как отмечать">
+        <SegmentedControl<Mode>
+          options={[
+            { value: 'check', label: 'Галочка' },
+            { value: 'count', label: 'Счётчик' },
+          ]}
+          value={mode}
+          onChange={setMode}
+        />
+      </Field>
+
+      {mode === 'count' && (
+        <>
+          <Field label="Цель за день">
+            <Input
+              inputMode="decimal"
+              value={targetRaw}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setTargetRaw(e.target.value)}
+              placeholder="Например, 30"
+            />
+          </Field>
+          <Field label="Единица">
+            <Input
+              value={unit}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setUnit(e.target.value)}
+              placeholder="раз, км, л, мин…"
+            />
+          </Field>
+        </>
+      )}
 
       <Field label="Как часто">
         <SegmentedControl<SchedType>
@@ -147,7 +199,13 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
         </div>
       </div>
 
-      <div className="flex gap-2 pt-1">
+      {item && (
+        <Button variant="secondary" className="w-full" onClick={() => void handleArchive()}>
+          {item.archivedAt ? 'Вернуть из архива' : 'В архив'}
+        </Button>
+      )}
+
+      <div className="flex gap-2">
         {item && (
           <Button variant="danger" onClick={() => void handleDelete()}>
             Удалить

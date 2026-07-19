@@ -84,6 +84,10 @@ export interface Habit extends BaseEntity {
   emoji: string;
   color: string;
   schedule: HabitSchedule;
+  // Количественная цель за день: null — простая привычка-галочка; > 0 — счётчик
+  // (например 30 «раз», 5 «км»). unit — подпись единицы (пусто для галочки).
+  target: number | null;
+  unit: string;
   goalId: string | null;
   archivedAt: string | null;
   sortOrder: number;
@@ -92,6 +96,8 @@ export interface Habit extends BaseEntity {
 export interface HabitLog extends BaseEntity {
   habitId: string;
   date: string; // 'YYYY-MM-DD'; уникальный индекс [habitId+date]
+  // Значение за день для количественной привычки; null — простая отметка-галочка.
+  value: number | null;
 }
 
 export interface Note extends BaseEntity {

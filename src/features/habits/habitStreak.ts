@@ -1,4 +1,4 @@
-import type { HabitSchedule } from '../../db/types';
+import type { Habit, HabitLog, HabitSchedule } from '../../db/types';
 import { addDaysKey, isoWeekday, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 
 // Логика привычек — чистые функции над множеством дат-отметок (ключи 'YYYY-MM-DD').
@@ -39,6 +39,21 @@ export function scheduleLabel(schedule: HabitSchedule): string {
   }
 }
 
+/** Выполнена ли привычка в день с этим значением лога. Для простой (target==null)
+ *  сам факт живого лога = выполнено; для количественной нужно добрать до цели. */
+export function isLogDone(habit: Habit, value: number | null): boolean {
+  if (habit.target == null) return true;
+  return (value ?? 0) >= habit.target;
+}
+
+/** Множество дат, где привычка считается выполненной (по её типу).
+ *  logs — живые логи именно этой привычки. */
+export function doneDates(habit: Habit, logs: HabitLog[]): Set<string> {
+  const s = new Set<string>();
+  for (const l of logs) if (isLogDone(habit, l.value)) s.add(l.date);
+  return s;
+}
+
 export interface HabitStats {
   /** Текущая серия: последовательные выполненные запланированные дни до сегодня. */
   current: number;
@@ -57,26 +72,26 @@ export interface HabitStats {
  */
 export function habitStats(
   schedule: HabitSchedule,
-  doneDates: Set<string>,
+  done: Set<string>,
   today: string = todayKey(),
 ): HabitStats {
   const plannedToday = isPlannedOn(schedule, today);
-  const doneToday = doneDates.has(today);
+  const doneToday = done.has(today);
 
-  if (doneDates.size === 0) {
+  if (done.size === 0) {
     return { current: 0, best: 0, doneToday: false, plannedToday };
   }
 
   // Самая ранняя отметка — граница обхода (раньше неё серий быть не может).
   let earliest = today;
-  for (const d of doneDates) if (d < earliest) earliest = d;
+  for (const d of done) if (d < earliest) earliest = d;
 
   // Текущая серия — идём назад от сегодня.
   let current = 0;
   let cursor = today;
   while (cursor >= earliest) {
     if (isPlannedOn(schedule, cursor)) {
-      if (doneDates.has(cursor)) {
+      if (done.has(cursor)) {
         current++;
       } else if (cursor !== today) {
         // Пропущенный запланированный день в прошлом — серия оборвалась.
@@ -93,7 +108,7 @@ export function habitStats(
   cursor = earliest;
   while (cursor <= today) {
     if (isPlannedOn(schedule, cursor)) {
-      if (doneDates.has(cursor)) {
+      if (done.has(cursor)) {
         run++;
         if (run > best) best = run;
       } else if (cursor !== today) {
