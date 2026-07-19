@@ -14,6 +14,7 @@ import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { WeatherWidget } from './widgets/WeatherWidget';
 import { RemindersBlock } from './RemindersBlock';
+import { HabitsToday } from '../habits/HabitsToday';
 import { ProtectDataCard } from './ProtectDataCard';
 
 /** Список задач в карточке — как в TasksPage. */
@@ -91,6 +92,8 @@ export function TodayPage() {
       <ProtectDataCard />
 
       <RemindersBlock />
+
+      <HabitsToday />
 
       <QuickAddBar defaultDueDate={today} />
 
