@@ -75,7 +75,9 @@ export function OnboardingOverlay() {
 
   const finish = () => {
     setStep(0); // повторный запуск из Настроек начнётся с первого слайда
-    void updateSettings({ onboardingDone: now() });
+    // reinstallNoticeSeen проставляем сразу: тот, кто ставит приложение сейчас,
+    // уже получил новый значок LifeHearth — окно о переустановке ему не нужно.
+    void updateSettings({ onboardingDone: now(), reinstallNoticeSeen: now() });
   };
 
   const slide = SLIDES[step];

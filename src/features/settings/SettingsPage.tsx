@@ -418,7 +418,7 @@ export function SettingsPage() {
               to="/more/settings/install"
               className="flex items-center justify-between gap-2 p-4"
             >
-              <span>Как установить на экран «Домой»</span>
+              <span>Установка и восстановление данных</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </Link>
             <p className="border-t border-hairline px-4 py-3 text-sm text-muted">
