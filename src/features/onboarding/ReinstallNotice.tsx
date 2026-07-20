@@ -14,6 +14,7 @@ import {
 import { db } from '../../db/db';
 import { now } from '../../db/repo';
 import { updateSettings } from '../../hooks/useSettings';
+import { useCall } from '../../lib/family/familyCall';
 
 /** Адрес сайта для установки — origin + базовый путь сборки (/life-hub/).
  *  Берём из BASE_URL, чтобы ссылка оставалась верной при смене домена. */
@@ -36,8 +37,12 @@ const INSTALL_URL = new URL(import.meta.env.BASE_URL || '/', window.location.ori
 export function ReinstallNotice() {
   const settings = useLiveQuery(() => db.settings.get('app'), []);
   const syncCfg = useLiveQuery(() => db.sync.get('config').then((c) => c ?? null), []);
+  const call = useCall();
   const [copied, setCopied] = useState(false);
 
+  // Идёт звонок — не перекрываем экран вызова (входящий/активный лежит ниже по
+  // z-index), иначе не ответить и не сбросить. Покажем окно позже.
+  if (call.status !== 'idle') return null;
   // Пока настройки грузятся — не мигаем. Показываем только «старым»
   // пользователям, которые ещё не закрывали это окно.
   if (!settings) return null;
@@ -112,9 +117,12 @@ export function ReinstallNotice() {
                 <p className="font-semibold">Сохраните данные</p>
                 {syncOn ? (
                   <p className="text-muted">
-                    Синхронизация включена — копия уже в облаке под вашим ключом. Для надёжности
-                    можно ещё выгрузить файл: «Ещё → Настройки → Данные → Экспортировать
-                    резервную копию».
+                    Надёжнее всего — выгрузить файл: «Ещё → Настройки → Данные → Экспортировать
+                    резервную копию» (ляжет в «Файлы»). Синхронизация тоже держит копию в облаке,
+                    но <span className="font-semibold text-text">ключ хранится только на телефоне</span>{' '}
+                    и сотрётся вместе с приложением. Если устройство одно — обязательно сохраните
+                    ключ: «Синхронизация → Показать QR → Сохранить ключ». Без ключа и без файла
+                    облако не восстановить.
                   </p>
                 ) : (
                   <p className="text-muted">
@@ -144,7 +152,7 @@ export function ReinstallNotice() {
                 <p className="font-semibold">Верните данные</p>
                 <p className="text-muted">
                   {syncOn
-                    ? 'Откройте приложение и подключите синхронизацию тем же ключом — либо «Импортировать резервную копию». Всё продолжится с той же точки.'
+                    ? 'Откройте приложение → «Импортировать резервную копию» (файл) или «Синхронизация → Подключить» и вставьте сохранённый ключ / QR со второго устройства. Всё продолжится с той же точки.'
                     : 'Откройте приложение → «Настройки → Данные → Импортировать резервную копию» и выберите сохранённый файл. Всё продолжится с той же точки.'}
                 </p>
               </div>
