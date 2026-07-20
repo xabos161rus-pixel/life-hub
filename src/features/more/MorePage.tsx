@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   ChevronRight,
+  Target,
   GraduationCap,
   Wallet,
   BatteryCharging,
@@ -8,7 +9,6 @@ import {
   ChartColumnBig,
   Timer,
   CalendarCheck,
-  Users,
   Sparkles,
   Settings as SettingsIcon,
 } from 'lucide-react';
@@ -70,21 +70,10 @@ export function MorePage() {
       );
     }, []) ?? false;
 
-  // Есть ли непрочитанные сообщения хоть в одной семейной группе.
-  const familyUnread =
-    useLiveQuery(async () => {
-      const cfgs = await db.family.toArray();
-      if (!cfgs.length) return false;
-      const byId = Object.fromEntries(cfgs.map((c) => [c.familyId, c]));
-      const msgs = await db.familyMessages.toArray();
-      return msgs.some((m) => {
-        const c = byId[m.familyId];
-        return c && !m.deletedAt && m.seq != null && m.seq > c.lastReadSeq && m.senderMemberId !== c.selfMemberId;
-      });
-    }, []) ?? false;
-
   const learningCount = alive(learning ?? []).length;
 
+  // Порядок по логике: ежедневное → сферы жизни → сервис/обзор.
+  // «Семья» вынесена в нижний таб-бар, поэтому здесь её нет.
   return (
     <Screen title="Ещё">
       <div className="space-y-3">
@@ -94,12 +83,6 @@ export function MorePage() {
           title="Быстрый захват"
           subtitle="Вставить текст → задача или заметка"
         />
-        <MenuCard
-          to="/stats"
-          icon={ChartColumnBig}
-          title="Статистика"
-          subtitle="Обзор продуктивности"
-        />
         <MenuCard to="/more/focus" icon={Timer} title="Фокус" subtitle="Таймер помодоро" />
         <MenuCard
           to="/more/habits"
@@ -107,7 +90,7 @@ export function MorePage() {
           title="Привычки"
           subtitle="Ежедневные ритуалы и серии"
         />
-        <MenuCard to="/more/family" icon={Users} title="Семья" subtitle="Общий чат и задачи" badge={familyUnread} />
+        <MenuCard to="/goals" icon={Target} title="Цели" subtitle="Большие цели и прогресс" />
         <MenuCard
           to="/more/learning"
           icon={GraduationCap}
@@ -126,6 +109,12 @@ export function MorePage() {
           icon={MapPin}
           title="Места и путешествия"
           subtitle="Советы, идеи, рекомендации"
+        />
+        <MenuCard
+          to="/stats"
+          icon={ChartColumnBig}
+          title="Статистика"
+          subtitle="Обзор продуктивности"
         />
         <MenuCard
           to="/more/settings"
