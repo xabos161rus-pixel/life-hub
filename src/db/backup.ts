@@ -55,7 +55,7 @@ export interface ImportPreview {
 export function validateBackup(parsed: unknown): BackupFile {
   const b = parsed as BackupFile;
   if (!b || typeof b !== 'object' || b.app !== 'life-hub') {
-    throw new Error('Это не файл резервной копии Life Hub');
+    throw new Error('Это не файл резервной копии LifeHearth');
   }
   if (typeof b.schemaVersion !== 'number' || b.schemaVersion > SCHEMA_VERSION) {
     throw new Error('Резервная копия создана более новой версией приложения');

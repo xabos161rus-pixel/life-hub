@@ -61,7 +61,7 @@ export function SettingsPage() {
     }
     if (isIOS() && !isStandalone()) {
       alert(
-        'На iPhone уведомления работают только в установленном приложении. Добавьте Life Hub на экран «Домой» и откройте оттуда.',
+        'На iPhone уведомления работают только в установленном приложении. Добавьте LifeHearth на экран «Домой» и откройте оттуда.',
       );
       return;
     }
@@ -72,7 +72,7 @@ export function SettingsPage() {
       if (!res.ok) {
         alert(
           res.reason === 'denied'
-            ? 'Разрешение не выдано. Включите его: Настройки iPhone → Уведомления → Life Hub.'
+            ? 'Разрешение не выдано. Включите его: Настройки iPhone → Уведомления → LifeHearth.'
             : 'Не удалось включить уведомления.',
         );
         return;

@@ -40,7 +40,7 @@ export async function buildReport(): Promise<string> {
   const doneTotal = tasks.filter((t) => t.completedAt).length;
 
   const L: string[] = [];
-  L.push(`# Life Hub — отчёт`);
+  L.push(`# LifeHearth — отчёт`);
   L.push(`_${formatRu(today, 'd MMMM yyyy')}_`);
   L.push('');
 

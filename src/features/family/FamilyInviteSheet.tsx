@@ -49,7 +49,7 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
     <Sheet open={open} onClose={onClose} title="Пригласить в группу">
       <div className="space-y-4">
         <p className="text-sm text-muted">
-          Покажите этот QR участнику: в его Life Hub — «Ещё → Семья → ＋ → Войти по приглашению».
+          Покажите этот QR участнику: в его LifeHearth — «Ещё → Семья → ＋ → Войти по приглашению».
         </p>
         {qrUrl && (
           <div className="flex justify-center">

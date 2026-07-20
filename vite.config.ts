@@ -16,8 +16,8 @@ export default defineConfig(({ command }) => ({
       // на свежую версию без участия пользователя.
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Life Hub',
-        short_name: 'LifeHub',
+        name: 'LifeHearth',
+        short_name: 'LifeHearth',
         description: 'Личный центр управления жизнью',
         lang: 'ru',
         start_url: '/life-hub/',

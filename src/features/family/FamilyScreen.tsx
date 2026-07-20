@@ -51,7 +51,7 @@ export function FamilyScreen({ familyId, onLeft }: { familyId: string; onLeft: (
       return;
     }
     if (!isStandalone()) {
-      alert('Уведомления работают только в установленном приложении. Добавьте Life Hub на экран «Домой» и откройте оттуда.');
+      alert('Уведомления работают только в установленном приложении. Добавьте LifeHearth на экран «Домой» и откройте оттуда.');
       return;
     }
     const res = await enablePush();
