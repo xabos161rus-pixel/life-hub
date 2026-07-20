@@ -13,7 +13,7 @@ const STEPS: { icon: LucideIcon; text: string }[] = [
   { icon: Compass, text: 'Откройте этот сайт в Safari' },
   { icon: Share, text: 'Нажмите «Поделиться»' },
   { icon: SquarePlus, text: 'Выберите «На экран „Домой“»' },
-  { icon: Smartphone, text: 'Откройте Life Hub с экрана «Домой»' },
+  { icon: Smartphone, text: 'Откройте LifeHearth с экрана «Домой»' },
 ];
 
 export function InstallInstructionsPage() {
