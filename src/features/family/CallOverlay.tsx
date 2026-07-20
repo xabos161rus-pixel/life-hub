@@ -1,6 +1,12 @@
-import { useEffect, useState } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, Headphones } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, Headphones, Lock } from 'lucide-react';
 import { callManager, type CallSnapshot } from '../../lib/family/familyCall';
+import { CallGuard } from './CallGuard';
+
+/** Через сколько заблокировать экран после того, как звонок ушёл «к уху». */
+const LOCK_AFTER_CONNECT_MS = 1800;
+/** Пауза бездействия после разблокировки/нажатия, после которой снова блок. */
+const RELOCK_IDLE_MS = 8000;
 
 function fmtElapsed(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -34,9 +40,59 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
 
   const incoming = snap.status === 'incoming';
   const ended = snap.status === 'ended';
+  const active = snap.status === 'active';
+  // «К уху» = активный звонок с маршрутом на слуховой динамик (не громкая связь).
+  // Именно тогда телефон у щеки и нужна защита от случайных нажатий.
+  const earpiece = active && !snap.speakerOn;
   const initial = (snap.peerName || '?').slice(0, 1).toUpperCase();
 
+  // --- Защита от нажатий щекой ---
+  const [locked, setLocked] = useState(false);
+  const lockTimer = useRef<number | undefined>(undefined);
+  // Свежий earpiece для отложенного колбэка — иначе таймер заблокирует экран,
+  // даже если за время паузы включили громкую связь. Обновляем в эффекте
+  // (обращаться к ref во время рендера нельзя).
+  const earpieceRef = useRef(earpiece);
+  useEffect(() => {
+    earpieceRef.current = earpiece;
+  }, [earpiece]);
+
+  const scheduleLock = useCallback((delay: number) => {
+    window.clearTimeout(lockTimer.current);
+    lockTimer.current = window.setTimeout(() => {
+      if (earpieceRef.current) setLocked(true);
+    }, delay);
+  }, []);
+
+  // Ушли «к уху» — заблокировать после короткой паузы (даём увидеть, что
+  // соединились). Не «к уху» (громкая связь, конец звонка) — снимаем таймер;
+  // сам слой скрыт условием рендера `locked && earpiece`, поэтому setState тут
+  // не нужен и лишних перерисовок нет.
+  useEffect(() => {
+    if (!earpiece) {
+      window.clearTimeout(lockTimer.current);
+      return;
+    }
+    scheduleLock(LOCK_AFTER_CONNECT_MS);
+    return () => window.clearTimeout(lockTimer.current);
+  }, [earpiece, scheduleLock]);
+
+  const unlock = () => {
+    setLocked(false);
+    scheduleLock(RELOCK_IDLE_MS); // снова к уху — заблокируем сами
+  };
+  const lockNow = () => {
+    window.clearTimeout(lockTimer.current);
+    setLocked(true);
+  };
+  // Обёртка нажатий: после осознанного действия отодвигаем авто-блокировку.
+  const bump = (fn: () => void) => () => {
+    fn();
+    if (earpiece) scheduleLock(RELOCK_IDLE_MS);
+  };
+
   return (
+    <>
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-bg/95 px-6 pb-[calc(env(safe-area-inset-bottom)+40px)] pt-[calc(env(safe-area-inset-top)+72px)] backdrop-blur-xl">
       {/* Кто и статус */}
       <div className="flex flex-1 flex-col items-center justify-center gap-6">
@@ -74,7 +130,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
               <CallButton
                 color={snap.muted ? 'active' : 'surface'}
                 label={snap.muted ? 'Включить' : 'Микрофон'}
-                onClick={() => callManager.toggleMute()}
+                onClick={bump(() => callManager.toggleMute())}
               >
                 {snap.muted ? <MicOff size={26} /> : <Mic size={26} />}
               </CallButton>
@@ -82,7 +138,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
                 <CallButton
                   color={snap.speakerOn ? 'active' : 'surface'}
                   label={snap.speakerOn ? 'Динамик' : 'К уху'}
-                  onClick={() => void callManager.toggleSpeaker()}
+                  onClick={bump(() => void callManager.toggleSpeaker())}
                 >
                   <Volume2 size={26} />
                 </CallButton>
@@ -91,12 +147,17 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
                 <CallButton
                   color="surface"
                   label="Наушники"
-                  onClick={() => callManager.showOutputPicker()}
+                  onClick={bump(() => callManager.showOutputPicker())}
                 >
                   <Headphones size={26} />
                 </CallButton>
               )}
-              <CallButton color="danger" label="Завершить" onClick={() => callManager.hangup()}>
+              {earpiece && (
+                <CallButton color="surface" label="Блокировка" onClick={lockNow}>
+                  <Lock size={24} />
+                </CallButton>
+              )}
+              <CallButton color="danger" label="Завершить" onClick={bump(() => callManager.hangup())}>
                 <PhoneOff size={28} />
               </CallButton>
             </>
@@ -104,6 +165,14 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
         </div>
       )}
     </div>
+    {locked && earpiece && (
+      <CallGuard
+        peerName={snap.peerName || 'Участник'}
+        elapsed={snap.startedAt ? fmtElapsed(now - snap.startedAt) : '0:00'}
+        onUnlock={unlock}
+      />
+    )}
+    </>
   );
 }
 
