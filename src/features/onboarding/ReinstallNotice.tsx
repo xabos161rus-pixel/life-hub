@@ -12,13 +12,9 @@ import {
   X,
 } from 'lucide-react';
 import { db } from '../../db/db';
-import { now } from '../../db/repo';
 import { updateSettings } from '../../hooks/useSettings';
 import { useCall } from '../../lib/family/familyCall';
-
-/** Адрес сайта для установки — origin + базовый путь сборки (/life-hub/).
- *  Берём из BASE_URL, чтобы ссылка оставалась верной при смене домена. */
-const INSTALL_URL = new URL(import.meta.env.BASE_URL || '/', window.location.origin).href;
+import { INSTALL_URL, REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
 
 /**
  * Одноразовое окно о смене имени и значка (Life Hub → LifeHearth).
@@ -44,14 +40,15 @@ export function ReinstallNotice() {
   // z-index), иначе не ответить и не сбросить. Покажем окно позже.
   if (call.status !== 'idle') return null;
   // Пока настройки грузятся — не мигаем. Показываем только «старым»
-  // пользователям, которые ещё не закрывали это окно.
+  // пользователям, которые ещё не закрывали ЭТУ версию окна (версия меняется,
+  // когда нужно показать инструкцию заново всем — например, снова сменили значок).
   if (!settings) return null;
   if (!settings.onboardingDone) return null; // новый пользователь — увидит онбординг
-  if (settings.reinstallNoticeSeen) return null;
+  if (settings.reinstallNoticeSeen === REINSTALL_NOTICE_VERSION) return null;
 
   const syncOn = Boolean(syncCfg?.enabled);
 
-  const dismiss = () => void updateSettings({ reinstallNoticeSeen: now() });
+  const dismiss = () => void updateSettings({ reinstallNoticeSeen: REINSTALL_NOTICE_VERSION });
 
   const copyLink = () => {
     void navigator.clipboard?.writeText(INSTALL_URL).then(() => {

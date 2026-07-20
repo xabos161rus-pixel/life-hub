@@ -24,6 +24,7 @@ import { pushAccountSnapshot, pullAccountSnapshot } from '../../lib/cloudBackup'
 import { formatRu } from '../../lib/dates';
 import { usePersistentStorage } from './usePersistentStorage';
 import { SyncSection } from './sync/SyncSection';
+import { InstallLink } from './InstallLink';
 import type { Settings } from '../../db/types';
 
 const THEME_OPTIONS: { value: Settings['theme']; label: string }[] = [
@@ -416,11 +417,18 @@ export function SettingsPage() {
             </button>
             <Link
               to="/more/settings/install"
-              className="flex items-center justify-between gap-2 p-4"
+              className="flex items-center justify-between gap-2 border-b border-hairline p-4"
             >
               <span>Установка и восстановление данных</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </Link>
+            <div className="p-4">
+              <p className="mb-2.5 text-sm text-muted">
+                Ссылка для установки — открыть в Safari и добавить на «Домой», переустановить
+                или поделиться приложением:
+              </p>
+              <InstallLink />
+            </div>
             <p className="border-t border-hairline px-4 py-3 text-sm text-muted">
               Версия 1.0.0 · данные хранятся только на этом устройстве
             </p>
