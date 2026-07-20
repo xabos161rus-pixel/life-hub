@@ -16,6 +16,7 @@ import {
 import { db } from '../../db/db';
 import { now } from '../../db/repo';
 import { updateSettings } from '../../hooks/useSettings';
+import { REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
 
 const SLIDES: { icon: LucideIcon; title: string; text: string }[] = [
   {
@@ -48,7 +49,7 @@ const SLIDES: { icon: LucideIcon; title: string; text: string }[] = [
   {
     icon: LayoutGrid,
     title: 'Раздел «Ещё»',
-    text: 'Семейный чат и звонки, финансы, фокус-таймер, обучение, места и энергия. Здесь же — настройки, автокопии и синхронизация. А ссылками и текстом из других приложений можно делиться прямо в LifeHearth — они сразу станут задачей или заметкой.',
+    text: 'Семейный чат и звонки, финансы, фокус-таймер, обучение, места и энергия. Здесь же — настройки, автокопии, синхронизация и ссылка для установки (открыть или скопировать в любой момент — переустановить или поделиться приложением). А ссылками и текстом из других приложений можно делиться прямо в LifeHearth — они сразу станут задачей или заметкой.',
   },
   {
     icon: ShieldCheck,
@@ -75,9 +76,10 @@ export function OnboardingOverlay() {
 
   const finish = () => {
     setStep(0); // повторный запуск из Настроек начнётся с первого слайда
-    // reinstallNoticeSeen проставляем сразу: тот, кто ставит приложение сейчас,
-    // уже получил новый значок LifeHearth — окно о переустановке ему не нужно.
-    void updateSettings({ onboardingDone: now(), reinstallNoticeSeen: now() });
+    // reinstallNoticeSeen проставляем сразу текущей версией: тот, кто ставит
+    // приложение сейчас, уже получил актуальный значок — окно о переустановке
+    // ему не нужно.
+    void updateSettings({ onboardingDone: now(), reinstallNoticeSeen: REINSTALL_NOTICE_VERSION });
   };
 
   const slide = SLIDES[step];

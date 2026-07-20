@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
+import { InstallLink } from './InstallLink';
 
 const STEPS: { icon: LucideIcon; text: string }[] = [
   { icon: Compass, text: 'Откройте этот сайт в Safari' },
@@ -38,6 +39,18 @@ export function InstallInstructionsPage() {
   return (
     <Screen title="Установка и данные" backTo="/more/settings">
       <div className="space-y-6">
+        {/* --- Ссылка для установки (всегда доступна) --- */}
+        <section className="space-y-2.5">
+          <h2 className="text-sm font-semibold text-muted">Ссылка для установки</h2>
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            <p className="mb-3 text-sm leading-relaxed text-muted">
+              Открывайте её в Safari, чтобы установить или переустановить приложение, или
+              поделитесь ссылкой. Она всегда есть и в «Настройках».
+            </p>
+            <InstallLink />
+          </div>
+        </section>
+
         {/* --- Установка на экран «Домой» --- */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-muted">Установка на экран «Домой»</h2>
