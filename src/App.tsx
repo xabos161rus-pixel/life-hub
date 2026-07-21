@@ -29,6 +29,7 @@ import { CalendarPage } from './features/calendar/CalendarPage';
 import { TrashPage } from './features/trash/TrashPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { InstallInstructionsPage } from './features/settings/InstallInstructionsPage';
+import { SectionsSettingsPage } from './features/settings/SectionsSettingsPage';
 import { FocusPage } from './features/focus/FocusPage';
 import { FamilyPage } from './features/family/FamilyPage';
 import { PomodoroProvider } from './features/focus/PomodoroProvider';
@@ -139,6 +140,7 @@ export default function App() {
                 <Route path="/more/places" element={<PlacesPage />} />
                 <Route path="/more/settings" element={<SettingsPage />} />
                 <Route path="/more/settings/install" element={<InstallInstructionsPage />} />
+                <Route path="/more/settings/sections" element={<SectionsSettingsPage />} />
               </Routes>
             </div>
             <InstallBanner />
