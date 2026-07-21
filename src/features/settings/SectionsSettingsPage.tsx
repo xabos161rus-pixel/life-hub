@@ -45,10 +45,13 @@ export function SectionsSettingsPage() {
     setOrder({ bottom: l.bottom.filter((id) => id !== ANCHOR_ID), more: l.more, hidden: l.hidden });
   }, [settingsRow]);
 
-  // Автосохранение при каждом изменении раскладки — панель и «Ещё» обновляются сразу.
+  // Автосохранение при каждом изменении раскладки — панель и «Ещё» обновляются
+  // сразу. Сохраняем и порядок внутри «Ещё» (more), чтобы он тоже пережил перезапуск.
   useEffect(() => {
     if (!order) return;
-    void updateSettings({ navConfig: { bottom: order.bottom, hidden: order.hidden } });
+    void updateSettings({
+      navConfig: { bottom: order.bottom, hidden: order.hidden, more: order.more },
+    });
   }, [order]);
 
   // --- перетаскивание ---

@@ -11,6 +11,7 @@ import type { SectionId } from './sections';
 export interface NavConfig {
   bottom: string[]; // пользовательские разделы панели, по порядку (без якоря «Ещё»)
   hidden: string[]; // спрятанные разделы
+  more?: string[]; // порядок разделов внутри «Ещё» (новые — в хвост по реестру)
 }
 
 export interface NavRegistryItem {
@@ -61,11 +62,21 @@ export function computeNavLayout(
     if (bottomIds.length >= maxBottom) break;
   }
 
-  // «Ещё»: всё из реестра, кроме якоря, скрытых и того, что ушло в панель —
-  // в порядке реестра (настройка порядка внутри «Ещё» — следующий шаг).
+  // «Ещё»: сначала в сохранённом пользователем порядке (config.more), затем
+  // разделы, которых там нет (новые/не упомянутые), — в порядке реестра, в хвост.
   const moreIds: SectionId[] = [];
+  const placed = new Set<SectionId>();
+  const eligibleForMore = (id: SectionId) =>
+    byId.has(id) && !isAnchor(id) && !hiddenSet.has(id) && !inBottom.has(id);
+  for (const raw of config?.more ?? []) {
+    const id = raw as SectionId;
+    if (!eligibleForMore(id) || placed.has(id)) continue;
+    placed.add(id);
+    moreIds.push(id);
+  }
   for (const s of registry) {
-    if (isAnchor(s.id) || hiddenSet.has(s.id) || inBottom.has(s.id)) continue;
+    if (!eligibleForMore(s.id) || placed.has(s.id)) continue;
+    placed.add(s.id);
     moreIds.push(s.id);
   }
 
