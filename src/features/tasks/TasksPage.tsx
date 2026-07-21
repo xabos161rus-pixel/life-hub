@@ -102,21 +102,21 @@ function SubSection({
       <div className="mb-1.5 flex items-center gap-1 pr-1">
         <button onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
           <ChevronDown
-            size={15}
+            size={16}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
           <span className="flex shrink-0 items-center">
-            <ProjectFolderIcon project={project} size={15} />
+            <ProjectFolderIcon project={project} size={16} />
           </span>
-          <h3 className="truncate text-[15px] font-semibold tracking-tight">{project.name}</h3>
-          <span className="text-xs text-muted">{count}</span>
+          <h3 className="truncate text-[17px] font-semibold tracking-tight">{project.name}</h3>
+          <span className="text-sm text-muted">{count}</span>
         </button>
         <button
           onClick={onEdit}
           aria-label="Редактировать подпроект"
           className="p-1.5 text-muted active:opacity-60"
         >
-          <Pencil size={13} />
+          <Pencil size={14} />
         </button>
       </div>
       {!collapsed && children}
