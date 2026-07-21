@@ -1,22 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  ChevronRight,
-  Target,
-  GraduationCap,
-  Wallet,
-  BatteryCharging,
-  MapPin,
-  ChartColumnBig,
-  Timer,
-  CalendarCheck,
-  Sparkles,
-  Settings as SettingsIcon,
-} from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
+import { useNavLayout } from '../../hooks/useNavLayout';
 
 const BACKUP_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -55,6 +44,9 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
 }
 
 export function MorePage() {
+  // Список разделов «Ещё» и их порядок — из раскладки «под себя»; то, что вынесено
+  // в нижнюю панель или спрятано, здесь не показывается.
+  const { more } = useNavLayout();
   const learning = useLiveQuery(
     () => db.learningItems.where('status').equals('inProgress').toArray(),
     [],
@@ -72,58 +64,33 @@ export function MorePage() {
 
   const learningCount = alive(learning ?? []).length;
 
-  // Порядок по логике: ежедневное → сферы жизни → сервис/обзор.
-  // «Семья» вынесена в нижний таб-бар, поэтому здесь её нет.
   return (
     <Screen title="Ещё">
       <div className="space-y-3">
-        <MenuCard
-          to="/share"
-          icon={Sparkles}
-          title="Быстрый захват"
-          subtitle="Вставить текст → задача или заметка"
-        />
-        <MenuCard to="/more/focus" icon={Timer} title="Фокус" subtitle="Таймер помодоро" />
-        <MenuCard
-          to="/more/habits"
-          icon={CalendarCheck}
-          title="Привычки"
-          subtitle="Ежедневные ритуалы и серии"
-        />
-        <MenuCard to="/goals" icon={Target} title="Цели" subtitle="Большие цели и прогресс" />
-        <MenuCard
-          to="/more/learning"
-          icon={GraduationCap}
-          title="Обучение"
-          subtitle={`${learningCount} в процессе`}
-        />
-        <MenuCard to="/more/finance" icon={Wallet} title="Финансы" subtitle="Траты и доходы" />
-        <MenuCard
-          to="/more/energy"
-          icon={BatteryCharging}
-          title="Энергия"
-          subtitle="Что меня восстанавливает"
-        />
-        <MenuCard
-          to="/more/places"
-          icon={MapPin}
-          title="Места и путешествия"
-          subtitle="Советы, идеи, рекомендации"
-        />
-        <MenuCard
-          to="/stats"
-          icon={ChartColumnBig}
-          title="Статистика"
-          subtitle="Обзор продуктивности"
-        />
-        <MenuCard
-          to="/more/settings"
-          icon={SettingsIcon}
-          title="Настройки"
-          subtitle={backupDue ? 'Пора сделать резервную копию' : undefined}
-          subtitleWarning={backupDue}
-          badge={backupDue}
-        />
+        {more.map((s) => {
+          // Динамические подписи/бейджи: обучение — счётчик, настройки — статус копии.
+          let subtitle = s.subtitle;
+          let subtitleWarning = false;
+          let badge = false;
+          if (s.id === 'learning') {
+            subtitle = `${learningCount} в процессе`;
+          } else if (s.id === 'settings') {
+            subtitle = backupDue ? 'Пора сделать резервную копию' : s.subtitle;
+            subtitleWarning = backupDue;
+            badge = backupDue;
+          }
+          return (
+            <MenuCard
+              key={s.id}
+              to={s.to}
+              icon={s.icon}
+              title={s.label}
+              subtitle={subtitle}
+              subtitleWarning={subtitleWarning}
+              badge={badge}
+            />
+          );
+        })}
       </div>
     </Screen>
   );

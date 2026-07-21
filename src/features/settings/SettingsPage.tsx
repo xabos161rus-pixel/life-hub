@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
-import { BellRing, ChevronRight, GraduationCap, PhoneCall, Trash2 } from 'lucide-react';
+import { BellRing, ChevronRight, GraduationCap, PhoneCall, SlidersHorizontal, Trash2 } from 'lucide-react';
 import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/sounds';
 import { RINGTONES, previewRingtone, type RingtoneKind } from '../../lib/family/ringtone';
 import { Screen } from '../../components/layout/Screen';
@@ -399,6 +399,14 @@ export function SettingsPage() {
 
         <Section title="Приложение">
           <div className="card">
+            <Link
+              to="/more/settings/sections"
+              className="flex items-center gap-2 border-b border-hairline p-4"
+            >
+              <SlidersHorizontal size={20} className="shrink-0 text-muted" />
+              <span className="flex-1">Настроить разделы</span>
+              <ChevronRight size={20} className="shrink-0 text-muted" />
+            </Link>
             <Link to="/more/trash" className="flex items-center gap-2 border-b border-hairline p-4">
               <Trash2 size={20} className="shrink-0 text-muted" />
               <span className="flex-1">Корзина</span>
