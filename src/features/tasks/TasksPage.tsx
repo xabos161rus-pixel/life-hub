@@ -21,6 +21,7 @@ import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Hint } from '../../components/ui/Hint';
 import { useHint } from '../../hooks/useHint';
+import { updateSettings } from '../../hooks/useSettings';
 import { useToast } from '../../components/ui/Toast';
 import { formatDueDate } from '../../lib/dates';
 import { describeRecurrence } from '../../lib/recurrence';
@@ -744,23 +745,31 @@ export function TasksPage() {
     };
   }, [draggingProject, hitTest, toast]);
 
-  // Свёрнутые группы (проекты/«Без проекта»). По умолчанию все развёрнуты.
-  // Персистим в localStorage — иначе перезапуск приложения раскрывал всё назад.
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+  // Свёрнутые группы (проекты/«Без проекта»/«Заморожено»). По умолчанию развёрнуты.
+  // Храним в settings (IndexedDB): на iOS-PWA localStorage не переживал перезапуск
+  // и свёрнутость слетала. settings device-local — между устройствами не синкается.
+  const settingsRow = useLiveQuery(() => db.settings.get('app'), []);
+  const collapsed = useMemo(
+    () => new Set(settingsRow?.collapsedProjects ?? []),
+    [settingsRow?.collapsedProjects],
+  );
+  // Одноразовый перенос ранее сохранённого состояния из localStorage в settings —
+  // чтобы у тех, у кого оно уцелело, свёрнутость не сбросилась при обновлении.
+  const collapsedMigrated = useRef(false);
+  useEffect(() => {
+    if (!settingsRow || collapsedMigrated.current) return;
+    collapsedMigrated.current = true;
+    if (settingsRow.collapsedProjects !== undefined) return; // уже в settings
+    let saved: string[] = [];
     try {
       const raw = localStorage.getItem('life-hub-collapsed-projects');
-      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(parsed)) saved = parsed.filter((x): x is string => typeof x === 'string');
     } catch {
-      return new Set();
+      /* приватный режим / повреждённое значение — стартуем с пустого */
     }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem('life-hub-collapsed-projects', JSON.stringify([...collapsed]));
-    } catch {
-      /* приватный режим */
-    }
-  }, [collapsed]);
+    void updateSettings({ collapsedProjects: saved });
+  }, [settingsRow]);
   // Развёрнутые под-секции выполненных по ключу группы. По умолчанию — свёрнуты.
   const [expandedCompleted, setExpandedCompleted] = useState<Set<string>>(() => new Set());
 
@@ -854,12 +863,10 @@ export function TasksPage() {
   );
 
   function toggle(id: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    const next = new Set(collapsed);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    void updateSettings({ collapsedProjects: [...next] });
   }
 
   function toggleCompleted(key: string) {
