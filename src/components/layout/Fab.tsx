@@ -182,11 +182,13 @@ export function Fab({ onClick, label = 'Добавить' }: Props) {
         ...(pos ? { left: pos.x, top: pos.y } : {}),
         ...(dragging ? { willChange: 'transform' } : {}),
       }}
-      // Позиция: right/bottom (дефолт) или left/top (своя). Плавность (transition)
-      // выключаем на время переноса, иначе она «догоняет» transform и кнопка
-      // дёргается. active:scale-90 — только вне переноса (в переносе кнопка
-      // приподнята scale-105, иначе :active мигал бы при движении пальца).
-      className={`fixed z-40 flex size-14 items-center justify-center rounded-full text-white shadow-[var(--shadow-accent)] ${
+      // select-none + webkit-touch-callout/user-select/tap-highlight — глушим
+      // нативную iOS-реакцию на удержание (лупа, синее выделение, callout),
+      // иначе она перебивает наш жест переноса. Позиция: right/bottom (дефолт)
+      // или left/top (своя). Плавность (transition) выключаем на время переноса,
+      // иначе она «догоняет» transform и кнопка дёргается. active:scale-90 —
+      // только вне переноса (в переносе кнопка приподнята scale-105).
+      className={`fixed z-40 flex size-14 select-none items-center justify-center rounded-full text-white shadow-[var(--shadow-accent)] [-webkit-touch-callout:none] [-webkit-user-select:none] [-webkit-tap-highlight-color:transparent] ${
         pos ? '' : `right-[max(1.25rem,calc(50vw-16rem))] ${bottom}`
       } ${dragging ? 'scale-105 shadow-2xl' : 'active:scale-90'} ${
         dragging
@@ -196,7 +198,7 @@ export function Fab({ onClick, label = 'Добавить' }: Props) {
             : 'transition-[transform,bottom] duration-200'
       }`}
     >
-      <Plus size={26} strokeWidth={2.5} />
+      <Plus size={26} strokeWidth={2.5} className="pointer-events-none" />
     </button>
   );
 }
