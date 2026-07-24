@@ -169,7 +169,7 @@ export class FamilyRoom extends DurableObject {
   }
 
   // === Запись (идемпотентная по client_msg_id для msg; новый seq для версии task/member) ===
-  async ingest({ channel, itemId, clientMsgId, senderMemberId, createdAt, ciphertext, edit, silent }) {
+  async ingest({ channel, itemId, clientMsgId, senderMemberId, createdAt, ciphertext, edit, silent, notify }) {
     if (!channel || !ciphertext || (channel === 'msg' && !clientMsgId) || (channel !== 'msg' && !itemId)) {
       return { error: 'bad request' };
     }
@@ -184,7 +184,8 @@ export class FamilyRoom extends DurableObject {
       if (dup) return { seq: dup.seq, channel, itemId: id, clientMsgId, duplicate: true };
     }
     // Новая ли это задача (для пуша «новая задача») — проверяем ДО удаления
-    // прежней версии: при обновлении/выполнении задачи (тот же item_id) пуша нет.
+    // прежней версии: остальные правки задачи молчат, кроме отмеченного клиентом
+    // notify (см. ниже).
     const isNewTask =
       channel === 'task' && !this.sql.exec('SELECT 1 FROM items WHERE channel=? AND item_id=? LIMIT 1', channel, id).toArray()[0];
 
@@ -213,6 +214,11 @@ export class FamilyRoom extends DurableObject {
       }
     } else if (isNewTask) {
       this.ctx.waitUntil(this.pushOffline(item, senderMemberId, 'task'));
+    } else if (channel === 'task' && notify === 'done') {
+      // Содержимое задачи шифруется end-to-end, поэтому «выполнена» сервер сам
+      // распознать не может — клиент помечает это событие открытым флагом.
+      // Флаг несёт только тип события: ни названия, ни имени в него не попадает.
+      this.ctx.waitUntil(this.pushOffline(item, senderMemberId, 'task-done'));
     }
     return { seq, channel, itemId: id, clientMsgId: clientMsgId || null };
   }
@@ -453,9 +459,16 @@ export class FamilyRoom extends DurableObject {
     // familyId — иначе уведомления двух групп схлопывались бы в одно.
     const familyId = this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]?.v || '';
     const name = this.roomName() || 'Семья';
-    const isTask = kind === 'task';
-    const bodyText = isTask ? 'Новая общая задача' : 'Новое сообщение';
-    const tag = (isTask ? 'family-task:' : 'family-chat:') + (familyId || 'all');
+    // Тег у каждого типа события свой: с общим тегом «задача выполнена» затирала
+    // бы уведомление о новой задаче, и человек не узнал бы, что ему её поставили.
+    const KIND = {
+      msg: { body: 'Новое сообщение', tag: 'family-chat:' },
+      task: { body: 'Новая общая задача', tag: 'family-task:' },
+      'task-done': { body: 'Общая задача выполнена', tag: 'family-task-done:' },
+    };
+    const k = KIND[kind] || KIND.msg;
+    const bodyText = k.body;
+    const tag = k.tag + (familyId || 'all');
     for (const m of subs) {
       if (online.has(m.member_id)) continue;
       try {
