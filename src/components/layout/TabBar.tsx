@@ -33,18 +33,25 @@ export function TabBar() {
               key={id}
               to={to}
               end={end}
-              className="flex flex-1 flex-col items-center gap-1 pt-2 pb-1.5"
+              // min-w-0 обязателен: без него flex-элемент не сжимается ниже
+              // min-content своей подписи, и пятая вкладка уезжает за край
+              // экрана (на 320px ряд требовал 348px и обрезался).
+              className="flex min-w-0 flex-1 flex-col items-center gap-1 pt-2 pb-1.5"
             >
               {({ isActive }) => (
                 <>
                   <span
-                    className={`flex h-9 w-16 items-center justify-center rounded-2xl transition-colors duration-200 ${
+                    // Пилюля тянется по вкладке, но не шире прежних w-16 (4rem
+                    // при root 17px = 68px): на 393/430px вид не меняется, а на
+                    // узком экране она сжимается вместо того, чтобы задавать
+                    // неусыхаемый min-content и выталкивать ряд за край.
+                    className={`flex h-9 w-full max-w-16 items-center justify-center rounded-2xl transition-colors duration-200 ${
                       isActive
                         ? 'bg-accent/15 text-accent shadow-[0_5px_18px_-7px_var(--app-accent)]'
                         : 'text-muted'
                     }`}
                   >
-                    <span className="relative">
+                    <span className="relative shrink-0">
                       <Icon
                         size={22}
                         // strokeWidth через inline style (перебивает глобальное
@@ -62,7 +69,12 @@ export function TabBar() {
                     </span>
                   </span>
                   <span
-                    className={`text-[11px] font-semibold transition-colors ${
+                    // На узком экране подпись мельчает и поджимает трекинг, а не
+                    // режется многоточием: при 320px и шести вкладках на ярлык
+                    // остаётся ~52px, и даже «Статистика» укладывается в них
+                    // целиком. max-w-full + truncate — страховка на случай
+                    // более длинной метки, чтобы она распирала не ряд, а себя.
+                    className={`max-w-full truncate text-[11px] font-semibold transition-colors max-[380px]:text-[10px] max-[380px]:tracking-[-0.01em] max-[340px]:text-[9px] max-[340px]:tracking-[-0.02em] ${
                       isActive ? 'text-accent' : 'text-muted'
                     }`}
                   >

@@ -89,6 +89,14 @@ const FOCUS_VARS = {
   '--shadow-accent': 'var(--shadow-focus)',
 } as unknown as CSSProperties;
 
+// Пара степперов в ряд физически не влезает на узкий телефон: min-content одного
+// степпера ≈ 178px (p-3 + две кнопки 44px + поле + gap), пары с gap-3 — ≈ 370px,
+// а колонка контента это (ширина вьюпорта − 34px). На 320–390px правый степпер
+// уезжал за экран вместе с кнопкой «+», и из-за overflow-x:hidden у #app-scroll
+// до неё нельзя было доскроллить — длительность перерыва не менялась в принципе.
+// Ниже 400px строим степперы столбиком: каждому достаётся вся ширина.
+const STEPPER_PAIR = 'flex flex-col gap-3 min-[400px]:flex-row';
+
 /** Поле длительности (мин): шаг ±1 кнопками и ввод любого значения, без верхнего предела. */
 function DurationStepper({
   label,
@@ -110,15 +118,19 @@ function DurationStepper({
     setText(String(value));
   }
 
+  // Кнопки ± — size-11 (46.75px при базовых 17px), это минимум 44×44 по HIG;
+  // поле растягивается на остаток (min-w-0), поэтому степпер сжимается по ширине
+  // родителя, а не задаёт ему жёсткий min-content. flex-1 нужен только в ряду —
+  // в колонке степпер и так растянут по ширине (align-items: stretch).
   return (
-    <div className="flex-1 rounded-2xl bg-surface-2 p-3">
+    <div className="min-w-0 rounded-2xl bg-surface-2 p-3 min-[400px]:flex-1">
       <p className="mb-2 text-center text-xs text-muted">{label}</p>
       <div className="flex items-center justify-between gap-1">
         <button
           type="button"
           aria-label={`${label}: меньше`}
           onClick={() => onChange(Math.max(1, value - 1))}
-          className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90"
         >
           −
         </button>
@@ -138,13 +150,13 @@ function DurationStepper({
             const n = parseInt(text, 10);
             if (!Number.isFinite(n) || n < 1) setText(String(value));
           }}
-          className="w-14 bg-transparent text-center text-2xl font-bold tabular-nums outline-none"
+          className="min-w-0 flex-1 bg-transparent text-center text-2xl font-bold tabular-nums outline-none"
         />
         <button
           type="button"
           aria-label={`${label}: больше`}
           onClick={() => onChange(value + 1)}
-          className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90"
         >
           +
         </button>
@@ -182,13 +194,14 @@ function PresetForm({
       </div>
       <div>
         <p className="mb-2 px-1 text-sm font-medium text-muted">Длительность (мин)</p>
-        <div className="flex gap-3">
+        <div className={STEPPER_PAIR}>
           <DurationStepper label="Фокус" value={work} onChange={setWork} />
           <DurationStepper label="Перерыв" value={brk} onChange={setBrk} />
         </div>
-        <div className="mt-3 flex gap-3">
+        <div className={`mt-3 ${STEPPER_PAIR}`}>
           <DurationStepper label="Длинный перерыв" value={long} onChange={setLong} />
-          <div className="flex-1" />
+          {/* Добор половины строки только в ряду; в колонке пустой блок не нужен. */}
+          <div className="hidden min-[400px]:block min-[400px]:flex-1" />
         </div>
       </div>
       <button
@@ -416,13 +429,14 @@ export function FocusPage() {
 
         <div className="mt-6 w-full">
           <p className="mb-2 px-1 text-sm font-medium text-muted">Длительность (мин)</p>
-          <div className="flex gap-3">
+          <div className={STEPPER_PAIR}>
             <DurationStepper label="Фокус" value={p.workMin} onChange={p.setWorkMin} />
             <DurationStepper label="Перерыв" value={p.breakMin} onChange={p.setBreakMin} />
           </div>
-          <div className="mt-3 flex gap-3">
+          <div className={`mt-3 ${STEPPER_PAIR}`}>
             <DurationStepper label="Длинный перерыв" value={p.longMin} onChange={p.setLongMin} />
-            <p className="flex-1 self-center px-1 text-xs leading-snug text-muted">
+            {/* self-center — только рядом со степпером; в колонке подпись идёт слева. */}
+            <p className="min-w-0 px-1 text-xs leading-snug text-muted min-[400px]:flex-1 min-[400px]:self-center">
               Длинный перерыв включается после каждых 4 фокусов.
             </p>
           </div>

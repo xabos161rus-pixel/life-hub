@@ -161,8 +161,8 @@ function StatCard({ title, children }: { title: string; children: ReactNode }) {
 
 function StatNumber({ value, label, color }: { value: number; label: string; color?: string }) {
   return (
-    <div>
-      <p className="text-2xl font-bold" style={color ? { color } : undefined}>
+    <div className="min-w-0">
+      <p className="text-[clamp(1.05rem,5.2vw,1.5rem)] font-bold leading-tight" style={color ? { color } : undefined}>
         {value}
       </p>
       <p className="text-xs text-muted">{label}</p>
@@ -174,11 +174,20 @@ function StatNumber({ value, label, color }: { value: number; label: string; col
  *  сетке не сливались в стену цифр. */
 function StatTile({ value, label, color }: { value: ReactNode; label: string; color?: string }) {
   return (
-    <div className="rounded-xl border border-hairline bg-surface-2 px-3 py-2.5">
-      <p className="text-[22px] font-bold leading-none" style={color ? { color } : undefined}>
+    // min-w-0 обязателен: у grid-элемента, как и у flex, min-width:auto — без него
+    // колонка распирается по min-content подписи и вся сетка вылезает за карточку.
+    <div className="min-w-0 rounded-xl border border-hairline bg-surface-2 px-2.5 py-2.5">
+      <p
+        className="text-[clamp(17px,5.5vw,22px)] font-bold leading-none"
+        style={color ? { color } : undefined}
+      >
         {value}
       </p>
-      <p className="mt-1.5 text-[11px] leading-tight text-muted">{label}</p>
+      {/* На 320px под подпись остаётся ~55px: без переноса и уменьшения «всего
+          активных» наезжает на рамку. clamp тянет 11px → 9px к узким экранам. */}
+      <p className="mt-1.5 break-words hyphens-auto text-[clamp(9px,2.9vw,11px)] leading-tight text-muted">
+        {label}
+      </p>
     </div>
   );
 }
@@ -317,9 +326,9 @@ export function StatsPage() {
         <StatCard title="Эффективность">
           {/* Хедлайн: процент выполнения + полоса */}
           <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
-            <div className="mb-2 flex items-baseline justify-between">
-              <span className="text-sm font-medium">Выполнено из всех</span>
-              <span className="text-lg font-bold" style={{ color: 'var(--app-success)' }}>
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <span className="min-w-0 truncate text-sm font-medium">Выполнено из всех</span>
+              <span className="shrink-0 text-lg font-bold" style={{ color: 'var(--app-success)' }}>
                 {taskBreakdown.completionRate}%
               </span>
             </div>
@@ -357,9 +366,9 @@ export function StatsPage() {
         {taskTime.weekTotal > 0 && (
           <StatCard title="Время на задачи">
             <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm font-medium">Сегодня на задачи</span>
-                <span className="text-xl font-bold" style={{ color: 'var(--app-accent-2)' }}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="min-w-0 truncate text-sm font-medium">Сегодня на задачи</span>
+                <span className="shrink-0 text-xl font-bold" style={{ color: 'var(--app-accent-2)' }}>
                   {taskTime.today > 0 ? formatDuration(taskTime.today) : '0м'}
                 </span>
               </div>
@@ -416,10 +425,10 @@ export function StatsPage() {
         {/* Цели */}
         {activeGoals.length > 0 && (
           <StatCard title="Цели">
-            <div className="mb-4 grid grid-cols-2 gap-y-4">
+            <div className="mb-4 grid grid-cols-2 gap-x-4 gap-y-4">
               <StatNumber value={activeGoals.length} label="активных" />
-              <div>
-                <p className="text-2xl font-bold">{avgGoalProgress}%</p>
+              <div className="min-w-0">
+                <p className="text-[clamp(1.05rem,5.2vw,1.5rem)] font-bold leading-tight">{avgGoalProgress}%</p>
                 <p className="text-xs text-muted">средний прогресс</p>
               </div>
             </div>
@@ -454,14 +463,20 @@ export function StatsPage() {
         {/* Финансы */}
         {expenses.length > 0 && (
           <StatCard title="Финансы">
-            <div className="grid grid-cols-2 gap-y-4">
-              <div>
-                <p className="text-2xl font-bold">{formatRub(finance.expense)}</p>
+            {/* formatRub склеивает разряды NBSP — сумма физически не переносится,
+                значит помещать её можно только уменьшением кегля. clamp по vw
+                делает это плавно и сохраняет две колонки (ломать сетку в одну
+                на узких пришлось бы ради одного крайнего случая). */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+              <div className="min-w-0">
+                <p className="text-[clamp(1.05rem,5.2vw,1.5rem)] font-bold leading-tight tabular-nums">
+                  {formatRub(finance.expense)}
+                </p>
                 <p className="text-xs text-muted">расходы в месяц</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p
-                  className="text-2xl font-bold"
+                  className="text-[clamp(1.05rem,5.2vw,1.5rem)] font-bold leading-tight tabular-nums"
                   style={{
                     color:
                       finance.balance < 0 ? 'var(--app-danger)' : 'var(--app-success)',
