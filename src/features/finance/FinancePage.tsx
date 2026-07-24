@@ -12,6 +12,7 @@ import type { ExpenseItem, ExpenseRecurrence } from '../../db/types';
 import { financeSummary, formatRub, upcomingExpenses } from '../../lib/finance';
 import { formatRu, todayKey } from '../../lib/dates';
 import { ExpenseSheet } from './ExpenseSheet';
+import { SavingsSection } from './SavingsSection';
 
 const RECURRENCE_LABEL: Record<ExpenseRecurrence, string> = {
   monthly: 'Ежемесячно',
@@ -150,15 +151,18 @@ export function FinancePage() {
 
   return (
     <Screen title="Финансы" backTo="/more">
-      {items.length === 0 ? (
-        <EmptyState
-          icon={Wallet}
-          title="Пока нет записей"
-          hint="Добавьте ежемесячные траты — аренду, подписки, еду — и увидите, сколько уходит в месяц и в год."
-        />
-      ) : (
-        <div className="space-y-5">
-          <SummaryCard items={items} />
+      <div className="space-y-5">
+        <SavingsSection />
+
+        {items.length === 0 ? (
+          <EmptyState
+            icon={Wallet}
+            title="Пока нет трат и доходов"
+            hint="Добавьте ежемесячные траты — аренду, подписки, еду — и увидите, сколько уходит в месяц и в год."
+          />
+        ) : (
+          <>
+            <SummaryCard items={items} />
 
           {upcoming.length > 0 && (
             <section>
@@ -210,8 +214,9 @@ export function FinancePage() {
               </div>
             </section>
           )}
-        </div>
-      )}
+          </>
+        )}
+      </div>
 
       <Fab onClick={openCreate} />
       <ExpenseSheet open={sheetOpen} onClose={() => setSheetOpen(false)} item={editing} />

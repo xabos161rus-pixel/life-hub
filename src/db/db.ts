@@ -9,6 +9,8 @@ import type {
   LearningItem,
   LearningLog,
   ExpenseItem,
+  SavingsGoal,
+  SavingsDeposit,
   EnergyItem,
   PlaceItem,
   Metric,
@@ -23,7 +25,7 @@ import type {
   ReminderItem,
 } from './types';
 
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -35,6 +37,8 @@ export class LifeHubDB extends Dexie {
   learningItems!: Table<LearningItem, string>;
   learningLogs!: Table<LearningLog, string>;
   expenseItems!: Table<ExpenseItem, string>;
+  savingsGoals!: Table<SavingsGoal, string>;
+  savingsDeposits!: Table<SavingsDeposit, string>;
   energyItems!: Table<EnergyItem, string>;
   placeItems!: Table<PlaceItem, string>;
   metrics!: Table<Metric, string>;
@@ -160,6 +164,12 @@ export class LifeHubDB extends Dexie {
             if (l.value === undefined) l.value = null;
           });
       });
+    // v10 — накопления: цели-копилки и пополнения. Только новые таблицы,
+    // существующие не трогаются → upgrade-функция не нужна.
+    this.version(10).stores({
+      savingsGoals: 'id, sortOrder, archivedAt',
+      savingsDeposits: 'id, goalId, date',
+    });
   }
 }
 

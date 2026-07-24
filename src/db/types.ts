@@ -152,6 +152,27 @@ export interface ExpenseItem extends BaseEntity {
   sortOrder: number;
 }
 
+// === Накопления — трекер целей-копилок ===
+export interface SavingsGoal extends BaseEntity {
+  title: string;
+  emoji: string;
+  color: string; // hex
+  targetAmount: number; // цель в рублях
+  targetDate: string | null; // 'YYYY-MM-DD' — срок (опц.), для прогноза «в месяц»
+  note: string;
+  archivedAt: string | null; // «Забрать»: цель завершена и убрана из активных
+  sortOrder: number;
+}
+
+// Пополнение цели. amount может быть отрицательным (снятие/откат). Накоплено по
+// цели = сумма её вкладов; отдельным полем не храним, чтобы не рассинхронизировать.
+export interface SavingsDeposit extends BaseEntity {
+  goalId: string;
+  amount: number; // рубли; < 0 — снятие
+  date: string; // 'YYYY-MM-DD'
+  note: string;
+}
+
 // === Восстановление и энергия (#3) ===
 // effort — сколько сил требует способ: для сценария «совсем ничего не хочется»
 // нужны low-effort варианты.
