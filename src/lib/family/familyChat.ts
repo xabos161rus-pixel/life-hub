@@ -32,11 +32,12 @@ export interface SignalFrame {
 }
 type RawItem = { seq: number; channel: Channel; itemId: string; senderMemberId: string | null; createdAt: string; ciphertext: string };
 
-function stripMeta<T extends { id: string; seq: number; familyId?: string }>(row: T) {
-  const { id, seq, familyId, ...rest } = row;
+function stripMeta<T extends { id: string; seq: number; familyId?: string; pendingNotify?: unknown }>(row: T) {
+  const { id, seq, familyId, pendingNotify, ...rest } = row;
   void id;
   void seq;
   void familyId;
+  void pendingNotify; // локальный флаг доставки, чужим устройствам он не нужен
   return rest;
 }
 
@@ -286,7 +287,11 @@ class FamilyEngine {
       }));
     }
     for (const t of (await db.familyTasks.where('familyId').equals(this.familyId).toArray()).filter((x) => x.seq === 0)) {
-      this.ws.send(JSON.stringify({ type: 'send', channel: 'task', itemId: t.id, senderMemberId: c.selfMemberId, ciphertext: await encryptJSON(c.familyKey, stripMeta(t)) }));
+      // Отметку «выполнена», не ушедшую из-за отсутствия сети, помечаем снова —
+      // иначе она доедет молча. Флаг снимаем сразу: повтор пуша не нужен.
+      const notify = t.pendingNotify;
+      this.ws.send(JSON.stringify({ type: 'send', channel: 'task', itemId: t.id, senderMemberId: c.selfMemberId, ...(notify ? { notify } : {}), ciphertext: await encryptJSON(c.familyKey, stripMeta(t)) }));
+      if (notify) await db.familyTasks.update(t.id, { pendingNotify: undefined });
     }
     for (const mem of (await db.familyMembers.where('familyId').equals(this.familyId).toArray()).filter((x) => x.seq === 0)) {
       this.ws.send(JSON.stringify({ type: 'send', channel: 'member', itemId: mem.id, senderMemberId: c.selfMemberId, ciphertext: await encryptJSON(c.familyKey, stripMeta(mem)) }));
@@ -423,9 +428,13 @@ class FamilyEngine {
     this.setState('offline');
   }
 
-  private trySendFrame(frame: object) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(frame));
-    // иначе оставляем в БД — уйдёт на ближайшем ready через resendOutbox
+  /** true — кадр ушёл в сокет; false — сети не было, ждём resendOutbox. */
+  private trySendFrame(frame: object): boolean {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(frame));
+      return true;
+    }
+    return false; // оставляем в БД — уйдёт на ближайшем ready через resendOutbox
   }
 
   // Полный E2E-payload сообщения — ЕДИНСТВЕННОЕ место сборки: sendMessage /
@@ -553,11 +562,16 @@ class FamilyEngine {
     }
   }
 
-  async sendItem(channel: 'task' | 'member', itemId: string, payload: object): Promise<void> {
+  /** Возвращает, ушёл ли кадр прямо сейчас: вызывающий решает, помечать ли повтор. */
+  async sendItem(channel: 'task' | 'member', itemId: string, payload: object, notify?: 'done'): Promise<boolean> {
     const c = await this.cfg();
-    if (!c) return;
-    this.trySendFrame({ type: 'send', channel, itemId, senderMemberId: c.selfMemberId, ciphertext: await encryptJSON(c.familyKey, payload) });
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
+    if (!c) return false;
+    // notify идёт открытым полем: содержимое зашифровано, и сервер иначе не может
+    // отличить «задачу выполнили» от любой другой правки. Тип события — всё, что
+    // он узнаёт; ни названия задачи, ни имени в нём нет.
+    const sent = this.trySendFrame({ type: 'send', channel, itemId, senderMemberId: c.selfMemberId, ...(notify ? { notify } : {}), ciphertext: await encryptJSON(c.familyKey, payload) });
+    if (!sent) void this.connect();
+    return sent;
   }
 }
 
@@ -667,8 +681,8 @@ export function renameFamily(familyId: string, name: string): Promise<void> {
 export function markSeen(familyId: string, seq: number): void {
   getEngine(familyId).markSeen(seq);
 }
-export function sendItem(familyId: string, channel: 'task' | 'member', itemId: string, payload: object): Promise<void> {
-  return getEngine(familyId).sendItem(channel, itemId, payload);
+export function sendItem(familyId: string, channel: 'task' | 'member', itemId: string, payload: object, notify?: 'done'): Promise<boolean> {
+  return getEngine(familyId).sendItem(channel, itemId, payload, notify);
 }
 export function subscribeSignals(familyId: string, fn: (f: SignalFrame) => void): () => void {
   return getEngine(familyId).subscribeSignals(fn);

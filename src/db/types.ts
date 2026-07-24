@@ -319,6 +319,10 @@ export interface FamilyTask {
   completedBy: string | null;
   sortOrder: number;
   deletedAt: string | null;
+  // Отметку «выполнена» не удалось отправить (не было сети) — при переотправке
+  // её нужно снова пометить для пуша, иначе она доедет молча и остальные не
+  // узнают. Поле локальное, наружу не уходит: stripMeta его вырезает.
+  pendingNotify?: 'done';
 }
 
 // Сообщение чата. append-only, дедуп по clientMsgId; порядок по серверному seq.
