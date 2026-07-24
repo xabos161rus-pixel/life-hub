@@ -22,7 +22,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Hint } from '../../components/ui/Hint';
 import { useHint } from '../../hooks/useHint';
 import { updateSettings } from '../../hooks/useSettings';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
 import { formatDueDate } from '../../lib/dates';
 import { describeRecurrence } from '../../lib/recurrence';
 import { ProjectEditSheet } from './ProjectEditSheet';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { Pause, Play, RotateCcw, X } from 'lucide-react';
-import { formatClock, usePomodoro } from './PomodoroProvider';
+import { formatClock, usePomodoro } from './pomodoro';
 
 /** Полоска-таймер над таб-баром, пока идёт помодоро. Тап — открыть «Фокус». */
 export function MiniTimer() {

@@ -9,7 +9,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { ClearFieldButton, Field, Input, Select } from '../../components/ui/Input';
 import { Hint } from '../../components/ui/Hint';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { TaskCheck } from '../../components/ui/Checkbox';
@@ -18,7 +18,7 @@ import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { PRESET_COLORS } from '../../lib/colors';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
 import { compressImage } from '../../lib/image';
-import { usePomodoro } from '../focus/PomodoroProvider';
+import { usePomodoro } from '../focus/pomodoro';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 type PriorityStr = '0' | '1' | '2' | '3';
@@ -65,18 +65,21 @@ function formatDuration(min: number): string {
   return m === 0 ? `${h}ч` : `${h}ч ${m}м`;
 }
 
-/** Шит создания/редактирования задачи. task=null → создание с defaults. */
-export function TaskEditSheet({
-  open,
-  onClose,
-  task,
-  defaults,
-}: {
-  open: boolean;
+type TaskEditProps = {
   onClose: () => void;
   task?: Task | null;
   defaults?: { projectId?: string | null; goalId?: string | null; dueDate?: string | null };
-}) {
+};
+
+/** Шит создания/редактирования задачи. task=null → создание с defaults. */
+export function TaskEditSheet({ open, ...rest }: TaskEditProps & { open: boolean }) {
+  // Форма монтируется заново на каждое открытие: состояние инициализируется
+  // из props, поэтому сброс через эффект не нужен.
+  if (!open) return null;
+  return <TaskEditForm {...rest} />;
+}
+
+function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
   const projectsRaw = useLiveQuery(
     async () =>
       alive(await db.projects.toArray())
@@ -106,23 +109,36 @@ export function TaskEditSheet({
     navigate('/more/focus');
   };
 
-  const [title, setTitle] = useState('');
-  const [notes, setNotes] = useState('');
-  const [tagsText, setTagsText] = useState('');
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [goalId, setGoalId] = useState<string | null>(null);
-  const [priority, setPriority] = useState<Priority>(0);
-  const [dueDate, setDueDate] = useState<string | null>(null);
-  const [dueTime, setDueTime] = useState<string | null>(null);
-  const [duration, setDuration] = useState<number | null>(null);
-  const [remindBefore, setRemindBefore] = useState<number | null>(null);
-  const [recType, setRecType] = useState<RecType>('none');
-  const [recInterval, setRecInterval] = useState('1');
-  const [recWeekdays, setRecWeekdays] = useState<number[]>([]);
-  const [recDayOfMonth, setRecDayOfMonth] = useState('1');
-  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const rec = task?.recurrence;
+  const [title, setTitle] = useState(task?.title ?? '');
+  const [notes, setNotes] = useState(task?.notes ?? '');
+  const [tagsText, setTagsText] = useState(task ? task.tags.join(', ') : '');
+  const [projectId, setProjectId] = useState<string | null>(
+    task ? task.projectId : (defaults?.projectId ?? null),
+  );
+  const [goalId, setGoalId] = useState<string | null>(
+    task ? task.goalId : (defaults?.goalId ?? null),
+  );
+  const [priority, setPriority] = useState<Priority>(task?.priority ?? 0);
+  const [dueDate, setDueDate] = useState<string | null>(
+    task ? task.dueDate : (defaults?.dueDate ?? null),
+  );
+  const [dueTime, setDueTime] = useState<string | null>(task?.dueTime ?? null);
+  const [duration, setDuration] = useState<number | null>(task?.duration ?? null);
+  const [remindBefore, setRemindBefore] = useState<number | null>(task?.remindBefore ?? null);
+  const [recType, setRecType] = useState<RecType>(rec?.type ?? 'none');
+  const [recInterval, setRecInterval] = useState(String(rec?.interval ?? 1));
+  const [recWeekdays, setRecWeekdays] = useState<number[]>(
+    rec?.type === 'weekly' ? [...rec.weekdays] : [],
+  );
+  const [recDayOfMonth, setRecDayOfMonth] = useState(
+    String(rec?.type === 'monthly' ? rec.dayOfMonth : 1),
+  );
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(
+    task ? task.checklist.map((i) => ({ ...i })) : [],
+  );
   const [newItem, setNewItem] = useState('');
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<string[]>(task?.photos ? [...task.photos] : []);
   // Просмотр фото на весь экран (null — закрыт).
   const [viewPhoto, setViewPhoto] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -145,53 +161,6 @@ export function TaskEditSheet({
   const [newProjectColor, setNewProjectColor] = useState(PRESET_COLORS[0]);
   const [newProjectEmoji, setNewProjectEmoji] = useState('📁');
 
-  // Инициализация формы при каждом открытии шита.
-  useEffect(() => {
-    if (!open) return;
-    if (task) {
-      setTitle(task.title);
-      setNotes(task.notes);
-      setTagsText(task.tags.join(', '));
-      setProjectId(task.projectId);
-      setGoalId(task.goalId);
-      setPriority(task.priority);
-      setDueDate(task.dueDate);
-      setDueTime(task.dueTime ?? null);
-      setDuration(task.duration ?? null);
-      setRemindBefore(task.remindBefore ?? null);
-      setChecklist(task.checklist.map((i) => ({ ...i })));
-      setPhotos(task.photos ? [...task.photos] : []);
-      const rec = task.recurrence;
-      setRecType(rec?.type ?? 'none');
-      setRecInterval(String(rec?.interval ?? 1));
-      setRecWeekdays(rec?.type === 'weekly' ? [...rec.weekdays] : []);
-      setRecDayOfMonth(String(rec?.type === 'monthly' ? rec.dayOfMonth : 1));
-    } else {
-      setTitle('');
-      setNotes('');
-      setTagsText('');
-      setProjectId(defaults?.projectId ?? null);
-      setGoalId(defaults?.goalId ?? null);
-      setPriority(0);
-      setDueDate(defaults?.dueDate ?? null);
-      setDueTime(null);
-      setDuration(null);
-      setRemindBefore(null);
-      setChecklist([]);
-      setPhotos([]);
-      setRecType('none');
-      setRecInterval('1');
-      setRecWeekdays([]);
-      setRecDayOfMonth('1');
-    }
-    setNewItem('');
-    setViewPhoto(null);
-    setShowNewProject(false);
-    setNewProjectName('');
-    setNewProjectColor(PRESET_COLORS[0]);
-    setNewProjectEmoji('📁');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
 
   // Авто-подгон высоты поля названия под содержимое (#7). Реагирует на
   // программные изменения title (mic/инициализация) и на открытие шита.
@@ -200,7 +169,7 @@ export function TaskEditSheet({
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
-  }, [title, open]);
+  }, [title]);
 
   // Авто-подгон высоты поля заметок — поле растёт за текстом (без внутреннего
   // скролла), а лента шита держит курсор в зоне видимости: текст больше не
@@ -210,7 +179,7 @@ export function TaskEditSheet({
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
-  }, [notes, open]);
+  }, [notes]);
 
   const buildRecurrence = (): Recurrence | null => {
     const interval = Math.max(1, parseInt(recInterval, 10) || 1);
@@ -371,7 +340,7 @@ export function TaskEditSheet({
   const tomorrow = addDaysKey(todayKey(), 1);
 
   return (
-    <Sheet open={open} onClose={onClose} title={task ? 'Задача' : 'Новая задача'}>
+    <Sheet open onClose={onClose} title={task ? 'Задача' : 'Новая задача'}>
       <div className="flex flex-col gap-4 pb-2">
         <div>
           <div className="mb-1.5 flex items-center justify-between">

@@ -12,7 +12,7 @@ import { buildReport, reportFilename } from '../../lib/report';
 import { Screen } from '../../components/layout/Screen';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
 
 interface TaskStats {
   /** последние 7 дней (старые → новые): подпись дня + число выполненных */

@@ -4,7 +4,7 @@ import { ClipboardPaste, ListTodo, NotebookPen } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea } from '../../components/ui/Input';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { create } from '../../db/repo';
 import { parseQuickTask } from '../../lib/nlDate';

@@ -29,7 +29,6 @@ export function Sheet({ open, onClose, title, children }: Props) {
   // а не «доскроленными» вниз (баг iOS с автофокусом/восстановлением скролла).
   useEffect(() => {
     if (open) {
-      setDragY(null);
       gesture.current = null;
       panelRef.current?.scrollTo({ top: 0 });
     }
@@ -64,6 +63,9 @@ export function Sheet({ open, onClose, title, children }: Props) {
     if (!g) return;
     const travelled = g.lastY - g.startY;
     if (travelled > CLOSE_DISTANCE || g.velocity > FLICK_VELOCITY) {
+      // Сброс смещения делаем здесь, а не в эффекте открытия: иначе панель
+      // при следующем открытии осталась бы сдвинутой на величину свайпа.
+      setDragY(null);
       onClose();
     } else {
       // Пружинит обратно: transition включается только на отпускании.

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Folder } from 'lucide-react';
 import { db } from '../../db/db';
@@ -22,25 +22,33 @@ export function ProjectEditSheet({
   project?: Project | null;
   defaults?: { parentId?: string | null };
 }) {
+  // Тело формы монтируется заново на каждое открытие: состояние
+  // инициализируется из props, поэтому сброс через эффект не нужен.
+  if (!open) return null;
+  return <ProjectEditForm onClose={onClose} project={project} defaults={defaults} />;
+}
+
+function ProjectEditForm({
+  onClose,
+  project,
+  defaults,
+}: {
+  onClose: () => void;
+  project?: Project | null;
+  defaults?: { parentId?: string | null };
+}) {
   const allProjects =
     useLiveQuery(
       async () => alive(await db.projects.toArray()).filter((p) => !p.archivedAt),
       [],
     ) ?? [];
 
-  const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState('📁');
-  const [color, setColor] = useState(PRESET_COLORS[0]);
-  const [parentId, setParentId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setName(project?.name ?? '');
-    setEmoji(project?.emoji ?? '📁');
-    setColor(project?.color ?? PRESET_COLORS[0]);
-    setParentId(project ? (project.parentId ?? null) : (defaults?.parentId ?? null));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  const [name, setName] = useState(project?.name ?? '');
+  const [emoji, setEmoji] = useState(project?.emoji ?? '📁');
+  const [color, setColor] = useState(project?.color ?? PRESET_COLORS[0]);
+  const [parentId, setParentId] = useState<string | null>(
+    project ? (project.parentId ?? null) : (defaults?.parentId ?? null),
+  );
 
   // У этого проекта уже есть подпроекты? Тогда его нельзя вложить в другой —
   // глубина ограничена двумя уровнями (проект → подпроекты).
@@ -88,7 +96,7 @@ export function ProjectEditSheet({
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title={project ? 'Проект' : 'Новый проект'}>
+    <Sheet open onClose={onClose} title={project ? 'Проект' : 'Новый проект'}>
       <div className="flex flex-col gap-4 pb-2">
         <Field label="Название">
           <AutoGrowTextarea

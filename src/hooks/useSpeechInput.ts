@@ -49,7 +49,9 @@ export function useSpeechInput({ lang = 'ru-RU', onResult }: Options) {
   const [listening, setListening] = useState(false);
   const recRef = useRef<SpeechRecognitionLike | null>(null);
   const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
+  useEffect(() => {
+    onResultRef.current = onResult;
+  });
 
   const stop = useCallback(() => {
     recRef.current?.stop();

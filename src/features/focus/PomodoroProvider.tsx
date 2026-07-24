@@ -1,22 +1,14 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { todayKey } from '../../lib/dates';
 import { schedulePush, cancelPush } from '../../lib/push';
+import { Ctx, type Phase, type PomodoroCtx, type SoundType } from './pomodoro';
 
 // Помодоро-таймер на основе timestamp (endsAt) — корректно показывает остаток
 // после сворачивания приложения и навигации. Состояние глобальное (контекст),
 // чтобы мини-таймер был виден из любого раздела. Звук — Web Audio (без файлов):
 // сигнал смены фазы + фоновый шум (белый/розовый/коричневый/«дождь») во время работы.
 
-export type Phase = 'work' | 'break' | 'long';
-export type SoundType = 'none' | 'white' | 'pink' | 'brown' | 'rain';
+export type { Phase, SoundType } from './pomodoro';
 
 const LONG_AFTER = 4; // длинный перерыв после стольких рабочих сессий
 const LONG_MIN = 15;
@@ -38,34 +30,8 @@ interface Persisted {
   sound: SoundType;
 }
 
-interface PomodoroCtx {
-  phase: Phase;
-  running: boolean;
-  remainingMs: number;
-  totalMs: number;
-  taskId: string | null;
-  taskTitle: string | null;
-  completedToday: number;
-  focusMinToday: number;
-  workMin: number;
-  breakMin: number;
-  longMin: number;
-  sound: SoundType;
-  active: boolean; // идёт сессия (не дефолтное простаивание)
-  start: (taskId?: string | null, taskTitle?: string | null) => void;
-  toggle: () => void;
-  reset: () => void;
-  skip: () => void;
-  setDurations: (workMin: number, breakMin: number) => void;
-  setWorkMin: (workMin: number) => void;
-  setBreakMin: (breakMin: number) => void;
-  setLongMin: (longMin: number) => void;
-  setTask: (taskId: string | null, taskTitle: string | null) => void;
-  setSound: (sound: SoundType) => void;
-}
 
 const STORE_KEY = 'life-hub-pomodoro';
-const Ctx = createContext<PomodoroCtx | null>(null);
 
 function phaseMs(phase: Phase, workMin: number, breakMin: number, longMin: number): number {
   if (phase === 'work') return workMin * 60_000;
@@ -477,26 +443,4 @@ export function PomodoroProvider({ children }: { children: ReactNode }) {
       {children}
     </Ctx.Provider>
   );
-}
-
-export function usePomodoro(): PomodoroCtx {
-  const c = useContext(Ctx);
-  if (!c) throw new Error('usePomodoro must be used within PomodoroProvider');
-  return c;
-}
-
-/** «25:00» из миллисекунд. */
-export function formatClock(ms: number): string {
-  const total = Math.max(0, Math.round(ms / 1000));
-  const m = Math.floor(total / 60);
-  const sec = total % 60;
-  return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-}
-
-/** «1 ч 25 мин» / «25 мин» из минут — для статистики фокуса. */
-export function formatFocusTime(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  if (h === 0) return `${m}\u00A0мин`;
-  return m === 0 ? `${h}\u00A0ч` : `${h}\u00A0ч ${m}\u00A0мин`;
 }

@@ -1,17 +1,5 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
-
-const ToastContext = createContext<(message: string) => void>(() => {});
-
-export function useToast() {
-  return useContext(ToastContext);
-}
+import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { ToastContext } from './toastContext';
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);

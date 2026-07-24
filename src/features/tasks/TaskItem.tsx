@@ -3,7 +3,7 @@ import { Bell, Copy, Repeat, SkipForward, Snowflake } from 'lucide-react';
 import type { Project, Task } from '../../db/types';
 import { HIT_SLOP_44, TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressBar } from '../../components/ui/ProgressBar';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { remove, update } from '../../db/repo';
 import { cancelReminder, scheduleReminder } from '../../lib/push';

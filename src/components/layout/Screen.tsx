@@ -10,17 +10,22 @@ interface Props {
   right?: ReactNode;
   /** подзаголовок под title (например, дата) */
   subtitle?: string;
-  /** контент занимает всю высоту (для чата): сам скроллится внутри, без pb-20 */
+  /** контент занимает всю высоту (для чата): сам скроллится внутри, без резерва снизу */
   fill?: boolean;
   children: ReactNode;
 }
 
 /** Каркас страницы: липкая шапка с safe-area + контент с нижним отступом ровно
  *  под клиренс FAB (таб-бар — отдельный flex-элемент, контент под него не уходит,
- *  поэтому большой pb не нужен — он давал пустую полосу внизу в standalone). */
+ *  поэтому большой pb не нужен — он давал пустую полосу внизу в standalone).
+ *
+ *  Отступ условный: --fab-space выставляет сама плавающая кнопка на время своей
+ *  жизни (см. Fab.tsx), fallback 0px — для экранов без неё. Раньше здесь стоял
+ *  безусловный pb-20 (85px при root 17px), и на 11 маршрутах из 20, где кнопки
+ *  нет, внизу висела мёртвая полоса высотой почти с таб-бар. */
 export function Screen({ title, backTo, right, subtitle, fill = false, children }: Props) {
   return (
-    <div className={fill ? 'flex h-full flex-col' : 'min-h-full pb-20'}>
+    <div className={fill ? 'flex h-full flex-col' : 'min-h-full pb-[var(--fab-space,0px)]'}>
       {/* Широкие экраны (Mac/Windows/iPad): контент — центральная колонка
           max-w-lg, той же ширины, что таб-бар. На телефоне ничего не меняет. */}
       <header className="sticky top-0 z-30 shrink-0 border-b border-hairline bg-bg px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3">
@@ -31,7 +36,17 @@ export function Screen({ title, backTo, right, subtitle, fill = false, children 
             </Link>
           )}
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[27px] font-bold tracking-[-0.02em]">{title}</h1>
+            {/* Заголовок переносится на вторую строку вместо обрезки многоточием
+                («Установка и данн…»): на 320px под него остаётся всего ~252px —
+                ширина минус px-4 и стрелка «Назад». line-clamp-2 оставляет
+                многоточие только для действительно длинных названий, break-words
+                страхует от неразрывно длинного слова (у шапки overflow скрыт).
+                Размер: 27px — задумка автора, держим его от 360px и выше (все
+                актуальные телефоны); 7.5vw ужимает только совсем узкие экраны
+                (320px → 24px), где две строки уже не спасают. */}
+            <h1 className="line-clamp-2 text-[clamp(23px,7.5vw,27px)] font-bold tracking-[-0.02em] break-words">
+              {title}
+            </h1>
             {subtitle && <p className="text-sm font-medium text-muted">{subtitle}</p>}
           </div>
           {right}

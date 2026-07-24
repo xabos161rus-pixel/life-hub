@@ -23,7 +23,7 @@ import {
   usePomodoro,
   type Phase,
   type SoundType,
-} from './PomodoroProvider';
+} from './pomodoro';
 
 const PHASE_LABEL: Record<Phase, string> = {
   work: 'Фокус',

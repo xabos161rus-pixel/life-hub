@@ -6,7 +6,7 @@ import { alive } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
 import { formatDueDate } from '../../lib/dates';
 import { freezeTasks } from './taskActions';
 
