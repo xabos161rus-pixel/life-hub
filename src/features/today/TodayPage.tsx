@@ -9,6 +9,7 @@ import { formatHeaderDate, todayKey } from '../../lib/dates';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { QuickAddBar } from '../tasks/QuickAddBar';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
@@ -82,7 +83,11 @@ export function TodayPage() {
       title="Сегодня"
       subtitle={formatHeaderDate()}
       right={
-        <Link to="/search" aria-label="Поиск" className="p-1 text-accent active:opacity-60">
+        <Link
+          to="/search"
+          aria-label="Поиск"
+          className={`shrink-0 p-1 text-accent active:opacity-60 ${HIT_SLOP_44}`}
+        >
           <Search size={24} />
         </Link>
       }

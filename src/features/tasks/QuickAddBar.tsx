@@ -5,6 +5,7 @@ import { db } from '../../db/db';
 import { create } from '../../db/repo';
 import { Input } from '../../components/ui/Input';
 import { MicButton } from '../../components/ui/MicButton';
+import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { Hint } from '../../components/ui/Hint';
 import { describeParsed, parseQuickTask } from '../../lib/nlDate';
 
@@ -71,13 +72,16 @@ export function QuickAddBar({
             placeholder="Что нужно сделать?"
             className="border-0 bg-transparent px-1 py-2 focus:ring-0"
           />
-          <MicButton onText={(t) => setText((cur) => (cur ? `${cur} ${t}` : t))} />
+          <MicButton
+            onText={(t) => setText((cur) => (cur ? `${cur} ${t}` : t))}
+            className={HIT_SLOP_44}
+          />
           <button
             type="button"
             onClick={() => void submit()}
             disabled={!canSend}
             aria-label="Добавить задачу"
-            className={`shrink-0 rounded-full p-2 transition-transform active:scale-90 ${
+            className={`shrink-0 rounded-full p-2 transition-transform active:scale-90 ${HIT_SLOP_44} ${
               canSend ? 'text-accent' : 'text-muted opacity-40'
             }`}
           >

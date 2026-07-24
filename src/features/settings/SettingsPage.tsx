@@ -233,8 +233,10 @@ export function SettingsPage() {
             </div>
             <div className="flex items-center gap-2 border-t border-hairline p-4">
               <BellRing size={20} className="shrink-0 text-muted" />
-              <span className="flex-1">Звук сообщений</span>
+              <span className="min-w-0 flex-1 truncate">Звук сообщений</span>
               {/* Выбор сразу проигрывает звук — слышно, что выбираешь. */}
+              {/* min-w-0 + max-w: без них селект держит ширину самого длинного
+                  названия звука и выдавливает строку за пределы .card (overflow:hidden). */}
               <select
                 value={settings.messageSound ?? 'tritone'}
                 onChange={(e) => {
@@ -242,7 +244,7 @@ export function SettingsPage() {
                   void updateSettings({ messageSound: v });
                   void playMessageSound(v);
                 }}
-                className="rounded-lg border border-hairline bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
+                className="min-w-0 max-w-[45%] truncate rounded-lg border border-hairline bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
               >
                 {MESSAGE_SOUNDS.map((s) => (
                   <option key={s.value} value={s.value}>
@@ -253,7 +255,7 @@ export function SettingsPage() {
             </div>
             <div className="flex items-center gap-2 border-t border-hairline p-4">
               <PhoneCall size={20} className="shrink-0 text-muted" />
-              <span className="flex-1">Звук звонка</span>
+              <span className="min-w-0 flex-1 truncate">Звук звонка</span>
               {/* Выбор сразу проигрывает короткий фрагмент рингтона. */}
               <select
                 value={settings.callSound ?? 'classic'}
@@ -262,7 +264,7 @@ export function SettingsPage() {
                   void updateSettings({ callSound: v });
                   previewRingtone(v);
                 }}
-                className="rounded-lg border border-hairline bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
+                className="min-w-0 max-w-[45%] truncate rounded-lg border border-hairline bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
               >
                 {RINGTONES.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -282,7 +284,7 @@ export function SettingsPage() {
           <div className="card space-y-3 p-4">
             {/* Автоматическая облачная копия — переживает потерю телефона */}
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium">Автокопия в облако</span>
+              <span className="min-w-0 text-sm font-medium">Автокопия в облако</span>
               {syncOn && (
                 <div className="w-32 shrink-0">
                   <SegmentedControl<'off' | 'cloud'>
@@ -304,7 +306,7 @@ export function SettingsPage() {
             ) : settings.autoBackup === 'cloud' ? (
               <>
                 <label className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-muted">Как часто</span>
+                  <span className="min-w-0 truncate text-muted">Как часто</span>
                   <select
                     value={settings.autoBackupEvery ?? 'daily'}
                     onChange={(e) =>
@@ -312,7 +314,7 @@ export function SettingsPage() {
                         autoBackupEvery: e.target.value as 'daily' | 'weekly',
                       })
                     }
-                    className="rounded-lg bg-surface-2 px-2.5 py-1.5 font-medium"
+                    className="min-w-0 max-w-[55%] truncate rounded-lg bg-surface-2 px-2.5 py-1.5 font-medium"
                   >
                     <option value="daily">Каждый день</option>
                     <option value="weekly">Каждую неделю</option>
@@ -404,12 +406,12 @@ export function SettingsPage() {
               className="flex items-center gap-2 border-b border-hairline p-4"
             >
               <SlidersHorizontal size={20} className="shrink-0 text-muted" />
-              <span className="flex-1">Настроить разделы</span>
+              <span className="min-w-0 flex-1 truncate">Настроить разделы</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </Link>
             <Link to="/more/trash" className="flex items-center gap-2 border-b border-hairline p-4">
               <Trash2 size={20} className="shrink-0 text-muted" />
-              <span className="flex-1">Корзина</span>
+              <span className="min-w-0 flex-1 truncate">Корзина</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </Link>
             <button
@@ -420,14 +422,14 @@ export function SettingsPage() {
               className="flex w-full items-center gap-2 border-b border-hairline p-4 text-left"
             >
               <GraduationCap size={20} className="shrink-0 text-muted" />
-              <span className="flex-1">Показать обучение заново</span>
+              <span className="min-w-0 flex-1 truncate">Показать обучение заново</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </button>
             <Link
               to="/more/settings/install"
               className="flex items-center justify-between gap-2 border-b border-hairline p-4"
             >
-              <span>Установка и восстановление данных</span>
+              <span className="min-w-0">Установка и восстановление данных</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </Link>
             <div className="p-4">

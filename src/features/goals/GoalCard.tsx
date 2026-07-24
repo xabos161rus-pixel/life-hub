@@ -43,7 +43,8 @@ export function GoalCard({ goal }: { goal: Goal }) {
     >
       <ProgressRing value={value} color={goal.color} />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold">{goal.title}</p>
+        {/* Заголовок цели длинный по смыслу — переносим в две строки, как в карточках заметок. */}
+        <p className="line-clamp-2 break-words font-semibold">{goal.title}</p>
         <p className="truncate text-sm text-muted">{label}</p>
         {deadline && (
           <p className={`text-xs ${deadline.danger ? 'text-danger' : 'text-muted'}`}>

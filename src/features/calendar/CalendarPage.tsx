@@ -105,12 +105,14 @@ export function CalendarPage() {
     <Screen title="Календарь" backTo="/tasks">
       <div className="card p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{monthLabel}</h2>
-          <div className="flex items-center gap-1">
+          {/* Название месяца не переносим: иначе шапка растёт на две строки. */}
+          <h2 className="shrink-0 whitespace-nowrap text-lg font-semibold">{monthLabel}</h2>
+          <div className="flex min-w-0 items-center gap-1">
+            {/* Уступает шириной первым: стрелки перелистывания важнее и должны остаться нажимаемыми. */}
             <button
               type="button"
               onClick={goToday}
-              className="mr-1 rounded-lg px-2.5 py-1 text-sm font-medium text-accent active:opacity-60"
+              className="mr-1 min-w-0 truncate rounded-lg px-2.5 py-1 text-sm font-medium text-accent active:opacity-60"
             >
               Сегодня
             </button>
@@ -118,7 +120,7 @@ export function CalendarPage() {
               type="button"
               aria-label="Предыдущий месяц"
               onClick={() => shiftMonth(-1)}
-              className="rounded-lg p-1.5 text-muted active:opacity-60"
+              className="shrink-0 rounded-lg p-1.5 text-muted active:opacity-60"
             >
               <ChevronLeft size={20} />
             </button>
@@ -126,7 +128,7 @@ export function CalendarPage() {
               type="button"
               aria-label="Следующий месяц"
               onClick={() => shiftMonth(1)}
-              className="rounded-lg p-1.5 text-muted active:opacity-60"
+              className="shrink-0 rounded-lg p-1.5 text-muted active:opacity-60"
             >
               <ChevronRight size={20} />
             </button>

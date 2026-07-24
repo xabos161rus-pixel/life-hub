@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import { Bell, Copy, Repeat, SkipForward, Snowflake } from 'lucide-react';
 import type { Project, Task } from '../../db/types';
-import { TaskCheck } from '../../components/ui/Checkbox';
+import { HIT_SLOP_44, TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { useToast } from '../../components/ui/Toast';
 import { db } from '../../db/db';
@@ -274,7 +274,10 @@ export function TaskItem({
               void handleSkip();
             }}
             aria-label="Пропущено — не выполнено"
-            className="flex size-[22px] shrink-0 items-center justify-center rounded-[6px] active:scale-90"
+            // Хит-зона перекрывается с зоной чекбокса (между ними всего 12.75px):
+            // в спорной полосе выигрывает чекбокс — он ниже по DOM и он же
+            // основное действие строки.
+            className={`flex size-[22px] shrink-0 items-center justify-center rounded-[6px] active:scale-90 ${HIT_SLOP_44}`}
             style={{ color: 'var(--app-warning)' }}
           >
             <SkipForward size={18} />
@@ -381,7 +384,7 @@ export function TaskItem({
           type="button"
           aria-label="Скопировать задачу"
           onClick={handleCopy}
-          className="-mr-1 mt-0.5 shrink-0 p-1 text-muted active:opacity-60"
+          className={`-mr-1 mt-0.5 shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
         >
           <Copy size={15} />
         </button>

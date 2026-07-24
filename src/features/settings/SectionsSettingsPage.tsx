@@ -209,10 +209,14 @@ export function SectionsSettingsPage() {
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
           <Icon size={20} />
         </div>
-        <span className="min-w-0 flex-1 truncate font-semibold">{sec.label}</span>
+        {/* basis-auto + почти нулевой shrink: название раздела важнее бейджа,
+            поэтому при нехватке места ужимается бейдж, а не «Настройки» → «Настро…» */}
+        <span className="min-w-0 shrink-[0.05] grow basis-auto truncate font-semibold">
+          {sec.label}
+        </span>
         {locked ? (
-          <span className="flex items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted">
-            <Lock size={12} /> всегда
+          <span className="flex min-w-0 items-center gap-1 overflow-hidden rounded-full border border-hairline px-2 py-1 text-xs text-muted">
+            <Lock size={12} className="shrink-0" /> <span className="truncate">всегда</span>
           </span>
         ) : (
           <button
@@ -254,7 +258,7 @@ export function SectionsSettingsPage() {
       {/* Нижняя панель */}
       <div className="mb-1.5 flex items-center gap-2 px-1 text-xs font-bold uppercase tracking-wide text-muted">
         Нижняя панель
-        <span className="font-semibold normal-case tracking-normal opacity-80">
+        <span className="min-w-0 font-semibold normal-case tracking-normal opacity-80">
           · до {MAX_BOTTOM} + «Ещё»
         </span>
       </div>
@@ -272,9 +276,11 @@ export function SectionsSettingsPage() {
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
               <anchor.icon size={20} />
             </div>
-            <span className="min-w-0 flex-1 truncate font-semibold">{anchor.label}</span>
-            <span className="flex items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted">
-              <Lock size={12} /> всегда
+            <span className="min-w-0 shrink-[0.05] grow basis-auto truncate font-semibold">
+              {anchor.label}
+            </span>
+            <span className="flex min-w-0 items-center gap-1 overflow-hidden rounded-full border border-hairline px-2 py-1 text-xs text-muted">
+              <Lock size={12} className="shrink-0" /> <span className="truncate">всегда</span>
             </span>
           </div>
         )}
@@ -327,9 +333,12 @@ export function SectionsSettingsPage() {
       <div className="flex overflow-hidden rounded-2xl border border-hairline bg-elevated">
         {previewBottom.map((s) =>
           s ? (
-            <div key={s.id} className="flex flex-1 flex-col items-center gap-1 py-2.5">
+            <div key={s.id} className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2.5">
               <s.icon size={20} className="text-muted" />
-              <span className="text-[10px] font-semibold text-muted">{s.label}</span>
+              {/* без max-w-full подпись раздвигает колонку и превью уезжает вбок */}
+              <span className="max-w-full truncate px-0.5 text-[10px] font-semibold text-muted">
+                {s.label}
+              </span>
             </div>
           ) : null,
         )}

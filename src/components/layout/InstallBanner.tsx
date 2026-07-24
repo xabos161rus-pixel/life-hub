@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Link } from 'react-router';
 import { Share, X } from 'lucide-react';
 import { dismissInstallBanner, useInstallBannerVisible } from '../../hooks/useInstallBanner';
+import { HIT_SLOP_44 } from '../ui/Checkbox';
 
 /**
  * iOS не поддерживает beforeinstallprompt — показываем баннер с инструкцией,
@@ -65,7 +66,10 @@ export function InstallBanner() {
       </Link>
       <button
         aria-label="Скрыть"
-        className="shrink-0 p-1 text-muted"
+        // Хит-зона 44px выступает на 8.75px в стороны — меньше и p-3 карточки
+        // (12.75px, значит overflow:hidden у .card её не срежет), и зазора
+        // gap-3 до ссылки слева, так что промах не уводит на страницу установки.
+        className={`shrink-0 p-1 text-muted ${HIT_SLOP_44}`}
         onClick={dismissInstallBanner}
       >
         <X size={18} />

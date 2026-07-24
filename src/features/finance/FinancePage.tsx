@@ -21,6 +21,20 @@ const RECURRENCE_LABEL: Record<ExpenseRecurrence, string> = {
   oneoff: 'Разово',
 };
 
+/** Та же сумма, но с обычными пробелами вместо неразрывных.
+ *  formatRub склеивает разряды NBSP — строка становится монолитом и целиком
+ *  задаёт min-content блока, поэтому в узкой колонке она не переносится, а
+ *  вылезает за карточку и молча срезается .card{overflow:hidden} («1 200 35…»
+ *  вместо «1 200 350 ₽» — читается как другое число). Перенос по границам
+ *  разрядов выглядит хуже монолита, но никогда не врёт. Ставим только там, где
+ *  сумма живёт в узком боксе; в широких строках перенос всё равно не сработает. */
+function wrapRub(amount: number): string {
+  // \u00A0 и \u202F — оба варианта неразрывного пробела: ru-RU группирует разряды
+  // первым, но узкий встречается в других сборках ICU. Экранированная запись
+  // вместо самого символа: в исходнике он неотличим от обычного пробела.
+  return formatRub(amount).replace(/[\u00A0\u202F]/g, ' ');
+}
+
 function SummaryCard({ items }: { items: ExpenseItem[] }) {
   // Месяц/Год: одна карточка, суммы (включая категории) пересчитываются —
   // категории за год видны без второго списка, ничего не дублируем.
@@ -46,7 +60,7 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
         </div>
       </div>
       <p className="mt-1 text-3xl font-bold tracking-[-0.02em] tabular-nums">
-        {formatRub(summary.expense * mul)}
+        {wrapRub(summary.expense * mul)}
       </p>
       <p className="mt-1 text-sm text-muted">
         ≈ {period === 'month'
@@ -54,18 +68,26 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
           : `${formatRub(summary.expense)} в месяц`}
       </p>
 
+      {/* min-w-0 на обеих колонках обязательно: без него flex-элемент не сжимается
+          ниже min-content своей суммы, пара блоков распирает карточку, и хвост
+          уезжает под .card{overflow:hidden}. Само по себе min-w-0 лишь переносит
+          обрезку внутрь блока — поэтому суммы ещё и переносимые (wrapRub). */}
       {(summary.income > 0 || summary.balance !== 0) && (
         <div className="mt-3 flex gap-2">
           {summary.income > 0 && (
-            <div className="flex-1 rounded-xl bg-surface-2 px-3 py-2">
+            <div className="min-w-0 flex-1 rounded-xl bg-surface-2 px-3 py-2">
               <p className="text-xs text-muted">Доход</p>
-              <p className="font-semibold text-success">{formatRub(summary.income * mul)}</p>
+              <p className="font-semibold tabular-nums text-success">
+                {wrapRub(summary.income * mul)}
+              </p>
             </div>
           )}
-          <div className="flex-1 rounded-xl bg-surface-2 px-3 py-2">
+          <div className="min-w-0 flex-1 rounded-xl bg-surface-2 px-3 py-2">
             <p className="text-xs text-muted">Баланс</p>
-            <p className={`font-semibold ${balancePositive ? 'text-success' : 'text-danger'}`}>
-              {formatRub(summary.balance * mul)}
+            <p
+              className={`font-semibold tabular-nums ${balancePositive ? 'text-success' : 'text-danger'}`}
+            >
+              {wrapRub(summary.balance * mul)}
             </p>
           </div>
         </div>
@@ -76,7 +98,9 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
           {summary.byCategory.map((c) => (
             <div key={c.category}>
               <div className="flex items-baseline justify-between gap-2 text-sm">
-                <span className="truncate text-text">{c.category}</span>
+                {/* truncate сам даёт min-width:0, поэтому без явного пола название
+                    ужимается до одной буквы, когда сумма за год становится длинной. */}
+                <span className="min-w-[5rem] truncate text-text">{c.category}</span>
                 <span className="shrink-0 tabular-nums text-muted">{formatRub(c.amount * mul)}</span>
               </div>
               <div className="mt-1">
@@ -100,30 +124,36 @@ function ExpenseRow({ item, onOpen }: { item: ExpenseItem; onOpen: () => void })
       onClick={onOpen}
       className={`flex items-start gap-3 py-3 active:opacity-80 ${item.active ? '' : 'opacity-50'}`}
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate font-semibold">{item.title}</p>
+      {/* Пол ширины вместо min-w-0: название — главное в строке, и оно не должно
+          проигрывать сумме. Без пола truncate ужимает его до одной буквы, потому
+          что вся недостача ширины достаётся ему одному. */}
+      <div className="min-w-[6rem] flex-1">
+        <p className="truncate font-semibold">{item.title}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+          {!isIncome && item.category && (
+            <span className="truncate rounded-full border border-border bg-surface px-2.5 py-0.5 text-xs text-muted">
+              {item.category}
+            </span>
+          )}
+          <span className="text-xs text-muted">{RECURRENCE_LABEL[item.recurrence]}</span>
+          {/* Бейдж переехал из строки заголовка сюда: там он был shrink-0 и съедал
+              всю ширину названия. В переносимой мета-строке он с ним не конкурирует,
+              а «выключенность» и так читается по opacity-50 всей строки. */}
           {!item.active && (
             <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
               не учитывается
             </span>
           )}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-          {!isIncome && item.category && (
-            <span className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-xs text-muted">
-              {item.category}
-            </span>
-          )}
-          <span className="text-xs text-muted">{RECURRENCE_LABEL[item.recurrence]}</span>
-        </div>
       </div>
       {/* Расходы — нейтральным серым (красный оставлен настоящим алертам),
-          доходы — зелёным: список не сливается в сплошное красное полотно. */}
+          доходы — зелёным: список не сливается в сплошное красное полотно.
+          Без shrink-0: когда названию уже некуда сжиматься, сумма переносится
+          на вторую строку — обрезать её нельзя, обрезанное число врёт. */}
       <span
-        className={`shrink-0 font-semibold tabular-nums ${isIncome ? 'text-success' : 'text-muted'}`}
+        className={`text-right font-semibold tabular-nums ${isIncome ? 'text-success' : 'text-muted'}`}
       >
-        {sign} {formatRub(item.amount)}
+        {sign}&nbsp;{wrapRub(item.amount)}
       </span>
     </div>
   );
@@ -173,10 +203,13 @@ export function FinancePage() {
               <div className="card divide-y divide-hairline px-4">
                 {upcoming.map(({ item, date, daysLeft }) => (
                   <div key={item.id} className="flex items-baseline justify-between gap-3 py-3">
-                    <p className="truncate font-medium">{item.title}</p>
-                    <div className="shrink-0 text-right">
+                    {/* Пол ширины названию + снятый shrink-0 у правого блока: сначала
+                        обрезается название (до читаемого минимума), потом сумма с датой
+                        переносятся на две строки. Раньше название схлопывалось до буквы. */}
+                    <p className="min-w-[6rem] truncate font-medium">{item.title}</p>
+                    <div className="text-right">
                       <p className="font-semibold tabular-nums text-muted">
-                        {formatRub(item.amount)}
+                        {wrapRub(item.amount)}
                       </p>
                       <p className="text-xs text-muted">
                         {daysLeft === 0
