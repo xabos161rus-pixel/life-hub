@@ -43,6 +43,9 @@
   --shadow-pop: 0 8px 30px -8px oklch(0 0 0 / 0.6);
   --shadow-accent: 0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);
   --shadow-focus: 0 10px 30px -8px oklch(0.66 0.205 38 / 0.5);
+  /* Место, занятое install-баннером снизу (высота + зазоры). Его проставляет
+     сам баннер по факту отрисовки; 0 — когда он скрыт. Читает плавающая «+». */
+  --install-banner-space: 0px;
   color-scheme: dark;
 }
 

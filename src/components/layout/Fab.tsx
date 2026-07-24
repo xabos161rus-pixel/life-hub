@@ -1,7 +1,6 @@
 import { useRef, useState, type PointerEvent } from 'react';
 import { Plus } from 'lucide-react';
 import { usePomodoro } from '../../features/focus/PomodoroProvider';
-import { useInstallBannerVisible } from '../../hooks/useInstallBanner';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 
 interface Props {
@@ -32,10 +31,10 @@ function clampToViewport(x: number, y: number): { x: number; y: number } {
  *  проектов (тоже удержанием) и исключает случайный сдвиг при обычном нажатии.
  *  Позиция хранится в settings (device-local) — у каждого человека своя.
  *  Во время переноса двигаем через transform (без reflow) — движение плавное.
- *  При дефолтной позиции кнопка поднимается выше мини-помодоро и install-баннера. */
+ *  При дефолтной позиции кнопка поднимается выше мини-помодоро и install-баннера
+ *  (последний — по реальной высоте через --install-banner-space). */
 export function Fab({ onClick, label = 'Добавить' }: Props) {
   const { active } = usePomodoro();
-  const banner = useInstallBannerVisible();
   const settings = useSettings();
   const saved = settings.fabPosition ?? null;
 
@@ -60,11 +59,13 @@ export function Fab({ onClick, label = 'Добавить' }: Props) {
     pointerId: 0,
   });
 
-  const bottom = banner
-    ? 'bottom-[calc(env(safe-area-inset-bottom)+176px)]'
-    : active
-      ? 'bottom-[calc(env(safe-area-inset-bottom)+128px)]'
-      : 'bottom-[calc(env(safe-area-inset-bottom)+80px)]';
+  // --install-banner-space задаёт сам баннер по своей реальной высоте (0, когда
+  // он скрыт). Раньше здесь стояла константа 176px под баннер «примерно в 96px»
+  // — при переносе текста в три строки он вырастал до ~134px и кнопка на него
+  // наезжала.
+  const bottom = active
+    ? 'bottom-[calc(env(safe-area-inset-bottom)+128px+var(--install-banner-space))]'
+    : 'bottom-[calc(env(safe-area-inset-bottom)+80px+var(--install-banner-space))]';
 
   // Куда рисуем: только что перенесли (override) → сохранённая (клампится под
   // экран) → дефолт (right/bottom). Во время переноса left/top остаются базой,
