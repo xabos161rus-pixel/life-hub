@@ -282,7 +282,9 @@ export interface CycleSettings {
   dayStartHour: number;
 
   // --- Приватность. Все значения по умолчанию — самые закрытые. ---
-  lock: 'none' | 'pin' | 'device_credential';
+  lock: 'none' | 'pin';
+  /** Соль и хеш кода доступа. Сам код не хранится нигде. */
+  pin?: { salt: string; hash: string; iterations: number };
   hideFromNavigation: boolean;
   showOnTodayScreen: boolean;
   neutralNotificationText: boolean;

@@ -1,6 +1,11 @@
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Check } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
+import { Button } from '../../components/ui/Button';
+import { Field, Input } from '../../components/ui/Input';
+import { hashPin } from '../../lib/crypto';
+import { lockCycleSection } from './lockState';
 import { db } from '../../db/db';
 import type { CycleSettings } from '../../db/cycleTypes';
 import { DEFAULT_CYCLE_SETTINGS, updateCycleSettings } from '../../lib/cycle/cycleRepo';
@@ -45,6 +50,92 @@ function ToggleRow({
         {checked && <Check size={15} strokeWidth={3} />}
       </span>
     </button>
+  );
+}
+
+/** Код доступа к разделу. Отдельным блоком, потому что это единственное место
+ *  в приложении, где что-то закрывается кодом, и правила тут свои. */
+function PinSection({ settings }: { settings: CycleSettings }) {
+  const [pin, setPin] = useState('');
+  const [repeat, setRepeat] = useState('');
+  const [busy, setBusy] = useState(false);
+  const has = settings.lock === 'pin' && settings.pin !== undefined;
+
+  async function save() {
+    if (pin.length < 4 || pin !== repeat || busy) return;
+    setBusy(true);
+    try {
+      await updateCycleSettings({ lock: 'pin', pin: await hashPin(pin) });
+      setPin('');
+      setRepeat('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm('Убрать код? Раздел будет открываться без него.')) return;
+    await updateCycleSettings({ lock: 'none', pin: undefined });
+    lockCycleSection();
+  }
+
+  return (
+    <section>
+      <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Код доступа</h2>
+      <div className="card space-y-3 p-4">
+        {has ? (
+          <>
+            <p className="text-sm text-muted">
+              Раздел закрыт кодом. Он спрашивается при каждом открытии приложения.
+            </p>
+            <Button variant="secondary" className="w-full" onClick={() => void remove()}>
+              Убрать код
+            </Button>
+          </>
+        ) : (
+          <>
+            {/* Столбик, а не два поля в ряд: на 320px пара полей по 4-8 цифр
+                ужимается до нечитаемого, а поля кода набирают вслепую. */}
+            <Field label="Код (4–8 цифр)">
+              <Input
+                type="password"
+                inputMode="numeric"
+                autoComplete="new-password"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+              />
+            </Field>
+            <Field label="Ещё раз">
+              <Input
+                type="password"
+                inputMode="numeric"
+                autoComplete="new-password"
+                value={repeat}
+                onChange={(e) => setRepeat(e.target.value.replace(/\D/g, '').slice(0, 8))}
+              />
+            </Field>
+            {repeat.length > 0 && pin !== repeat && (
+              <p className="text-sm text-danger">Коды не совпадают</p>
+            )}
+            <Button
+              className="w-full"
+              disabled={pin.length < 4 || pin !== repeat || busy}
+              onClick={() => void save()}
+            >
+              Установить код
+            </Button>
+          </>
+        )}
+        {/* Прямо о границах защиты. Обещать больше, чем код даёт, — хуже, чем
+            не иметь кода: человек станет полагаться на то, чего нет. */}
+        <p className="text-xs leading-snug text-muted">
+          Код закрывает раздел от посторонних глаз, но не шифрует записи: тот, кто разбирается в
+          устройстве телефона, сможет их прочитать в обход. Шифровать данные кодом мы не стали
+          сознательно — забытый код означал бы потерю всей истории, а восстановить её неоткуда.
+          Сам код нигде не хранится, сверяется только его отпечаток.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -127,6 +218,8 @@ export function CycleSettingsPage() {
             />
           </div>
         </section>
+
+        <PinSection settings={s} />
 
         <section>
           <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Данные</h2>

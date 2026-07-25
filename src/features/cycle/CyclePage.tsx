@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
 import { Droplet, Info, Plus, SlidersHorizontal } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
@@ -11,6 +11,8 @@ import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { CycleCalendar } from './CycleCalendar';
 import { DayLogSheet } from './DayLogSheet';
 import { useCycleData } from './useCycleData';
+import { CycleLock } from './CycleLock';
+import { isUnlocked, subscribeLock } from './lockState';
 import type { CyclePredictionResult } from '../../lib/cycle/predict';
 
 /** Как называем прогноз словами.
@@ -66,11 +68,18 @@ export function CyclePage() {
   const { prediction, currentDay, stats, anomalies, settings } = data;
   const forecast = settings.predictionsEnabled ? predictionText(prediction) : null;
 
+  // Состояние замка живёт в модуле, а не в компоненте: раздел должен
+  // оставаться открытым при переходе на его же настройки и обратно, но
+  // закрываться при перезагрузке страницы.
+  const open = useSyncExternalStore(subscribeLock, isUnlocked, () => false);
+  const locked = settings.lock === 'pin' && settings.pin !== undefined && !open;
+
   return (
     <Screen
       title="Женские дни"
       backTo="/more"
       right={
+        locked ? undefined : (
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
@@ -89,8 +98,12 @@ export function CyclePage() {
             <SlidersHorizontal size={20} />
           </Link>
         </div>
+        )
       }
     >
+      {locked ? (
+        <CycleLock settings={settings} onUnlock={() => undefined} />
+      ) : (
       <div className="space-y-5">
         {!data.hasAnyData && !data.loading ? (
           <EmptyState
@@ -215,8 +228,10 @@ export function CyclePage() {
         )}
       </div>
 
+      )}
+
       <DayLogSheet
-        open={pickedDate !== null}
+        open={pickedDate !== null && !locked}
         date={pickedDate}
         onClose={() => setPickedDate(null)}
       />

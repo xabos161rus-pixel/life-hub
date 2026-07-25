@@ -119,3 +119,54 @@ export function decodeFamilyPairing(code: string): FamilyPairingData {
   }
   return d;
 }
+
+// === Проверка кода доступа ===
+// Нужна разделу «Женские дни»: сам код нигде не хранится, хранится только
+// результат его прогонки через PBKDF2 с солью. Подобрать код по хешу тем
+// дороже, чем больше итераций; 210 000 — рекомендация OWASP 2023 для
+// PBKDF2-HMAC-SHA256.
+//
+// Честная граница этой защиты: она закрывает раздел от чужих глаз, а не
+// данные от того, кто добрался до устройства и умеет открыть хранилище
+// браузера. Записи в IndexedDB лежат как есть. Шифровать их ключом из кода
+// было бы сильнее, но тогда забытый код означал бы безвозвратную потерю всей
+// истории — а это прямо противоречит требованию «данные не должны теряться».
+
+const PIN_ITERATIONS = 210_000;
+
+export interface PinHash {
+  salt: string;
+  hash: string;
+  iterations: number;
+}
+
+async function derivePin(pin: string, salt: Uint8Array, iterations: number): Promise<string> {
+  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, [
+    'deriveBits',
+  ]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations, hash: 'SHA-256' },
+    material,
+    256,
+  );
+  return bytesToB64url(new Uint8Array(bits));
+}
+
+export async function hashPin(pin: string): Promise<PinHash> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return {
+    salt: bytesToB64url(salt),
+    hash: await derivePin(pin, salt, PIN_ITERATIONS),
+    iterations: PIN_ITERATIONS,
+  };
+}
+
+export async function verifyPin(pin: string, stored: PinHash): Promise<boolean> {
+  const hash = await derivePin(pin, b64urlToBytes(stored.salt), stored.iterations);
+  // Сравнение постоянного времени: обычное === выходит на первом же
+  // несовпавшем символе, и по времени ответа код подбирается посимвольно.
+  if (hash.length !== stored.hash.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hash.length; i++) diff |= hash.charCodeAt(i) ^ stored.hash.charCodeAt(i);
+  return diff === 0;
+}

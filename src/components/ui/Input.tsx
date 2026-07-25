@@ -1,3 +1,4 @@
+import type { Ref } from 'react';
 import { useLayoutEffect, useRef } from 'react';
 import type {
   InputHTMLAttributes,
@@ -42,7 +43,12 @@ export function Input({
   onClear,
   style,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & { onClear?: () => void }) {
+  // ref прокидывается обычным пропом: в React 19 forwardRef для функциональных
+  // компонентов не нужен, но в типе его надо объявить явно.
+}: InputHTMLAttributes<HTMLInputElement> & {
+  onClear?: () => void;
+  ref?: Ref<HTMLInputElement>;
+}) {
   const showClear = Boolean(onClear) && typeof props.value === 'string' && props.value.length > 0;
   const input = (
     <input
