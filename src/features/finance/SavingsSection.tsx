@@ -4,7 +4,7 @@ import { Check, PiggyBank, Plus } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, now, update } from '../../db/repo';
 import type { SavingsDeposit, SavingsGoal } from '../../db/types';
-import { formatRub } from '../../lib/finance';
+import { formatRub, wrapRub } from '../../lib/finance';
 import { goalSaved, isReached, monthlyNeeded, progressPct, remaining } from '../../lib/savings';
 import { todayKey } from '../../lib/dates';
 import { SavingsGoalSheet } from './SavingsGoalSheet';
@@ -57,9 +57,22 @@ function GoalCard({
         />
       </div>
 
-      <div className="mt-3 flex items-baseline justify-between gap-2">
-        <span className="text-xl font-extrabold tabular-nums tracking-tight">{formatRub(saved)}</span>
-        <span className="shrink-0 text-sm text-muted tabular-nums">цель {formatRub(goal.targetAmount)}</span>
+      {/* До 380px значение и цель стоят в столбик: в строку они физически не
+          влезают — на 320px внутри карточки 250px против 135 + 8 + 132 = 275,
+          и хвост правого блока молча срезался .card{overflow:hidden}. Обрезался
+          именно знак валюты («цель 3 500 00» вместо «цель 3 500 000 ₽») — это
+          уже другое сообщение, а не косметика.
+          min-w-0 + wrapRub — страховка для широкой раскладки: без min-w-0
+          flex-элемент не сожмётся ниже min-content своей суммы, а без обычных
+          пробелов сумма остаётся монолитом и переносить её некуда. С ними
+          длинные суммы переносятся по разрядам вместо тихой обрезки. */}
+      <div className="mt-3 flex flex-col gap-0.5 min-[380px]:flex-row min-[380px]:items-baseline min-[380px]:justify-between min-[380px]:gap-2">
+        <span className="min-w-0 text-xl font-extrabold tabular-nums tracking-tight">
+          {wrapRub(saved)}
+        </span>
+        <span className="min-w-0 text-sm text-muted tabular-nums">
+          цель {wrapRub(goal.targetAmount)}
+        </span>
       </div>
 
       <div className="mt-2.5 flex items-center justify-between gap-3">
@@ -68,9 +81,13 @@ function GoalCard({
             <Check size={16} /> Цель достигнута
           </span>
         ) : (
+          // Та же болезнь в узком боксе: рядом стоит shrink-0-кнопка, строке
+          // остаётся ~131px на 320px, а «1 041 667 ₽/мес» с неразрывными
+          // пробелами — неразбиваемый кусок под 120px. Обычные пробелы дают
+          // строке точки переноса, иначе хвост уходит под overflow:hidden.
           <span className="min-w-0 text-sm text-muted">
-            осталось <b className="text-text tabular-nums">{formatRub(rem)}</b>
-            {monthly ? ` · по ${formatRub(monthly)}/мес` : ''}
+            осталось <b className="text-text tabular-nums">{wrapRub(rem)}</b>
+            {monthly ? ` · по ${wrapRub(monthly)}/мес` : ''}
           </span>
         )}
         {reached ? (

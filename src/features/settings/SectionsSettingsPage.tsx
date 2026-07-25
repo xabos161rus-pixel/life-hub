@@ -202,21 +202,32 @@ export function SectionsSettingsPage() {
       <div
         key={id}
         data-sid={id}
-        className={`flex items-center gap-3 rounded-2xl border border-border bg-surface p-3 transition-opacity ${
+        // Ниже 375px строка режет собственные зазоры, а не текст: на 320px под
+        // содержимое остаётся 258.5px, а строке «Настройки» с бейджем «всегда»
+        // нужно 295px. px-2 вместо px-3 даёт 8.5px, gap-2 вместо gap-3 — ещё
+        // 12.75px (три зазора). Вместе с ужатым бейджем этого хватает, чтобы
+        // название влезало целиком (см. комментарии у бейджа).
+        className={`flex items-center gap-3 rounded-2xl border border-border bg-surface p-3 transition-opacity max-[375px]:gap-2 max-[375px]:px-2 ${
           hidden ? 'opacity-45' : ''
         } ${dragId === id ? 'opacity-30' : ''}`}
       >
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
           <Icon size={20} />
         </div>
-        {/* basis-auto + почти нулевой shrink: название раздела важнее бейджа,
-            поэтому при нехватке места ужимается бейдж, а не «Настройки» → «Настро…» */}
-        <span className="min-w-0 shrink-[0.05] grow basis-auto truncate font-semibold">
-          {sec.label}
-        </span>
+        {/* Обычный shrink (был shrink-[0.05]): при сумме flex-факторов меньше 1
+            браузер раздаёт только эту долю нехватки, поэтому строка не ужималась,
+            а вылезала за свой content-box — у «Статистики» на 7.53px в правый
+            паддинг, к ручке перетаскивания. Теперь недостачу целиком берёт на
+            себя название (min-w-0 + truncate), а бейдж остаётся целым. */}
+        <span className="min-w-0 grow basis-auto truncate font-semibold">{sec.label}</span>
         {locked ? (
-          <span className="flex min-w-0 items-center gap-1 overflow-hidden rounded-full border border-hairline px-2 py-1 text-xs text-muted">
-            <Lock size={12} className="shrink-0" /> <span className="truncate">всегда</span>
+          // shrink-0: бейдж короткий и осмысленный только целиком — «вс…» и тем
+          // более одно «…» не значат ничего. Ниже 375px он отдаёт названию свои
+          // 16.25px, пряча замок (12px иконка + 4.25px зазор): слово «всегда»
+          // несёт смысл само, а замок здесь лишь украшение. Плюс 4.25px на
+          // сжатии боковых полей — этого хватает, чтобы «Настройки» влезли.
+          <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
+            <Lock size={12} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
           </span>
         ) : (
           <button
@@ -272,15 +283,15 @@ export function SectionsSettingsPage() {
         {dropLine('bottom', order.bottom.length)}
         {/* якорь «Ещё» — всегда последний, без тумблера и ручки */}
         {anchor && (
-          <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3">
+          // Раскладка и поведение при нехватке ширины — как у обычной строки
+          // (см. row): те же зазоры, тот же неусыхаемый бейдж.
+          <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3 max-[375px]:gap-2 max-[375px]:px-2">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
               <anchor.icon size={20} />
             </div>
-            <span className="min-w-0 shrink-[0.05] grow basis-auto truncate font-semibold">
-              {anchor.label}
-            </span>
-            <span className="flex min-w-0 items-center gap-1 overflow-hidden rounded-full border border-hairline px-2 py-1 text-xs text-muted">
-              <Lock size={12} className="shrink-0" /> <span className="truncate">всегда</span>
+            <span className="min-w-0 grow basis-auto truncate font-semibold">{anchor.label}</span>
+            <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
+              <Lock size={12} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
             </span>
           </div>
         )}
@@ -335,8 +346,15 @@ export function SectionsSettingsPage() {
           s ? (
             <div key={s.id} className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2.5">
               <s.icon size={20} className="text-muted" />
-              {/* без max-w-full подпись раздвигает колонку и превью уезжает вбок */}
-              <span className="max-w-full truncate px-0.5 text-[10px] font-semibold text-muted">
+              {/* без max-w-full подпись раздвигает колонку и превью уезжает вбок.
+                  Кегль плавающий и мельче, чем в самой панели: колонка превью
+                  уже настоящей вкладки (страница отъедает px-4 = 34px), на 320px
+                  это 56.8px против 62.3px. При фиксированных 10px «Статистика»
+                  (64.95px) обрезалась бы именно в том превью, ради которого
+                  пользователь её сюда и переносит. 2.6vw даёт 8.32px на 320px —
+                  запас 2.76px, а с 393px кегль упирается в прежние 10px.
+                  Боковых полей нет: 4.25px в такой колонке дороже, чем воздух. */}
+              <span className="max-w-full truncate text-[clamp(8px,2.6vw,10px)] font-semibold text-muted">
                 {s.label}
               </span>
             </div>

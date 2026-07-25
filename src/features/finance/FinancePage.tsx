@@ -9,7 +9,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { ExpenseItem, ExpenseRecurrence } from '../../db/types';
-import { financeSummary, formatRub, upcomingExpenses } from '../../lib/finance';
+import { financeSummary, formatRub, upcomingExpenses, wrapRub } from '../../lib/finance';
 import { formatRu, todayKey } from '../../lib/dates';
 import { ExpenseSheet } from './ExpenseSheet';
 import { SavingsSection } from './SavingsSection';
@@ -20,20 +20,6 @@ const RECURRENCE_LABEL: Record<ExpenseRecurrence, string> = {
   yearly: 'Ежегодно',
   oneoff: 'Разово',
 };
-
-/** Та же сумма, но с обычными пробелами вместо неразрывных.
- *  formatRub склеивает разряды NBSP — строка становится монолитом и целиком
- *  задаёт min-content блока, поэтому в узкой колонке она не переносится, а
- *  вылезает за карточку и молча срезается .card{overflow:hidden} («1 200 35…»
- *  вместо «1 200 350 ₽» — читается как другое число). Перенос по границам
- *  разрядов выглядит хуже монолита, но никогда не врёт. Ставим только там, где
- *  сумма живёт в узком боксе; в широких строках перенос всё равно не сработает. */
-function wrapRub(amount: number): string {
-  // \u00A0 и \u202F — оба варианта неразрывного пробела: ru-RU группирует разряды
-  // первым, но узкий встречается в других сборках ICU. Экранированная запись
-  // вместо самого символа: в исходнике он неотличим от обычного пробела.
-  return formatRub(amount).replace(/[\u00A0\u202F]/g, ' ');
-}
 
 function SummaryCard({ items }: { items: ExpenseItem[] }) {
   // Месяц/Год: одна карточка, суммы (включая категории) пересчитываются —

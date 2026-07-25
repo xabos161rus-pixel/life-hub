@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Lightbulb, X } from 'lucide-react';
 import { useHint } from '../../hooks/useHint';
+import { HIT_SLOP_44 } from './Checkbox';
 
 export interface HintItem {
   icon: ComponentType<{ size?: number | string; className?: string }>;
@@ -43,7 +44,13 @@ export function Hint({
           type="button"
           onClick={dismiss}
           aria-label="Скрыть подсказку"
-          className="-m-1 shrink-0 p-1 text-muted active:opacity-60"
+          // Крестик оставляем визуально мелким (15px иконка, итог 23.5px) —
+          // крупная кнопка спорила бы с заголовком подсказки. Промах лечим
+          // невидимой зоной 44x44: она вылезает на 10.25px в стороны, но у
+          // карточки подсказки нет overflow:hidden и запас до её края ~1.4px,
+          // так что зона не срезается. Соседи в строке — только текст, у них
+          // тап перехватывать нечего.
+          className={`-m-1 shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
         >
           <X size={15} />
         </button>

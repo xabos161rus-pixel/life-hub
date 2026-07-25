@@ -63,7 +63,14 @@ export function QuickAddBar({
   return (
     <div className="mb-4">
       <div ref={wrapRef} className="card px-3 py-2">
-        <div className="flex items-center gap-1">
+        {/* gap-2 (8.5px), а не gap-1 (4.25px): микрофон и «отправить» — по 37px,
+            их зоны 44x44 вылезают на 3.5px в каждую сторону, поэтому при зазоре
+            4.25px зоны перекрывались на 2.75px. Верх по DOM — «отправить», и
+            промах мимо микрофона вправо создавал задачу вместо диктовки. При
+            8.5px между зонами остаётся 1.5px чистого зазора. Поле ужимается на
+            8.5px (на 320px остаётся 167.5px) — это только обрезка плейсхолдера,
+            min-w-0 у обёртки Input не даёт строке уехать за карточку. */}
+        <div className="flex items-center gap-2">
           <Input
             value={text}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setText(e.target.value)}

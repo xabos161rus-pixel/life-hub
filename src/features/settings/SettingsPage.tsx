@@ -6,6 +6,7 @@ import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/s
 import { RINGTONES, previewRingtone, type RingtoneKind } from '../../lib/family/ringtone';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
+import { Select } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useToast } from '../../components/ui/toastContext';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
@@ -231,47 +232,62 @@ export function SettingsPage() {
                 </>
               )}
             </div>
-            <div className="flex items-center gap-2 border-t border-hairline p-4">
+            {/* Подписи строк ниже намеренно без truncate: обрезать их нельзя —
+                из «Класс…» вместо «Классический» непонятно, какой звук выбран.
+                Но и min-w-0 у подписи стоять не должно: с ним она сжималась ниже
+                своего min-content, и слово «сообщений» (100px) вылезало из
+                отведённых 67px прямо под непрозрачный чип селекта — 24.8px
+                глифов оказывались под ним, а тап в конце строки попадал в select.
+                Без min-w-0 подпись держит ширину слова, а перенести на вторую
+                строку не помещающийся чип позволяет flex-wrap: на 320px иконка
+                20 + подпись 100 + чип 115 + зазоры 17 = 252px против 250px
+                доступных — чип уезжает на вторую строку целиком. На широких
+                экранах ничего не меняется: всё влезает в одну строку, и flex-1
+                подписи по-прежнему прижимает селект к правому краю. */}
+            <div className="flex flex-wrap items-center gap-2 border-t border-hairline p-4">
               <BellRing size={20} className="shrink-0 text-muted" />
-              <span className="min-w-0 flex-1 truncate">Звук сообщений</span>
+              <span className="flex-1">Звук сообщений</span>
               {/* Выбор сразу проигрывает звук — слышно, что выбираешь. */}
-              {/* min-w-0 + max-w: без них селект держит ширину самого длинного
-                  названия звука и выдавливает строку за пределы .card (overflow:hidden). */}
-              <select
+              {/* compact-Select вместо голого <select>: он снимает системную
+                  стрелку, съедавшую ~40px внутри поля, и берёт ширину по самому
+                  длинному варианту. Прежние min-w-0 + max-w-[45%] были защитой от
+                  выдавливания строки за пределы .card (overflow:hidden) — с чипом
+                  по контенту (115px из 250px) выдавливать уже нечем. */}
+              <Select
+                compact
                 value={settings.messageSound ?? 'tritone'}
                 onChange={(e) => {
                   const v = e.target.value as MessageSound;
                   void updateSettings({ messageSound: v });
                   void playMessageSound(v);
                 }}
-                className="min-w-0 max-w-[45%] truncate rounded-lg border border-hairline bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
               >
                 {MESSAGE_SOUNDS.map((s) => (
                   <option key={s.value} value={s.value}>
                     {s.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
-            <div className="flex items-center gap-2 border-t border-hairline p-4">
+            <div className="flex flex-wrap items-center gap-2 border-t border-hairline p-4">
               <PhoneCall size={20} className="shrink-0 text-muted" />
-              <span className="min-w-0 flex-1 truncate">Звук звонка</span>
+              <span className="flex-1">Звук звонка</span>
               {/* Выбор сразу проигрывает короткий фрагмент рингтона. */}
-              <select
+              <Select
+                compact
                 value={settings.callSound ?? 'classic'}
                 onChange={(e) => {
                   const v = e.target.value as RingtoneKind;
                   void updateSettings({ callSound: v });
                   previewRingtone(v);
                 }}
-                className="min-w-0 max-w-[45%] truncate rounded-lg border border-hairline bg-surface-2 px-2 py-1.5 text-sm text-text outline-none"
               >
                 {RINGTONES.map((r) => (
                   <option key={r.value} value={r.value}>
                     {r.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
         </Section>
@@ -307,18 +323,24 @@ export function SettingsPage() {
               <>
                 <label className="flex items-center justify-between gap-3 text-sm">
                   <span className="min-w-0 truncate text-muted">Как часто</span>
-                  <select
+                  {/* Тот же дефект, что у звуков: под системную стрелку уходило
+                      ~40px внутри поля, и «Каждую неделю» (105px) не помещалось в
+                      оставшиеся 76px — читалось «Каждую не…». compact-Select даёт
+                      ширину по контенту (125px), подпись рядом занимает 72px из
+                      250px строки — на 320px влезает целиком, без переноса. */}
+                  <Select
+                    compact
+                    className="font-medium"
                     value={settings.autoBackupEvery ?? 'daily'}
                     onChange={(e) =>
                       void updateSettings({
                         autoBackupEvery: e.target.value as 'daily' | 'weekly',
                       })
                     }
-                    className="min-w-0 max-w-[55%] truncate rounded-lg bg-surface-2 px-2.5 py-1.5 font-medium"
                   >
                     <option value="daily">Каждый день</option>
                     <option value="weekly">Каждую неделю</option>
-                  </select>
+                  </Select>
                 </label>
                 <p className="text-sm text-muted">
                   Облачная копия:{' '}

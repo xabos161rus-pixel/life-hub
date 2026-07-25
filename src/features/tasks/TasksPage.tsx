@@ -17,6 +17,7 @@ import { alive, update } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { Fab } from '../../components/layout/Fab';
+import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Hint } from '../../components/ui/Hint';
@@ -233,7 +234,10 @@ function Section({
         highlight ? 'bg-accent/10 ring-2 ring-accent' : ''
       } ${isReorderSource ? 'opacity-40' : ''}`}
     >
-      <div className="mb-2 flex items-center gap-1 px-1">
+      {/* gap-2 (8.5px), а не gap-1: зона касания карандаша вылезает на 8.6px
+          влево, и при зазоре 4.25px она накрывала правый край заголовка —
+          промах открывал бы редактирование проекта вместо сворачивания секции. */}
+      <div className="mb-2 flex items-center gap-2 px-1">
         <button
           ref={headerRef}
           onClick={headerClick}
@@ -257,7 +261,11 @@ function Section({
           <button
             onClick={onEdit}
             aria-label="Редактировать проект"
-            className="p-1.5 text-muted active:opacity-60"
+            // Карандаш в шапке секции — 26.75px: растить его нельзя, шапка
+            // потеряет плотность. Добираем до минимума 44x44 невидимой зоной —
+            // у section нет overflow:hidden, а до правого края колонки 21px,
+            // так что зона не срезается ни рамкой, ни overflow-x у #app-scroll.
+            className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
           >
             <Pencil size={14} />
           </button>
@@ -900,7 +908,10 @@ export function TasksPage() {
           onClick={() => setFreezeSheetOpen(true)}
           aria-label="Заморозить задачи"
           // Голубой «морозный» кружок со свечением — видно, что это кнопка.
-          className="flex size-10 items-center justify-center rounded-full bg-frost/15 text-frost shadow-[0_0_16px_-6px_var(--app-frost)] transition-transform active:scale-90"
+          // size-10 при root 17px даёт 42.5px — на 1.5px меньше минимума 44x44.
+          // Раздувать кружок до size-11 значит ломать баланс с заголовком, поэтому
+          // недостающее добираем невидимой зоной; у шапки Screen overflow не скрыт.
+          className={`flex size-10 items-center justify-center rounded-full bg-frost/15 text-frost shadow-[0_0_16px_-6px_var(--app-frost)] transition-transform active:scale-90 ${HIT_SLOP_44}`}
         >
           <Snowflake size={21} style={{ strokeWidth: 2 }} />
         </button>

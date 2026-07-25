@@ -43,8 +43,19 @@ export function GoalCard({ goal }: { goal: Goal }) {
     >
       <ProgressRing value={value} color={goal.color} />
       <div className="min-w-0 flex-1">
-        {/* Заголовок цели длинный по смыслу — переносим в две строки, как в карточках заметок. */}
-        <p className="line-clamp-2 break-words font-semibold">{goal.title}</p>
+        {/* Заголовок цели длинный по смыслу, и на 320px под него остаётся всего
+            ~179px (286 минус p-4 карточки, кольцо 56 и gap-3.5). Трёх строк там
+            не хватило: реальная формулировка «Выйти на стабильный доход и
+            закрыть все долги до конца года» при 17px раскладывается в пять строк
+            (замер: scrollHeight 128 против clientHeight 77). Поэтому на узких
+            экранах уменьшаем кегль до 15px — в строку входит ~22 символа вместо
+            ~20 — и разрешаем четвёртую строку. От 380px и шире всё возвращается
+            к исходным 17px и трём строкам. Карточка от лишней строки просто
+            подрастает: кольцо, подпись прогресса и срок лежат в обычном потоке,
+            наезжать друг на друга им нечем. */}
+        <p className="line-clamp-4 break-words text-[clamp(15px,4.4vw,17px)] font-semibold min-[380px]:line-clamp-3">
+          {goal.title}
+        </p>
         <p className="truncate text-sm text-muted">{label}</p>
         {deadline && (
           <p className={`text-xs ${deadline.danger ? 'text-danger' : 'text-muted'}`}>

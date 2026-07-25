@@ -118,6 +118,14 @@ export default function App() {
               className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
               style={{ overscrollBehavior: 'contain' }}
             >
+              {/* Баннер установки — первый элемент ЛЕНТЫ, а не каркаса. Стоя над
+                  таб-баром, он занимал до 150px и на столько же поднимал
+                  плавающую кнопку — та садилась в середину экрана и накрывала
+                  всё, до чего доскроллили (замеры: сегмент «Год» в Финансах 66%,
+                  карандаш раздела 93%). Уезжая вместе с лентой, он не отнимает
+                  места ни у кнопки, ни у контента; при смене маршрута лента и
+                  так кидается наверх (ScrollReset), так что баннер виден. */}
+              <InstallBanner />
               <Routes>
                 <Route path="/" element={<TodayPage />} />
                 <Route path="/search" element={<SearchPage />} />
@@ -143,7 +151,6 @@ export default function App() {
                 <Route path="/more/settings/sections" element={<SectionsSettingsPage />} />
               </Routes>
             </div>
-            <InstallBanner />
             <ReloadPrompt />
             <MiniTimer />
             <TabBar />

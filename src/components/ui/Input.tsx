@@ -71,22 +71,48 @@ export function Textarea({
   return <textarea className={`${base} resize-none ${className}`} {...props} />;
 }
 
+/** Компактный вид того же списка — «чип» в строке настроек, а не поле во всю
+ *  ширину. Кегль ниже базового намеренно: на 320px в строке карточки остаётся
+ *  250px, и с text-sm самый длинный вариант («Классический», 100.6px) вместе с
+ *  подписью строки туда физически не влезает — при text-xs влезает с запасом. */
+const compactBase =
+  'rounded-lg border border-hairline bg-surface-2 py-1.5 pl-2 text-xs text-text outline-none transition-[border-color] focus:border-accent';
+
 /** Выпадающий список в едином со всеми полями виде: та же тонкая граница и
  *  фокус-кольцо, что у Input, плюс своя стрелка (нативную убирает
- *  appearance-none — без неё поле не читалось бы как «список»). */
+ *  appearance-none — без неё поле не читалось бы как «список»).
+ *
+ *  Своя стрелка здесь не только про вид: системная стрелка Chromium рисуется
+ *  ВНУТРИ content-box и съедает под себя ~40px (замер: на 375px в поле шириной
+ *  137px под текст оставалось 78px), поэтому длинные варианты обрезались
+ *  многоточием задолго до правой границы. padding-right это не лечит — стрелка
+ *  рисуется поверх. Отсюда же pr-* с запасом: 25.5px под 14px-шеврон у right-1.5
+ *  (42.5px под 18px у right-3 в базовом виде).
+ *
+ *  compact — вариант для строки настроек: ширина по контенту (по самому
+ *  длинному варианту), сжиматься нечему, поэтому текст не режется никогда. */
 export function Select({
   className = '',
+  compact = false,
+  style,
   children,
   ...props
-}: SelectHTMLAttributes<HTMLSelectElement>) {
+}: SelectHTMLAttributes<HTMLSelectElement> & { compact?: boolean }) {
   return (
-    <div className="relative w-full min-w-0">
-      <select className={`${base} cursor-pointer appearance-none pr-10 ${className}`} {...props}>
+    <div className={`relative ${compact ? 'shrink-0' : 'w-full min-w-0'}`}>
+      <select
+        className={`${compact ? compactBase : base} cursor-pointer appearance-none ${compact ? 'pr-6' : 'pr-10'} ${className}`}
+        // -webkit-appearance инлайном, а не классом: Tailwind 4 генерирует для
+        // appearance-none только непрефиксную запись, а WebKit до iOS 15.4 её
+        // игнорирует и продолжает рисовать системную стрелку поверх нашей.
+        style={{ WebkitAppearance: 'none', ...style }}
+        {...props}
+      >
         {children}
       </select>
       <ChevronDown
-        size={18}
-        className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-muted"
+        size={compact ? 14 : 18}
+        className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted ${compact ? 'right-1.5' : 'right-3'}`}
       />
     </div>
   );

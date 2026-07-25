@@ -16,6 +16,7 @@ import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
+import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { formatRu, todayKey, toKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
@@ -102,33 +103,56 @@ export function CalendarPage() {
   }
 
   return (
-    <Screen title="Календарь" backTo="/tasks">
+    <Screen
+      title="Календарь"
+      backTo="/tasks"
+      // «Сегодня» переехала сюда из строки месяца. Втроём с двумя стрелками она
+      // забирала 170px из 252px, доступных внутри карточки на 320px, и на
+      // заголовок оставалось 71px — обрезались все 12 месяцев, «Сентябрь 2026»
+      // показывался как «Сент…», год не был виден ни в одном. Без неё стрелки
+      // занимают 86.75px, месяцу достаётся 165px — хватает и худшему.
+      right={
+        <button
+          type="button"
+          onClick={goToday}
+          className="shrink-0 rounded-lg px-2 py-1.5 text-sm font-medium text-accent active:opacity-60"
+        >
+          Сегодня
+        </button>
+      }
+    >
       <div className="card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          {/* Название месяца не переносим: иначе шапка растёт на две строки. */}
-          <h2 className="shrink-0 whitespace-nowrap text-lg font-semibold">{monthLabel}</h2>
-          <div className="flex min-w-0 items-center gap-1">
-            {/* Уступает шириной первым: стрелки перелистывания важнее и должны остаться нажимаемыми. */}
-            <button
-              type="button"
-              onClick={goToday}
-              className="mr-1 min-w-0 truncate rounded-lg px-2.5 py-1 text-sm font-medium text-accent active:opacity-60"
-            >
-              Сегодня
-            </button>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          {/* Название месяца не переносим: иначе шапка растёт на две строки.
+              Кегль ужимается только на узких экранах: «Сентябрь 2026» при 19px
+              требует 162px, при 17px — 145px, и запас до стрелок вырастает с
+              3px до 20px. От 400px и шире держим исходные 19px.
+              truncate (overflow:hidden) заодно снимает min-width:auto — без него
+              флекс-элемент не ужимается и распирает строку. */}
+          <h2 className="min-w-0 truncate text-[clamp(17px,4.6vw,19px)] font-semibold">
+            {monthLabel}
+          </h2>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Сами стрелки 32.75px (иконка 20 + p-1.5 при root 17px) — меньше 44px
+                минимума. Увеличивать их нельзя: шапка распухнет и месяц срежется
+                сильнее, поэтому добираем невидимой хит-зоной. */}
             <button
               type="button"
               aria-label="Предыдущий месяц"
               onClick={() => shiftMonth(-1)}
-              className="shrink-0 rounded-lg p-1.5 text-muted active:opacity-60"
+              className={`shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
               <ChevronLeft size={20} />
             </button>
+            {/* ml-1 поверх gap-2: зона 44px вылезает за кнопку на (44-32.75)/2 = 5.625px
+                с каждой стороны, значит между стрелками нужно ≥11.25px, иначе тап у
+                края уйдёт соседней стрелке — месяц перелистнётся не в ту сторону.
+                8.5 + 4.25 = 12.75px, запас 1.5px. */}
             <button
               type="button"
               aria-label="Следующий месяц"
               onClick={() => shiftMonth(1)}
-              className="shrink-0 rounded-lg p-1.5 text-muted active:opacity-60"
+              className={`ml-1 shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
               <ChevronRight size={20} />
             </button>

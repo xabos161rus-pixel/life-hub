@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
 import { Plus } from 'lucide-react';
 import { usePomodoro } from '../../features/focus/pomodoro';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
+import { useScrollDirection } from '../../hooks/useScrollDirection';
 
 interface Props {
   onClick: () => void;
@@ -18,16 +19,9 @@ const CANCEL_MOVE = 10; // уход пальца до срабатывания �
 /** Сколько кнопка резервирует под собой в контенте (совпадает с прежним pb-20). */
 const FAB_SPACE = '5rem';
 
-/** Реальное место, занятое install-баннером (его проставляет сам баннер). */
-function bannerSpace(): number {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue('--install-banner-space');
-  return parseFloat(raw) || 0;
-}
-
 /** Держит кнопку в допустимой зоне во время переноса (и, значит, в том виде, в
  *  каком позиция уходит в settings): не под шапку, не за боковые края и не под
- *  таб-бар. reserve — занятое снизу баннером и мини-таймером сверх таб-бара:
- *  бросить кнопку под баннер теперь тоже нельзя. Границы уже отрисованной
+ *  таб-бар. reserve — полоска мини-помодоро сверх таб-бара. Границы уже отрисованной
  *  кнопки повторяет CSS-clamp в style — он переживает поворот без ре-рендера. */
 function clampToViewport(x: number, y: number, reserve: number): { x: number; y: number } {
   const vw = window.innerWidth;
@@ -48,14 +42,21 @@ let mounted = 0;
  *  проектов (тоже удержанием) и исключает случайный сдвиг при обычном нажатии.
  *  Позиция хранится в settings (device-local) — у каждого человека своя.
  *  Во время переноса двигаем через transform (без reflow) — движение плавное.
- *  Кнопка поднимается выше мини-помодоро и install-баннера (последний — по
- *  реальной высоте через --install-banner-space) в ЛЮБОЙ позиции, включая
- *  перенесённую руками: раньше подъём жил только в bottom-классе дефолта, и
- *  своя позиция спокойно оказывалась под баннером. */
+ *  Кнопка поднимается выше мини-помодоро в ЛЮБОЙ позиции, включая
+ *  перенесённую руками: раньше подъём жил только в bottom-классе дефолта.
+ *  При прокрутке вниз кнопка уезжает с экрана и возвращается при прокрутке
+ *  вверх (поведение Material). Причина: стоя в одной точке, она перекрывала
+ *  то, что под неё попадало — карандаш «Изменить раздел» на «Сегодня»
+ *  (перекрытие 84-87%, тап открывал «Новая задача»), сегмент «Год» в Финансах
+ *  (49%). Само по себе прятание помогает лишь наполовину: возвращаясь при
+ *  прокрутке вверх, кнопка встаёт на то же место. Вторую половину закрыл
+ *  переезд install-баннера в ленту — без него кнопка стоит в углу, а не в
+ *  середине экрана. */
 export function Fab({ onClick, label = 'Добавить' }: Props) {
   const { active } = usePomodoro();
   const settings = useSettings();
   const saved = settings.fabPosition ?? null;
+  const direction = useScrollDirection();
 
   const [dragging, setDragging] = useState(false);
   // Позиция, применённая сразу после переноса — чтобы кнопка не мигнула в момент
@@ -90,11 +91,13 @@ export function Fab({ onClick, label = 'Добавить' }: Props) {
     };
   }, []);
 
-  // Клиренс снизу: таб-бар с safe-area + место install-баннера (его проставляет
-  // сам баннер по реальной высоте, 0 когда скрыт) + полоска мини-помодоро.
-  // Раньше вместо баннера стояла константа 176px под «примерно 96px» — при
-  // переносе текста в три строки баннер вырастал до ~134px и кнопка наезжала.
-  const clearance = `calc(env(safe-area-inset-bottom) + ${active ? 128 : 80}px + var(--install-banner-space))`;
+  // Клиренс снизу: таб-бар с safe-area + полоска мини-помодоро, когда он идёт.
+  // Install-баннера здесь больше нет: он переехал в ленту (App.tsx) и уезжает
+  // с прокруткой. Пока он стоял отдельным блоком над таб-баром, кнопка
+  // поднималась на его высоту (до 150px) и садилась в середину экрана, где
+  // перекрывала живые элементы — сегмент «Год» в Финансах на 66%, карандаш
+  // раздела на 93%.
+  const clearance = `calc(env(safe-area-inset-bottom) + ${active ? 128 : 80}px)`;
 
   // Куда рисуем: только что перенесли (override) → сохранённая → дефолт
   // (right/bottom). Границы для своей позиции считает CSS через clamp(), а не JS:
@@ -103,6 +106,16 @@ export function Fab({ onClick, label = 'Добавить' }: Props) {
   // баннера ей никто не сообщает). Во время переноса left/top остаются базой,
   // а смещение идёт через transform.
   const pos = override ?? saved;
+
+  // Во время переноса не прячем ни при каком направлении: палец на кнопке, а
+  // ленту в этот момент может прокрутить вторая рука.
+  const hidden = direction === 'down' && !dragging;
+
+  // Уехавшая кнопка не должна остаться в фокусе: на ней aria-hidden, и фокус
+  // на скрытом от скринридера элементе — это ловушка для клавиатуры.
+  useEffect(() => {
+    if (hidden && document.activeElement === ref.current) ref.current?.blur();
+  }, [hidden]);
 
   const clearTimer = () => {
     clearTimeout(timer.current);
@@ -165,7 +178,7 @@ export function Fab({ onClick, label = 'Добавить' }: Props) {
       }
       return;
     }
-    const reserve = bannerSpace() + (active ? TIMER_SPACE : 0);
+    const reserve = active ? TIMER_SPACE : 0;
     const clamped = clampToViewport(
       s.baseX + (e.clientX - s.sx),
       s.baseY + (e.clientY - s.sy),
@@ -214,9 +227,21 @@ export function Fab({ onClick, label = 'Добавить' }: Props) {
       onPointerCancel={onPointerUp}
       onClick={handleClick}
       aria-label={label}
+      // Спрятанная кнопка полностью выключена: pointer-events-none снимает
+      // перехват тапов (одного увода вниз мало — своя позиция может быть где
+      // угодно, и кнопка осталась бы под пальцем), tabIndex убирает её из
+      // обхода клавиатурой, aria-hidden — из дерева доступности.
+      aria-hidden={hidden || undefined}
+      tabIndex={hidden ? -1 : undefined}
       style={{
         backgroundImage: 'linear-gradient(140deg, var(--app-accent), var(--app-accent-2))',
         touchAction: 'none', // касание кнопки не скроллит страницу — тащим её саму
+        // Свойство translate, а не transform: transform занят переносом
+        // (императивно в onPointerMove), и они бы затирали друг друга.
+        // Сдвиг = размер кнопки + её клиренс: из дефолтной позиции это ровно
+        // за нижний край экрана. '0 0' вместо отсутствия значения — чтобы
+        // браузеру было что интерполировать в обратную сторону.
+        translate: hidden ? `0 calc(${FAB_SIZE}px + ${clearance})` : '0 0',
         ...(pos
           ? {
               left: `clamp(${EDGE}px, ${pos.x}px, calc(100vw - ${FAB_SIZE + EDGE}px))`,
@@ -234,10 +259,16 @@ export function Fab({ onClick, label = 'Добавить' }: Props) {
       // выключаем на время переноса, иначе она «догоняет» transform и кнопка
       // дёргается; top в списке — своя позиция тоже уезжает вверх при появлении
       // баннера или таймера. active:scale-90 — только вне переноса (в переносе
-      // кнопка приподнята scale-105).
+      // кнопка приподнята scale-105). opacity-0 в паре с уводом вниз: из своей
+      // позиции (левый/верхний край) сдвига может не хватить до края экрана, и
+      // без прозрачности осталась бы видимая кнопка, не реагирующая на тап.
+      // motion-reduce:transition-none — при «уменьшить движение» кнопка просто
+      // переключается, без проезда.
       className={`fixed z-40 flex size-14 select-none items-center justify-center rounded-full text-white shadow-[var(--shadow-accent)] [-webkit-touch-callout:none] [-webkit-user-select:none] [-webkit-tap-highlight-color:transparent] ${
         dragging ? 'scale-105 shadow-2xl' : 'active:scale-90'
-      } ${dragging ? '' : 'transition-[transform,bottom,top] duration-200'}`}
+      } ${hidden ? 'pointer-events-none opacity-0' : ''} ${
+        dragging ? '' : 'transition-[translate,opacity,transform,bottom,top] duration-200 motion-reduce:transition-none'
+      }`}
     >
       <Plus size={26} strokeWidth={2.5} className="pointer-events-none" />
     </button>
