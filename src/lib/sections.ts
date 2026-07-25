@@ -13,6 +13,7 @@ import {
   BatteryCharging,
   MapPin,
   ChartColumnBig,
+  Droplet,
   Settings as SettingsIcon,
   type LucideIcon,
 } from 'lucide-react';
@@ -37,6 +38,7 @@ export type SectionId =
   | 'energy'
   | 'places'
   | 'stats'
+  | 'cycle'
   | 'settings';
 
 export interface Section {
@@ -97,6 +99,16 @@ export const SECTIONS: Section[] = [
     subtitle: 'Советы, идеи, рекомендации',
   },
   { id: 'stats', label: 'Статистика', to: '/stats', icon: ChartColumnBig, subtitle: 'Обзор продуктивности' },
+  // Подпись нейтральная намеренно: список разделов видно с чужого плеча чаще,
+  // чем содержимое самого раздела. Кому раздел не нужен — прячет его через
+  // «Настроить разделы», как любой другой.
+  {
+    id: 'cycle',
+    label: 'Женские дни',
+    to: '/more/cycle',
+    icon: Droplet,
+    subtitle: 'Цикл, самочувствие и прогноз',
+  },
   {
     id: 'settings',
     label: 'Настройки',
