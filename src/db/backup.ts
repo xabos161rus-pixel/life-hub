@@ -57,9 +57,35 @@ export interface BackupFile {
   data: Record<TableName, unknown[]>;
 }
 
+/** Таблицы раздела «Женские дни». Выделены отдельно, потому что их попадание
+ *  в копию — единственное, чем человек управляет сам. */
+const CYCLE_TABLES: readonly TableName[] = [
+  'cycleDays',
+  'cycleOverrides',
+  'cycleEpisodes',
+  'cycleSettings',
+  'cycleSymptoms',
+  'cyclePredictions',
+];
+
 export async function exportBackup(): Promise<BackupFile> {
+  // Настройка раздела решает, попадёт ли он в копию. По умолчанию попадает:
+  // синхронизация ему закрыта, и без копии история существует в одном
+  // экземпляре. Кто выключил — получает файл без раздела, и это его выбор,
+  // а не молчаливое решение приложения.
+  const cycleSettings = await db.cycleSettings.get('app');
+  const includeCycle = cycleSettings?.includeInGeneralBackup !== false;
+
   const data = {} as Record<TableName, unknown[]>;
   for (const name of TABLES) {
+    if (!includeCycle && CYCLE_TABLES.includes(name)) {
+      // Пустой массив, а не пропуск ключа: importBackup отсутствующую таблицу
+      // не трогает вовсе, и старые данные пережили бы восстановление — то
+      // есть «выключил и восстановился» не очистило бы раздел, как ожидалось.
+      // Пустой массив честно означает «в этой копии раздела нет».
+      data[name] = [];
+      continue;
+    }
     // включая soft-deleted — бэкап должен быть полным
     data[name] = await db.table(name).toArray();
   }

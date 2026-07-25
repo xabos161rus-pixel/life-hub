@@ -69,6 +69,9 @@ describe('данные цикла не покидают устройство', (
     // Кэш циклов в копию не кладём: он выводится из дневных записей, и файл, где
     // кэш противоречит источнику, хуже файла без кэша.
     expect(list).not.toContain("'cycles',");
+    // Флаг обязан реально управлять экспортом, а не просто лежать в типах:
+    // мёртвая настройка приватности хуже отсутствующей — на неё полагаются.
+    expect(backup).toContain('includeInGeneralBackup');
     // Секреты в копию не попадают ни при каких обстоятельствах.
     expect(list).not.toContain("'sync'");
     expect(list).not.toContain("'family',");
@@ -81,7 +84,6 @@ describe('данные цикла не покидают устройство', (
       repo.indexOf('/** Заводит настройки'),
     );
     expect(block).toContain('syncEnabled: false');
-    expect(block).toContain('includeInGeneralBackup: false');
     expect(block).toContain('showOnTodayScreen: false');
     expect(block).toContain("fertilityDisplay: 'off'");
     // Все связки с другими разделами выключены: связка полезна тому, кто её

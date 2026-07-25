@@ -223,13 +223,19 @@ export function CycleSettingsPage() {
 
         <section>
           <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Данные</h2>
-          <div className="card px-4">
+          <div className="card divide-y divide-hairline px-4">
             <ToggleRow
               label="Синхронизация между устройствами"
-              hint="Пока недоступна. Данные раздела остаются на этом устройстве и не входят ни в синхронизацию, ни в общую резервную копию."
+              hint="Пока недоступна. Записи раздела не уходят на сервер и не передаются между устройствами."
               checked={s.syncEnabled}
               onChange={() => undefined}
               disabled
+            />
+            <ToggleRow
+              label="Включать в резервную копию"
+              hint="Раздел не синхронизируется, поэтому копия — единственное, что спасёт историю при потере телефона. Если выключить, записи в копию не попадут и восстановить их будет неоткуда."
+              checked={s.includeInGeneralBackup}
+              onChange={(v) => void updateCycleSettings({ includeInGeneralBackup: v })}
             />
           </div>
         </section>

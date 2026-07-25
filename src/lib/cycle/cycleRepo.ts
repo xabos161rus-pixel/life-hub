@@ -46,7 +46,11 @@ export const DEFAULT_CYCLE_SETTINGS: Omit<CycleSettings, 'updatedAt'> = {
   hideFromNavigation: false,
   showOnTodayScreen: false,
   neutralNotificationText: true,
-  includeInGeneralBackup: false,
+  // Раздел ВХОДИТ в резервную копию по умолчанию. Синхронизация ему закрыта, и
+  // без копии данные существовали бы ровно в одном экземпляре: потеря телефона
+  // = потеря всей истории безвозвратно. Кто предпочтёт закрытость сохранности —
+  // выключит в настройках раздела и будет знать, чем платит.
+  includeInGeneralBackup: true,
   syncEnabled: false,
   integrations: {
     todayCard: false,
