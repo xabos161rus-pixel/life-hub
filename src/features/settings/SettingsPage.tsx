@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
 import { BellRing, ChevronRight, GraduationCap, PhoneCall, SlidersHorizontal, Trash2 } from 'lucide-react';
@@ -23,6 +23,7 @@ import {
 } from '../../db/backup';
 import { pushAccountSnapshot, pullAccountSnapshot } from '../../lib/cloudBackup';
 import { formatRu } from '../../lib/dates';
+import { ensurePersistentStorage, formatBytes, type StorageState } from '../../lib/storage';
 import { usePersistentStorage } from './usePersistentStorage';
 import { SyncSection } from './sync/SyncSection';
 import { InstallLink } from './InstallLink';
@@ -40,6 +41,33 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <h2 className="mb-2 px-1 text-sm font-semibold text-muted">{title}</h2>
       {children}
     </section>
+  );
+}
+
+/** Состояние локального хранилища. Показываем ровно тогда, когда есть что
+ *  сказать: браузер отказал в постоянном хранении — значит данные могут быть
+ *  стёрты системой, и копия становится не рекомендацией, а необходимостью. */
+function StorageStatus() {
+  const [state, setState] = useState<StorageState | null>(null);
+  useEffect(() => {
+    void ensurePersistentStorage().then(setState);
+  }, []);
+
+  if (!state || state.persisted === undefined) return null;
+  const used = state.usage !== undefined ? formatBytes(state.usage) : null;
+
+  return state.persisted ? (
+    <p className="text-sm text-muted">
+      Данные защищены от автоочистки браузером{used ? `, занято ${used}` : ''}.
+    </p>
+  ) : (
+    <p className="text-sm leading-snug">
+      <span className="font-semibold text-warning">Браузер не гарантирует сохранность данных.</span>{' '}
+      <span className="text-muted">
+        Если открывать приложение как обычную вкладку, Safari стирает данные сайта после недели без
+        визитов. Установите приложение на экран «Домой» и держите копию{used ? ` (сейчас занято ${used})` : ''}.
+      </span>
+    </p>
   );
 }
 
@@ -373,9 +401,20 @@ export function SettingsPage() {
               </p>
             )}
             <div className="h-px bg-hairline" />
+            <StorageStatus />
+            <div className="h-px bg-hairline" />
             <Button className="w-full" onClick={() => void handleExport()}>
               Экспортировать резервную копию
             </Button>
+            {/* Прямо о том, что в файле. Копия в облако шифруется ключом на
+                устройстве, а файл — обычный JSON: он читается любым, кто его
+                откроет. Человек имеет право знать это ДО того, как отправит
+                файл себе в мессенджер. */}
+            <p className="text-sm leading-snug text-muted">
+              В копию входит всё: задачи, заметки, финансы, семейный чат, а также раздел «Женские
+              дни», если вы им пользуетесь. Файл не зашифрован — храните его там, куда нет доступа
+              у посторонних. Копия в облако, в отличие от файла, шифруется на устройстве.
+            </p>
             <p className="text-sm text-muted">
               Последняя копия:{' '}
               {settings.lastBackupAt ? (

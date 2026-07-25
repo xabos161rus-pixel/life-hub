@@ -57,6 +57,23 @@ describe('данные цикла не покидают устройство', (
     expect(repo).not.toMatch(/from '\.\.\/\.\.\/db\/repo'/);
   });
 
+  it('данные раздела ВХОДЯТ в резервную копию', () => {
+    // Обратная сторона изоляции: раз таблицы не синхронизируются, копия —
+    // единственный способ пережить потерю телефона. Данные цикла существуют
+    // в одном экземпляре, и не класть их в копию значит гарантировать потерю.
+    const backup = code('db/backup.ts');
+    const list = backup.slice(backup.indexOf('const TABLES'), backup.indexOf('] as const'));
+    for (const t of ['cycleDays', 'cycleEpisodes', 'cycleSettings', 'cyclePredictions']) {
+      expect(list, `таблица ${t} пропала из резервной копии`).toContain(`'${t}'`);
+    }
+    // Кэш циклов в копию не кладём: он выводится из дневных записей, и файл, где
+    // кэш противоречит источнику, хуже файла без кэша.
+    expect(list).not.toContain("'cycles',");
+    // Секреты в копию не попадают ни при каких обстоятельствах.
+    expect(list).not.toContain("'sync'");
+    expect(list).not.toContain("'family',");
+  });
+
   it('настройки раздела по умолчанию закрыты', () => {
     const repo = src('lib/cycle/cycleRepo.ts');
     const block = repo.slice(
