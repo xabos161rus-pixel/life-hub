@@ -29,6 +29,8 @@ import { MENSTRUAL_LEVELS } from '../../db/cycleTypes';
 import { todayKey } from '../dates';
 import { deriveCycles } from './derive';
 import { builtInSymptoms } from './symptoms';
+import { planAutoTasks } from './autoTasks';
+import { predictNextPeriod } from './predict';
 
 const now = (): string => new Date().toISOString();
 
@@ -165,6 +167,19 @@ export async function putOverride(
  *  быть окна, в котором таблица циклов пуста, — в него попадёт useLiveQuery и
  *  моргнёт пустым экраном. */
 export async function rebuildCycles(): Promise<Cycle[]> {
+  const cycles = await rebuildCyclesOnly();
+  // Автозадачи двигаем ПОСЛЕ транзакции, а не внутри: db.tasks в её область не
+  // входит, и обращение к ней изнутри Dexie просто запретит. Ошибку здесь
+  // глушим: не сумели подвинуть задачу — это не повод потерять пересчёт цикла.
+  try {
+    await syncAutoTasks();
+  } catch {
+    /* автозадачи подождут следующего пересчёта */
+  }
+  return cycles;
+}
+
+async function rebuildCyclesOnly(): Promise<Cycle[]> {
   return db.transaction(
     'rw',
     [db.cycleDays, db.cycles, db.cycleOverrides, db.cycleEpisodes],
@@ -180,6 +195,72 @@ export async function rebuildCycles(): Promise<Cycle[]> {
       return cycles;
     },
   );
+}
+
+/** Приводит автозадачи в соответствие с прогнозом.
+ *
+ *  Живёт здесь, а не в компоненте: вызывается после каждого пересчёта циклов,
+ *  и вызывающему коду не нужно помнить, что после правки дня надо ещё и задачи
+ *  подвинуть. Пишет в db.tasks НАПРЯМУЮ, минуя db/repo: тот дёргает
+ *  планировщик синхронизации, а автозадача — производная от данных цикла и
+ *  уезжать с устройства не должна, пока это не решено явно.
+ *
+ *  Возвращает число изменений — удобно в тестах и логах. */
+export async function syncAutoTasks(): Promise<number> {
+  const [settings, cycles, episodes] = await Promise.all([
+    db.cycleSettings.get('app'),
+    db.cycles.orderBy('startDate').toArray(),
+    db.cycleEpisodes.toArray(),
+  ]);
+  if (!settings) return 0;
+
+  const existing = await db.tasks.where('origin').equals('cycle').toArray();
+  const plan = planAutoTasks({
+    settings,
+    prediction: predictNextPeriod({ cycles, episodes, today: todayKey() }),
+    existing,
+    today: todayKey(),
+  });
+
+  const ts = now();
+  let changed = 0;
+
+  for (const c of plan.create) {
+    await db.tasks.put({
+      id: crypto.randomUUID(),
+      title: c.title,
+      notes: '',
+      projectId: null,
+      goalId: null,
+      priority: 0,
+      dueDate: c.dueDate,
+      dueTime: null,
+      duration: null,
+      remindBefore: null,
+      completedAt: null,
+      checklist: [],
+      recurrence: null,
+      tags: [],
+      sortOrder: Date.now(),
+      origin: 'cycle',
+      originKey: c.originKey,
+      createdAt: ts,
+      updatedAt: ts,
+      deletedAt: null,
+    });
+    changed += 1;
+  }
+  for (const r of plan.reschedule) {
+    await db.tasks.update(r.id, { dueDate: r.dueDate, updatedAt: ts });
+    changed += 1;
+  }
+  for (const id of plan.remove) {
+    // Полное удаление, а не мягкое: задача была создана приложением, человек её
+    // не заводил, и оставлять её след в базе после выключения связки незачем.
+    await db.tasks.delete(id);
+    changed += 1;
+  }
+  return changed;
 }
 
 export async function addCustomSymptom(

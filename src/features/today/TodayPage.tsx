@@ -11,6 +11,7 @@ import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { QuickAddBar } from '../tasks/QuickAddBar';
+import { CycleTodayLine } from '../cycle/CycleTodayLine';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { WeatherWidget } from './widgets/WeatherWidget';
@@ -95,6 +96,10 @@ export function TodayPage() {
       <WeatherWidget />
 
       <ProtectDataCard />
+
+      {/* Строка раздела «Женские дни». Сама решает, показываться ли: без
+          включённого переключателя и без данных цикла ничего не рисует. */}
+      <CycleTodayLine />
 
       <RemindersBlock />
 

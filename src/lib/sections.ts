@@ -51,6 +51,8 @@ export interface Section {
   anchor?: boolean;
   /** Нельзя спрятать (Сегодня — стартовый экран, Настройки — вход в саму настройку). */
   nonHideable?: boolean;
+  /** Не показывать, пока человек сам не включит (см. navLayout). */
+  hiddenByDefault?: boolean;
   /** Подпись в списке «Ещё» (у Сегодня/Задач/Заметок/Семьи её не показываем). */
   subtitle?: string;
 }
@@ -108,6 +110,7 @@ export const SECTIONS: Section[] = [
     to: '/more/cycle',
     icon: Droplet,
     subtitle: 'Цикл, самочувствие и прогноз',
+    hiddenByDefault: true,
   },
   {
     id: 'settings',

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Droplet, Info, Plus } from 'lucide-react';
+import { Link } from 'react-router';
+import { Droplet, Info, Plus, SlidersHorizontal } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Button } from '../../components/ui/Button';
 import { ensureCycleSetup } from '../../lib/cycle/cycleRepo';
 import { formatRu, todayKey } from '../../lib/dates';
 import { plural } from '../../lib/plural';
+import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { CycleCalendar } from './CycleCalendar';
 import { DayLogSheet } from './DayLogSheet';
 import { useCycleData } from './useCycleData';
@@ -69,13 +71,24 @@ export function CyclePage() {
       title="Женские дни"
       backTo="/more"
       right={
-        <button
-          type="button"
-          onClick={() => setPickedDate(todayKey())}
-          className="shrink-0 rounded-lg px-2 py-1.5 text-sm font-medium text-accent active:opacity-60"
-        >
-          Отметить
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setPickedDate(todayKey())}
+            className="shrink-0 rounded-lg px-2 py-1.5 text-sm font-medium text-accent active:opacity-60"
+          >
+            Отметить
+          </button>
+          {/* ml-1 к зазору: зона касания шире иконки на 8,6px с каждой стороны,
+              и без запаса тап у левого края уходил бы кнопке «Отметить». */}
+          <Link
+            to="/more/cycle/settings"
+            aria-label="Настройки раздела"
+            className={`ml-1 shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+          >
+            <SlidersHorizontal size={20} />
+          </Link>
+        </div>
       }
     >
       <div className="space-y-5">

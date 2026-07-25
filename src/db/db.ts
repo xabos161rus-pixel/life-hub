@@ -34,7 +34,7 @@ import type {
   SymptomDef,
 } from './cycleTypes';
 
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -212,6 +212,13 @@ export class LifeHubDB extends Dexie {
       // числа, строки, даты и массивы. Симптомов пара десятков — фильтруем в JS.
       cycleSymptoms: 'key, group',
       cyclePredictions: 'forCycleStart',
+    });
+    // v12 — происхождение задачи. Индекс по origin нужен, чтобы раздел находил
+    // свои автозадачи одним запросом, а не сканом всего списка; и чтобы
+    // проверка «не утекло ли что-то из закрытого раздела» была дешёвой.
+    // Существующие задачи не трогаем: undefined означает «человек сам создал».
+    this.version(12).stores({
+      tasks: 'id, projectId, goalId, dueDate, completedAt, *tags, origin',
     });
   }
 }

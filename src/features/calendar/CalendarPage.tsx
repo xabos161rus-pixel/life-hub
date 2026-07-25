@@ -21,6 +21,19 @@ import { formatRu, todayKey, toKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 
+/** Дни менструации из раздела «Женские дни» — но только если человек включил
+ *  отметки в настройках раздела. Отдельный хук, чтобы запрос к таблицам цикла
+ *  вообще не выполнялся у тех, кто раздел не включал. */
+function useCycleMarks(): Set<string> {
+  const settings = useLiveQuery(() => db.cycleSettings.get('app'), []);
+  const on = Boolean(settings?.integrations.calendarMarks);
+  const days = useLiveQuery(
+    async () => (on ? await db.cycleDays.where('isBleedingDay').equals(1).toArray() : []),
+    [on],
+  );
+  return useMemo(() => new Set((days ?? []).map((d) => d.date)), [days]);
+}
+
 export function CalendarPage() {
   const tasksRaw = useLiveQuery(() => db.tasks.toArray(), []);
   const projectsRaw = useLiveQuery(() => db.projects.toArray(), []);
@@ -102,6 +115,8 @@ export function CalendarPage() {
     setSheetOpen(true);
   }
 
+  const cycleMarks = useCycleMarks();
+
   return (
     <Screen
       title="Календарь"
@@ -175,7 +190,9 @@ export function CalendarPage() {
                 type="button"
                 aria-label={`${format(day.date, 'd MMMM yyyy', { locale: ru })}${
                   isSelected ? ', выбрано' : ''
-                }${stat ? `, задач: ${stat.count}${stat.overdue ? ', есть просроченные' : ''}` : ''}`}
+                }${stat ? `, задач: ${stat.count}${stat.overdue ? ', есть просроченные' : ''}` : ''}${
+                  cycleMarks.has(day.key) ? ', менструация' : ''
+                }`}
                 aria-pressed={isSelected}
                 onClick={() => setSelectedDate(day.key)}
                 className={`relative flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition-colors ${
@@ -186,6 +203,19 @@ export function CalendarPage() {
                       : 'text-muted/40'
                 } ${isToday && !isSelected ? 'ring-1 ring-accent' : ''}`}
               >
+                {/* Отметка цикла — полоса сверху, а не точка: точка снизу уже
+                    занята задачами, и две точки в одной ячейке различить
+                    невозможно. Форма, а не только цвет: цвет как единственный
+                    носитель не работает у дальтоников и в скринридере (там
+                    отметка попадает в aria-label словом). */}
+                {cycleMarks.has(day.key) && (
+                  <span
+                    aria-hidden
+                    className={`absolute inset-x-2 top-1 h-0.5 rounded-full ${
+                      isSelected ? 'bg-white/80' : 'bg-danger'
+                    }`}
+                  />
+                )}
                 <span>{format(day.date, 'd')}</span>
                 {stat && (
                   <span

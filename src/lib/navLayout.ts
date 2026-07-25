@@ -18,6 +18,15 @@ export interface NavRegistryItem {
   id: SectionId;
   anchor?: boolean;
   nonHideable?: boolean;
+  /** Раздел не показывается, пока человек сам его не включит.
+   *
+   *  Нужен разделам, полезным части людей и бесполезным остальным: приложение
+   *  общее, и трекер цикла в списке у того, кому он не нужен, — ровно та
+   *  причина, по которой универсальные приложения выглядят перегруженными.
+   *  Скрытие срабатывает ТОЛЬКО когда раздел не упомянут в конфиге вообще:
+   *  стоит человеку положить его в панель или в «Ещё», флаг больше не влияет,
+   *  и раздел ведёт себя как любой другой. */
+  hiddenByDefault?: boolean;
 }
 
 export interface NavLayout {
@@ -47,6 +56,20 @@ export function computeNavLayout(
   for (const id of config?.hidden ?? []) {
     if (!byId.has(id) || isNonHideable(id) || isAnchor(id)) continue;
     hiddenSet.add(id as SectionId);
+  }
+
+  // Разделы «по запросу»: скрыты, пока не упомянуты в конфиге ни в одном из
+  // трёх списков. Проверяем именно упоминание, а не отсутствие в hidden: иначе
+  // раздел, однажды показанный и потом снова спрятанный, не отличался бы от
+  // никогда не виденного, и любой сброс конфига возвращал бы его на экран.
+  const mentioned = new Set<string>([
+    ...(config?.bottom ?? []),
+    ...(config?.more ?? []),
+    ...(config?.hidden ?? []),
+  ]);
+  for (const s of registry) {
+    if (!s.hiddenByDefault || isNonHideable(s.id) || isAnchor(s.id)) continue;
+    if (!mentioned.has(s.id)) hiddenSet.add(s.id);
   }
 
   // Панель: из конфига (или дефолта), существующие, не якорь, не скрытые,

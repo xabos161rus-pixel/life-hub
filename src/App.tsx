@@ -27,6 +27,7 @@ import { SharePage } from './features/share/SharePage';
 import { StatsPage } from './features/stats/StatsPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CyclePage } from './features/cycle/CyclePage';
+import { CycleSettingsPage } from './features/cycle/CycleSettingsPage';
 import { TrashPage } from './features/trash/TrashPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { InstallInstructionsPage } from './features/settings/InstallInstructionsPage';
@@ -147,6 +148,7 @@ export default function App() {
                 <Route path="/more/energy" element={<EnergyPage />} />
                 <Route path="/more/habits" element={<HabitsPage />} />
                 <Route path="/more/cycle" element={<CyclePage />} />
+                <Route path="/more/cycle/settings" element={<CycleSettingsPage />} />
                 <Route path="/more/places" element={<PlacesPage />} />
                 <Route path="/more/settings" element={<SettingsPage />} />
                 <Route path="/more/settings/install" element={<InstallInstructionsPage />} />
