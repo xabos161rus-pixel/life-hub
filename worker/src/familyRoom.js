@@ -455,10 +455,15 @@ export class FamilyRoom extends DurableObject {
     const subs = this.sql
       .exec('SELECT member_id, push_sub FROM members WHERE push_sub IS NOT NULL AND member_id != ?', senderMemberId || '')
       .toArray();
-    // Адресный пуш по группе: имя группы в заголовке (если известно) и тег с
-    // familyId — иначе уведомления двух групп схлопывались бы в одно.
+    // Заголовок нейтральный, без названия группы. Название лежит на сервере
+    // открытым текстом и попадает в уведомление на экран блокировки — то есть
+    // видно любому, кто взял телефон в руки, и известно тому, кто держит
+    // сервер. «Ремонт на Пушкина» или фамилия семьи — это утечка, ради которой
+    // не стоит различать группы в шторке.
+    // Тег с familyId остаётся: он не осмыслен для стороннего наблюдателя, но
+    // не даёт уведомлениям двух групп схлопнуться в одно.
     const familyId = this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]?.v || '';
-    const name = this.roomName() || 'Семья';
+    const name = 'Семья';
     // Тег у каждого типа события свой: с общим тегом «задача выполнена» затирала
     // бы уведомление о новой задаче, и человек не узнал бы, что ему её поставили.
     const KIND = {
@@ -555,10 +560,12 @@ export class FamilyRoom extends DurableObject {
     } catch {
       return;
     }
-    const name = this.roomName() || 'Семья';
     await this.sendPushTo(sub, {
+      // Без названия группы: экран блокировки виден любому, кто рядом, а само
+      // название хранится на сервере открытым текстом — двойная утечка ради
+      // строки, которую всё равно видно уже в приложении.
       title: 'Входящий звонок',
-      body: `${name} — откройте, чтобы ответить`,
+      body: 'Откройте, чтобы ответить',
       family: true,
       familyId: this.familyIdMeta(),
       call: true,
@@ -578,10 +585,9 @@ export class FamilyRoom extends DurableObject {
     } catch {
       return;
     }
-    const name = this.roomName() || 'Семья';
     await this.sendPushTo(sub, {
       title: 'Пропущенный звонок',
-      body: name,
+      body: 'Откройте приложение',
       family: true,
       familyId: this.familyIdMeta(),
       missed: true,
