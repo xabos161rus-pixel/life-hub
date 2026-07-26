@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
-import { BellRing, ChevronRight, GraduationCap, PhoneCall, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { BellRing, ChevronRight, GraduationCap, PhoneCall, SlidersHorizontal, Trash2,
+  Lightbulb,
+} from 'lucide-react';
 import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/sounds';
 import { RINGTONES, previewRingtone, type RingtoneKind } from '../../lib/family/ringtone';
 import { Screen } from '../../components/layout/Screen';
@@ -24,6 +26,7 @@ import {
 import { pushAccountSnapshot, pullAccountSnapshot } from '../../lib/cloudBackup';
 import { formatRu } from '../../lib/dates';
 import { ensurePersistentStorage, formatBytes, type StorageState } from '../../lib/storage';
+import { HINT_IDS, resetSessionHints } from '../../hooks/useHint';
 import { usePersistentStorage } from './usePersistentStorage';
 import { SyncSection } from './sync/SyncSection';
 import { InstallLink } from './InstallLink';
@@ -68,6 +71,38 @@ function StorageStatus() {
         визитов. Установите приложение на экран «Домой» и держите копию{used ? ` (сейчас занято ${used})` : ''}.
       </span>
     </p>
+  );
+}
+
+/** Возврат скрытых подсказок. Отдельной строкой от сброса обучения, с живым
+ *  счётчиком: кнопка без обратной связи выглядит как сломанная — нажал, ничего
+ *  видимого не случилось, а подсказка всплывёт когда-то потом на своём экране. */
+function HintsResetRow() {
+  const settings = useSettings();
+  const hidden = settings.seenHints?.length ?? 0;
+  const nothingToReset = hidden === 0;
+
+  return (
+    <button
+      type="button"
+      disabled={nothingToReset}
+      onClick={() => {
+        void updateSettings({ seenHints: [] });
+        // И те, что скрыты «только сейчас», — иначе кнопка вернула бы часть
+        // подсказок, а человек считает их одним набором.
+        resetSessionHints();
+      }}
+      className="flex w-full items-center gap-2 border-b border-hairline p-4 text-left disabled:opacity-40"
+    >
+      <Lightbulb size={20} className="shrink-0 text-muted" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate">Показать подсказки заново</span>
+        <span className="block text-sm text-muted">
+          {nothingToReset ? 'Все подсказки на месте' : `Скрыто ${hidden} из ${HINT_IDS.length}`}
+        </span>
+      </span>
+      <ChevronRight size={20} className="shrink-0 text-muted" />
+    </button>
   );
 }
 
@@ -477,15 +512,17 @@ export function SettingsPage() {
             </Link>
             <button
               type="button"
-              // Сброс тура и всех контекстных подсказок: тур откроется сразу,
-              // подсказки снова всплывут по разделам.
-              onClick={() => void updateSettings({ onboardingDone: null, seenHints: [] })}
+              // Только тур. Подсказки возвращаются отдельной строкой ниже:
+              // раньше одна кнопка делала два дела, и человек, которому нужен
+              // был тур, заодно получал обратно все скрытые советы.
+              onClick={() => void updateSettings({ onboardingDone: null })}
               className="flex w-full items-center gap-2 border-b border-hairline p-4 text-left"
             >
               <GraduationCap size={20} className="shrink-0 text-muted" />
               <span className="min-w-0 flex-1 truncate">Показать обучение заново</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </button>
+            <HintsResetRow />
             <Link
               to="/more/settings/install"
               className="flex items-center justify-between gap-2 border-b border-hairline p-4"
