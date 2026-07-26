@@ -69,7 +69,7 @@ function NoteRow({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-[1.15rem] shadow-[var(--shadow-card)]">
+    <div className="relative overflow-hidden rounded-2xl shadow-[var(--shadow-card)]">
       {/* Кнопку рендерим ТОЛЬКО при свайпе. В покое (dx=0) её нет в DOM —
           значит ничему просвечивать в скруглённых углах карточки (на iOS
           overflow:hidden не клипает строку с transform, и красный угол торчал
@@ -84,7 +84,7 @@ function NoteRow({
         </button>
       )}
       <div
-        className="relative flex touch-pan-y items-start gap-2 rounded-[1.15rem] border border-hairline bg-surface p-3.5"
+        className="card relative flex touch-pan-y items-start gap-2 p-4"
         style={{
           // transform только во время свайпа: translateX(0px) в покое сам по
           // себе ломал обрезку по скруглению на WebKit.

@@ -57,7 +57,7 @@ export function SyncSection() {
 
   return (
     <>
-      <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+      <div className="space-y-3 card p-4">
         {config ? (
           <>
             <p className="flex items-center gap-2 text-sm">

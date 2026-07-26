@@ -40,7 +40,7 @@ export function RemindersBlock() {
         <h2 className="text-sm font-semibold text-muted">Напоминания</h2>
         <button
           onClick={() => setSectionSheet('new')}
-          className="inline-flex items-center gap-1 text-sm font-medium text-accent active:opacity-70"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent active:opacity-70"
         >
           <Plus size={16} /> раздел
         </button>

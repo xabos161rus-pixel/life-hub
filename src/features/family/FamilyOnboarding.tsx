@@ -29,7 +29,7 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
       <button
         onClick={() => setMode('choose')}
         aria-label="Создать группу или войти по приглашению"
-        className="flex size-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent active:scale-95"
+        className="flex size-20 items-center justify-center rounded-3xl bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent active:scale-95"
       >
         <Plus size={40} strokeWidth={2.4} />
       </button>
@@ -275,7 +275,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
           // Второй шаг входа: код прочитан, нужно слово. Показываем название
           // группы — человек должен видеть, куда его зовут, до ввода.
           <div className="space-y-3">
-            <div className="rounded-2xl border border-border bg-surface p-4 text-center">
+            <div className="card p-4 text-center">
               <p className="text-sm text-muted">Приглашение в группу</p>
               <p className="mt-0.5 font-semibold">{pendingName || 'Семья'}</p>
             </div>

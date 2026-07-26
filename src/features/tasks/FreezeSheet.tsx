@@ -129,7 +129,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
         }`}
       >
         <span
-          className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+          className={`flex size-5 shrink-0 items-center justify-center rounded-[6px] border transition-colors ${
             on ? 'border-frost-fill bg-frost-fill text-on-light' : 'border-border'
           }`}
         >
@@ -158,7 +158,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
         {candidateIds.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted">Нет активных задач для заморозки.</p>
         ) : (
-          <div className="max-h-[50dvh] divide-y divide-hairline overflow-y-auto rounded-2xl border border-border bg-surface">
+          <div className="max-h-[50dvh] divide-y divide-hairline overflow-y-auto card">
             {rows.map(renderRow)}
           </div>
         )}

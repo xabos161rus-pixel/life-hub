@@ -50,7 +50,7 @@ function LearningCard({ item, onOpen }: { item: LearningItem; onOpen: () => void
   return (
     <div
       onClick={onOpen}
-      className="rounded-2xl border border-border bg-surface p-4 active:opacity-90"
+      className="card p-4 active:opacity-90"
     >
       <div className="flex items-start gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">

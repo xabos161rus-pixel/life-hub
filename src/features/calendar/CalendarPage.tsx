@@ -130,7 +130,7 @@ export function CalendarPage() {
         <button
           type="button"
           onClick={goToday}
-          className="shrink-0 rounded-lg px-2 py-1.5 text-sm font-medium text-accent active:opacity-60"
+          className="shrink-0 rounded-lg px-2 py-2.5 text-sm font-medium text-accent active:opacity-60"
         >
           Сегодня
         </button>
@@ -174,7 +174,7 @@ export function CalendarPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7">
           {WEEKDAY_LABELS.map((label) => (
             <div key={label} className="pb-1 text-center text-xs font-medium text-muted">
               {label}
@@ -257,7 +257,7 @@ export function CalendarPage() {
         <button
           type="button"
           onClick={() => openTask(null)}
-          className="mt-2 flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
+          className="mt-2 flex min-h-11 items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
         >
           <Plus size={15} /> Задача на этот день
         </button>

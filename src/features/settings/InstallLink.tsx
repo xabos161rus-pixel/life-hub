@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { INSTALL_URL } from '../../lib/appInstall';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 /**
  * Постоянный блок «ссылка для установки»: показывает адрес сайта, даёт
@@ -27,7 +28,7 @@ export function InstallLink() {
           type="button"
           onClick={copy}
           aria-label="Скопировать ссылку"
-          className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-accent active:opacity-60"
+          className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-accent active:opacity-60 ${HIT_SLOP_44}`}
         >
           {copied ? <Check size={18} /> : <Copy size={18} />}
         </button>
@@ -36,7 +37,7 @@ export function InstallLink() {
         href={INSTALL_URL}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent active:opacity-70"
+        className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-accent active:opacity-70"
       >
         <ExternalLink size={16} />
         Открыть сайт установки

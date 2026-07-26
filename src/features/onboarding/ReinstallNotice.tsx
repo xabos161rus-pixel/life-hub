@@ -157,7 +157,7 @@ export function ReinstallNotice() {
           </ol>
 
           {/* Ссылка на сайт установки — открыть в Safari */}
-          <div className="rounded-2xl border border-border bg-surface p-3.5">
+          <div className="card p-3.5">
             <div className="mb-2 flex items-center gap-2 text-sm text-muted">
               <Share size={16} className="shrink-0" />
               <span>Откройте эту ссылку в Safari:</span>

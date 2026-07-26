@@ -22,8 +22,10 @@ interface Props {
  * а до соседнего интерактивного элемента нужно ≥11px зазора — иначе зоны
  * перекроются и промах уйдёт к тому, кто выше по DOM.
  */
-export const HIT_SLOP_44 =
-  "relative after:absolute after:left-1/2 after:top-1/2 after:size-[44px] after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']";
+// Реэкспорт: 25 мест уже импортируют константу отсюда, и переезд ради переезда
+// им ни к чему. Определение — в hitSlop.ts.
+export { HIT_SLOP_44 } from './hitSlop';
+import { HIT_SLOP_44 } from './hitSlop';
 
 /** Чекбокс задачи — скруглённый квадрат (как в списках iOS). Пустой —
  *  спокойная серая рамка; выполненный — заливка цветом проекта/акцента

@@ -199,7 +199,7 @@ body {
 .card {
   background-color: var(--app-surface);
   border: 1px solid var(--app-hairline);
-  border-radius: 1.15rem;
+  border-radius: 1rem;
   /* Клипаем содержимое скруглением: строки списков на всю ширину (-mx-4) иначе
      вылезают квадратными углами за бордер — «плывущая рамка». Тень не клипается
      (рисуется вне border-box), поэтому объём карточки сохраняется. */

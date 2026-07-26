@@ -24,7 +24,7 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 active:opacity-80"
+      className="flex items-center gap-3 card p-4 active:opacity-80"
     >
       <div className="relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
         <Icon size={22} />
@@ -71,7 +71,7 @@ function ProfileCard() {
   return (
     <Link
       to="/home/profile"
-      className="flex items-center gap-3.5 rounded-2xl border border-border bg-surface p-4 active:opacity-80"
+      className="flex items-center gap-3.5 card p-4 active:opacity-80"
     >
       {p?.avatar ? (
         <img
@@ -87,7 +87,7 @@ function ProfileCard() {
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-lg font-semibold">
+        <p className={`text-lg font-semibold ${p?.name?.trim() ? 'truncate' : 'leading-tight'}`}>
           {p?.name?.trim() || (hasAny ? 'Без имени' : 'Заполнить профиль')}
         </p>
         <p className="text-sm leading-snug text-muted">
@@ -126,7 +126,7 @@ function DataStatusCard() {
   return (
     <Link
       to="/more/settings"
-      className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 active:opacity-80"
+      className="flex items-center gap-3 card p-4 active:opacity-80"
     >
       <div
         className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${

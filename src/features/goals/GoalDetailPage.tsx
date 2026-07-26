@@ -146,7 +146,7 @@ export function GoalDetailPage() {
         <p className="mb-4 whitespace-pre-wrap text-[15px] text-muted">{goal.description}</p>
       )}
 
-      <div className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-4">
+      <div className="flex items-center gap-4 card p-4">
         <ProgressRing value={progress} size={96} strokeWidth={7} color={goal.color} />
         <div className="min-w-0">
           <p className="text-lg font-bold">{goalProgressLabel(goal, goalTasks)}</p>
@@ -171,7 +171,7 @@ export function GoalDetailPage() {
 
       <div className="mt-3">
         {goal.progressMode === 'manual' && (
-          <div className="rounded-2xl border border-border bg-surface p-4">
+          <div className="card p-4">
             <p className="mb-2 text-sm font-medium text-muted">
               Прогресс вручную · {goal.progressManual}%
             </p>
@@ -191,7 +191,7 @@ export function GoalDetailPage() {
           </div>
         )}
         {goal.progressMode === 'numeric' && (
-          <div className="rounded-2xl border border-border bg-surface p-4">
+          <div className="card p-4">
             <p className="mb-2 text-sm font-medium text-muted">
               {formatNum(current)} из {formatNum(goal.targetValue ?? 0)}
               {goal.unitLabel ? ` ${goal.unitLabel}` : ''}
@@ -286,7 +286,7 @@ export function GoalDetailPage() {
             return (
               <div
                 key={li.id}
-                className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3.5"
+                className="flex items-center gap-3 card p-3.5"
               >
                 <Icon size={18} className="shrink-0 text-muted" />
                 <div className="min-w-0 flex-1">

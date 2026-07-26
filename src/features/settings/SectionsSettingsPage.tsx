@@ -207,7 +207,7 @@ export function SectionsSettingsPage() {
         // нужно 295px. px-2 вместо px-3 даёт 8.5px, gap-2 вместо gap-3 — ещё
         // 12.75px (три зазора). Вместе с ужатым бейджем этого хватает, чтобы
         // название влезало целиком (см. комментарии у бейджа).
-        className={`flex items-center gap-3 rounded-2xl border border-border bg-surface p-3 transition-opacity max-[375px]:gap-2 max-[375px]:px-2 ${
+        className={`flex items-center gap-3 card p-3 transition-opacity max-[375px]:gap-2 max-[375px]:px-2 ${
           hidden ? 'opacity-45' : ''
         } ${dragId === id ? 'opacity-30' : ''}`}
       >
@@ -285,7 +285,7 @@ export function SectionsSettingsPage() {
         {anchor && (
           // Раскладка и поведение при нехватке ширины — как у обычной строки
           // (см. row): те же зазоры, тот же неусыхаемый бейдж.
-          <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3 max-[375px]:gap-2 max-[375px]:px-2">
+          <div className="flex items-center gap-3 card p-3 max-[375px]:gap-2 max-[375px]:px-2">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
               <anchor.icon size={20} />
             </div>

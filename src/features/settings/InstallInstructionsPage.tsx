@@ -26,7 +26,7 @@ const STEPS: { icon: LucideIcon; text: string }[] = [
 /** Одна карточка «шаг» с иконкой и текстом. */
 function Row({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
   return (
-    <div className="flex gap-3 rounded-2xl border border-border bg-surface p-4">
+    <div className="flex gap-3 card p-4">
       <Icon size={22} className="mt-0.5 shrink-0 text-accent" />
       <p className="min-w-0 text-sm leading-relaxed">{children}</p>
     </div>
@@ -42,7 +42,7 @@ export function InstallInstructionsPage() {
         {/* --- Ссылка для установки (всегда доступна) --- */}
         <section className="space-y-2.5">
           <h2 className="text-sm font-semibold text-muted">Ссылка для установки</h2>
-          <div className="rounded-2xl border border-border bg-surface p-4">
+          <div className="card p-4">
             <p className="mb-3 text-sm leading-relaxed text-muted">
               Открывайте её в Safari, чтобы установить или переустановить приложение, или
               поделитесь ссылкой. Она всегда есть и в «Настройках».
@@ -64,7 +64,7 @@ export function InstallInstructionsPage() {
               {STEPS.map((step, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4"
+                  className="flex items-center gap-3 card p-4"
                 >
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent">
                     {i + 1}

@@ -43,7 +43,7 @@ export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () 
     <div className="space-y-3">
       <button
         onClick={() => setRenaming(true)}
-        className="flex w-full items-center gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-left active:opacity-80"
+        className="flex w-full items-center gap-2 card px-4 py-3 text-left active:opacity-80"
       >
         <Pencil size={16} className="shrink-0 text-muted" />
         <span className="flex-1 truncate font-medium">{config?.familyName || 'Семья'}</span>
@@ -55,7 +55,7 @@ export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () 
         Пригласить участника
       </Button>
 
-      <div className="divide-y divide-hairline overflow-hidden rounded-2xl border border-border bg-surface">
+      <div className="divide-y divide-hairline overflow-hidden card">
         {alive.map((m) => (
           <div key={m.id} className="flex w-full items-center gap-3 p-3">
             <button

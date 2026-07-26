@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ChevronLeft } from 'lucide-react';
+import { HIT_SLOP_44 } from '../ui/hitSlop';
 
 interface Props {
   title: string;
@@ -45,7 +46,11 @@ export function Screen({ title, backTo, right, subtitle, fill = false, children 
       <header className="sticky top-0 z-30 shrink-0 border-b border-hairline bg-bg px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3">
         <div className="mx-auto flex w-full max-w-lg items-center gap-2">
           {backTo && (
-            <Link to={backTo} aria-label="Назад" className="-ml-2 p-1 text-accent active:opacity-60">
+            <Link
+              to={backTo}
+              aria-label="Назад"
+              className={`-ml-2 p-1 text-accent active:opacity-60 ${HIT_SLOP_44}`}
+            >
               <ChevronLeft size={26} />
             </Link>
           )}
