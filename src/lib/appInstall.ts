@@ -12,4 +12,4 @@ export const INSTALL_URL = new URL(import.meta.env.BASE_URL || '/', window.locat
  * записывается текущая версия. Старые значения (ISO-время прошлого закрытия)
  * версии не равны — поэтому окно покажется ещё раз, что и требуется.
  */
-export const REINSTALL_NOTICE_VERSION = '2026-07-c';
+export const REINSTALL_NOTICE_VERSION = '2026-07-b';
