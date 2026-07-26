@@ -142,10 +142,11 @@ export function SavingsSection() {
     setEditingGoal(g);
     setGoalSheet(true);
   };
+  // Без подтверждения: цель уходит в АРХИВ, а не удаляется, и вернуть её
+  // оттуда можно. Спрашивать на обратимом действии — приучать жать «Да» не
+  // читая, и тогда вопрос перестаёт работать там, где он правда нужен.
   const claim = (g: SavingsGoal) => {
-    if (window.confirm(`Забрать «${g.title}»? Цель уйдёт в архив.`)) {
-      void update(db.savingsGoals, g.id, { archivedAt: now() });
-    }
+    void update(db.savingsGoals, g.id, { archivedAt: now() });
   };
 
   return (

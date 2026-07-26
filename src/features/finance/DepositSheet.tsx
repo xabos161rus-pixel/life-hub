@@ -130,7 +130,11 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
                 </div>
                 <button
                   type="button"
-                  onClick={() => void remove(db.savingsDeposits, d.id)}
+                  onClick={() => {
+                    // Деньги и необратимо: соседний шит на том же экране
+                    // спрашивает, а этот молча стирал запись по тапу.
+                    if (window.confirm('Удалить эту запись?')) void remove(db.savingsDeposits, d.id);
+                  }}
                   aria-label="Удалить запись"
                   className="p-1.5 text-muted active:text-danger"
                 >

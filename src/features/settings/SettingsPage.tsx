@@ -121,11 +121,11 @@ export function SettingsPage() {
 
   async function handleEnablePush() {
     if (!pushSupported()) {
-      alert('Уведомления не поддерживаются этим браузером.');
+      toast('Уведомления не поддерживаются этим браузером.');
       return;
     }
     if (isIOS() && !isStandalone()) {
-      alert(
+      toast(
         'На iPhone уведомления работают только в установленном приложении. Добавьте LifeHearth на экран «Домой» и откройте оттуда.',
       );
       return;
@@ -135,7 +135,7 @@ export function SettingsPage() {
     try {
       const res = await enablePush();
       if (!res.ok) {
-        alert(
+        toast(
           res.reason === 'denied'
             ? 'Разрешение не выдано. Включите его: Настройки iPhone → Уведомления → LifeHearth.'
             : 'Не удалось включить уведомления.',
@@ -168,7 +168,7 @@ export function SettingsPage() {
         } catch (err) {
           // AbortError — пользователь закрыл шит шаринга, это не ошибка
           if (!(err instanceof DOMException && err.name === 'AbortError')) {
-            alert('Не удалось поделиться файлом резервной копии. Он сохранён — найдите его в «Файлах»');
+            toast('Не удалось поделиться файлом резервной копии. Он сохранён — найдите его в «Файлах»');
           }
           return;
         }
@@ -223,7 +223,7 @@ export function SettingsPage() {
       const parsed: unknown = JSON.parse(await file.text());
       await confirmAndImport(validateBackup(parsed));
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Не удалось прочитать файл резервной копии');
+      toast(err instanceof Error ? err.message : 'Не удалось прочитать файл резервной копии');
     }
   }
 
@@ -233,13 +233,13 @@ export function SettingsPage() {
     try {
       const n = await pushAccountSnapshot();
       if (!n) {
-        alert('Сначала включите синхронизацию — облачная копия хранится под вашим ключом.');
+        toast('Сначала включите синхронизацию — облачная копия хранится под вашим ключом.');
         return;
       }
       await updateSettings({ lastCloudBackupAt: now() });
       toast('Копия сохранена в облако');
     } catch {
-      alert('Не удалось сохранить копию в облако. Проверьте связь и попробуйте ещё раз.');
+      toast('Не удалось сохранить копию в облако. Проверьте связь и попробуйте ещё раз.');
     } finally {
       cloudRef.current = false;
     }
@@ -251,12 +251,12 @@ export function SettingsPage() {
     try {
       const backup = await pullAccountSnapshot();
       if (!backup) {
-        alert('В облаке пока нет резервной копии.');
+        toast('В облаке пока нет резервной копии.');
         return;
       }
       await confirmAndImport(backup);
     } catch {
-      alert('Не удалось получить копию из облака. Проверьте связь и попробуйте ещё раз.');
+      toast('Не удалось получить копию из облака. Проверьте связь и попробуйте ещё раз.');
     } finally {
       cloudRef.current = false;
     }

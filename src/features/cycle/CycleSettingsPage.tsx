@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Check } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
@@ -8,7 +8,9 @@ import { hashPin } from '../../lib/crypto';
 import { lockCycleSection } from './lockState';
 import { db } from '../../db/db';
 import type { CycleSettings } from '../../db/cycleTypes';
-import { DEFAULT_CYCLE_SETTINGS, updateCycleSettings } from '../../lib/cycle/cycleRepo';
+import { DEFAULT_CYCLE_SETTINGS, putDay, updateCycleSettings } from '../../lib/cycle/cycleRepo';
+import { parseCycleCsv, type ImportReport } from '../../lib/cycle/importCsv';
+import { formatRu } from '../../lib/dates';
 import { AUTO_TASK_TEMPLATES, MAX_ACTIVE_AUTO_TASKS } from '../../lib/cycle/autoTasks';
 
 /** Переключатель строкой. Своя реализация вместо нативного checkbox: нужен
@@ -139,6 +141,115 @@ function PinSection({ settings }: { settings: CycleSettings }) {
   );
 }
 
+/** Перенос истории из другого приложения.
+ *
+ *  Разбор терпим к формату и НЕ подогнан под конкретный трекер: точных схем
+ *  выгрузки у меня нет, а «парсер Flo», написанный по догадкам об именах
+ *  колонок, не заработал бы ни с одним настоящим файлом. Колонки определяются
+ *  по смыслу, а результат показывается до записи — человек видит, что именно
+ *  распозналось, и решает сам. */
+function ImportSection() {
+  const [report, setReport] = useState<ImportReport | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(0);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function pick(file: File) {
+    setDone(0);
+    setReport(parseCycleCsv(await file.text()));
+  }
+
+  async function apply() {
+    if (!report || busy) return;
+    setBusy(true);
+    try {
+      for (const d of report.days) {
+        // Через putDay, а не прямой записью: он же держит в синхроне
+        // денормализованные ключи и пересчитывает циклы.
+        await putDay(d.date, { bleeding: d.bleeding });
+      }
+      setDone(report.days.length);
+      setReport(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section>
+      <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Перенос из другого приложения</h2>
+      <div className="card p-4">
+        <p className="mb-3 text-sm leading-snug text-muted">
+          Выгрузите историю из прежнего трекера в CSV и выберите файл здесь. Нужны колонки с
+          датой и отметкой выделений — как они называются, приложение разберётся само.
+        </p>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv,text/plain"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void pick(f);
+            e.target.value = ''; // тот же файл можно выбрать повторно
+          }}
+        />
+        <Button variant="secondary" className="w-full" onClick={() => fileRef.current?.click()}>
+          Выбрать файл
+        </Button>
+
+        {done > 0 && (
+          <p className="mt-3 text-sm text-success">
+            Перенесено дней: {done}. Прогноз пересчитан.
+          </p>
+        )}
+
+        {report && (
+          <div className="mt-4 space-y-2 text-sm leading-snug">
+            {report.days.length === 0 ? (
+              <p className="text-danger">
+                {report.dateColumn
+                  ? 'Даты нашлись, а отметок выделений — нет. Проверьте, что в файле есть колонка с ними.'
+                  : 'Не нашлась колонка с датой. Проверьте, что выгрузка сохранена в CSV.'}
+              </p>
+            ) : (
+              <>
+                <p>
+                  Распознано дней: <span className="font-semibold">{report.days.length}</span>
+                  {report.from && report.to && (
+                    <> — с {formatRu(report.from)} по {formatRu(report.to)}</>
+                  )}
+                </p>
+                {/* Показываем, ЧТО именно взято за дату и за выделения: человек
+                    должен убедиться, что разобрано то, что он думает, а не
+                    соседняя колонка. */}
+                <p className="text-muted">
+                  Колонка с датой: «{report.dateColumn}»
+                  {report.flowColumn ? `, выделения: «${report.flowColumn}»` : ', выделения — по содержимому строк'}
+                </p>
+                {(report.skippedNoDate > 0 || report.skippedNoFlow > 0) && (
+                  <p className="text-warning">
+                    Пропущено строк: {report.skippedNoDate + report.skippedNoFlow}
+                    {report.skippedNoDate > 0 && ` (без даты: ${report.skippedNoDate})`}
+                    {report.skippedNoFlow > 0 && ` (без отметки: ${report.skippedNoFlow})`}
+                  </p>
+                )}
+                <p className="text-muted">
+                  Записи за те же дни будут заменены. Отменить перенос нельзя — если история
+                  уже есть, сделайте резервную копию заранее.
+                </p>
+                <Button className="w-full" disabled={busy} onClick={() => void apply()}>
+                  {busy ? 'Переносим…' : `Перенести ${report.days.length}`}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function CycleSettingsPage() {
   const row = useLiveQuery(() => db.cycleSettings.get('app'), []);
   const s: CycleSettings = row ?? { ...DEFAULT_CYCLE_SETTINGS, updatedAt: '' };
@@ -239,6 +350,8 @@ export function CycleSettingsPage() {
             />
           </div>
         </section>
+
+        <ImportSection />
       </div>
     </Screen>
   );

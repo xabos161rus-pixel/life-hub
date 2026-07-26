@@ -224,7 +224,7 @@ export function StatsPage() {
       } catch (err) {
         // AbortError — пользователь закрыл шит шаринга, это не ошибка
         if (!(err instanceof DOMException && err.name === 'AbortError')) {
-          alert('Не удалось поделиться отчётом. Попробуйте ещё раз');
+          toast('Не удалось поделиться отчётом. Попробуйте ещё раз');
         }
         return;
       }

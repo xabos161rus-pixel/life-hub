@@ -1,5 +1,6 @@
 import { Mic } from 'lucide-react';
 import { isIOS, useSpeechInput } from '../../hooks/useSpeechInput';
+import { useToast } from './toastContext';
 
 interface Props {
   /** получает распознанный текст — обычно дописывает в поле */
@@ -14,6 +15,10 @@ interface Props {
  */
 export function MicButton({ onText, className = '' }: Props) {
   const { listening, start, stop, supported } = useSpeechInput({ onResult: onText });
+  // Подсказка про диктовку на iOS — не ошибка и не блокирующее сообщение:
+  // кнопка стоит в основном потоке ввода, и системное окно посреди набора
+  // текста читается как сбой, хотя человек ничего не сломал.
+  const toast = useToast();
 
   if (!supported) {
     if (isIOS()) {
@@ -22,7 +27,7 @@ export function MicButton({ onText, className = '' }: Props) {
           type="button"
           aria-label="Голосовой ввод"
           onClick={() =>
-            alert(
+            toast(
               'Для диктовки нажмите 🎤 на клавиатуре iPhone (рядом с пробелом) и говорите — текст появится в поле.',
             )
           }
