@@ -308,6 +308,10 @@ export interface Settings {
   autoBackup?: 'off' | 'cloud';
   autoBackupEvery?: 'daily' | 'weekly';
   lastCloudBackupAt?: string | null; // ISO последней успешной облачной копии
+  // Когда автокопия отказалась перезаписывать облако: там лежит копия полнее
+  // нашей. Не ошибка сети — осознанный отказ, и человек должен о нём узнать,
+  // иначе автокопия молча не работает месяцами.
+  cloudBackupBlocked?: string | null;
 }
 
 // === Семейный раздел (общие задачи + чат) ===

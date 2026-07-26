@@ -23,7 +23,12 @@ import {
   importBackup,
   type BackupFile,
 } from '../../db/backup';
-import { pushAccountSnapshot, pullAccountSnapshot } from '../../lib/cloudBackup';
+import {
+  BackupWouldLoseDataError,
+  cloudBackupDate,
+  pushAccountSnapshot,
+  pullAccountSnapshot,
+} from '../../lib/cloudBackup';
 import { formatRu } from '../../lib/dates';
 import { ensurePersistentStorage, formatBytes, type StorageState } from '../../lib/storage';
 import { HINT_IDS, resetSessionHints } from '../../hooks/useHint';
@@ -31,6 +36,20 @@ import { usePersistentStorage } from './usePersistentStorage';
 import { SyncSection } from './sync/SyncSection';
 import { InstallLink } from './InstallLink';
 import type { Settings } from '../../db/types';
+
+/** Имена таблиц человеческим языком — они уходят в диалог о перезаписи копии,
+ *  и «cycleDays: 214 → 0» там читалось бы как сообщение об ошибке. */
+const TABLE_RU: Record<string, string> = {
+  cycleDays: 'дни цикла',
+  cycleOverrides: 'правки цикла',
+  cycleEpisodes: 'эпизоды цикла',
+  cycleSettings: 'настройки цикла',
+  cycleSymptoms: 'симптомы',
+  cyclePredictions: 'прогнозы цикла',
+  familyMessages: 'сообщения в семье',
+  familyTasks: 'семейные задачи',
+  familyMembers: 'участники семьи',
+};
 
 const THEME_OPTIONS: { value: Settings['theme']; label: string }[] = [
   { value: 'dark', label: 'Тёмная' },
@@ -118,6 +137,18 @@ export function SettingsPage() {
   const cloudRef = useRef(false);
   const syncCfg = useLiveQuery(() => db.sync.get('config'), []);
   const syncOn = Boolean(syncCfg?.enabled);
+  // undefined — ещё спрашиваем сервер, null — копии нет, строка — дата.
+  const [cloudDate, setCloudDate] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!syncOn) return;
+    let live = true;
+    void cloudBackupDate().then((d) => {
+      if (live) setCloudDate(d);
+    });
+    return () => {
+      live = false;
+    };
+  }, [syncOn]);
 
   async function handleEnablePush() {
     if (!pushSupported()) {
@@ -227,18 +258,36 @@ export function SettingsPage() {
     }
   }
 
-  async function handleCloudBackupNow() {
+  async function handleCloudBackupNow(force = false) {
     if (cloudRef.current) return;
     cloudRef.current = true;
     try {
-      const n = await pushAccountSnapshot();
+      const n = await pushAccountSnapshot(force);
       if (!n) {
         toast('Сначала включите синхронизацию — облачная копия хранится под вашим ключом.');
         return;
       }
-      await updateSettings({ lastCloudBackupAt: now() });
+      await updateSettings({ lastCloudBackupAt: now(), cloudBackupBlocked: null });
+      setCloudDate(new Date().toISOString());
       toast('Копия сохранена в облако');
-    } catch {
+    } catch (e) {
+      // Копия в облаке полнее, чем данные здесь. Хранение latest-only: запись
+      // сотрёт её без следа, а история цикла и старая переписка не приедут
+      // обратно ниоткуда — дельта-синк их не возит. Поэтому не «не удалось»,
+      // а прямой вопрос с числами: сколько записей исчезнет.
+      if (e instanceof BackupWouldLoseDataError) {
+        const lines = e.losing.map((l) => `${TABLE_RU[l.table] ?? l.table}: ${l.had} → ${l.now}`);
+        const when = e.remoteDate
+          ? ` от ${formatRu(e.remoteDate.slice(0, 10), 'd MMMM yyyy')}`
+          : '';
+        const ok = window.confirm(
+          `В облаке лежит копия${when}, и в ней БОЛЬШЕ данных, чем на этом устройстве:\n\n` +
+            `${lines.join('\n')}\n\n` +
+            'Заменить её копией с этого устройства? Разницу вернуть будет неоткуда.',
+        );
+        if (ok) await handleCloudBackupNow(true);
+        return;
+      }
       toast('Не удалось сохранить копию в облако. Проверьте связь и попробуйте ещё раз.');
     } finally {
       cloudRef.current = false;
@@ -405,14 +454,29 @@ export function SettingsPage() {
                     <option value="weekly">Каждую неделю</option>
                   </Select>
                 </label>
+                {/* Дата — С СЕРВЕРА, а не из settings. Локальная отметка между
+                    устройствами не синхронизируется, и на втором телефоне тут
+                    всегда горело «ещё не создана» — ровно тот текст, который
+                    толкает нажать «Сохранить сейчас» и затереть единственную
+                    полную копию снапшотом пустого устройства. Пока ответ не
+                    пришёл, не пишем ничего: «не создана» на секунду — то же
+                    самое ложное сообщение, только мельком. */}
                 <p className="text-sm text-muted">
                   Копия в облаке:{' '}
-                  {settings.lastCloudBackupAt ? (
-                    formatRu(settings.lastCloudBackupAt.slice(0, 10), 'd MMMM yyyy')
+                  {cloudDate === undefined ? (
+                    <span className="opacity-60">проверяем…</span>
+                  ) : cloudDate ? (
+                    formatRu(cloudDate.slice(0, 10), 'd MMMM yyyy')
                   ) : (
                     <span className="font-bold text-warning">ещё не создана</span>
                   )}
                 </p>
+                {settings.cloudBackupBlocked && (
+                  <p className="text-sm text-warning">
+                    Автокопия приостановлена: в облаке лежит копия полнее, чем данные на этом
+                    устройстве. Нажмите «Сохранить сейчас», чтобы решить, что с этим делать.
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"

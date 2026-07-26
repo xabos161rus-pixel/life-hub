@@ -41,6 +41,8 @@ const {
   recoverAccess,
   registerMember,
   removeMember,
+  resendKeys,
+  KeyDeliveryError,
   NotOwnerError,
 } = await import('./familyKeys');
 const { getFamilyConfig, patchFamilyConfig } = await import('./familyState');
@@ -281,5 +283,106 @@ describe('исключение участника: клиент против с�
     expect(await adoptSealedKey(FAMILY_ID, sealedFirst.sealed)).toBe(true);
     await patchFamilyConfig(FAMILY_ID, { keyEpoch: 5 }); // ушли вперёд
     expect(await adoptSealedKey(FAMILY_ID, sealedFirst.sealed)).toBe(false);
+  });
+  // === Половинчатые состояния: что остаётся, когда шаг не прошёл ===
+  //
+  // Ровно этот класс дефектов девять тестов выше пропускали целиком: они
+  // проверяют удачный путь, а рвётся всё на неудачном. Ниже — обрыв на каждом
+  // из двух сетевых шагов, и требование одно: группа не должна разваливаться
+  // необратимо.
+
+  /** Пропускать в комнату всё, кроме указанного пути: он «не доехал». */
+  function breakRoute(path: string, status = 0) {
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : String(input);
+      if (url.includes(path)) {
+        // status 0 — обрыв связи, как при отказе CORS: не ответ, а исключение.
+        if (status === 0) return Promise.reject(new TypeError('Failed to fetch'));
+        return Promise.resolve(new Response('{}', { status }));
+      }
+      if (!url.includes('/family/')) return realFetch(input as RequestInfo, init);
+      return room.fetch(new Request(url, init));
+    }) as typeof fetch;
+  }
+
+  it('обрыв на /remove не трогает НИКОГО: ни владельца, ни остальных', async () => {
+    // Было наоборот и стоило группы. Конверты раскладывались первыми, сервер
+    // тут же рассылал их по сокетам, и все онлайн молча переходили на ключ,
+    // о котором сервер ещё не знал. Не пройди следом /remove — владелец и
+    // сервер на старом токене, остальные на новом: вечный реконнект и выход
+    // только по новому приглашению, с потерей переписки.
+    breakRoute('/family/remove');
+    await expect(removeMember(FAMILY_ID, kickedId)).rejects.toThrow();
+
+    // Владелец там же, где был.
+    const owner = await snapshot();
+    expect(owner!.keyEpoch ?? 0).toBe(0);
+    expect(owner!.familyToken).toBe(TOKEN);
+
+    // И, главное, конвертов не появилось — значит Алисе нечего принимать и
+    // некуда уехать вперёд сервера.
+    routeToRoom();
+    const got = await (
+      await fetch(`https://x/family/keys?familyId=${FAMILY_ID}&member=${aliceId}`)
+    ).json();
+    expect(got.sealed).toBeNull();
+
+    await restore(aliceCfg);
+    expect((await snapshot())!.familyToken).toBe(TOKEN);
+  });
+
+  it('конверты не дошли: исключение состоялось, а не откатилось, и чинится повтором', async () => {
+    breakRoute('/family/send');
+    // Ошибка отдельного класса: переигрывать исключение не надо, надо повторить
+    // раздачу. Общее «не удалось исключить» толкало бы жать кнопку заново и
+    // крутить лишнюю эпоху ключа на каждый тап.
+    await expect(removeMember(FAMILY_ID, kickedId)).rejects.toThrow(KeyDeliveryError);
+
+    // Владелец уже на новом ключе — иначе он остался бы со старым токеном,
+    // который сервер только что перестал принимать, то есть заперт снаружи
+    // собственной группы.
+    const owner = await snapshot();
+    expect(owner!.keyEpoch).toBe(1);
+    expect(owner!.familyToken).not.toBe(TOKEN);
+
+    // Сервер тоже сменил токен: старый больше не пускает.
+    routeToRoom();
+    const old = await room.fetch(
+      new Request(`https://x/family/ticket?familyId=${FAMILY_ID}&memberId=${aliceId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      }),
+    );
+    expect(old.status).toBe(401);
+
+    // Повтор раздачи возвращает Алису — состояние чинится, а не заперто.
+    const ownerNow = await snapshot();
+    await restore(ownerNow);
+    expect(await resendKeys(FAMILY_ID)).toEqual([]);
+    await restore(aliceCfg);
+    expect(await recoverAccess(FAMILY_ID)).toBe(true);
+    expect((await snapshot())!.familyToken).toBe(owner!.familyToken);
+  });
+
+  it('конверт своей эпохи принимается, если токен разошёлся с серверным', async () => {
+    // Страховка на случай, когда ключ приняли, а токен всё равно не подходит.
+    // Без неё единственный конверт, способный вернуть устройство, отбрасывался
+    // бы как «старьё», и оно осталось бы запертым навсегда.
+    await removeMember(FAMILY_ID, kickedId);
+    const sealed = (
+      await (await fetch(`https://x/family/keys?familyId=${FAMILY_ID}&member=${aliceId}`)).json()
+    ).sealed;
+    await restore(aliceCfg);
+    expect(await adoptSealedKey(FAMILY_ID, sealed)).toBe(true);
+    const good = (await snapshot())!.familyToken;
+
+    // Токен разъехался, эпоха прежняя.
+    await patchFamilyConfig(FAMILY_ID, { familyToken: 'разошёлся' });
+    expect(await adoptSealedKey(FAMILY_ID, sealed)).toBe(true);
+    expect((await snapshot())!.familyToken).toBe(good);
+
+    // А повторный приём того же конверта при СОВПАДАЮЩЕМ токене — по-прежнему
+    // нет: иначе тест выше про «устаревший конверт» ничего бы не значил.
+    expect(await adoptSealedKey(FAMILY_ID, sealed)).toBe(false);
   });
 });

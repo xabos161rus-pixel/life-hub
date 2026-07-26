@@ -58,16 +58,28 @@ export interface BackupFile {
   data: Record<TableName, unknown[]>;
 }
 
-/** Таблицы раздела «Женские дни». Выделены отдельно, потому что их попадание
- *  в копию — единственное, чем человек управляет сам. */
+/** ДАННЫЕ раздела «Женские дни» — записи о днях. Выделены отдельно, потому что
+ *  их попадание в копию — единственное, чем человек управляет сам. Выключил и
+ *  восстановился — раздел очищается, это и есть смысл настройки. */
 const CYCLE_TABLES: readonly TableName[] = [
   'cycleDays',
   'cycleOverrides',
   'cycleEpisodes',
-  'cycleSettings',
-  'cycleSymptoms',
   'cyclePredictions',
 ];
+
+/** НАСТРОЙКИ раздела и справочник симптомов. Сюда же по ошибке попадали
+ *  cycleSettings и cycleSymptoms, и это давало самоотменяющуюся приватность:
+ *  человек ставил код доступа и выключал раздел из копий, а любое
+ *  восстановление стирало строку настроек. Дальше ensureCycleSetup молча
+ *  заводил её заново с умолчаниями — lock:'none', hideFromNavigation:false,
+ *  includeInGeneralBackup:true. То есть раздел, спрятанный и запароленный
+ *  ровно против чужих глаз, снова появлялся в меню без кода, и следующая
+ *  копия опять уносила его в облако.
+ *
+ *  Настройки — не данные раздела. Их не кладём в копию вовсе и при
+ *  восстановлении не трогаем: importBackup пропускает отсутствующий ключ. */
+const CYCLE_CONFIG_TABLES: readonly TableName[] = ['cycleSettings', 'cycleSymptoms'];
 
 export async function exportBackup(): Promise<BackupFile> {
   // Настройка раздела решает, попадёт ли он в копию. По умолчанию попадает:
@@ -79,6 +91,11 @@ export async function exportBackup(): Promise<BackupFile> {
 
   const data = {} as Record<TableName, unknown[]>;
   for (const name of TABLES) {
+    if (!includeCycle && CYCLE_CONFIG_TABLES.includes(name)) {
+      // Ключа нет вовсе — importBackup такую таблицу не тронет, и код доступа
+      // с настройкой приватности переживут восстановление.
+      continue;
+    }
     if (!includeCycle && CYCLE_TABLES.includes(name)) {
       // Пустой массив, а не пропуск ключа: importBackup отсутствующую таблицу
       // не трогает вовсе, и старые данные пережили бы восстановление — то

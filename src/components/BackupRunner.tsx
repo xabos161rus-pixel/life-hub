@@ -3,7 +3,7 @@ import { db } from '../db/db';
 import { now } from '../db/repo';
 import { updateSettings } from '../hooks/useSettings';
 import { getSyncConfig } from '../lib/syncState';
-import { pushAccountSnapshot } from '../lib/cloudBackup';
+import { BackupWouldLoseDataError, pushAccountSnapshot } from '../lib/cloudBackup';
 
 const CHECK_MS = 5 * 60_000; // сверяемся раз в 5 минут (пока приложение открыто)
 const DAY = 24 * 60 * 60_000;
@@ -24,7 +24,18 @@ async function maybeBackup(): Promise<void> {
   inFlight = true;
   try {
     await pushAccountSnapshot();
-    await updateSettings({ lastCloudBackupAt: now() }); // штамп только после успеха
+    await updateSettings({ lastCloudBackupAt: now(), cloudBackupBlocked: null });
+  } catch (e) {
+    // Автокопия НИКОГДА не перезаписывает копию, которая полнее нашей: у
+    // фонового процесса нет способа спросить, а молча стереть чужую историю
+    // цикла и переписку он не вправе. Оставляем след, чтобы настройки могли
+    // показать это человеку — иначе автокопия просто «не работает» без
+    // объяснений.
+    if (e instanceof BackupWouldLoseDataError) {
+      await updateSettings({ cloudBackupBlocked: now() });
+    } else {
+      throw e;
+    }
   } finally {
     inFlight = false;
   }

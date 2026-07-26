@@ -11,7 +11,11 @@ export { FamilyRoom } from './familyRoom.js';
 const corsHeaders = (origin) => ({
   'Access-Control-Allow-Origin': origin,
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Account',
+  // X-Family-Owner обязателен: это непростой заголовок, браузер шлёт на него
+  // preflight OPTIONS, и без него в этом списке запрос на /family/remove до
+  // воркера не долетает вообще — fetch падает TypeError «Failed to fetch»,
+  // человек видит «проверьте связь» и думает, что дело в интернете.
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Account, X-Family-Owner',
   'Access-Control-Max-Age': '86400',
 });
 

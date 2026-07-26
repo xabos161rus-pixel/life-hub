@@ -166,7 +166,14 @@ export async function adoptSealedKey(familyId: string, sealed: string): Promise<
   } catch {
     return false;
   }
-  if (!inner?.keyRaw || inner.epoch <= epochOf(c)) return false; // старьё или мусор
+  if (!inner?.keyRaw) return false; // мусор
+  // Обычный случай — конверт новее нашей эпохи. Но принимаем и конверт РОВНО
+  // нашей эпохи, если токен в нём другой: значит мы приняли ключ, а токен с
+  // тех пор разошёлся с серверным, и без этой поблажки устройство осталось бы
+  // запертым снаружи навсегда — сервер отвечает 401, а единственный конверт,
+  // способный нас вернуть, отбрасывался бы как «старьё».
+  const stale = inner.epoch === epochOf(c) && inner.familyToken !== c.familyToken;
+  if (inner.epoch < epochOf(c) || (inner.epoch === epochOf(c) && !stale)) return false;
   const key = await importKeyRaw(inner.keyRaw);
   await patchFamilyConfig(familyId, {
     familyKey: key,
@@ -213,6 +220,67 @@ export async function planRemoval(familyId: string, memberId: string): Promise<R
   };
 }
 
+/** Участник исключён и ключ сменён, но новый ключ дошёл не до всех.
+ *
+ *  Отдельный класс, а не общая ошибка: смысл здесь другой. Исключение
+ *  СОСТОЯЛОСЬ и переигрывать его не надо — недоставленное чинится повтором, а
+ *  сообщение «не удалось исключить» толкало бы человека жать кнопку ещё раз и
+ *  крутить лишнюю эпоху ключа на каждый тап. */
+export class KeyDeliveryError extends Error {
+  readonly names: string[];
+  constructor(names: string[]) {
+    super(
+      `Участник исключён, но новый ключ пока не дошёл до: ${names.join(', ')}. ` +
+        'Повторите, когда они будут в сети.',
+    );
+    this.name = 'KeyDeliveryError';
+    this.names = names;
+  }
+}
+
+/** Разложить личные конверты с ТЕКУЩИМ ключом группы всем, кто в ней остался.
+ *
+ *  Отдельной функцией, потому что вызывается дважды: в конце исключения и
+ *  повтором, когда часть конвертов не дошла. Повтор безопасен — конверт
+ *  перезаписывается по (channel, itemId), эпоха не меняется, и принявший его
+ *  раньше просто отбросит дубль.
+ *
+ *  Возвращает имена тех, до кого не дошло. Пустой список — все получили. */
+export async function resendKeys(familyId: string): Promise<string[]> {
+  const c = await getFamilyConfig(familyId);
+  if (!c?.boxPriv) return [];
+  const epoch = epochOf(c);
+  const payload: SealedKeyPayload = {
+    epoch,
+    keyRaw: await exportKeyRaw(c.familyKey),
+    familyToken: c.familyToken,
+  };
+  const myPriv = await importBoxPrivate(c.boxPriv);
+  const all = await db.familyMembers.where('familyId').equals(familyId).toArray();
+  const targets = all.filter((m) => !m.removedAt && !m.leftAt && m.boxPub);
+  // Себе конверт тоже: у другого моего устройства тот же memberId, и если
+  // аккаунтный синк выключен, оно заберёт ключ отсюда.
+  if (!targets.some((m) => m.id === c.selfMemberId) && c.boxPub) {
+    targets.push({ id: c.selfMemberId, boxPub: c.boxPub, displayName: '' } as FamilyMember);
+  }
+
+  const failed: string[] = [];
+  for (const m of targets) {
+    try {
+      const ciphertext = await sealFor(await importBoxPublic(m.boxPub!), myPriv, payload);
+      const r = await fetch(`${WORKER_URL}/family/send?familyId=${familyId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${c.familyToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: 'key', itemId: m.id, ciphertext }),
+      });
+      if (!r.ok) failed.push(m.displayName || 'участник');
+    } catch {
+      failed.push(m.displayName || 'участник');
+    }
+  }
+  return failed;
+}
+
 export class NotOwnerError extends Error {
   constructor() {
     super('Исключать участников может только владелец группы');
@@ -222,9 +290,26 @@ export class NotOwnerError extends Error {
 
 /** Исключить участника и перевести группу на новый ключ.
  *
- *  Порядок важен: сначала конверты (их кладём ещё старым токеном, он пока
- *  действует), потом смена ключа на сервере. Наоборот было бы нельзя — после
- *  смены токена мы бы уже не смогли положить конверты. */
+ *  ПОРЯДОК: сначала сервер (/family/remove), потом конверты остальным.
+ *
+ *  Раньше было наоборот — «конверты кладём ещё старым токеном, он пока
+ *  действует». Рассуждение было ошибочным: после смены токена конверты
+ *  прекрасно кладутся НОВЫМ, сервер как раз его и ждёт (checkToken сверяет с
+ *  token_hash, который /remove только что переписал).
+ *
+ *  А цена ошибки была высокой. Конверты сервер тут же рассылает по сокетам, и
+ *  каждый, кто онлайн, молча переходил на новый ключ и токен — ДО того, как о
+ *  новом токене узнавал сам сервер. Не пройди следом /family/remove (обрыв
+ *  сети, старый воркер в окно деплоя, отказ CORS) — и группа рвалась
+ *  необратимо: владелец и сервер на старом токене, все остальные на новом,
+ *  которого сервер не знает. Дальше вечный реконнект раз в три секунды со
+ *  статусом «оффлайн» и без единого слова человеку; выход — только заново по
+ *  приглашению, с потерей локальной переписки.
+ *
+ *  Теперь худшее, что бывает: сервер ключ сменил, а конверты не разошлись.
+ *  Это состояние ЧИНИТСЯ повтором — конверты можно доложить когда угодно, а
+ *  участники сами подхватят их из /family/keys, который отвечает без
+ *  авторизации именно ради этого случая. */
 export async function removeMember(familyId: string, memberId: string): Promise<RemovalPlan> {
   let c = await getFamilyConfig(familyId);
   if (!c) throw new Error('Группа не найдена');
@@ -235,38 +320,9 @@ export async function removeMember(familyId: string, memberId: string): Promise<
 
   const epoch = epochOf(c) + 1;
   const key = await generateKey();
-  const keyRaw = await exportKeyRaw(key);
   const familyToken = randomToken();
-  const myPriv = await importBoxPrivate(c.boxPriv!);
-  const payload: SealedKeyPayload = { epoch, keyRaw, familyToken };
-
-  // Себе конверт тоже кладём: у другого моего устройства тот же memberId, и
-  // если аккаунтный синк выключен, оно заберёт ключ отсюда.
-  const targets = plan.keeping.filter((m) => m.boxPub);
-  const selfPub = c.boxPub!;
-  const envelopes: { itemId: string; ciphertext: string }[] = [];
-  for (const m of targets) {
-    envelopes.push({
-      itemId: m.id,
-      ciphertext: await sealFor(await importBoxPublic(m.boxPub!), myPriv, payload),
-    });
-  }
-  if (!targets.some((m) => m.id === c!.selfMemberId)) {
-    envelopes.push({
-      itemId: c.selfMemberId,
-      ciphertext: await sealFor(await importBoxPublic(selfPub), myPriv, payload),
-    });
-  }
-
-  for (const e of envelopes) {
-    const res = await fetch(`${WORKER_URL}/family/send?familyId=${familyId}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${c.familyToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel: 'key', itemId: e.itemId, ciphertext: e.ciphertext }),
-    });
-    if (!res.ok) throw new Error(`не удалось разложить ключи (${res.status})`);
-  }
-
+  // ШАГ 1. Сервер. Пока ничего не изменилось ни у кого: не пройдёт — просто
+  // выходим, группа осталась ровно в том состоянии, в каком была.
   const res = await fetch(`${WORKER_URL}/family/remove?familyId=${familyId}`, {
     method: 'POST',
     headers: {
@@ -278,6 +334,9 @@ export async function removeMember(familyId: string, memberId: string): Promise<
   });
   if (!res.ok) throw new Error(`сервер отказал в исключении (${res.status})`);
 
+  // ШАГ 2. Себя переводим на новый ключ СРАЗУ. Иначе обрыв на следующем шаге
+  // оставил бы владельца со старым токеном, который сервер уже не принимает,
+  // — то есть запертым из собственной группы.
   await patchFamilyConfig(familyId, {
     familyKey: key,
     keyEpoch: epoch,
@@ -285,9 +344,19 @@ export async function removeMember(familyId: string, memberId: string): Promise<
     familyToken,
     updatedAt: new Date().toISOString(),
   });
-  // Пометку об исключении рассылаем УЖЕ новым ключом — исключённому её не
-  // прочитать, а остальным она нужна, чтобы показать его в списке зачёркнутым.
+
+  // ШАГ 3. Пометку об исключении ставим ДО раздачи: resendKeys раскладывает
+  // конверты по живым участникам, и без этой пометки исключённый попал бы в
+  // их число — то есть получил бы новый ключ, ради отзыва которого всё и
+  // затевалось.
   const mem = await db.familyMembers.get(memberId);
   if (mem) await db.familyMembers.put({ ...mem, removedAt: new Date().toISOString(), seq: 0 });
+
+  // ШАГ 4. Конверты остальным — уже НОВЫМ токеном, сервер ждёт именно его.
+  // Первая неудача не обрывает раздачу: каждый конверт независим, и доставить
+  // трём из четырёх лучше, чем никому. Кому не досталось — называем по имени,
+  // чтобы человек знал, кого ждать, и мог повторить.
+  const failed = await resendKeys(familyId);
+  if (failed.length) throw new KeyDeliveryError(failed);
   return plan;
 }
