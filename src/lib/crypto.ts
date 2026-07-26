@@ -170,3 +170,143 @@ export async function verifyPin(pin: string, stored: PinHash): Promise<boolean> 
   for (let i = 0; i < hash.length; i++) diff |= hash.charCodeAt(i) ^ stored.hash.charCodeAt(i);
   return diff === 0;
 }
+
+// === Приглашение под кодовым словом (v:3) ===
+//
+// Пакет v:2 содержал ключ группы открытым текстом: base64 — это запись, а не
+// шифрование. Код передают людям обычными каналами, значит ключ от всей
+// переписки проходил через чужой мессенджер, а перехвативший читал не только
+// новые сообщения, но и всю прошлую историю — сервер отдаёт её при подключении.
+//
+// Здесь ключ и токен зашифрованы кодовым словом, которое приглашающий называет
+// отдельно: голосом, при встрече, другим каналом. Перехваченный код без слова
+// бесполезен. Слово короткое, поэтому его стойкость держится на PBKDF2 с
+// 210 000 итераций: перебор восьми символов из 32-буквенного алфавита стоит
+// порядка 10^12 попыток по 210 000 хешей каждая.
+//
+// Алфавит без похожих символов (нет 0/O, 1/I/l): код диктуют вслух, и «ноль
+// или буква о» — это гарантированная ошибка ввода.
+
+const INVITE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const INVITE_WORD_LEN = 8;
+const INVITE_ITERATIONS = 210_000;
+
+/** Кодовое слово для приглашения. Показывается приглашающему, диктуется вслух. */
+export function generateInviteWord(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(INVITE_WORD_LEN));
+  let out = '';
+  for (const b of bytes) out += INVITE_ALPHABET[b % INVITE_ALPHABET.length];
+  return out;
+}
+
+/** Приводит введённое слово к канону: верхний регистр, без пробелов и дефисов
+ *  (код показывают группами по четыре, и человек их переносит).
+ *
+ *  Похожие символы НЕ подменяем: в алфавите нет ни O, ни 0, ни I, ни 1 — как
+ *  раз чтобы подменять было нечего. Если человек ввёл O, он ослышался, и любая
+ *  «догадка» с нашей стороны либо угадает, либо тихо испортит верный ввод. */
+export function normalizeInviteWord(raw: string): string {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/** Код группами по четыре: восемь символов подряд не читаются и не диктуются. */
+export function formatInviteWord(word: string): string {
+  return word.replace(/(.{4})(?=.)/g, '$1 ');
+}
+
+async function inviteKey(word: string, salt: Uint8Array): Promise<CryptoKey> {
+  const material = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(word),
+    'PBKDF2',
+    false,
+    ['deriveKey'],
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations: INVITE_ITERATIONS, hash: 'SHA-256' },
+    material,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+export interface SealedInvite {
+  v: 3;
+  familyId: string;
+  /** Название группы остаётся открытым: по нему человек понимает, куда его
+   *  зовут, ещё до ввода слова. Секретом оно не является — сервер его и так
+   *  видит. */
+  familyName: string;
+  salt: string;
+  payload: string;
+  /** До какого момента приглашение считается годным (ISO). Проверяется на
+   *  устройстве и потому обходится изменением часов — это не защита, а
+   *  гигиена: старый код в переписке перестаёт работать сам собой. */
+  expiresAt: string;
+}
+
+export async function sealInvite(
+  data: { familyId: string; familyToken: string; key: string; familyName: string },
+  word: string,
+  ttlHours = 24,
+): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const k = await inviteKey(word, salt);
+  const sealed: SealedInvite = {
+    v: 3,
+    familyId: data.familyId,
+    familyName: data.familyName,
+    salt: bytesToB64url(salt),
+    payload: await encryptJSON(k, { familyToken: data.familyToken, key: data.key }),
+    expiresAt: new Date(Date.now() + ttlHours * 3600_000).toISOString(),
+  };
+  return bytesToB64url(new TextEncoder().encode(JSON.stringify(sealed)));
+}
+
+export class InviteExpiredError extends Error {
+  constructor() {
+    super('Срок действия приглашения истёк');
+    this.name = 'InviteExpiredError';
+  }
+}
+
+export class InviteWordError extends Error {
+  constructor() {
+    super('Неверное кодовое слово');
+    this.name = 'InviteWordError';
+  }
+}
+
+/** Читает конверт, не расшифровывая: нужно, чтобы показать название группы и
+ *  срок ещё до того, как человек введёт слово. */
+export function peekInvite(code: string): SealedInvite {
+  const json = new TextDecoder().decode(b64urlToBytes(code.trim()));
+  const d = JSON.parse(json) as SealedInvite;
+  if (d.v !== 3 || !d.familyId || !d.salt || !d.payload) {
+    throw new Error('Некорректный код приглашения');
+  }
+  return d;
+}
+
+export async function openInvite(
+  code: string,
+  word: string,
+): Promise<{ familyId: string; familyToken: string; key: string; familyName: string }> {
+  const sealed = peekInvite(code);
+  if (Date.parse(sealed.expiresAt) < Date.now()) throw new InviteExpiredError();
+  const k = await inviteKey(normalizeInviteWord(word), b64urlToBytes(sealed.salt));
+  try {
+    const inner = await decryptJSON<{ familyToken: string; key: string }>(k, sealed.payload);
+    return {
+      familyId: sealed.familyId,
+      familyName: sealed.familyName,
+      familyToken: inner.familyToken,
+      key: inner.key,
+    };
+  } catch {
+    // AES-GCM не расшифровал — либо слово неверное, либо код испорчен.
+    // Различить нельзя, и не нужно: для человека это один и тот же случай.
+    throw new InviteWordError();
+  }
+}

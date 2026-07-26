@@ -3,7 +3,9 @@ import QRCode from 'qrcode';
 import { Copy, Check, Download, AlertTriangle } from 'lucide-react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { getFamilyInviteCode } from '../../lib/family/familyLifecycle';
+import { createFamilyInvite } from '../../lib/family/familyLifecycle';
+import { formatInviteWord } from '../../lib/crypto';
+import { formatRu } from '../../lib/dates';
 
 interface Props {
   familyId: string;
@@ -14,15 +16,19 @@ interface Props {
 /** Показ QR-кода приглашения в группу (для второго устройства/человека). */
 export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
   const [code, setCode] = useState('');
+  const [word, setWord] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
   const [qrUrl, setQrUrl] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    void getFamilyInviteCode(familyId).then(async (c) => {
-      if (!c) return;
-      setCode(c);
-      setQrUrl(await QRCode.toDataURL(c, { margin: 1, width: 260 }));
+    void createFamilyInvite(familyId).then(async (inv) => {
+      if (!inv) return;
+      setCode(inv.code);
+      setWord(inv.word);
+      setExpiresAt(inv.expiresAt);
+      setQrUrl(await QRCode.toDataURL(inv.code, { margin: 1, width: 260 }));
     });
   }, [open, familyId]);
 
@@ -48,10 +54,10 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
   return (
     <Sheet open={open} onClose={onClose} title="Пригласить в группу">
       <div className="space-y-4">
-        <p className="text-sm text-muted">
-          Покажите этот QR участнику: в его LifeHearth — «Ещё → Семья → ＋ → Войти по приглашению».
-          Показать экран лично надёжнее, чем переслать код: пересланный код проходит через чужой
-          мессенджер вместе с ключом от переписки.
+        <p className="text-sm leading-snug text-muted">
+          Покажите QR участнику: у него — «Главная → Семья → ＋ → Войти по приглашению». После
+          сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с
+          кодом.
         </p>
         {qrUrl && (
           <div className="flex justify-center">
@@ -68,16 +74,24 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
             Сохранить
           </Button>
         </div>
+        {/* Кодовое слово — второй фактор. Оно и есть то, что делает
+            перехваченный код бесполезным, поэтому стоит крупно и отдельно. */}
+        <div className="rounded-2xl border border-accent/25 bg-accent/[0.07] p-4 text-center">
+          <p className="text-sm text-muted">Кодовое слово</p>
+          <p className="mt-1 font-mono text-2xl font-bold tracking-[0.15em] tabular-nums">
+            {word ? formatInviteWord(word) : '········'}
+          </p>
+          <p className="mt-1.5 text-xs leading-snug text-muted">
+            Назовите его вслух. Без слова код не откроется.
+          </p>
+        </div>
+
         <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
           <AlertTriangle size={18} className="mt-0.5 shrink-0" />
-          {/* Прямо о том, что отдаётся. Прежняя формулировка говорила «войдёт в
-              группу», но умалчивала три вещи, каждая из которых меняет решение:
-              в коде лежит ключ шифрования, он открывает и прошлую переписку, и
-              отобрать доступ обратно нечем. */}
-          <span>
-            В этом коде — ключ от переписки. Кто его получит, прочитает и прошлые сообщения тоже, а
-            отозвать доступ обратно пока нельзя. Передавайте лично или в защищённом мессенджере и
-            только тем, кому доверяете.
+          <span className="min-w-0 leading-snug">
+            Кто войдёт по этому приглашению, увидит и прошлую переписку тоже, а отозвать доступ
+            обратно пока нельзя.{' '}
+            {expiresAt && `Приглашение действует до ${formatRu(expiresAt.slice(0, 10), 'd MMMM')}.`}
           </span>
         </div>
       </div>
