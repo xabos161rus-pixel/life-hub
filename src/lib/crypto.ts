@@ -246,8 +246,21 @@ export interface SealedInvite {
   expiresAt: string;
 }
 
+/** Что лежит внутри приглашения. keys/epoch появились вместе с исключением
+ *  участников: после смены ключа группа хранит все прежние эпохи, и новому
+ *  участнику их надо отдать целиком — иначе переписка до его прихода
+ *  превратится у него в нечитаемые записи. */
+export interface InviteSecrets {
+  familyId: string;
+  familyToken: string;
+  key: string;
+  familyName: string;
+  keys?: Record<string, string>;
+  epoch?: number;
+}
+
 export async function sealInvite(
-  data: { familyId: string; familyToken: string; key: string; familyName: string },
+  data: InviteSecrets,
   word: string,
   ttlHours = 24,
 ): Promise<string> {
@@ -258,7 +271,11 @@ export async function sealInvite(
     familyId: data.familyId,
     familyName: data.familyName,
     salt: bytesToB64url(salt),
-    payload: await encryptJSON(k, { familyToken: data.familyToken, key: data.key }),
+    payload: await encryptJSON(k, {
+      familyToken: data.familyToken,
+      key: data.key,
+      ...(data.keys ? { keys: data.keys, epoch: data.epoch ?? 0 } : {}),
+    }),
     expiresAt: new Date(Date.now() + ttlHours * 3600_000).toISOString(),
   };
   return bytesToB64url(new TextEncoder().encode(JSON.stringify(sealed)));
@@ -289,24 +306,118 @@ export function peekInvite(code: string): SealedInvite {
   return d;
 }
 
-export async function openInvite(
-  code: string,
-  word: string,
-): Promise<{ familyId: string; familyToken: string; key: string; familyName: string }> {
+export async function openInvite(code: string, word: string): Promise<InviteSecrets> {
   const sealed = peekInvite(code);
   if (Date.parse(sealed.expiresAt) < Date.now()) throw new InviteExpiredError();
   const k = await inviteKey(normalizeInviteWord(word), b64urlToBytes(sealed.salt));
   try {
-    const inner = await decryptJSON<{ familyToken: string; key: string }>(k, sealed.payload);
+    const inner = await decryptJSON<Omit<InviteSecrets, 'familyId' | 'familyName'>>(
+      k,
+      sealed.payload,
+    );
     return {
       familyId: sealed.familyId,
       familyName: sealed.familyName,
       familyToken: inner.familyToken,
       key: inner.key,
+      keys: inner.keys,
+      epoch: inner.epoch,
     };
   } catch {
     // AES-GCM не расшифровал — либо слово неверное, либо код испорчен.
     // Различить нельзя, и не нужно: для человека это один и тот же случай.
     throw new InviteWordError();
   }
+}
+
+// === Личный конверт участника (ECDH P-256 + AES-256-GCM) ===
+//
+// Нужен ровно для одной вещи: раздать новый ключ группы оставшимся участникам
+// так, чтобы исключённый его не получил. Общим каналом это сделать нельзя —
+// исключённый ещё в группе и прочитает рассылку старым ключом. Значит каждому
+// оставшемуся нужен свой конверт, который открывается только его ключом.
+//
+// Схема без подписи намеренно: конверт выводится из пары (отправитель,
+// получатель), поэтому получатель, деривируя секрет ПУБЛИЧНЫМ ключом
+// владельца, заодно убеждается, что конверт запечатал именно владелец. Никто
+// другой такой же секрет не выведет — подпись была бы вторым ключом ради того
+// же самого.
+//
+// Приватный ключ выгружаемый (extractable): конфиг группы реплицируется между
+// СВОИМИ устройствами через аккаунтный E2E-синк, и у второго телефона тот же
+// memberId. Без выгрузки он не смог бы открыть адресованный себе конверт.
+
+const BOX_CURVE = { name: 'ECDH', namedCurve: 'P-256' } as const;
+
+export function generateBoxKeyPair(): Promise<CryptoKeyPair> {
+  return crypto.subtle.generateKey(BOX_CURVE, true, ['deriveKey']) as Promise<CryptoKeyPair>;
+}
+
+/** Публичный ключ в сыром виде (65 байт несжатой точки P-256) — уходит всем. */
+export async function exportBoxPublic(key: CryptoKey): Promise<string> {
+  return bytesToB64url(new Uint8Array(await crypto.subtle.exportKey('raw', key)));
+}
+
+/** Приватный ключ в pkcs8 — только внутри аккаунтного шифротекста. */
+export async function exportBoxPrivate(key: CryptoKey): Promise<string> {
+  return bytesToB64url(new Uint8Array(await crypto.subtle.exportKey('pkcs8', key)));
+}
+
+export function importBoxPublic(b64: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', b64urlToBytes(b64), BOX_CURVE, true, []);
+}
+
+export function importBoxPrivate(b64: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey('pkcs8', b64urlToBytes(b64), BOX_CURVE, true, ['deriveKey']);
+}
+
+async function sharedKey(theirPublic: CryptoKey, myPrivate: CryptoKey): Promise<CryptoKey> {
+  return crypto.subtle.deriveKey(
+    { name: 'ECDH', public: theirPublic },
+    myPrivate,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+/** Запечатать данные так, чтобы открыл только владелец theirPublic. */
+export async function sealFor(
+  theirPublic: CryptoKey,
+  myPrivate: CryptoKey,
+  data: unknown,
+): Promise<string> {
+  return encryptJSON(await sharedKey(theirPublic, myPrivate), data);
+}
+
+/** Открыть конверт, запечатанный владельцем theirPublic. */
+export async function openFrom<T>(
+  theirPublic: CryptoKey,
+  myPrivate: CryptoKey,
+  sealed: string,
+): Promise<T> {
+  return decryptJSON<T>(await sharedKey(theirPublic, myPrivate), sealed);
+}
+
+// === Эпоха ключа в шифротексте ===
+//
+// После исключения участника группа переходит на новый ключ, но старые
+// сообщения остаются зашифрованными прежним — их надо продолжать читать.
+// Поэтому шифротекст несёт номер эпохи: 'e2.<данные>'. Точки в base64url нет,
+// так что разделитель однозначен. Эпоха 0 — записи, сделанные до появления
+// ротации: у них префикса нет вовсе, и это же означает «читай общим ключом».
+
+export function packEpoch(epoch: number, payload: string): string {
+  return epoch > 0 ? `e${epoch}.${payload}` : payload;
+}
+
+export function unpackEpoch(raw: string): { epoch: number; payload: string } {
+  const m = /^e(\d+)\.(.*)$/s.exec(raw);
+  return m ? { epoch: Number(m[1]), payload: m[2] } : { epoch: 0, payload: raw };
+}
+
+/** sha256 в hex — тем же способом, что считает сервер. */
+export async function sha256hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }

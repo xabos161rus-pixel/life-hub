@@ -37,6 +37,10 @@ export async function upsertSelfMember(familyId: string, displayName: string): P
     color: existing?.color ?? colorFor(c.selfMemberId),
     joinedAt: existing?.joinedAt ?? c.joinedAt,
     leftAt: null,
+    // Публичный ключ едет вместе с именем: остальным он нужен, чтобы при
+    // исключении кого-то третьего суметь передать нам новый ключ группы.
+    boxPub: c.boxPub ?? existing?.boxPub,
+    removedAt: existing?.removedAt ?? null,
   };
   await db.familyMembers.put(member);
   await sendItem(familyId, 'member', member.id, stripMeta(member));

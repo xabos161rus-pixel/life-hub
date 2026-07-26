@@ -67,6 +67,24 @@ interface FamilySharePayload {
   joinedAt: string;
   enabled: boolean;
   updatedAt: string;
+  // Всё, что связано с исключением участников. Без этого второе устройство
+  // после смены ключа группы читало бы старую переписку, но не новую, а с
+  // потерей ownerSecret владелец перестал бы быть владельцем.
+  keyEpoch?: number;
+  keysRaw?: Record<string, string>;
+  boxPub?: string;
+  boxPriv?: string;
+  ownerSecret?: string;
+  ownerMemberId?: string;
+}
+
+/** Связка ключей из сырых значений синка. Общая для «группы ещё нет» и
+ *  «группа есть, ключ сменился» — оба пути раскладывают её одинаково. */
+async function keyRingFrom(p: FamilySharePayload, current: CryptoKey): Promise<Record<string, CryptoKey>> {
+  const ring: Record<string, CryptoKey> = {};
+  for (const [e, raw] of Object.entries(p.keysRaw ?? {})) ring[e] = await importKeyRaw(raw);
+  ring[String(p.keyEpoch ?? 0)] = current;
+  return ring;
 }
 
 /** Применять ли удалённую правку: если локальной нет или удалённая новее (LWW). */
@@ -101,12 +119,13 @@ async function pullPage(
     if (r.table === 'familyShare') {
       const p = await decryptJSON<FamilySharePayload>(c.key, r.ciphertext);
       const local = await db.family.get(p.familyId);
+      const key = await importKeyRaw(p.keyRaw);
       if (!local) {
         await db.family.put({
           id: p.familyId,
           familyId: p.familyId,
           familyToken: p.familyToken,
-          familyKey: await importKeyRaw(p.keyRaw),
+          familyKey: key,
           familyName: p.familyName,
           selfMemberId: p.selfMemberId,
           lastSeq: 0,
@@ -114,6 +133,12 @@ async function pullPage(
           enabled: p.enabled,
           joinedAt: p.joinedAt,
           updatedAt: p.updatedAt,
+          keyEpoch: p.keyEpoch ?? 0,
+          keyRing: await keyRingFrom(p, key),
+          boxPub: p.boxPub,
+          boxPriv: p.boxPriv,
+          ownerSecret: p.ownerSecret,
+          ownerMemberId: p.ownerMemberId,
         });
         applied++;
       } else if (shouldApply(local.updatedAt, p.updatedAt)) {
@@ -122,6 +147,14 @@ async function pullPage(
           familyName: p.familyName,
           enabled: p.enabled,
           updatedAt: p.updatedAt,
+          // Ключ забираем, только если пришла эпоха новее: два устройства
+          // одного человека могут разойтись, и откат на прежний ключ сделал бы
+          // свежую переписку нечитаемой.
+          ...((p.keyEpoch ?? 0) > (local.keyEpoch ?? 0)
+            ? { familyKey: key, keyEpoch: p.keyEpoch ?? 0, keyRing: { ...(local.keyRing ?? {}), ...(await keyRingFrom(p, key)) } }
+            : {}),
+          ...(local.ownerSecret ? {} : { ownerSecret: p.ownerSecret }),
+          ...(local.ownerMemberId ? {} : { ownerMemberId: p.ownerMemberId }),
         });
         applied++;
       }
@@ -185,6 +218,8 @@ async function push(c: SyncConfig): Promise<number> {
     (f) => typeof f.updatedAt === 'string' && f.updatedAt > c.lastPushAt,
   );
   for (const f of famFresh) {
+    const keysRaw: Record<string, string> = {};
+    for (const [e, k] of Object.entries(f.keyRing ?? {})) keysRaw[e] = await exportKeyRaw(k);
     const payload: FamilySharePayload = {
       familyId: f.familyId,
       familyToken: f.familyToken,
@@ -194,6 +229,12 @@ async function push(c: SyncConfig): Promise<number> {
       joinedAt: f.joinedAt,
       enabled: f.enabled,
       updatedAt: f.updatedAt!,
+      keyEpoch: f.keyEpoch ?? 0,
+      keysRaw,
+      boxPub: f.boxPub,
+      boxPriv: f.boxPriv,
+      ownerSecret: f.ownerSecret,
+      ownerMemberId: f.ownerMemberId,
     };
     out.push({
       table: 'familyShare',

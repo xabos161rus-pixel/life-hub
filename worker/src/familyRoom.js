@@ -46,12 +46,15 @@ export class FamilyRoom extends DurableObject {
       );
       CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
     `);
-    // last_online_at добавляем отдельным ALTER: у уже существующих DO таблица
-    // members создана без неё (CREATE TABLE IF NOT EXISTS колонку не добавит).
-    try {
-      this.sql.exec('ALTER TABLE members ADD COLUMN last_online_at TEXT');
-    } catch {
-      /* колонка уже есть */
+    // last_online_at и колонки исключения добавляем отдельными ALTER: у уже
+    // существующих DO таблица members создана без них (CREATE TABLE IF NOT
+    // EXISTS колонку не добавит).
+    for (const col of ['last_online_at TEXT', 'box_pub TEXT', 'removed_at TEXT']) {
+      try {
+        this.sql.exec(`ALTER TABLE members ADD COLUMN ${col}`);
+      } catch {
+        /* колонка уже есть */
+      }
     }
     this.insertsSincePrune = 0;
   }
@@ -89,6 +92,37 @@ export class FamilyRoom extends DurableObject {
     return row.v === hash;
   }
 
+  metaGet(k) {
+    return this.sql.exec('SELECT v FROM meta WHERE k=?', k).toArray()[0]?.v ?? null;
+  }
+
+  metaSet(k, v) {
+    this.sql.exec('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', k, v);
+  }
+
+  isRemoved(memberId) {
+    if (!memberId) return false;
+    const r = this.sql
+      .exec('SELECT removed_at FROM members WHERE member_id=?', memberId)
+      .toArray()[0];
+    return Boolean(r?.removed_at);
+  }
+
+  /** Владелец группы — тот, кто её создал. Доказательство владения: секрет,
+   *  который есть только у него (в приглашение не попадает). Сервер хранит
+   *  хеш; TOFU, как и с токеном — первый заявивший становится владельцем.
+   *
+   *  Зачем отдельный секрет, а не общий токен: токен есть у всех, включая
+   *  того, кого исключают. С ним любой участник мог бы сменить токен группы
+   *  на свой и запереть остальных снаружи — не прочитать переписку, но
+   *  сломать её всем. */
+  async checkOwner(secret) {
+    if (!secret) return false;
+    const stored = this.metaGet('owner_secret_hash');
+    if (!stored) return false;
+    return stored === (await sha256hex(secret));
+  }
+
   json(data, status = 200) {
     return new Response(JSON.stringify(data), {
       status,
@@ -117,13 +151,94 @@ export class FamilyRoom extends DurableObject {
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
 
+    // Конверты с новым ключом группы — БЕЗ авторизации, и это намеренно.
+    // После исключения участника токен группы меняется, и тот, кто был офлайн,
+    // приходит со старым: авторизоваться ему нечем, а новый токен лежит как раз
+    // в его конверте. Без этой двери он остался бы заперт снаружи вместе с
+    // исключённым. Отдавать конверты безопасно: каждый зашифрован личным ключом
+    // адресата, и посторонний не откроет ни одного. Знать при этом надо и
+    // familyId, и memberId — оба случайные uuid.
+    if (path.endsWith('/keys') && request.method === 'GET') {
+      const member = url.searchParams.get('member') || '';
+      const row = this.sql
+        .exec('SELECT ciphertext FROM items WHERE channel=? AND item_id=?', 'key', member)
+        .toArray()[0];
+      if (!row || this.isRemoved(member)) return this.json({ sealed: null });
+      return this.json({ sealed: row.ciphertext });
+    }
+
     // Остальное — Bearer-токен
     if (!(await this.checkToken(token))) return this.json({ error: 'unauthorized' }, 401);
 
     if (path.endsWith('/ticket') && request.method === 'POST') {
+      // memberId нужен, чтобы исключённый не проскочил по ещё не сменившемуся
+      // токену: смена токена и пометка removed_at происходят одним запросом, но
+      // между ними у него нет доступа ни на миг.
+      if (this.isRemoved(url.searchParams.get('memberId'))) {
+        return this.json({ error: 'removed' }, 403);
+      }
       const ticket = crypto.randomUUID();
       this.sql.exec('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', `ticket:${ticket}`, String(Date.now() + TICKET_TTL_MS));
       return this.json({ ticket });
+    }
+
+    // Регистрация участника: публичный ключ для адресных конвертов. TOFU —
+    // первый заявленный ключ закрепляется за memberId навсегда, иначе любой с
+    // токеном подменил бы чужой ключ и получил бы адресованный тому конверт.
+    if (path.endsWith('/register') && request.method === 'POST') {
+      const { memberId, boxPub, ownerSecretHash } = await request.json();
+      if (!memberId || !boxPub) return this.json({ error: 'bad request' }, 400);
+      if (this.isRemoved(memberId)) return this.json({ error: 'removed' }, 403);
+      this.sql.exec(
+        'INSERT INTO members (member_id, box_pub, joined_at) VALUES (?,?,?) ON CONFLICT(member_id) DO UPDATE SET box_pub = COALESCE(members.box_pub, excluded.box_pub)',
+        memberId,
+        boxPub,
+        new Date().toISOString(),
+      );
+      // Владелец закрепляется один раз — за тем, кто создал группу. Приглашённые
+      // секрета не знают и заявку не пришлют.
+      let owner = this.metaGet('owner_member_id');
+      if (!owner && ownerSecretHash) {
+        this.metaSet('owner_member_id', memberId);
+        this.metaSet('owner_secret_hash', ownerSecretHash);
+        owner = memberId;
+      }
+      return this.json({ ok: true, owner, isOwner: owner === memberId });
+    }
+
+    // Исключить участника. Пускает только владелец — по своему секрету.
+    // Здесь же меняется токен группы: без этого исключённый вошёл бы заново
+    // под новым memberId, ведь токен у него на руках.
+    if (path.endsWith('/remove') && request.method === 'POST') {
+      const { memberId, newTokenHash } = await request.json();
+      if (!(await this.checkOwner(request.headers.get('X-Family-Owner')))) {
+        return this.json({ error: 'forbidden' }, 403);
+      }
+      if (!memberId || !newTokenHash) return this.json({ error: 'bad request' }, 400);
+      if (memberId === this.metaGet('owner_member_id')) {
+        return this.json({ error: 'owner cannot be removed' }, 400);
+      }
+      this.sql.exec(
+        "UPDATE members SET removed_at = ?, push_sub = NULL WHERE member_id = ?",
+        new Date().toISOString(),
+        memberId,
+      );
+      // Конверт исключённого выкидываем: иначе он бы забрал из него новый ключ.
+      this.sql.exec('DELETE FROM items WHERE channel=? AND item_id=?', 'key', memberId);
+      this.metaSet('token_hash', newTokenHash);
+      // Живое соединение рвём сразу — иначе он читал бы чат до следующего
+      // разрыва сети, а нового ключа у него уже нет.
+      for (const ws of this.ctx.getWebSockets()) {
+        if (ws.deserializeAttachment()?.memberId === memberId) {
+          try {
+            ws.close(4403, 'removed');
+          } catch {
+            /* уже закрыт */
+          }
+        }
+      }
+      this.broadcastFrame({ type: 'removed', memberId });
+      return this.json({ ok: true });
     }
 
     if (path.endsWith('/messages') && request.method === 'GET') {
@@ -146,6 +261,7 @@ export class FamilyRoom extends DurableObject {
 
     if (path.endsWith('/push-sub') && request.method === 'POST') {
       const { memberId, subscription } = await request.json();
+      if (this.isRemoved(memberId)) return this.json({ error: 'removed' }, 403);
       if (memberId) {
         this.sql.exec(
           'INSERT INTO members (member_id, push_sub, joined_at) VALUES (?, ?, ?) ON CONFLICT(member_id) DO UPDATE SET push_sub=excluded.push_sub',
@@ -275,6 +391,11 @@ export class FamilyRoom extends DurableObject {
       return;
     }
     if (msg.type === 'hello') {
+      // Исключённый мог держать тикет, взятый за секунду до исключения.
+      if (this.isRemoved(msg.memberId)) {
+        ws.close(4403, 'removed');
+        return;
+      }
       ws.serializeAttachment({ memberId: msg.memberId || null });
       if (msg.memberId) {
         this.sql.exec(

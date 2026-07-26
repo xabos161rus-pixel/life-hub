@@ -17,26 +17,36 @@ import {
 import { saveFamilyConfig, getFamilyConfig, listFamilyConfigs, clearFamily } from './familyState';
 import { upsertSelfMember } from './familyRepo';
 import { connectFamily, disconnectFamily, sendSystemMessage } from './familyChat';
+import { ensureBoxKeys, registerMember } from './familyKeys';
 
 /** Создать новую группу на этом устройстве (ты — первый участник). Возвращает
  *  familyId созданной группы (чтобы UI сразу её выбрал). */
 export async function createFamily(familyName: string, displayName: string): Promise<string> {
   const key = await generateKey();
   const familyId = newAccountId();
+  const selfMemberId = newAccountId();
   await saveFamilyConfig({
     id: familyId,
     familyId,
     familyToken: randomToken(),
     familyKey: key,
     familyName: familyName.trim() || 'Семья',
-    selfMemberId: newAccountId(),
+    selfMemberId,
     lastSeq: 0,
     lastReadSeq: 0,
     enabled: true,
     joinedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(), // конфиг уедет на другие устройства аккаунта
+    keyEpoch: 0,
+    keyRing: { '0': key },
+    // Создатель — владелец. Секрет в приглашение не попадает: он и есть
+    // единственное отличие того, кто может исключать, от всех остальных.
+    ownerSecret: randomToken(),
+    ownerMemberId: selfMemberId,
   });
+  await ensureBoxKeys((await getFamilyConfig(familyId))!);
   await upsertSelfMember(familyId, displayName);
+  void registerMember(familyId);
   connectFamily(familyId);
   return familyId;
 }
@@ -58,6 +68,15 @@ export async function joinFamily(
     return p.familyId;
   }
   const key = await importKeyRaw(p.key);
+  // Связка ключей из приглашения: все эпохи, что были в группе до нас. Без них
+  // прошлая переписка осталась бы нечитаемой — сервер её отдаёт, а расшифровать
+  // нечем. Старые приглашения (без keys) — группа одной эпохи.
+  const keyRing: Record<string, CryptoKey> = {};
+  // Старый формат (v:2) полей связки не знает вовсе — у него всегда одна эпоха.
+  const past = 'keys' in p ? (p.keys ?? {}) : {};
+  for (const [e, raw] of Object.entries(past)) keyRing[e] = await importKeyRaw(raw);
+  const epoch = ('epoch' in p ? p.epoch : 0) ?? 0;
+  keyRing[String(epoch)] = key;
   await saveFamilyConfig({
     id: p.familyId,
     familyId: p.familyId,
@@ -70,8 +89,14 @@ export async function joinFamily(
     enabled: true,
     joinedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(), // конфиг уедет на другие устройства аккаунта
+    keyEpoch: epoch,
+    keyRing,
   });
+  await ensureBoxKeys((await getFamilyConfig(p.familyId))!);
   await upsertSelfMember(p.familyId, displayName);
+  // Регистрируемся до подключения: сервер должен знать наш публичный ключ
+  // раньше, чем в группе кого-то исключат, иначе новый ключ передать нечем.
+  await registerMember(p.familyId);
   connectFamily(p.familyId);
   // Системное сообщение всем участникам: кто-то присоединился (уйдёт из outbox
   // при подключении; офлайн-участникам прилетит пушем как обычное сообщение).
@@ -92,12 +117,18 @@ export async function createFamilyInvite(
   const c = await getFamilyConfig(familyId);
   if (!c) return null;
   const word = generateInviteWord();
+  // Все эпохи ключа, а не только текущая: иначе приглашённый увидит переписку
+  // до последнего исключения как набор нечитаемых записей.
+  const keys: Record<string, string> = {};
+  for (const [e, k] of Object.entries(c.keyRing ?? {})) keys[e] = await exportKeyRaw(k);
   const code = await sealInvite(
     {
       familyId: c.familyId,
       familyToken: c.familyToken,
       key: await exportKeyRaw(c.familyKey),
       familyName: c.familyName,
+      keys,
+      epoch: c.keyEpoch ?? 0,
     },
     word,
   );
