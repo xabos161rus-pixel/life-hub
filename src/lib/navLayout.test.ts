@@ -46,14 +46,14 @@ describe('computeNavLayout', () => {
     expect(l.hidden).not.toContain('nope');
   });
 
-  it('скрытый раздел не попадает ни в панель, ни в «Ещё»', () => {
+  it('скрытый раздел не попадает ни в панель, ни в «Главную»', () => {
     const l = computeNavLayout(REG, { bottom: ['today', 'finance'], hidden: ['finance'] }, OPTS);
     expect(l.bottom).not.toContain('finance');
     expect(l.more).not.toContain('finance');
     expect(l.hidden).toContain('finance');
   });
 
-  it('новый раздел из реестра падает в хвост «Ещё»', () => {
+  it('новый раздел из реестра падает в хвост «Главной»', () => {
     const l = computeNavLayout(REG, { bottom: ['today'], more: ['goals'] }, OPTS);
     expect(l.more[0]).toBe('goals');
     expect(l.more).toContain('finance');
@@ -73,7 +73,7 @@ describe('разделы «по запросу» (hiddenByDefault)', () => {
     expect(l.hidden).toContain('cycle');
   });
 
-  it('показывается, как только человек положил его в «Ещё»', () => {
+  it('показывается, как только человек положил его в «Главную»', () => {
     const l = computeNavLayout(REG, { bottom: ['today'], more: ['cycle', 'goals'] }, OPTS);
     expect(l.more[0]).toBe('cycle');
     expect(l.hidden).not.toContain('cycle');

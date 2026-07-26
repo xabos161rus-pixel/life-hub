@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { BatteryCharging } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
@@ -72,6 +73,7 @@ export function EnergyPage() {
   const [editing, setEditing] = useState<EnergyItem | null>(null);
 
   const rows = useLiveQuery(() => db.energyItems.toArray(), []);
+  const loaded = useLoaded(rows);
   const items = alive(rows ?? [])
     .filter((i) => filter === 'all' || i.effort === filter)
     .sort((a, b) => b.effectiveness - a.effectiveness);
@@ -105,11 +107,13 @@ export function EnergyPage() {
           onChange={setFilter}
         />
         {items.length === 0 ? (
-          <EmptyState
-            icon={BatteryCharging}
-            title="Пока нет способов"
-            hint="Нажмите +, чтобы добавить то, что возвращает вам силы."
-          />
+          loaded && (
+            <EmptyState
+              icon={BatteryCharging}
+              title="Пока нет способов"
+              hint="Нажмите +, чтобы добавить то, что возвращает вам силы."
+            />
+          )
         ) : (
           items.map((item) => (
             <EnergyCard key={item.id} item={item} onOpen={() => openEdit(item)} />

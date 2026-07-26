@@ -42,7 +42,7 @@ import { ReinstallNotice } from './features/onboarding/ReinstallNotice';
 import { WhatsNew } from './features/onboarding/WhatsNew';
 
 /** Сбрасывает прокрутку контейнера наверх при смене маршрута — иначе открытая
- *  после прокрутки страница (например «Ещё») показывалась не с начала. */
+ *  после прокрутки страница (например «Главная») показывалась не с начала. */
 function ScrollReset() {
   const { pathname } = useLocation();
   useEffect(() => {

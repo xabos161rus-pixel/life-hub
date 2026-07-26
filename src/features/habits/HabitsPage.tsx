@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { CalendarCheck } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
@@ -25,8 +26,11 @@ export function HabitsPage() {
   const [filter, setFilter] = useState<Filter>('active');
   const today = todayKey();
 
-  const habits = alive(useLiveQuery(() => db.habits.toArray(), []) ?? []);
-  const logs = alive(useLiveQuery(() => db.habitLogs.toArray(), []) ?? []);
+  const habitsRaw = useLiveQuery(() => db.habits.toArray(), []);
+  const logsRaw = useLiveQuery(() => db.habitLogs.toArray(), []);
+  const loaded = useLoaded(habitsRaw, logsRaw);
+  const habits = alive(habitsRaw ?? []);
+  const logs = alive(logsRaw ?? []);
 
   // habitId → его логи (нужны и даты, и значения для количественных).
   const logsByHabit = useMemo(() => {
@@ -91,7 +95,7 @@ export function HabitsPage() {
         )}
 
         {rows.length === 0 ? (
-          <EmptyState
+          loaded && <EmptyState
             icon={CalendarCheck}
             title={effFilter === 'archived' ? 'Архив пуст' : 'Пока нет привычек'}
             hint={

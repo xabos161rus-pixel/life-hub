@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Folder, FolderPlus, GripVertical, Hand, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
 import { db } from '../../db/db';
 import { isTouch } from '../../lib/platform';
@@ -821,7 +822,10 @@ export function TasksPage() {
     // Переупорядочивание перетаскиванием — только для секций верхнего уровня.
     projectsRef.current = topProjects;
   }, [projects, topProjects]);
-  const loaded = tasksRaw !== undefined;
+  // «Пока нет задач» до ответа Dexie — самая заметная ложь в приложении:
+  // человек с сотней задач видит её при каждом заходе. Проекты в том же
+  // условии: без них список отрисовался бы без разбивки по секциям.
+  const loaded = useLoaded(tasksRaw, projectsRaw);
 
   const activeByProject = useMemo(() => {
     const map = new Map<string, Task[]>();

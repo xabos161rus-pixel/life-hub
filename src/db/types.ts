@@ -276,7 +276,7 @@ export interface Settings {
   // (settings не синкается) — у каждого человека своё удобное место.
   fabPosition?: { x: number; y: number } | null;
   // Раскладка навигации «под себя»: разделы нижней панели (bottom, по порядку,
-  // без якоря «Ещё»), спрятанные (hidden) и порядок разделов внутри «Ещё» (more).
+  // без якоря «Главной»), спрятанные (hidden) и порядок разделов внутри «Главной» (more).
   // Строки-id из lib/sections. undefined — раскладка по умолчанию. Device-local,
   // нормализуется через computeNavLayout (битый конфиг не ломает навигацию).
   navConfig?: { bottom: string[]; hidden: string[]; more?: string[] };

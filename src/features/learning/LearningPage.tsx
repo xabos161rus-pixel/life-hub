@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { BookOpen, FileText, FlaskConical, GraduationCap, Languages, Video } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
@@ -86,6 +87,7 @@ export function LearningPage() {
   const [editing, setEditing] = useState<LearningItem | null>(null);
 
   const rows = useLiveQuery(() => db.learningItems.toArray(), []);
+  const loaded = useLoaded(rows);
   const items = alive(rows ?? [])
     .filter((i) =>
       filter === 'done' ? i.status === 'done' || i.status === 'dropped' : i.status === filter,
@@ -115,11 +117,13 @@ export function LearningPage() {
           onChange={setFilter}
         />
         {items.length === 0 ? (
-          <EmptyState
-            icon={GraduationCap}
-            title="Пока ничего нет"
-            hint={EMPTY_HINTS[filter]}
-          />
+          loaded && (
+            <EmptyState
+              icon={GraduationCap}
+              title="Пока ничего нет"
+              hint={EMPTY_HINTS[filter]}
+            />
+          )
         ) : (
           items.map((item) => (
             <LearningCard key={item.id} item={item} onOpen={() => openEdit(item)} />

@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { ChartColumnBig, Share2 } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
@@ -194,12 +195,20 @@ function StatTile({ value, label, color }: { value: ReactNode; label: string; co
 
 /** Экран статистики/обзора продуктивности. */
 export function StatsPage() {
-  const allTasks = useLiveQuery<Task[]>(() => db.tasks.toArray(), []) ?? [];
+  // Четыре источника, и «пусто» здесь подменяет ВЕСЬ экран. Пока хотя бы один
+  // не ответил, показывать «Пока нет данных» нельзя: человек с полным
+  // приложением видел бы вспышку пустого экрана при каждом заходе.
+  const tasksRaw = useLiveQuery<Task[]>(() => db.tasks.toArray(), []);
+  const goalsRaw = useLiveQuery<Goal[]>(() => db.goals.toArray(), []);
+  const learningRaw = useLiveQuery<LearningItem[]>(() => db.learningItems.toArray(), []);
+  const expensesRaw = useLiveQuery(() => db.expenseItems.toArray(), []);
+  const loaded = useLoaded(tasksRaw, goalsRaw, learningRaw, expensesRaw);
+  const allTasks = tasksRaw ?? [];
   const tasks = alive(allTasks);
   const deletedTasks = allTasks.length - tasks.length;
-  const goals = alive(useLiveQuery<Goal[]>(() => db.goals.toArray(), []) ?? []);
-  const learning = alive(useLiveQuery<LearningItem[]>(() => db.learningItems.toArray(), []) ?? []);
-  const expenses = alive(useLiveQuery(() => db.expenseItems.toArray(), []) ?? []);
+  const goals = alive(goalsRaw ?? []);
+  const learning = alive(learningRaw ?? []);
+  const expenses = alive(expensesRaw ?? []);
   const toast = useToast();
 
   async function handleShareReport() {
@@ -294,6 +303,15 @@ export function StatsPage() {
     goals.length === 0 &&
     learning.length === 0 &&
     expenses.length === 0;
+
+  // Пока не ответил хотя бы один источник — только оболочка экрана. Иначе
+  // выбор был бы между двумя вспышками: ложное «нет данных» или графики,
+  // построенные по нулям.
+  if (!loaded) return (
+    <Screen title="Статистика" backTo="/home">
+      <div />
+    </Screen>
+  );
 
   if (noData) {
     return (

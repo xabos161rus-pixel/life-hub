@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { CalendarClock, Wallet } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
@@ -150,6 +151,7 @@ export function FinancePage() {
   const [editing, setEditing] = useState<ExpenseItem | null>(null);
 
   const rows = useLiveQuery(() => db.expenseItems.toArray(), []);
+  const loaded = useLoaded(rows);
   const items = alive(rows ?? []).sort((a, b) => a.sortOrder - b.sortOrder);
 
   const expenses = items.filter((i) => i.kind === 'expense');
@@ -171,11 +173,13 @@ export function FinancePage() {
         <SavingsSection />
 
         {items.length === 0 ? (
-          <EmptyState
-            icon={Wallet}
-            title="Пока нет трат и доходов"
-            hint="Добавьте ежемесячные траты — аренду, подписки, еду — и увидите, сколько уходит в месяц и в год."
-          />
+          loaded && (
+            <EmptyState
+              icon={Wallet}
+              title="Пока нет трат и доходов"
+              hint="Добавьте ежемесячные траты — аренду, подписки, еду — и увидите, сколько уходит в месяц и в год."
+            />
+          )
         ) : (
           <>
             <SummaryCard items={items} />

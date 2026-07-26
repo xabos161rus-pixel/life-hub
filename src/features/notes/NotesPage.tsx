@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { Pin, Search, NotebookText } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { Fab } from '../../components/layout/Fab';
@@ -114,6 +115,7 @@ export function NotesPage() {
   const [query, setQuery] = useState('');
 
   const rows = useLiveQuery(() => db.notes.toArray(), []);
+  const loaded = useLoaded(rows);
   const notes = useMemo(() => alive(rows ?? []), [rows]);
 
   // Индекс поиска считаем один раз на изменение заметок, а не на каждый ввод.
@@ -163,7 +165,9 @@ export function NotesPage() {
       <SearchField value={query} onChange={setQuery} className="mb-3" />
 
       {notes.length === 0 ? (
-        <EmptyState icon={NotebookText} title="Пока нет заметок" hint="Нажмите +, чтобы создать первую" />
+        loaded && (
+          <EmptyState icon={NotebookText} title="Пока нет заметок" hint="Нажмите +, чтобы создать первую" />
+        )
       ) : filtered.length === 0 ? (
         <EmptyState icon={Search} title="Ничего не найдено" hint="Попробуйте другой запрос" />
       ) : (

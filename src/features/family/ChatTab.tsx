@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { ArrowRight, Check, CheckCheck, ChevronsDown, Clock, Copy, Hand, Heart, Send, Pencil, Reply, Trash2, X, Paperclip, Mic, Play, Pause,
   Loader2,
 } from 'lucide-react';
@@ -384,6 +385,10 @@ export function ChatTab({ familyId }: { familyId: string }) {
   const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
   const selfId = config?.selfMemberId;
 
+  // Лента открывается чаще любого другого экрана, и заглушка занимает её
+  // целиком. Пока Dexie не ответил, «Пока нет сообщений» — неправда, а
+  // выглядит как потерянная переписка.
+  const loaded = useLoaded(messagesRaw);
   const memberMap = useMemo(() => Object.fromEntries((membersRaw ?? []).map((m) => [m.id, m])), [membersRaw]);
   const list = useMemo(() => ordered(messagesRaw ?? []), [messagesRaw]);
 
@@ -689,7 +694,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
           className="h-full overflow-y-auto overscroll-contain px-1"
         >
           {list.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted">Пока нет сообщений. Напишите первым!</p>
+            loaded && (
+              <p className="py-12 text-center text-sm text-muted">Пока нет сообщений. Напишите первым!</p>
+            )
           ) : (
             <div className="space-y-2 py-2">
               {list.map((m, i) => {
