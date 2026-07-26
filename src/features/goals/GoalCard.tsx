@@ -53,7 +53,7 @@ export function GoalCard({ goal }: { goal: Goal }) {
             к исходным 17px и трём строкам. Карточка от лишней строки просто
             подрастает: кольцо, подпись прогресса и срок лежат в обычном потоке,
             наезжать друг на друга им нечем. */}
-        <p className="line-clamp-4 break-words text-[clamp(15px,4.4vw,17px)] font-semibold min-[380px]:line-clamp-3">
+        <p className="line-clamp-4 break-words text-base font-semibold min-[380px]:line-clamp-3">
           {goal.title}
         </p>
         <p className="truncate text-sm text-muted">{label}</p>

@@ -164,7 +164,7 @@ function GroupSwitcher({
             <span className="max-w-[9rem] truncate">{c.familyName || 'Семья'}</span>
             {n > 0 && (
               <span
-                className={`flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-[11px] font-bold leading-none ${
+                className={`flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-2xs font-bold leading-none ${
                   active ? 'bg-white/25 text-white' : 'bg-accent-fill text-white'
                 }`}
               >

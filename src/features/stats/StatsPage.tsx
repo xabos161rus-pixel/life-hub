@@ -154,7 +154,7 @@ function computeTaskTime(tasks: Task[]): TaskTimeStats {
 function StatCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="card p-4">
-      <h2 className="mb-3 text-sm font-semibold text-muted">{title}</h2>
+      <h2 className="mb-2 px-1 text-sm font-semibold text-muted">{title}</h2>
       {children}
     </section>
   );
@@ -163,7 +163,7 @@ function StatCard({ title, children }: { title: string; children: ReactNode }) {
 function StatNumber({ value, label, color }: { value: number; label: string; color?: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[clamp(1.05rem,5.2vw,1.5rem)] font-bold leading-tight" style={color ? { color } : undefined}>
+      <p className="text-lg font-bold leading-tight" style={color ? { color } : undefined}>
         {value}
       </p>
       <p className="text-xs text-muted">{label}</p>
@@ -179,14 +179,14 @@ function StatTile({ value, label, color }: { value: ReactNode; label: string; co
     // колонка распирается по min-content подписи и вся сетка вылезает за карточку.
     <div className="min-w-0 rounded-xl border border-hairline bg-surface-2 px-2.5 py-2.5">
       <p
-        className="text-[clamp(17px,5.5vw,22px)] font-bold leading-none"
+        className="text-lg font-bold leading-none"
         style={color ? { color } : undefined}
       >
         {value}
       </p>
       {/* На 320px под подпись остаётся ~55px: без переноса и уменьшения «всего
           активных» наезжает на рамку. clamp тянет 11px → 9px к узким экранам. */}
-      <p className="mt-1.5 break-words hyphens-auto text-[clamp(9px,2.9vw,11px)] leading-tight text-muted">
+      <p className="mt-1.5 break-words hyphens-auto text-2xs leading-tight text-muted">
         {label}
       </p>
     </div>
@@ -386,7 +386,7 @@ export function StatsPage() {
             <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="min-w-0 truncate text-sm font-medium">Сегодня на задачи</span>
-                <span className="shrink-0 text-xl font-bold" style={{ color: 'var(--app-accent-2)' }}>
+                <span className="shrink-0 text-lg font-bold" style={{ color: 'var(--app-accent-2)' }}>
                   {taskTime.today > 0 ? formatDuration(taskTime.today) : '0м'}
                 </span>
               </div>
@@ -395,7 +395,7 @@ export function StatsPage() {
             <div className="flex items-end justify-between gap-2" style={{ height: 96 }}>
               {taskTime.days.map((d, i) => (
                 <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
-                  <span className="text-[10px] font-semibold text-muted">{compactDuration(d.minutes)}</span>
+                  <span className="text-2xs font-semibold text-muted">{compactDuration(d.minutes)}</span>
                   <div className="flex w-full flex-1 items-end">
                     <div
                       className="w-full rounded-t-md transition-[height] duration-300"
@@ -446,7 +446,7 @@ export function StatsPage() {
             <div className="mb-4 grid grid-cols-2 gap-x-4 gap-y-4">
               <StatNumber value={activeGoals.length} label="активных" />
               <div className="min-w-0">
-                <p className="text-[clamp(1.05rem,5.2vw,1.5rem)] font-bold leading-tight">{avgGoalProgress}%</p>
+                <p className="text-lg font-bold leading-tight">{avgGoalProgress}%</p>
                 <p className="text-xs text-muted">средний прогресс</p>
               </div>
             </div>
@@ -487,14 +487,14 @@ export function StatsPage() {
                 на узких пришлось бы ради одного крайнего случая). */}
             <div className="grid grid-cols-2 gap-x-4 gap-y-4">
               <div className="min-w-0">
-                <p className="text-[clamp(1.05rem,5.2vw,1.5rem)] font-bold leading-tight tabular-nums">
+                <p className="text-lg font-bold leading-tight tabular-nums">
                   {formatRub(finance.expense)}
                 </p>
                 <p className="text-xs text-muted">расходы в месяц</p>
               </div>
               <div className="min-w-0">
                 <p
-                  className="text-[clamp(1.05rem,5.2vw,1.5rem)] font-bold leading-tight tabular-nums"
+                  className="text-lg font-bold leading-tight tabular-nums"
                   style={{
                     color:
                       finance.balance < 0 ? 'var(--app-danger)' : 'var(--app-success)',

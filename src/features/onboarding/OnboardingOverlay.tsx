@@ -95,7 +95,7 @@ export function OnboardingOverlay() {
           <Icon size={40} strokeWidth={1.5} />
         </div>
         <h2 className="text-2xl font-bold tracking-tight">{slide.title}</h2>
-        <p className="max-w-sm text-[15px] leading-relaxed text-muted">{slide.text}</p>
+        <p className="max-w-sm text-sm leading-relaxed text-muted">{slide.text}</p>
       </div>
 
       <div className="relative flex items-center justify-center gap-1.5 pb-5">

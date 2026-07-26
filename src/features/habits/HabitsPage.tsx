@@ -130,7 +130,7 @@ export function HabitsPage() {
                   </p>
                 </div>
                 {habit.archivedAt ? null : !plannedToday ? (
-                  <span className="shrink-0 text-[11px] text-muted">не сегодня</span>
+                  <span className="shrink-0 text-2xs text-muted">не сегодня</span>
                 ) : counted ? (
                   <button
                     type="button"

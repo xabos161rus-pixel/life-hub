@@ -130,7 +130,7 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
                   type="button"
                   onClick={() => setBleeding(l.value)}
                   aria-pressed={active}
-                  className={`flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-[11px] transition-colors ${
+                  className={`flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-2xs transition-colors ${
                     active
                       ? 'border-danger bg-danger/15 font-semibold text-danger'
                       : 'border-hairline bg-surface-2 text-muted'

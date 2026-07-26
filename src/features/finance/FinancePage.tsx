@@ -46,7 +46,7 @@ function SummaryCard({ items }: { items: ExpenseItem[] }) {
           />
         </div>
       </div>
-      <p className="mt-1 text-3xl font-bold tracking-[-0.02em] tabular-nums">
+      <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums">
         {wrapRub(summary.expense * mul)}
       </p>
       <p className="mt-1 text-sm text-muted">
@@ -127,7 +127,7 @@ function ExpenseRow({ item, onOpen }: { item: ExpenseItem; onOpen: () => void })
               всю ширину названия. В переносимой мета-строке он с ним не конкурирует,
               а «выключенность» и так читается по opacity-50 всей строки. */}
           {!item.active && (
-            <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
+            <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-2xs text-muted">
               не учитывается
             </span>
           )}

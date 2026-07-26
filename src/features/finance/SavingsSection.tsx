@@ -34,13 +34,13 @@ function GoalCard({
     <div onClick={onEdit} className="card p-4 active:opacity-90">
       <div className="mb-3.5 flex items-center gap-2.5">
         <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-xl text-xl leading-none"
+          className="flex size-10 shrink-0 items-center justify-center rounded-xl text-lg leading-none"
           style={{ background: `color-mix(in oklch, ${goal.color} 16%, transparent)` }}
         >
           {goal.emoji}
         </span>
-        <span className="min-w-0 flex-1 truncate font-bold">{goal.title}</span>
-        <span className="shrink-0 font-extrabold tracking-tight" style={{ color: accent }}>
+        <span className="min-w-0 flex-1 truncate font-semibold">{goal.title}</span>
+        <span className="shrink-0 font-semibold tracking-tight" style={{ color: accent }}>
           {Math.round(pct)}%
         </span>
       </div>
@@ -67,7 +67,7 @@ function GoalCard({
           пробелов сумма остаётся монолитом и переносить её некуда. С ними
           длинные суммы переносятся по разрядам вместо тихой обрезки. */}
       <div className="mt-3 flex flex-col gap-0.5 min-[380px]:flex-row min-[380px]:items-baseline min-[380px]:justify-between min-[380px]:gap-2">
-        <span className="min-w-0 text-xl font-extrabold tabular-nums tracking-tight">
+        <span className="min-w-0 text-lg font-semibold tabular-nums tracking-tight">
           {wrapRub(saved)}
         </span>
         <span className="min-w-0 text-sm text-muted tabular-nums">
@@ -77,7 +77,7 @@ function GoalCard({
 
       <div className="mt-2.5 flex items-center justify-between gap-3">
         {reached ? (
-          <span className="flex items-center gap-1.5 text-sm font-bold text-success">
+          <span className="flex items-center gap-1.5 text-sm font-semibold text-success">
             <Check size={16} /> Цель достигнута
           </span>
         ) : (
@@ -97,7 +97,7 @@ function GoalCard({
               e.stopPropagation();
               onClaim();
             }}
-            className="shrink-0 rounded-xl bg-surface-2 px-4 py-2 text-sm font-bold active:opacity-70"
+            className="shrink-0 rounded-xl bg-surface-2 px-4 py-2 text-sm font-semibold active:opacity-70"
           >
             Забрать
           </button>
@@ -151,13 +151,13 @@ export function SavingsSection() {
   return (
     <section>
       <div className="mb-2 flex items-end justify-between gap-2 px-1">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-muted">
+        <h2 className="flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
           <PiggyBank size={15} className="shrink-0" />
           Накопления
         </h2>
         {goals.length > 0 && (
           <div className="text-right">
-            <p className="text-[11px] font-medium text-muted">Всего накоплено</p>
+            <p className="text-2xs font-medium text-muted">Всего накоплено</p>
             <p className="font-bold tabular-nums tracking-tight">{formatRub(total)}</p>
           </div>
         )}

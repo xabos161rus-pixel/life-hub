@@ -74,7 +74,7 @@ export function TabBar() {
                     // остаётся ~52px, и даже «Статистика» укладывается в них
                     // целиком. max-w-full + truncate — страховка на случай
                     // более длинной метки, чтобы она распирала не ряд, а себя.
-                    className={`max-w-full truncate text-[11px] font-semibold transition-colors max-[380px]:text-[10px] max-[380px]:tracking-[-0.01em] max-[340px]:text-[9px] max-[340px]:tracking-[-0.02em] ${
+                    className={`max-w-full truncate text-2xs font-semibold transition-colors max-[380px]:tracking-[-0.01em] max-[340px]:tracking-tight ${
                       isActive ? 'text-accent' : 'text-muted'
                     }`}
                   >

@@ -55,7 +55,7 @@ function EnergyCard({ item, onOpen }: { item: EnergyItem; onOpen: () => void }) 
       )}
       <div className="mt-3 flex items-center justify-between gap-3">
         {item.category ? (
-          <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted">
+          <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-0.5 text-2xs text-muted">
             {item.category}
           </span>
         ) : (

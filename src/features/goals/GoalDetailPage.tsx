@@ -143,7 +143,7 @@ export function GoalDetailPage() {
       }
     >
       {goal.description && (
-        <p className="mb-4 whitespace-pre-wrap text-[15px] text-muted">{goal.description}</p>
+        <p className="mb-4 whitespace-pre-wrap text-sm text-muted">{goal.description}</p>
       )}
 
       <div className="flex items-center gap-4 card p-4">
@@ -290,7 +290,7 @@ export function GoalDetailPage() {
               >
                 <Icon size={18} className="shrink-0 text-muted" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-medium">{li.title}</p>
+                  <p className="truncate text-sm font-medium">{li.title}</p>
                   <div className="mt-1.5">
                     <ProgressBar
                       value={

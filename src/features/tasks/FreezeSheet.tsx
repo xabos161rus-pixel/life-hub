@@ -111,7 +111,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
           }`}
         >
           <GroupIcon project={row.project} />
-          <span className={`truncate font-semibold ${row.depth ? 'text-[13px]' : 'text-sm'}`}>
+          <span className={`truncate font-semibold ${row.depth ? 'text-xs' : 'text-sm'}`}>
             {row.project ? row.project.name : 'Без проекта'}
           </span>
           <span className="text-xs text-muted">{row.count}</span>

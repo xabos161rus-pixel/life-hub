@@ -128,7 +128,7 @@ export function CyclePage() {
                   </p>
                 )}
               </div>
-              <p className="mt-1 text-4xl font-bold tracking-[-0.02em] tabular-nums">
+              <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums">
                 {currentDay ?? '—'}
               </p>
 

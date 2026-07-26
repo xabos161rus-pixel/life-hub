@@ -110,7 +110,7 @@ function SubSection({
           <span className="flex shrink-0 items-center">
             <ProjectFolderIcon project={project} size={16} />
           </span>
-          <h3 className="truncate text-[17px] font-semibold tracking-tight">{project.name}</h3>
+          <h3 className="truncate text-base font-semibold tracking-tight">{project.name}</h3>
           <span className="text-sm text-muted">{count}</span>
         </button>
         <button

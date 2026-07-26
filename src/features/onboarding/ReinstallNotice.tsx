@@ -88,7 +88,7 @@ export function ReinstallNotice() {
         {/* Прокручиваемое тело */}
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-2">
           {/* Зачем — коротко */}
-          <p className="text-[15px] leading-relaxed">
+          <p className="text-sm leading-relaxed">
             У приложения новое название и значок. Внутри всё обновилось само, но на экране
             «Домой» iPhone показывает старую иконку — систему не переубедить, она запоминает
             значок при установке. Чтобы увидеть новый вид — переустановите приложение.

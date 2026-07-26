@@ -354,7 +354,7 @@ export function SectionsSettingsPage() {
                   пользователь её сюда и переносит. 2.6vw даёт 8.32px на 320px —
                   запас 2.76px, а с 393px кегль упирается в прежние 10px.
                   Боковых полей нет: 4.25px в такой колонке дороже, чем воздух. */}
-              <span className="max-w-full truncate text-[clamp(8px,2.6vw,10px)] font-semibold text-muted">
+              <span className="max-w-full truncate text-2xs font-semibold text-muted">
                 {s.label}
               </span>
             </div>

@@ -148,11 +148,11 @@ function ProjectEditForm({
               Цветная папка показывается вместо стандартного 📁; своё эмодзи — как есть. */}
           <div className="mt-3 flex items-center gap-1.5 rounded-xl bg-surface-2 px-3 py-2.5">
             {emoji.trim() && emoji.trim() !== '📁' ? (
-              <span className="text-[17px] leading-none">{emoji.trim()}</span>
+              <span className="text-base leading-none">{emoji.trim()}</span>
             ) : (
               <Folder size={18} aria-hidden style={{ color, fill: color, strokeWidth: 1.5 }} />
             )}
-            <span className="min-w-0 truncate text-[15px] font-bold tracking-tight">
+            <span className="min-w-0 truncate text-sm font-bold tracking-tight">
               {name.trim() || 'Проект'}
             </span>
             <span className="ml-auto text-xs text-muted">так будет в списке</span>

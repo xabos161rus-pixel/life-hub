@@ -66,7 +66,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
       <div className={`h-1 flex-1 overflow-hidden rounded-full ${own ? 'bg-white/25' : 'bg-hairline'}`}>
         <div className="h-full rounded-full bg-current" style={{ width: `${Math.min(100, (pos / total) * 100)}%` }} />
       </div>
-      <span className="shrink-0 text-[11px] tabular-nums">{fmtDur(playing || pos ? pos : duration)}</span>
+      <span className="shrink-0 text-2xs tabular-nums">{fmtDur(playing || pos ? pos : duration)}</span>
       <audio
         ref={aRef}
         src={src}
@@ -327,7 +327,7 @@ function MessageRow({
                   m.image ? 'mx-2 mt-1 w-auto' : ''
                 } ${own ? 'border-white/60 bg-white/15' : 'border-accent bg-accent/10'}`}
               >
-                <span className={`block text-[11px] font-semibold ${own ? 'text-white/90' : 'text-accent'}`}>
+                <span className={`block text-2xs font-semibold ${own ? 'text-white/90' : 'text-accent'}`}>
                   {m.replyTo.name}
                 </span>
                 <span className={`block truncate text-xs ${own ? 'text-white/75' : 'text-muted'}`}>
@@ -340,9 +340,9 @@ function MessageRow({
               <img src={m.image} alt="Фото" loading="lazy" className="block max-h-80 max-w-full rounded-xl" draggable={false} />
             )}
             {m.text && (
-              <p className={`whitespace-pre-wrap break-words text-[15px] ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
+              <p className={`whitespace-pre-wrap break-words text-sm ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
             )}
-            <span className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${m.image ? 'px-2 pb-1' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
+            <span className={`mt-0.5 flex items-center justify-end gap-1 text-2xs ${m.image ? 'px-2 pb-1' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
               {m.editedAt && <span>изменено</span>}
               {timeLabel(m.createdAt)}
               {own &&
@@ -703,7 +703,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 const divider =
                   i === 0 || dayKey(list[i - 1].createdAt) !== dayKey(m.createdAt) ? (
                     <div key={`d-${m.clientMsgId}`} className="flex items-center justify-center py-1.5">
-                      <span className="rounded-full bg-surface-2/80 px-3 py-0.5 text-[11px] font-medium text-muted">
+                      <span className="rounded-full bg-surface-2/80 px-3 py-0.5 text-2xs font-medium text-muted">
                         {now ? dayLabel(m.createdAt, now) : ''}
                       </span>
                     </div>
@@ -862,7 +862,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               }}
               rows={1}
               placeholder="Сообщение…"
-              className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-3xl border border-border bg-surface px-4 py-2.5 text-[15px] leading-tight outline-none focus:border-accent"
+              className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-3xl border border-border bg-surface px-4 py-2.5 text-sm leading-tight outline-none focus:border-accent"
             />
             {text.trim() || !rec.supported ? (
               <button
@@ -897,7 +897,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                     type="button"
                     onClick={() => void toggleReaction(actionMsg, emoji)}
                     aria-label={`Реакция ${emoji}`}
-                    className={`flex size-10 items-center justify-center rounded-full text-[22px] transition-transform active:scale-90 ${
+                    className={`flex size-10 items-center justify-center rounded-full text-lg transition-transform active:scale-90 ${
                       myReactions.get(actionMsg.clientMsgId) === emoji ? 'bg-accent/20 ring-1 ring-accent/50' : ''
                     }`}
                   >

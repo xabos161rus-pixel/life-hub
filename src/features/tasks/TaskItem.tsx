@@ -294,7 +294,7 @@ export function TaskItem({
             {task.title}
           </p>
           {task.notes && (
-            <p className="mt-1 whitespace-pre-line break-words border-l-2 border-hairline pl-2 font-mono text-[13px] leading-relaxed text-text/65">
+            <p className="mt-1 whitespace-pre-line break-words border-l-2 border-hairline pl-2 font-mono text-xs leading-relaxed text-text/65">
               {task.notes}
             </p>
           )}
@@ -372,7 +372,7 @@ export function TaskItem({
               {task.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted"
+                  className="rounded-full bg-surface-2 px-1.5 py-0.5 text-2xs text-muted"
                 >
                   #{tag}
                 </span>

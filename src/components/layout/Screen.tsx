@@ -63,7 +63,7 @@ export function Screen({ title, backTo, right, subtitle, fill = false, children 
                 Размер: 27px — задумка автора, держим его от 360px и выше (все
                 актуальные телефоны); 7.5vw ужимает только совсем узкие экраны
                 (320px → 24px), где две строки уже не спасают. */}
-            <h1 className="line-clamp-2 text-[clamp(23px,7.5vw,27px)] font-bold tracking-[-0.02em] break-words">
+            <h1 className="line-clamp-2 text-[clamp(23px,7.5vw,27px)] leading-[1.15] font-bold tracking-tight break-words">
               {title}
             </h1>
             {subtitle && <p className="text-sm font-medium text-muted">{subtitle}</p>}

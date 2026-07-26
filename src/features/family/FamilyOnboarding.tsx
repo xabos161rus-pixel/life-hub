@@ -292,7 +292,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
                 placeholder="ABCD EFGH"
                 autoComplete="off"
                 autoCapitalize="characters"
-                className="w-full rounded-xl border border-border bg-surface p-3 text-center font-mono text-xl tracking-[0.15em] uppercase"
+                className="w-full rounded-xl border border-border bg-surface p-3 text-center font-mono text-lg tracking-[0.15em] uppercase"
                 aria-label="Кодовое слово"
               />
             </label>

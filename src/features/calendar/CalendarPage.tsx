@@ -144,7 +144,7 @@ export function CalendarPage() {
               3px до 20px. От 400px и шире держим исходные 19px.
               truncate (overflow:hidden) заодно снимает min-width:auto — без него
               флекс-элемент не ужимается и распирает строку. */}
-          <h2 className="min-w-0 truncate text-[clamp(17px,4.6vw,19px)] font-semibold">
+          <h2 className="min-w-0 truncate text-lg font-semibold">
             {monthLabel}
           </h2>
           <div className="flex shrink-0 items-center gap-2">

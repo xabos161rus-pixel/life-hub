@@ -79,7 +79,7 @@ function GoalForm({ goal, onClose }: { goal: SavingsGoal | null; onClose: () => 
               value={emoji}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setEmoji(e.target.value)}
               maxLength={2}
-              className="text-center text-xl"
+              className="text-center text-lg"
             />
           </Field>
         </div>

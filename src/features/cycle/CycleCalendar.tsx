@@ -67,7 +67,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
       <div className="mb-3 flex items-center justify-between gap-2">
         {/* Кегль ужимается только на узких экранах: «Сентябрь 2026» при 19px
             требует больше места, чем остаётся рядом со стрелками. */}
-        <h2 className="min-w-0 truncate text-[clamp(17px,4.6vw,19px)] font-semibold">
+        <h2 className="min-w-0 truncate text-lg font-semibold">
           {monthLabel(month)}
         </h2>
         {/* pr-1.5: невидимая зона касания стрелки на 5,6px шире самой кнопки,
@@ -98,7 +98,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
 
       <div className="grid grid-cols-7 gap-1">
         {WEEKDAY_LABELS.map((l) => (
-          <div key={l} className="pb-1 text-center text-[11px] font-medium text-muted">
+          <div key={l} className="pb-1 text-center text-2xs font-medium text-muted">
             {l}
           </div>
         ))}
@@ -177,7 +177,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
         })}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-muted">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-2xs text-muted">
         <span className="flex items-center gap-1">
           <span className="size-1.5 rounded-full bg-danger" /> менструация
         </span>

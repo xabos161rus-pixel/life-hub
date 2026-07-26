@@ -54,7 +54,7 @@ export function CallGuard({
         <span className="flex size-14 items-center justify-center rounded-full bg-surface-2 text-muted">
           <Lock size={26} />
         </span>
-        <p className="text-xl font-semibold">{peerName}</p>
+        <p className="text-lg font-semibold">{peerName}</p>
         <p className="text-sm text-muted">На связи · {elapsed}</p>
         <p className="mt-1 text-sm text-muted">Экран заблокирован, чтобы не нажать щекой</p>
       </div>
