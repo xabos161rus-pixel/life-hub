@@ -6,6 +6,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig(({ command }) => ({
   // в dev — корень (удобнее для предпросмотра), в проде — путь GitHub Pages
   base: command === 'build' ? '/life-hub/' : '/',
+  // vitest берёт конфиг отсюда. e2e/** исключаем: там Playwright, и его
+  // test() при запуске под vitest падает с «did not expect test() to be called
+  // here» — два раннера на одном расширении .spec.ts.
+  test: {
+    exclude: ['node_modules/**', 'dist/**', 'e2e/**'],
+  },
   plugins: [
     react(),
     tailwindcss(),

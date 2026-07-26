@@ -167,16 +167,19 @@ export class FamilyRoom extends DurableObject {
       return this.json({ sealed: row.ciphertext });
     }
 
+    // Исключённого отсекаем ДО проверки токена — иначе он получал бы 401,
+    // неотличимый от «токен устарел, забери новый конверт», и его приложение
+    // молча переподключалось бы вечно, так и не сказав человеку, что случилось.
+    // Отдельный код 403 — единственный способ показать ему внятное сообщение.
+    // Утечки здесь нет: чтобы спросить, надо знать и familyId, и memberId.
+    if (this.isRemoved(url.searchParams.get('memberId'))) {
+      return this.json({ error: 'removed' }, 403);
+    }
+
     // Остальное — Bearer-токен
     if (!(await this.checkToken(token))) return this.json({ error: 'unauthorized' }, 401);
 
     if (path.endsWith('/ticket') && request.method === 'POST') {
-      // memberId нужен, чтобы исключённый не проскочил по ещё не сменившемуся
-      // токену: смена токена и пометка removed_at происходят одним запросом, но
-      // между ними у него нет доступа ни на миг.
-      if (this.isRemoved(url.searchParams.get('memberId'))) {
-        return this.json({ error: 'removed' }, 403);
-      }
       const ticket = crypto.randomUUID();
       this.sql.exec('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', `ticket:${ticket}`, String(Date.now() + TICKET_TTL_MS));
       return this.json({ ticket });
