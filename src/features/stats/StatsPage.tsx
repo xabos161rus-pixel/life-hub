@@ -297,7 +297,7 @@ export function StatsPage() {
 
   if (noData) {
     return (
-      <Screen title="Статистика" backTo="/more">
+      <Screen title="Статистика" backTo="/home">
         <EmptyState
           icon={ChartColumnBig}
           title="Пока нет данных"
@@ -310,7 +310,7 @@ export function StatsPage() {
   return (
     <Screen
       title="Статистика"
-      backTo="/more"
+      backTo="/home"
       right={
         <button
           onClick={() => void handleShareReport()}

@@ -3,7 +3,8 @@ import {
   ListTodo,
   NotebookText,
   Users,
-  LayoutGrid,
+  House,
+  CalendarDays,
   Sparkles,
   Timer,
   CalendarCheck,
@@ -28,7 +29,7 @@ export type SectionId =
   | 'tasks'
   | 'notes'
   | 'family'
-  | 'more'
+  | 'home'
   | 'capture'
   | 'focus'
   | 'habits'
@@ -38,6 +39,7 @@ export type SectionId =
   | 'energy'
   | 'places'
   | 'stats'
+  | 'calendar'
   | 'cycle'
   | 'settings';
 
@@ -47,7 +49,8 @@ export interface Section {
   to: string; // маршрут
   icon: LucideIcon;
   end?: boolean; // точное совпадение маршрута для активной подсветки NavLink
-  /** «Ещё» — контейнер: всегда последний слот панели, не прячется, не в списке «Ещё». */
+  /** «Главная» — контейнер: всегда ПЕРВЫЙ слот панели, не прячется и не входит
+   *  в собственный список. */
   anchor?: boolean;
   /** Нельзя спрятать (Сегодня — стартовый экран, Настройки — вход в саму настройку). */
   nonHideable?: boolean;
@@ -59,6 +62,13 @@ export interface Section {
 
 export const SECTIONS: Section[] = [
   { id: 'today', label: 'Сегодня', to: '/', icon: Sun, end: true, nonHideable: true },
+  {
+    id: 'calendar',
+    label: 'Календарь',
+    to: '/calendar',
+    icon: CalendarDays,
+    subtitle: 'События и расписание',
+  },
   { id: 'tasks', label: 'Задачи', to: '/tasks', icon: ListTodo },
   { id: 'notes', label: 'Заметки', to: '/notes', icon: NotebookText, subtitle: 'Быстрые записи и списки' },
   { id: 'family', label: 'Семья', to: '/more/family', icon: Users, subtitle: 'Общие задачи, чат и звонки' },
@@ -120,7 +130,11 @@ export const SECTIONS: Section[] = [
     nonHideable: true,
     subtitle: 'Копии, синхронизация, оформление',
   },
-  { id: 'more', label: 'Ещё', to: '/more', icon: LayoutGrid, end: true, anchor: true },
+  // Якорь панели. Раньше это была «Ещё» — свалка того, что не влезло в нижний
+  // ряд. Теперь это «Главная»: профиль, состояние данных, все разделы и
+  // настройки в одном месте. Стоит первой вкладкой, а не последней, потому что
+  // это точка входа, а не хвост списка.
+  { id: 'home', label: 'Главная', to: '/home', icon: House, end: true, anchor: true },
 ];
 
 export const SECTION_BY_ID = new Map<string, Section>(SECTIONS.map((s) => [s.id, s]));
@@ -129,7 +143,11 @@ export const SECTION_BY_ID = new Map<string, Section>(SECTIONS.map((s) => [s.id,
 export const MAX_BOTTOM = 4;
 
 /** Раскладка по умолчанию: что стоит в панели (без «Ещё» — он добавляется как якорь). */
-export const DEFAULT_BOTTOM: SectionId[] = ['today', 'tasks', 'notes', 'family'];
+// Календарь вместо «Семьи» по умолчанию: до сих пор экран календаря вообще не
+// имел ссылки в интерфейсе — попасть на него можно было только вводом адреса.
+// «Семья» никуда не делась, она в списке «Главной» и возвращается в панель
+// одним движением через «Настроить разделы».
+export const DEFAULT_BOTTOM: SectionId[] = ['today', 'tasks', 'notes', 'calendar'];
 
 /** id «Ещё» — единственный жёсткий якорь панели (последний слот). */
-export const ANCHOR_ID: SectionId = 'more';
+export const ANCHOR_ID: SectionId = 'home';

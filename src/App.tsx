@@ -1,5 +1,5 @@
 import { Component, useEffect, type ReactNode } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
 import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
 import { SyncRunner } from './components/SyncRunner';
@@ -14,7 +14,8 @@ import { TodayPage } from './features/today/TodayPage';
 import { TasksPage } from './features/tasks/TasksPage';
 import { GoalsPage } from './features/goals/GoalsPage';
 import { GoalDetailPage } from './features/goals/GoalDetailPage';
-import { MorePage } from './features/more/MorePage';
+import { HomePage } from './features/home/HomePage';
+import { ProfilePage } from './features/home/ProfilePage';
 import { NotesPage } from './features/notes/NotesPage';
 import { NoteEditorPage } from './features/notes/NoteEditorPage';
 import { LearningPage } from './features/learning/LearningPage';
@@ -140,7 +141,14 @@ export default function App() {
                 <Route path="/notes/:id" element={<NoteEditorPage />} />
                 <Route path="/goals" element={<GoalsPage />} />
                 <Route path="/goals/:id" element={<GoalDetailPage />} />
-                <Route path="/more" element={<MorePage />} />
+                <Route path="/home" element={<HomePage />} />
+                <Route path="/home/profile" element={<ProfilePage />} />
+                {/* Старый адрес «Ещё» ведёт на «Главную». Подразделы остаются на
+                    /more/*: этот префикс зашит в push-sw.js
+                    (/life-hub/more/family), и у всех, кто не обновил service
+                    worker, переход по уведомлению сломался бы. Разнородные
+                    адреса — цена за несломанные уведомления и закладки. */}
+                <Route path="/more" element={<Navigate to="/home" replace />} />
                 <Route path="/more/family" element={<FamilyPage />} />
                 <Route path="/more/focus" element={<FocusPage />} />
                 <Route path="/more/learning" element={<LearningPage />} />

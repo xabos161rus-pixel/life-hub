@@ -10,37 +10,38 @@ const REG: NavRegistryItem[] = [
   { id: 'finance' },
   { id: 'cycle', hiddenByDefault: true },
   { id: 'settings', nonHideable: true },
-  { id: 'more', anchor: true },
+  { id: 'home', anchor: true },
 ];
 
 const OPTS = {
   maxBottom: 4,
   defaultBottom: ['today', 'tasks', 'notes', 'goals'] as SectionId[],
-  anchorId: 'more' as SectionId,
+  anchorId: 'home' as SectionId,
 };
 
 describe('computeNavLayout', () => {
   it('без конфига собирает панель по умолчанию с якорем в конце', () => {
     const l = computeNavLayout(REG, undefined, OPTS);
-    expect(l.bottom).toEqual(['today', 'tasks', 'notes', 'goals', 'more']);
+    // Якорь ПЕРВЫМ: «Главная» — вход, а не хвост списка.
+    expect(l.bottom).toEqual(['home', 'today', 'tasks', 'notes', 'goals']);
     expect(l.more).toContain('finance');
   });
 
   it('не пускает в панель больше лимита', () => {
     const l = computeNavLayout(REG, { bottom: ['today', 'tasks', 'notes', 'goals', 'finance'] }, OPTS);
-    expect(l.bottom).toHaveLength(5); // 4 + якорь
+    expect(l.bottom).toHaveLength(5); // якорь + 4
     expect(l.bottom).not.toContain('finance');
   });
 
   it('нормализует битый конфиг: несуществующие id, дубли, якорь в панели', () => {
     const l = computeNavLayout(
       REG,
-      { bottom: ['today', 'today', 'nope', 'more', 'tasks'], hidden: ['nope', 'more', 'today'] },
+      { bottom: ['today', 'today', 'nope', 'home', 'tasks'], hidden: ['nope', 'home', 'today'] },
       OPTS,
     );
-    expect(l.bottom).toEqual(['today', 'tasks', 'more']);
+    expect(l.bottom).toEqual(['home', 'today', 'tasks']);
     // Якорь и нескрываемый раздел спрятать нельзя, несуществующий id отброшен.
-    expect(l.hidden).not.toContain('more');
+    expect(l.hidden).not.toContain('home');
     expect(l.hidden).not.toContain('today');
     expect(l.hidden).not.toContain('nope');
   });

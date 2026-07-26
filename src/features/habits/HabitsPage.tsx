@@ -70,7 +70,7 @@ export function HabitsPage() {
     : 0;
 
   return (
-    <Screen title="Привычки" backTo="/more">
+    <Screen title="Привычки" backTo="/home">
       <div className="space-y-3">
         <div className="card p-4">
           <p className="text-sm leading-relaxed text-muted">

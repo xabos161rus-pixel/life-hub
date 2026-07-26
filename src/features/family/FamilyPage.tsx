@@ -33,14 +33,14 @@ export function FamilyPage() {
 
   if (!configs)
     return (
-      <Screen title="Семья" backTo="/more">
+      <Screen title="Семья" backTo="/home">
         <div />
       </Screen>
     );
 
   if (configs.length === 0) {
     return (
-      <Screen title="Семья" backTo="/more">
+      <Screen title="Семья" backTo="/home">
         <FamilyOnboarding onReady={select} />
       </Screen>
     );
@@ -59,7 +59,7 @@ export function FamilyPage() {
   const current = configs.find((c) => c.familyId === selected)!;
 
   return (
-    <Screen title={current.familyName} backTo="/more" fill>
+    <Screen title={current.familyName} backTo="/home" fill>
       <div className="flex h-full flex-col">
         <GroupSwitcher
           configs={configs}

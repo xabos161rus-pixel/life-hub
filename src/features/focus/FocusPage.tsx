@@ -316,7 +316,7 @@ export function FocusPage() {
   };
 
   return (
-    <Screen title="Фокус" backTo="/more">
+    <Screen title="Фокус" backTo="/home">
       <div className="flex flex-col items-center" style={FOCUS_VARS}>
         <p className="mb-4 text-sm font-semibold" style={{ color: accentColor }}>
           {PHASE_LABEL[p.phase]}

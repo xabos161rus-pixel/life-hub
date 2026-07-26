@@ -228,7 +228,7 @@ export function SettingsPage() {
   }
 
   return (
-    <Screen title="Настройки" backTo="/more">
+    <Screen title="Настройки" backTo="/home">
       <div className="space-y-6">
         <Section title="Тема">
           <div className="card p-4">

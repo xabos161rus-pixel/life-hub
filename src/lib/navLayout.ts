@@ -104,7 +104,9 @@ export function computeNavLayout(
   }
 
   return {
-    bottom: [...bottomIds, anchorId],
+    // Якорь ПЕРВЫМ: «Главная» — вход в приложение, а не остаток. Порядок
+    // остальных вкладок человек задаёт сам.
+    bottom: [anchorId, ...bottomIds],
     more: moreIds,
     hidden: [...hiddenSet],
   };

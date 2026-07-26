@@ -87,7 +87,7 @@ export function EnergyPage() {
   };
 
   return (
-    <Screen title="Энергия" backTo="/more">
+    <Screen title="Энергия" backTo="/home">
       <div className="space-y-3">
         <div className="card p-4">
           <p className="text-sm leading-relaxed text-muted">

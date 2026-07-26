@@ -229,12 +229,31 @@ export interface MetricLog extends BaseEntity {
   value: number;
 }
 
+/** Профиль владельца приложения.
+ *
+ *  Живёт внутри Settings, а не отдельной таблицей: запись ровно одна, и своя
+ *  таблица ради одной строки только добавила бы миграцию. Поле не
+ *  индексируется — значит и миграция Dexie не нужна.
+ *
+ *  Вес одним текущим значением, без истории замеров. История — это отдельная
+ *  таблица, экран динамики и связка с «Энергией», то есть самостоятельная
+ *  задача; здесь достаточно того, что человек написал о себе. */
+export interface UserProfile {
+  name?: string;
+  /** Сжатый JPEG в dataURL — как фото в чате и «Местах». */
+  avatar?: string | null;
+  birthDate?: string | null; // 'YYYY-MM-DD'
+  heightCm?: number | null;
+  weightKg?: number | null;
+}
+
 export interface Settings {
   id: 'app';
   theme: 'dark' | 'light' | 'system';
   weekStart: 1; // понедельник
   lastBackupAt: string | null;
   schemaVersion: number;
+  profile?: UserProfile;
   updatedAt: string;
   // Обучение: ISO-время завершения вводного тура. null/undefined — не пройден,
   // при первом запуске поверх приложения показывается OnboardingOverlay.

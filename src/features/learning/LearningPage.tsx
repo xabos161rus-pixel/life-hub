@@ -103,7 +103,7 @@ export function LearningPage() {
   };
 
   return (
-    <Screen title="Обучение" backTo="/more">
+    <Screen title="Обучение" backTo="/home">
       <div className="space-y-3">
         <SegmentedControl<Filter>
           options={[

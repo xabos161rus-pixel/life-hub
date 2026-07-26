@@ -163,7 +163,7 @@ export function PlacesPage() {
   };
 
   return (
-    <Screen title="Места и путешествия" backTo="/more">
+    <Screen title="Места и путешествия" backTo="/home">
       <div className="space-y-3">
         <ChipRow>
           <Chip active={kindFilter === 'all'} onClick={() => setKindFilter('all')}>

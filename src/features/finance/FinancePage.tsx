@@ -166,7 +166,7 @@ export function FinancePage() {
   };
 
   return (
-    <Screen title="Финансы" backTo="/more">
+    <Screen title="Финансы" backTo="/home">
       <div className="space-y-5">
         <SavingsSection />
 

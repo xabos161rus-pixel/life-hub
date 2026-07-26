@@ -77,7 +77,7 @@ export function CyclePage() {
   return (
     <Screen
       title="Женские дни"
-      backTo="/more"
+      backTo="/home"
       right={
         locked ? undefined : (
         <div className="flex shrink-0 items-center gap-1">

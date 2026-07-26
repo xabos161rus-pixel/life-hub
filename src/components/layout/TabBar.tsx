@@ -26,8 +26,8 @@ export function TabBar() {
       <div className="mx-auto flex max-w-lg px-1">
         {bottom.map(({ id, to, label, icon: Icon, end }) => {
           // Бейджи привязаны к разделу, куда бы он ни встал: непрочитанное у
-          // «Семьи», «пора сделать копию» у «Ещё».
-          const showBadge = (id === 'more' && backupStale) || (id === 'family' && familyUnread);
+          // «Семьи», «пора сделать копию» у «Главной» (настройки живут там).
+          const showBadge = (id === 'home' && backupStale) || (id === 'family' && familyUnread);
           return (
             <NavLink
               key={id}
