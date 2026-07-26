@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { Link } from 'react-router';
 import { Search, Sun } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
@@ -10,7 +9,6 @@ import { formatHeaderDate, todayKey } from '../../lib/dates';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { QuickAddBar } from '../tasks/QuickAddBar';
 import { CycleTodayLine } from '../cycle/CycleTodayLine';
 import { TaskItem } from '../tasks/TaskItem';
@@ -19,6 +17,7 @@ import { WeatherWidget } from './widgets/WeatherWidget';
 import { RemindersBlock } from './RemindersBlock';
 import { HabitsToday } from '../habits/HabitsToday';
 import { ProtectDataCard } from './ProtectDataCard';
+import { IconButton } from '../../components/ui/IconButton';
 
 /** Список задач в карточке — как в TasksPage. */
 function TaskList({
@@ -91,13 +90,7 @@ export function TodayPage() {
       title="Сегодня"
       subtitle={formatHeaderDate()}
       right={
-        <Link
-          to="/search"
-          aria-label="Поиск"
-          className={`shrink-0 p-1 text-accent active:opacity-60 ${HIT_SLOP_44}`}
-        >
-          <Search size={24} />
-        </Link>
+        <IconButton icon={Search} label="Поиск" to="/search" />
       }
     >
       <WeatherWidget />

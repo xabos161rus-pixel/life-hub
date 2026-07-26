@@ -319,7 +319,7 @@ export function TaskItem({
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
               {frozen && (
                 <span className="flex items-center gap-0.5 text-frost">
-                  <Snowflake size={11} />
+                  <Snowflake size={14} />
                   заморожено
                 </span>
               )}
@@ -340,12 +340,12 @@ export function TaskItem({
               ) : null}
               {task.remindBefore != null && task.dueTime && (
                 <span className="flex items-center" aria-label="Напоминание включено">
-                  <Bell size={11} />
+                  <Bell size={14} />
                 </span>
               )}
               {task.recurrence && (
                 <span className="flex items-center gap-0.5">
-                  <Repeat size={11} />
+                  <Repeat size={14} />
                   {describeRecurrence(task.recurrence)}
                 </span>
               )}
@@ -386,7 +386,7 @@ export function TaskItem({
           onClick={handleCopy}
           className={`-mr-1 mt-0.5 shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
         >
-          <Copy size={15} />
+          <Copy size={14} />
         </button>
       </div>
     </div>

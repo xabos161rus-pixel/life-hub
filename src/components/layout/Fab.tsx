@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { usePomodoro } from '../../features/focus/pomodoro';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { useScrollDirection } from '../../hooks/useScrollDirection';
+import { ICON, STROKE_HEAVY } from '../ui/icons';
 
 interface Props {
   onClick: () => void;
@@ -270,7 +271,7 @@ export function Fab({ onClick, label = 'Добавить' }: Props) {
         dragging ? '' : 'transition-[translate,opacity,transform,bottom,top] duration-200 motion-reduce:transition-none'
       }`}
     >
-      <Plus size={26} strokeWidth={2.5} className="pointer-events-none" />
+      <Plus size={ICON.accent} strokeWidth={STROKE_HEAVY} className="pointer-events-none" />
     </button>
   );
 }

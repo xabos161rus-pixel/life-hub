@@ -50,7 +50,7 @@ export function ProtectDataCard() {
         </button>
         <div className="flex items-start gap-3 pr-6">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-            <ShieldCheck size={22} />
+            <ShieldCheck size={20} />
           </div>
           <div className="min-w-0">
             <h3 className="font-semibold">Защитите свои данные</h3>

@@ -26,6 +26,7 @@ interface Props {
 // им ни к чему. Определение — в hitSlop.ts.
 export { HIT_SLOP_44 } from './hitSlop';
 import { HIT_SLOP_44 } from './hitSlop';
+import { STROKE_HEAVY } from './icons';
 
 /** Чекбокс задачи — скруглённый квадрат (как в списках iOS). Пустой —
  *  спокойная серая рамка; выполненный — заливка цветом проекта/акцента
@@ -49,7 +50,7 @@ export function TaskCheck({ checked, onChange, color, size = 22 }: Props) {
         background: checked ? c : 'transparent',
       }}
     >
-      {checked && <Check size={size - 10} color={checkColor} strokeWidth={3} />}
+      {checked && <Check size={size - 10} color={checkColor} strokeWidth={STROKE_HEAVY} />}
     </button>
   );
 }

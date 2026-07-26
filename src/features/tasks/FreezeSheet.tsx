@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/toastContext';
 import { formatDueDate } from '../../lib/dates';
 import { freezeTasks } from './taskActions';
+import { STROKE } from '../../components/ui/icons';
 
 // Строки списка: заголовок группы (проект/подпроект/«Без проекта») или задача.
 type Row =
@@ -25,7 +26,8 @@ function GroupIcon({ project, size = 15 }: { project: Project | null; size?: num
     <Folder
       size={size}
       aria-hidden
-      style={{ color: project.color, fill: project.color, strokeWidth: 1.5 }}
+      strokeWidth={STROKE}
+      style={{ color: project.color, fill: project.color }}
     />
   );
 }
@@ -133,7 +135,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
             on ? 'border-frost-fill bg-frost-fill text-on-light' : 'border-border'
           }`}
         >
-          {on && <Check size={13} />}
+          {on && <Check size={14} />}
         </span>
         <span className="min-w-0 flex-1">
           <span lang="ru" className="block break-words text-pretty hyphens-auto font-medium">

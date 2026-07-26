@@ -259,7 +259,7 @@ export function CalendarPage() {
           onClick={() => openTask(null)}
           className="mt-2 flex min-h-11 items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
         >
-          <Plus size={15} /> Задача на этот день
+          <Plus size={14} /> Задача на этот день
         </button>
       </section>
 

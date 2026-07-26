@@ -2,6 +2,7 @@ import { useState, type ComponentType, type ReactNode } from 'react';
 import { Lightbulb, X } from 'lucide-react';
 import { useHint } from '../../hooks/useHint';
 import { HIT_SLOP_44 } from './Checkbox';
+import { ICON } from './icons';
 
 export interface HintItem {
   icon: ComponentType<{ size?: number | string; className?: string }>;
@@ -43,8 +44,8 @@ export function Hint({
       className={`animate-fade-in rounded-2xl border border-accent/20 bg-accent/[0.07] px-3.5 py-3 text-xs leading-snug ${className}`}
     >
       <div className="flex items-center gap-2">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-          <Lightbulb size={13} />
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+          <Lightbulb size={ICON.inline} />
         </span>
         <span className="min-w-0 flex-1 font-semibold tracking-tight text-text">
           {title ?? 'Подсказка'}
@@ -62,7 +63,7 @@ export function Hint({
           // тап перехватывать нечего.
           className={`-m-1 shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
         >
-          <X size={15} />
+          <X size={14} />
         </button>
       </div>
       {items && items.length > 0 && (

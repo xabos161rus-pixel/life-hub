@@ -114,7 +114,7 @@ function ReminderSectionCard({
           <span className="shrink-0 text-xs text-muted">{items.length}</span>
         </button>
         <button onClick={onEditSection} aria-label="Изменить раздел" className="px-3.5 py-3 text-muted active:opacity-60">
-          <Pencil size={15} />
+          <Pencil size={14} />
         </button>
       </div>
 

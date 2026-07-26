@@ -227,7 +227,7 @@ export function SectionsSettingsPage() {
           // несёт смысл само, а замок здесь лишь украшение. Плюс 4.25px на
           // сжатии боковых полей — этого хватает, чтобы «Настройки» влезли.
           <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
-            <Lock size={12} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
+            <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
           </span>
         ) : (
           <button
@@ -291,7 +291,7 @@ export function SectionsSettingsPage() {
             </div>
             <span className="min-w-0 grow basis-auto truncate font-semibold">{anchor.label}</span>
             <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
-              <Lock size={12} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
+              <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
             </span>
           </div>
         )}

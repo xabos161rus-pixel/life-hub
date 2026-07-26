@@ -26,8 +26,8 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
       to={to}
       className="flex items-center gap-3 card p-4 active:opacity-80"
     >
-      <div className="relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-        <Icon size={22} />
+      <div className="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+        <Icon size={20} />
         {badge && (
           <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-warning" />
         )}
@@ -83,7 +83,7 @@ function ProfileCard() {
         />
       ) : (
         <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-surface-2 text-muted">
-          <User size={26} />
+          <User size={24} />
         </div>
       )}
       <div className="min-w-0 flex-1">
@@ -129,11 +129,11 @@ function DataStatusCard() {
       className="flex items-center gap-3 card p-4 active:opacity-80"
     >
       <div
-        className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${
+        className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${
           syncOn ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
         }`}
       >
-        {syncOn ? <Cloud size={22} /> : <CloudOff size={22} />}
+        {syncOn ? <Cloud size={20} /> : <CloudOff size={20} />}
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-semibold">{syncOn ? 'Данные синхронизируются' : 'Только на этом устройстве'}</p>

@@ -52,7 +52,7 @@ export function CallGuard({
       {/* Кто и сколько — чтобы было видно, что звонок идёт */}
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
         <span className="flex size-14 items-center justify-center rounded-full bg-surface-2 text-muted">
-          <Lock size={26} />
+          <Lock size={24} />
         </span>
         <p className="text-lg font-semibold">{peerName}</p>
         <p className="text-sm text-muted">На связи · {elapsed}</p>

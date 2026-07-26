@@ -16,6 +16,7 @@ import { db } from '../../db/db';
 import { now } from '../../db/repo';
 import { updateSettings } from '../../hooks/useSettings';
 import { REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
+import { STROKE_STRONG } from '../../components/ui/icons';
 
 const SLIDES: { icon: LucideIcon; title: string; text: string }[] = [
   {
@@ -92,7 +93,7 @@ export function OnboardingOverlay() {
         className="relative flex min-h-0 flex-1 animate-fade-in flex-col items-center justify-center gap-5 px-8 text-center"
       >
         <div className="flex size-20 items-center justify-center rounded-3xl bg-accent/15 text-accent shadow-[var(--shadow-accent)]">
-          <Icon size={40} strokeWidth={1.5} />
+          <Icon size={40} strokeWidth={STROKE_STRONG} />
         </div>
         <h2 className="text-2xl font-bold tracking-tight">{slide.title}</h2>
         <p className="max-w-sm text-sm leading-relaxed text-muted">{slide.text}</p>

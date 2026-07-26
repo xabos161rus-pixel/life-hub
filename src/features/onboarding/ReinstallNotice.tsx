@@ -15,6 +15,7 @@ import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { useCall } from '../../lib/family/familyCall';
 import { INSTALL_URL, REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
+import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 
 /**
  * Одноразовое окно о смене имени и значка (Life Hub → LifeHearth).
@@ -69,7 +70,7 @@ export function ReinstallNotice() {
         {/* Шапка */}
         <div className="relative flex items-center gap-3 px-5 pt-5 pb-4">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent">
-            <Sparkles size={24} strokeWidth={1.75} />
+            <Sparkles size={ICON.accent} strokeWidth={STROKE_STRONG} />
           </div>
           <div className="min-w-0 pr-7">
             <h2 className="text-lg font-bold leading-tight">Новое имя и значок</h2>

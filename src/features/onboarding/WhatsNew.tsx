@@ -67,7 +67,7 @@ export function WhatsNew() {
           <section key={r.version}>
             <div className="mb-2 flex items-baseline gap-2">
               <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-                <Sparkles size={13} />
+                <Sparkles size={14} />
               </span>
               {/* min-w-0 у левой части: без него дата ужимает версию до буквы. */}
               <span className="min-w-0 flex-1 font-semibold">Версия {r.version}</span>

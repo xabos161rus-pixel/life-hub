@@ -17,6 +17,8 @@ import { db } from '../../db/db';
 import { normalizeEditor } from './editorDom';
 import { closestChecklistItem, hitCheckbox, toggleChecklist, toggleItem } from './checklist';
 import { create, remove, update } from '../../db/repo';
+import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { IconButton } from '../../components/ui/IconButton';
 
 const AUTOSAVE_MS = 600;
 
@@ -375,20 +377,14 @@ export function NoteEditorPage() {
       right={
         <div className="flex items-center gap-1">
           <MicButton onText={appendVoice} />
-          <button
+          <IconButton
+            icon={Pin}
+            label={pinned ? 'Открепить' : 'Закрепить'}
             onClick={togglePin}
-            aria-label={pinned ? 'Открепить' : 'Закрепить'}
-            className={`p-2 ${pinned ? 'text-accent' : 'text-muted'}`}
-          >
-            <Pin size={20} fill={pinned ? 'currentColor' : 'none'} />
-          </button>
-          <button
-            onClick={() => void handleDelete()}
-            aria-label="Удалить"
-            className="p-2 text-danger"
-          >
-            <Trash2 size={20} />
-          </button>
+            tone={pinned ? 'accent' : 'muted'}
+            filled={pinned}
+          />
+          <IconButton icon={Trash2} label="Удалить" onClick={() => void handleDelete()} tone="danger" />
           <button
             onClick={() => void handleDone()}
             className="pl-1 pr-1 font-semibold text-accent active:opacity-60"
@@ -469,31 +465,31 @@ export function NoteEditorPage() {
           label="Список задач"
           active={active.checklist}
         >
-          <ListChecks size={20} strokeWidth={2.25} />
+          <ListChecks size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('bold')} label="Жирный" active={active.bold}>
-          <Bold size={20} strokeWidth={2.25} />
+          <Bold size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('italic')} label="Курсив" active={active.italic}>
-          <Italic size={20} strokeWidth={2.25} />
+          <Italic size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('insertUnorderedList')} label="Маркированный список" active={active.ul}>
-          <List size={20} strokeWidth={2.25} />
+          <List size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('insertOrderedList')} label="Нумерованный список" active={active.ol}>
-          <ListOrdered size={20} strokeWidth={2.25} />
+          <ListOrdered size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('strikeThrough')} label="Зачёркнутый" active={active.strike}>
-          <Strikethrough size={20} strokeWidth={2.25} />
+          <Strikethrough size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('formatBlock', 'h2')} label="Подзаголовок" active={active.h2}>
-          <Heading size={20} strokeWidth={2.25} />
+          <Heading size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('formatBlock', 'blockquote')} label="Цитата" active={active.quote}>
-          <Quote size={20} strokeWidth={2.25} />
+          <Quote size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('undo')} label="Отменить">
-          <Undo2 size={20} strokeWidth={2.25} />
+          <Undo2 size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         </div>
         <span

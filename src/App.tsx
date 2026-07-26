@@ -1,5 +1,7 @@
 import { Component, useEffect, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
+import { LucideProvider } from 'lucide-react';
+import { STROKE } from './components/ui/icons';
 import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
 import { SyncRunner } from './components/SyncRunner';
@@ -99,6 +101,10 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+      {/* absoluteStrokeWidth делит вес на размер иконки, поэтому STROKE — это
+          настоящие пиксели штриха, одинаковые и на 14px, и на 40px. Без него
+          один и тот же вес давал разброс почти втрое (см. ui/icons.ts). */}
+      <LucideProvider absoluteStrokeWidth strokeWidth={STROKE}>
       <ToastProvider>
         <ThemeApplier />
         <ScrollReset />
@@ -178,6 +184,7 @@ export default function App() {
         </ErrorBoundary>
         </PomodoroProvider>
       </ToastProvider>
+      </LucideProvider>
     </BrowserRouter>
   );
 }

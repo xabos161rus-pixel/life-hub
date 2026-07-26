@@ -12,6 +12,7 @@ import { DEFAULT_CYCLE_SETTINGS, putDay, updateCycleSettings } from '../../lib/c
 import { parseCycleCsv, type ImportReport } from '../../lib/cycle/importCsv';
 import { formatRu } from '../../lib/dates';
 import { AUTO_TASK_TEMPLATES, MAX_ACTIVE_AUTO_TASKS } from '../../lib/cycle/autoTasks';
+import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
 
 /** Переключатель строкой. Своя реализация вместо нативного checkbox: нужен
  *  крупный тач-таргет на всю строку и подпись под заголовком, а нативный
@@ -49,7 +50,7 @@ function ToggleRow({
           checked ? 'border-accent bg-accent-fill text-white' : 'border-border bg-surface-2'
         }`}
       >
-        {checked && <Check size={15} strokeWidth={3} />}
+        {checked && <Check size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
       </span>
     </button>
   );

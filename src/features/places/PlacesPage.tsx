@@ -95,7 +95,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
           )}
           {item.location && (
             <p className="mt-1 flex items-center gap-1 text-xs text-muted">
-              <MapPin size={12} className="shrink-0" />
+              <MapPin size={14} className="shrink-0" />
               <span className="truncate">{item.location}</span>
             </p>
           )}

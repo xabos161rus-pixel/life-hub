@@ -128,7 +128,7 @@ function NoteRow({
         onPointerCancel={onUp}
         onClick={onClick}
       >
-        {note.pinned && <Pin size={13} className="mt-1 shrink-0 text-accent" fill="currentColor" />}
+        {note.pinned && <Pin size={14} className="mt-1 shrink-0 text-accent" fill="currentColor" />}
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 break-words font-semibold">{title}</p>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted">

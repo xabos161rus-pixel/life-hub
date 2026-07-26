@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router';
 import { db } from '../../db/db';
 import { useFamilyUnread } from '../../hooks/useFamilyUnread';
 import { useNavLayout } from '../../hooks/useNavLayout';
+import { ICON, STROKE, STROKE_STRONG } from '../ui/icons';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -53,15 +54,16 @@ export function TabBar() {
                   >
                     <span className="relative shrink-0">
                       <Icon
-                        size={22}
-                        // strokeWidth через inline style (перебивает глобальное
-                        // правило .lucide): активный таб «наливается» весом 2.5.
-                        style={{
-                          strokeWidth: isActive ? 2.5 : 1.75,
-                          ...(isActive
-                            ? { filter: 'drop-shadow(0 0 6px var(--app-accent))' }
-                            : {}),
-                        }}
+                        size={ICON.header}
+                        // Активная вкладка «наливается» весом. Раньше это
+                        // делалось через inline style — единственный способ
+                        // перебить глобальное .lucide{stroke-width}. Правила
+                        // больше нет, вес идёт обычным пропом и означает
+                        // пиксели (ui/icons.ts).
+                        strokeWidth={isActive ? STROKE_STRONG : STROKE}
+                        style={
+                          isActive ? { filter: 'drop-shadow(0 0 6px var(--app-accent))' } : undefined
+                        }
                       />
                       {showBadge && (
                         <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-elevated" />

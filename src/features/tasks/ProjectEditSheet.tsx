@@ -8,6 +8,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input, Select } from '../../components/ui/Input';
 import { PRESET_COLORS } from '../../lib/colors';
+import { ICON, STROKE } from '../../components/ui/icons';
 
 /** Шит создания/редактирования проекта. project=null → создание.
  *  defaults.parentId — предзаполненный родитель («+ Подпроект» из секции). */
@@ -150,7 +151,7 @@ function ProjectEditForm({
             {emoji.trim() && emoji.trim() !== '📁' ? (
               <span className="text-base leading-none">{emoji.trim()}</span>
             ) : (
-              <Folder size={18} aria-hidden style={{ color, fill: color, strokeWidth: 1.5 }} />
+              <Folder size={ICON.base} aria-hidden strokeWidth={STROKE} style={{ color, fill: color }} />
             )}
             <span className="min-w-0 truncate text-sm font-bold tracking-tight">
               {name.trim() || 'Проект'}

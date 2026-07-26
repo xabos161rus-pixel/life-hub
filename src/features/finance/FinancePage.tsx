@@ -188,7 +188,7 @@ export function FinancePage() {
           {upcoming.length > 0 && (
             <section>
               <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
-                <CalendarClock size={15} className="shrink-0" />
+                <CalendarClock size={14} className="shrink-0" />
                 Ближайшие списания
               </h2>
               <div className="card divide-y divide-hairline px-4">

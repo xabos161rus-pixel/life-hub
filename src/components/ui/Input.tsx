@@ -7,6 +7,7 @@ import type {
   TextareaHTMLAttributes,
 } from 'react';
 import { ChevronDown, Search, X } from 'lucide-react';
+import { ICON, STROKE_STRONG } from './icons';
 
 const base =
   'w-full rounded-xl bg-surface-2 border border-hairline px-3.5 py-3 text-text placeholder:text-muted outline-none transition-[border-color,box-shadow] focus:border-accent focus:ring-2 focus:ring-accent/25';
@@ -31,7 +32,7 @@ export function ClearFieldButton({
       onClick={onClick}
       className={`absolute left-2 z-10 flex size-6 items-center justify-center rounded-full bg-muted/20 text-muted transition-transform active:scale-90 ${className}`}
     >
-      <X size={13} strokeWidth={2.5} />
+      <X size={ICON.inline} strokeWidth={STROKE_STRONG} />
     </button>
   );
 }
@@ -201,7 +202,7 @@ export function SearchField({
           onClick={() => onChange('')}
           className="absolute top-1/2 right-2.5 z-10 flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-muted/20 text-muted transition-transform active:scale-90"
         >
-          <X size={13} strokeWidth={2.5} />
+          <X size={ICON.inline} strokeWidth={STROKE_STRONG} />
         </button>
       )}
     </div>

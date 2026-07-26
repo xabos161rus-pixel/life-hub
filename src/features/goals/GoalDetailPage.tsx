@@ -28,6 +28,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { GoalEditSheet } from './GoalEditSheet';
+import { IconButton } from '../../components/ui/IconButton';
 
 const KIND_ICONS: Record<LearningKind, LucideIcon> = {
   book: Book,
@@ -132,14 +133,7 @@ export function GoalDetailPage() {
       title={goal.title}
       backTo="/goals"
       right={
-        <button
-          type="button"
-          aria-label="Редактировать"
-          onClick={() => setEditOpen(true)}
-          className="p-2 text-accent"
-        >
-          <Pencil size={20} />
-        </button>
+        <IconButton icon={Pencil} label="Редактировать" onClick={() => setEditOpen(true)} />
       }
     >
       {goal.description && (

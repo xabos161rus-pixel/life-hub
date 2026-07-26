@@ -153,7 +153,7 @@ export function SavingsSection() {
     <section>
       <div className="mb-2 flex items-end justify-between gap-2 px-1">
         <h2 className="flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
-          <PiggyBank size={15} className="shrink-0" />
+          <PiggyBank size={14} className="shrink-0" />
           Накопления
         </h2>
         {goals.length > 0 && (
@@ -181,7 +181,7 @@ export function SavingsSection() {
           onClick={openNew}
           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border py-3.5 text-sm font-semibold text-muted active:opacity-70"
         >
-          <Plus size={17} /> {goals.length === 0 ? 'Цель накопления' : 'Новая цель'}
+          <Plus size={16} /> {goals.length === 0 ? 'Цель накопления' : 'Новая цель'}
         </button>
       </div>
 

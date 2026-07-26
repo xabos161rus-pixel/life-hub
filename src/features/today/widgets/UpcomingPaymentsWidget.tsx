@@ -28,7 +28,7 @@ export function UpcomingPaymentsWidget() {
         to="/more/finance"
         className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-muted active:opacity-60"
       >
-        <Wallet size={15} />
+        <Wallet size={14} />
         Ближайшие платежи
       </Link>
       <div className="card divide-y divide-hairline px-4">

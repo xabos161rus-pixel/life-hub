@@ -125,10 +125,10 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
           {incoming ? (
             <>
               <CallButton color="danger" label="Отклонить" onClick={() => callManager.decline()}>
-                <PhoneOff size={28} />
+                <PhoneOff size={24} />
               </CallButton>
               <CallButton color="success" label="Ответить" onClick={() => void callManager.accept()}>
-                <Phone size={28} />
+                <Phone size={24} />
               </CallButton>
             </>
           ) : (
@@ -138,7 +138,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
                 label={snap.muted ? 'Включить' : 'Микрофон'}
                 onClick={bump(() => callManager.toggleMute())}
               >
-                {snap.muted ? <MicOff size={26} /> : <Mic size={26} />}
+                {snap.muted ? <MicOff size={24} /> : <Mic size={24} />}
               </CallButton>
               {snap.speakerAvailable && (
                 <CallButton
@@ -146,7 +146,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
                   label={snap.speakerOn ? 'Динамик' : 'К уху'}
                   onClick={bump(() => void callManager.toggleSpeaker())}
                 >
-                  <Volume2 size={26} />
+                  <Volume2 size={24} />
                 </CallButton>
               )}
               {snap.outputPickerAvailable && (
@@ -155,7 +155,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
                   label="Наушники"
                   onClick={bump(() => callManager.showOutputPicker())}
                 >
-                  <Headphones size={26} />
+                  <Headphones size={24} />
                 </CallButton>
               )}
               {earpiece && (
@@ -164,7 +164,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
                 </CallButton>
               )}
               <CallButton color="danger" label="Завершить" onClick={bump(() => callManager.hangup())}>
-                <PhoneOff size={28} />
+                <PhoneOff size={24} />
               </CallButton>
             </>
           )}

@@ -27,7 +27,7 @@ const STEPS: { icon: LucideIcon; text: string }[] = [
 function Row({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
   return (
     <div className="flex gap-3 card p-4">
-      <Icon size={22} className="mt-0.5 shrink-0 text-accent" />
+      <Icon size={20} className="mt-0.5 shrink-0 text-accent" />
       <p className="min-w-0 text-sm leading-relaxed">{children}</p>
     </div>
   );
@@ -69,12 +69,12 @@ export function InstallInstructionsPage() {
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent">
                     {i + 1}
                   </span>
-                  <step.icon size={22} className="shrink-0 text-accent" />
+                  <step.icon size={20} className="shrink-0 text-accent" />
                   <p className="min-w-0">{step.text}</p>
                 </div>
               ))}
               <div className="flex gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4">
-                <TriangleAlert size={22} className="mt-0.5 shrink-0 text-warning" />
+                <TriangleAlert size={20} className="mt-0.5 shrink-0 text-warning" />
                 <p className="text-sm leading-relaxed">
                   Данные Safari и установленного приложения хранятся раздельно. Сначала
                   установите приложение, и только потом вводите данные — иначе они останутся во
@@ -91,7 +91,7 @@ export function InstallInstructionsPage() {
           <h2 className="text-sm font-semibold text-muted">Данные: сохранить и вернуть</h2>
 
           <div className="flex gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4">
-            <TriangleAlert size={22} className="mt-0.5 shrink-0 text-warning" />
+            <TriangleAlert size={20} className="mt-0.5 shrink-0 text-warning" />
             <p className="text-sm leading-relaxed">
               <span className="font-semibold">Перед удалением или переустановкой сохраните
               копию.</span>{' '}

@@ -33,6 +33,8 @@ import { TaskEditSheet } from './TaskEditSheet';
 import { TaskItem } from './TaskItem';
 import { FreezeSheet } from './FreezeSheet';
 import { unfreezeAll, unfreezeTask } from './taskActions';
+import { STROKE, STROKE_STRONG } from '../../components/ui/icons';
+import { IconButton } from '../../components/ui/IconButton';
 
 const NONE = '__none__';
 const FROZEN = '__frozen__'; // ключ свёрнутости секции «Заморожено»
@@ -66,7 +68,8 @@ function ProjectFolderIcon({ project, size = 18 }: { project: Project; size?: nu
     <Folder
       size={size}
       aria-hidden
-      style={{ color: project.color, fill: project.color, strokeWidth: 1.5 }}
+      strokeWidth={STROKE}
+      style={{ color: project.color, fill: project.color }}
     />
   );
 }
@@ -413,7 +416,7 @@ function FrozenSection({
                     )}
                     {t.recurrence && (
                       <span className="flex items-center gap-0.5">
-                        <Repeat size={11} />
+                        <Repeat size={14} />
                         {describeRecurrence(t.recurrence)}
                       </span>
                     )}
@@ -430,7 +433,7 @@ function FrozenSection({
                   // Тёплое солнце-«разморозка» — контраст к голубой теме секции.
                   className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning active:opacity-70"
                 >
-                  <Sun size={17} />
+                  <Sun size={16} />
                 </button>
               </div>
             );
@@ -459,7 +462,7 @@ function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; onAddSu
         aria-label="Добавить задачу"
         className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
       >
-        <Plus size={15} /> Задача
+        <Plus size={14} /> Задача
       </button>
       {onAddSubproject && (
         <button
@@ -467,7 +470,7 @@ function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; onAddSu
           aria-label="Добавить подпроект"
           className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-muted active:opacity-60"
         >
-          <FolderPlus size={15} /> Подпроект
+          <FolderPlus size={14} /> Подпроект
         </button>
       )}
     </div>
@@ -908,17 +911,16 @@ export function TasksPage() {
     <Screen
       title="Задачи"
       right={
-        <button
+        // Голубой «морозный» кружок со свечением — видно, что это кнопка.
+        // Метрика и зона касания 44×44 — из IconButton; здесь только заливка.
+        <IconButton
+          icon={Snowflake}
+          label="Заморозить задачи"
           onClick={() => setFreezeSheetOpen(true)}
-          aria-label="Заморозить задачи"
-          // Голубой «морозный» кружок со свечением — видно, что это кнопка.
-          // size-10 при root 17px даёт 42.5px — на 1.5px меньше минимума 44x44.
-          // Раздувать кружок до size-11 значит ломать баланс с заголовком, поэтому
-          // недостающее добираем невидимой зоной; у шапки Screen overflow не скрыт.
-          className={`flex size-10 items-center justify-center rounded-full bg-frost/15 text-frost shadow-[0_0_16px_-6px_var(--app-frost)] transition-transform active:scale-90 ${HIT_SLOP_44}`}
-        >
-          <Snowflake size={21} style={{ strokeWidth: 2 }} />
-        </button>
+          tone="frost"
+          strokeWidth={STROKE_STRONG}
+          className="bg-frost/15 shadow-[0_0_16px_-6px_var(--app-frost)] transition-transform active:scale-90"
+        />
       }
     >
       <QuickAddBar />

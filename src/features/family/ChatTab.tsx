@@ -347,11 +347,11 @@ function MessageRow({
               {timeLabel(m.createdAt)}
               {own &&
                 (m.status === 'pending' ? (
-                  <Clock size={11} />
+                  <Clock size={14} />
                 ) : m.seq != null && maxOtherRead >= m.seq ? (
-                  <CheckCheck size={13} className="text-sky-300" />
+                  <CheckCheck size={14} className="text-sky-300" />
                 ) : (
-                  <Check size={11} />
+                  <Check size={14} />
                 ))}
             </span>
           </div>
@@ -782,7 +782,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         )}
         {replyTo && (
           <div className="flex items-center gap-2 px-1 pt-2 text-sm">
-            <Reply size={15} className="shrink-0 text-accent" />
+            <Reply size={14} className="shrink-0 text-accent" />
             <div className="min-w-0 flex-1 border-l-2 border-accent pl-2">
               <p className="text-xs font-semibold text-accent">
                 {memberMap[replyTo.senderMemberId]?.displayName || 'Участник'}
@@ -841,9 +841,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
               className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted transition-colors active:bg-surface active:text-accent disabled:opacity-50"
             >
               {sendingImage ? (
-                <Loader2 size={21} className="animate-spin motion-reduce:animate-none" />
+                <Loader2 size={20} className="animate-spin motion-reduce:animate-none" />
               ) : (
-                <Paperclip size={21} />
+                <Paperclip size={20} />
               )}
             </button>
             <textarea

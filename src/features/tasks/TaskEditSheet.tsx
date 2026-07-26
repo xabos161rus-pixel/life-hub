@@ -351,7 +351,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               onClick={() => copyText(title)}
               className="-mr-1 p-1 text-muted active:opacity-60"
             >
-              <Copy size={15} />
+              <Copy size={14} />
             </button>
           </div>
           <div className="flex items-start gap-2">
@@ -385,7 +385,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               onClick={() => copyText(notes)}
               className="-mr-1 p-1 text-muted active:opacity-60"
             >
-              <Copy size={15} />
+              <Copy size={14} />
             </button>
           </div>
           <div className="flex items-start gap-2">
@@ -437,7 +437,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                   onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
                   className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full border border-border bg-elevated text-muted active:opacity-60"
                 >
-                  <X size={13} />
+                  <X size={14} />
                 </button>
               </div>
             ))}
@@ -447,7 +447,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               onClick={() => photoInputRef.current?.click()}
               className="flex size-20 items-center justify-center rounded-xl border border-dashed border-border text-muted active:opacity-60"
             >
-              <ImagePlus size={22} />
+              <ImagePlus size={20} />
             </button>
           </div>
           <input
@@ -713,7 +713,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
           {checklist.map((item) => (
             <div key={item.id} className="flex items-center gap-2.5 py-1">
               <TaskCheck
-                size={22}
+                size={20}
                 checked={item.done}
                 onChange={() =>
                   setChecklist((arr) =>
@@ -749,7 +749,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
             className="flex w-full items-center justify-center gap-1.5"
             onClick={handleFocus}
           >
-            <Timer size={17} /> Запустить фокус
+            <Timer size={16} /> Запустить фокус
           </Button>
         )}
 

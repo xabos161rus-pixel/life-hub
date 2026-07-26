@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
+import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
 
 const MODE_OPTIONS: { value: GoalProgressMode; label: string }[] = [
   { value: 'manual', label: 'Вручную' },
@@ -138,7 +139,7 @@ function GoalEditForm({
                 style={{ background: c }}
               >
                 {color === c && (
-                  <Check size={18} color={isLightColor(c) ? ON_COLOR_DARK : '#fff'} strokeWidth={3} />
+                  <Check size={ICON.base} color={isLightColor(c) ? ON_COLOR_DARK : '#fff'} strokeWidth={STROKE_HEAVY} />
                 )}
               </button>
             ))}

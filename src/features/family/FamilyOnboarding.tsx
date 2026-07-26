@@ -12,6 +12,7 @@ import {
   normalizeInviteWord,
   peekInvite,
 } from '../../lib/crypto';
+import { STROKE_HEAVY } from '../../components/ui/icons';
 
 const JOIN_TABS = [
   { value: 'scan' as const, label: 'Сканировать' },
@@ -31,7 +32,7 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
         aria-label="Создать группу или войти по приглашению"
         className="flex size-20 items-center justify-center rounded-3xl bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent active:scale-95"
       >
-        <Plus size={40} strokeWidth={2.4} />
+        <Plus size={40} strokeWidth={STROKE_HEAVY} />
       </button>
       <div className="space-y-1.5">
         <p className="text-lg font-semibold">Создать или войти по приглашению</p>

@@ -14,6 +14,7 @@ import { Screen } from '../../components/layout/Screen';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useToast } from '../../components/ui/toastContext';
+import { IconButton } from '../../components/ui/IconButton';
 
 interface TaskStats {
   /** последние 7 дней (старые → новые): подпись дня + число выполненных */
@@ -330,13 +331,7 @@ export function StatsPage() {
       title="Статистика"
       backTo="/home"
       right={
-        <button
-          onClick={() => void handleShareReport()}
-          aria-label="Поделиться отчётом"
-          className="-mr-2 p-1 text-accent active:opacity-60"
-        >
-          <Share2 size={22} />
-        </button>
+        <IconButton icon={Share2} label="Поделиться отчётом" onClick={() => void handleShareReport()} />
       }
     >
       <div className="flex flex-col gap-4">

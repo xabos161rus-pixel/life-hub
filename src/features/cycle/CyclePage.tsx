@@ -1,5 +1,4 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Link } from 'react-router';
 import { Droplet, Info, Plus, SlidersHorizontal } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -7,13 +6,13 @@ import { Button } from '../../components/ui/Button';
 import { ensureCycleSetup } from '../../lib/cycle/cycleRepo';
 import { formatRu, todayKey } from '../../lib/dates';
 import { plural } from '../../lib/plural';
-import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { CycleCalendar } from './CycleCalendar';
 import { DayLogSheet } from './DayLogSheet';
 import { useCycleData } from './useCycleData';
 import { CycleLock } from './CycleLock';
 import { isUnlocked, subscribeLock } from './lockState';
 import type { CyclePredictionResult } from '../../lib/cycle/predict';
+import { IconButton } from '../../components/ui/IconButton';
 
 /** Как называем прогноз словами.
  *
@@ -88,15 +87,15 @@ export function CyclePage() {
           >
             Отметить
           </button>
-          {/* ml-1 к зазору: зона касания шире иконки на 8,6px с каждой стороны,
+          {/* ml-2 к зазору: зона касания шире иконки на 3px с каждой стороны,
               и без запаса тап у левого края уходил бы кнопке «Отметить». */}
-          <Link
+          <IconButton
+            icon={SlidersHorizontal}
+            label="Настройки раздела"
             to="/more/cycle/settings"
-            aria-label="Настройки раздела"
-            className={`ml-1 shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
-          >
-            <SlidersHorizontal size={20} />
-          </Link>
+            tone="muted"
+            className="ml-2"
+          />
         </div>
         )
       }
@@ -162,7 +161,7 @@ export function CyclePage() {
             {anomalies.length > 0 && (
               <section>
                 <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
-                  <Info size={15} className="shrink-0" />
+                  <Info size={14} className="shrink-0" />
                   Стоит обратить внимание
                 </h2>
                 <div className="card divide-y divide-hairline px-4">

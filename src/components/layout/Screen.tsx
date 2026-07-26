@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
 import { ChevronLeft } from 'lucide-react';
-import { HIT_SLOP_44 } from '../ui/hitSlop';
+import { IconButton } from '../ui/IconButton';
+import { ICON, STROKE_STRONG } from '../ui/icons';
 
 interface Props {
   title: string;
@@ -45,14 +45,17 @@ export function Screen({ title, backTo, right, subtitle, fill = false, children 
           max-w-lg, той же ширины, что таб-бар. На телефоне ничего не меняет. */}
       <header className="sticky top-0 z-30 shrink-0 border-b border-hairline bg-bg px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3">
         <div className="mx-auto flex w-full max-w-lg items-center gap-2">
+          {/* Стрелка «Назад» — единственная навигация вверх по иерархии, и вес
+              у неё акцентный: обычным 1.5px шеврон рядом с жирным заголовком
+              читался как случайная чёрточка. В iOS он тоже полужирный. */}
           {backTo && (
-            <Link
+            <IconButton
+              icon={ChevronLeft}
+              label="Назад"
               to={backTo}
-              aria-label="Назад"
-              className={`-ml-2 p-1 text-accent active:opacity-60 ${HIT_SLOP_44}`}
-            >
-              <ChevronLeft size={26} />
-            </Link>
+              size={ICON.accent}
+              strokeWidth={STROKE_STRONG}
+            />
           )}
           <div className="min-w-0 flex-1">
             {/* Заголовок переносится на вторую строку вместо обрезки многоточием

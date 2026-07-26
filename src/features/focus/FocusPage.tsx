@@ -398,7 +398,7 @@ export function FocusPage() {
             }}
             className="flex size-20 items-center justify-center rounded-full text-white active:scale-90"
           >
-            {p.running ? <Pause size={32} fill="#fff" /> : <Play size={32} fill="#fff" className="ml-1" />}
+            {p.running ? <Pause size={40} fill="#fff" /> : <Play size={40} fill="#fff" className="ml-1" />}
           </button>
           <button
             onClick={p.skip}
@@ -464,7 +464,7 @@ export function FocusPage() {
                 onClick={() => (managing ? openEditPreset(pr) : applyPreset(pr))}
               >
                 <span className="flex items-center gap-1">
-                  {managing && <Pencil size={13} />}
+                  {managing && <Pencil size={14} />}
                   {pr.name}
                 </span>
               </Chip>
