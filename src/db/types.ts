@@ -254,6 +254,9 @@ export interface Settings {
   lastBackupAt: string | null;
   schemaVersion: number;
   profile?: UserProfile;
+  /** Версия, список изменений которой человек уже видел. Отсутствует у тех,
+   *  кто пользовался приложением до появления окна «что нового». */
+  lastSeenVersion?: string;
   updatedAt: string;
   // Обучение: ISO-время завершения вводного тура. null/undefined — не пройден,
   // при первом запуске поверх приложения показывается OnboardingOverlay.

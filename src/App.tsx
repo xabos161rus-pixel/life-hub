@@ -39,6 +39,7 @@ import { PomodoroProvider } from './features/focus/PomodoroProvider';
 import { MiniTimer } from './features/focus/MiniTimer';
 import { OnboardingOverlay } from './features/onboarding/OnboardingOverlay';
 import { ReinstallNotice } from './features/onboarding/ReinstallNotice';
+import { WhatsNew } from './features/onboarding/WhatsNew';
 
 /** Сбрасывает прокрутку контейнера наверх при смене маршрута — иначе открытая
  *  после прокрутки страница (например «Ещё») показывалась не с начала. */
@@ -171,6 +172,9 @@ export default function App() {
           <OnboardingOverlay />
           {/* Одноразовое окно о смене имени/значка — только «старым» пользователям. */}
           <ReinstallNotice />
+          {/* Что изменилось в этом обновлении. Обновление ставится тихо, и без
+              этого окна человек не узнаёт ни что версия сменилась, ни чем. */}
+          <WhatsNew />
         </ErrorBoundary>
         </PomodoroProvider>
       </ToastProvider>
