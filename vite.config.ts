@@ -3,18 +3,26 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Метка сборки в Настройках: на iOS обновление PWA иногда подхватывается со
+// второго запуска, и без неё невозможно отличить настоящий баг от старой
+// закэшированной версии. Живёт в <meta> внутри index.html, а НЕ в JS через
+// define: вшитая в бандл метка меняла бы контент-хэш assets/index-*.js на
+// каждой сборке, а cron-сторож в воркере следит именно за этим хэшем и слал
+// бы пуш «вышло обновление» после пересборки без единой правки кода.
+const BUILD_ID = new Date().toISOString().replace('T', ' ').slice(0, 16);
+
 export default defineConfig(({ command }) => ({
   // в dev — корень (удобнее для предпросмотра), в проде — путь GitHub Pages
   base: command === 'build' ? '/life-hub/' : '/',
-  // Метка сборки в Настройках: на iOS обновление PWA иногда подхватывается со
-  // второго запуска, и без неё невозможно отличить настоящий баг от старой
-  // закэшированной версии.
-  define: {
-    __BUILD_ID__: JSON.stringify(new Date().toISOString().replace('T', ' ').slice(0, 16)),
-  },
   plugins: [
     react(),
     tailwindcss(),
+    {
+      name: 'build-id-meta',
+      transformIndexHtml: () => [
+        { tag: 'meta', attrs: { name: 'build-id', content: BUILD_ID }, injectTo: 'head' as const },
+      ],
+    },
     VitePWA({
       // autoUpdate (а не 'prompt'): на iOS-PWA ручное «Обновить» ненадёжно — юзер
       // застревал на старом кэше и не видел задеплоенных фиксов. Теперь новый SW

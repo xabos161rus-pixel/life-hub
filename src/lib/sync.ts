@@ -82,6 +82,40 @@ function authHeaders(c: SyncConfig): Record<string, string> {
 
 // === PULL ===
 
+/**
+ * Сбой ОТНОСИТСЯ К САМОЙ ЗАПИСИ (её можно пропустить и идти дальше), а не к
+ * хранилищу? Битый шифротекст, не-JSON внутри, испорченный base64 — запись
+ * «ядовитая», следующие к ней отношения не имеют. А вот QuotaExceededError,
+ * DatabaseClosedError и прочие сбои IndexedDB означают, что не применится
+ * НИЧЕГО: их надо пробросить, чтобы цикл упал и курсор не уехал вперёд по
+ * записям, которые на самом деле не записаны.
+ */
+function isPoisonRecord(e: unknown): boolean {
+  const name = (e as { name?: string } | null)?.name ?? '';
+  return name === 'OperationError' || name === 'SyntaxError' || name === 'InvalidCharacterError' || name === 'DataError';
+}
+
+/**
+ * У habitLogs уникальный составной индекс &[habitId+date] (db.ts v9), а id
+ * генерируются случайно на каждом устройстве. Отметил привычку за один день
+ * на маке и на телефоне до обмена — получаются две строки с разными id и
+ * одинаковой парой [habitId+date], и put входящей падает с ConstraintError.
+ * Разрешаем как везде в синке — по LWW, оставляя более свежую отметку.
+ * Возвращает false, если побеждает локальная запись и писать не нужно.
+ */
+async function resolveHabitLogConflict(obj: Row): Promise<boolean> {
+  const habitId = obj.habitId as string | undefined;
+  const date = obj.date as string | undefined;
+  if (!habitId || !date) return true;
+  const dup = await db.habitLogs.where('[habitId+date]').equals([habitId, date]).first();
+  if (!dup || dup.id === obj.id) return true;
+  if (obj.updatedAt > (dup.updatedAt ?? '')) {
+    await db.habitLogs.delete(dup.id); // входящая свежее — снимаем локальный дубль
+    return true;
+  }
+  return false; // локальная отметка свежее — входящую игнорируем
+}
+
 /** Применить одну входящую запись. true — если что-то записано локально. */
 async function applyRecord(c: SyncConfig, r: RemoteRecord): Promise<boolean> {
   // Семейное подключение с другого МОЕГО устройства: восстанавливаем конфиг
@@ -123,6 +157,7 @@ async function applyRecord(c: SyncConfig, r: RemoteRecord): Promise<boolean> {
   const local = await table.get(r.id);
   if (!shouldApply(local?.updatedAt, r.updatedAt)) return false;
   const obj = await decryptJSON<Row>(c.key, r.ciphertext);
+  if (r.table === 'habitLogs' && !(await resolveHabitLogConflict(obj))) return false;
   // Пишем НАПРЯМУЮ (минуя repo) — сохраняем серверный updatedAt, иначе синк
   // зациклится (repo проставил бы новый updatedAt → бесконечный пинг-понг).
   await table.put(obj);
@@ -141,13 +176,15 @@ async function pullPage(
   let applied = 0;
   let skipped = 0;
   for (const r of data.records) {
-    // Сбой на ОДНОЙ записи (битый шифротекст, неожиданная форма данных) не
+    // Сбой на ОДНОЙ «ядовитой» записи (битый шифротекст, не-JSON внутри) не
     // должен ронять весь цикл: иначе курсор lastPullAt не сдвинется и синк
     // встанет навсегда — перестанут приходить и задачи, и заметки, и семья.
-    // Пропускаем запись, считаем её и идём дальше.
+    // Но сбой ХРАНИЛИЩА пропускать нельзя: там не применится ничего, и
+    // сдвинутый курсор увёл бы за собой записи, которые не записаны.
     try {
       if (await applyRecord(c, r)) applied++;
     } catch (e) {
+      if (!isPoisonRecord(e)) throw e;
       skipped++;
       console.warn(`sync: пропущена запись ${r.table}/${r.id}`, e);
     }
@@ -182,8 +219,14 @@ async function push(c: SyncConfig): Promise<number> {
   // окна отсекает всё, что записано после снятия курсора, — оно уедет
   // следующим циклом.
   const cutoff = new Date().toISOString();
+  // Окно ПОЛУОТКРЫТОЕ: [lastPushAt, cutoff). Верхняя граница строгая, иначе
+  // запись, созданная в ту же миллисекунду, что и cutoff, но уже после его
+  // снятия, не попадёт ни в это окно (её ещё нет в базе), ни в следующее
+  // (фильтр там строго больше cutoff). Нижняя граница включающая — она лишь
+  // переотправит одну пограничную запись, что безвредно: на сервере стоит
+  // ON CONFLICT ... WHERE excluded.updated_at > records.updated_at.
   const inWindow = (u: unknown): u is string =>
-    typeof u === 'string' && u > c.lastPushAt && u <= cutoff;
+    typeof u === 'string' && u >= c.lastPushAt && u < cutoff;
   const fresh: { name: string; row: Row }[] = [];
   for (const name of SYNCED_TABLES) {
     const rows = (await db.table<Row>(name).toArray()).filter((r) => inWindow(r.updatedAt));
@@ -238,14 +281,27 @@ async function push(c: SyncConfig): Promise<number> {
 let running = false;
 let lastError: string | null = null;
 
-/** Один цикл: pull → push. Возвращает null, если синк выключен или уже идёт. */
-export async function runSync(): Promise<{ pulled: number; pushed: number; skipped: number } | null> {
+/**
+ * Один цикл: pull → push. Возвращает null, если синк выключен или уже идёт.
+ * С `reset: true` курсоры зануляются ВНУТРИ критической секции — снаружи это
+ * делать нельзя: уже идущий цикл дописал бы поверх свои значения, и сброс
+ * молча не состоялся бы.
+ */
+export async function runSync(opts?: {
+  reset?: boolean;
+}): Promise<{ pulled: number; pushed: number; skipped: number } | null> {
   if (running) return null;
-  const c = await getSyncConfig();
+  let c = await getSyncConfig();
   if (!c || !c.enabled) return null;
   running = true;
   lastError = null;
   try {
+    if (opts?.reset) {
+      await patchSyncConfig({ lastPullAt: '', lastPushAt: '' });
+      const reloaded = await getSyncConfig();
+      if (!reloaded) return null;
+      c = reloaded;
+    }
     const { applied: pulled, skipped } = await pull(c);
     const fresh = await getSyncConfig(); // курсор pull обновился
     const pushed = fresh ? await push(fresh) : 0;
@@ -327,11 +383,12 @@ export async function disableSync(): Promise<void> {
 }
 
 /**
- * Сбросить курсоры чтения/отправки, не трогая сопряжение. Следующий синк
- * заново пройдёт всю историю аккаунта и переотправит все локальные записи.
- * Страховка на случай рассинхрона версий или пропущенных записей — раньше
- * это лечилось только отключением синка и повторным сопряжением по QR.
+ * Сбросить курсоры и тут же пройти всю историю аккаунта заново, переотправив
+ * все локальные записи. Сопряжение устройств не трогается. Страховка на
+ * случай рассинхрона версий или пропущенных записей — раньше это лечилось
+ * только отключением синка и повторным сопряжением по QR.
+ * Возвращает null, если синк выключен или в этот момент уже идёт.
  */
-export async function resetSyncCursors(): Promise<void> {
-  await patchSyncConfig({ lastPullAt: '', lastPushAt: '' });
+export function resetAndResync(): ReturnType<typeof runSync> {
+  return runSync({ reset: true });
 }

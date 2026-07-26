@@ -166,13 +166,18 @@ export default {
         const sep = sinceRaw.indexOf('|');
         const sinceU = sep >= 0 ? sinceRaw.slice(0, sep) : sinceRaw;
         const sinceId = sep >= 0 ? sinceRaw.slice(sep + 1) : '';
+        // Сравнение row values, а НЕ эквивалентная форма с OR: только его
+        // SQLite превращает в seek по составному индексу. С OR планировщик
+        // берёт индекс лишь по account_id и сканирует все записи аккаунта на
+        // каждый /sync/pull — при опросе раз в 60 с с двух устройств это
+        // миллионы прочитанных строк в сутки и выход за лимиты D1.
         const res = await env.DB.prepare(
           `SELECT table_name AS tbl, id, updated_at AS u, deleted_at AS d, ciphertext AS c
            FROM records
-           WHERE account_id = ? AND (updated_at > ? OR (updated_at = ? AND id > ?))
+           WHERE account_id = ? AND (updated_at, id) > (?, ?)
            ORDER BY updated_at, id LIMIT ?`,
         )
-          .bind(accountId, sinceU, sinceU, sinceId, PULL_LIMIT + 1)
+          .bind(accountId, sinceU, sinceId, PULL_LIMIT + 1)
           .all();
         const rows = res.results || [];
         const hasMore = rows.length > PULL_LIMIT;

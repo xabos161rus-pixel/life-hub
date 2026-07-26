@@ -4,8 +4,13 @@ import { RefreshCw, QrCode, Smartphone, ShieldCheck, Copy, RotateCcw } from 'luc
 import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/Toast';
 import { getSyncConfig } from '../../../lib/syncState';
-import { createSyncAccount, disableSync, runSync, resetSyncCursors } from '../../../lib/sync';
+import { createSyncAccount, disableSync, runSync, resetAndResync } from '../../../lib/sync';
 import { PairingSheet } from './PairingSheet';
+
+/** Хвост тоста о пропущенных записях: молчаливый пропуск — скрытая потеря. */
+function skippedTail(skipped: number): string {
+  return skipped ? `, пропущено ${skipped}` : '';
+}
 
 function formatSyncedAt(iso: string): string {
   if (!iso) return 'ещё не синхронизировано';
@@ -41,12 +46,7 @@ export function SyncSection() {
     setBusy(true);
     try {
       const r = await runSync();
-      if (r) {
-        // Пропущенные записи показываем явно: молчаливый пропуск — это скрытая
-        // потеря данных, о ней нужно знать.
-        const tail = r.skipped ? `, пропущено ${r.skipped}` : '';
-        toast(`Синхронизировано · получено ${r.pulled}, отправлено ${r.pushed}${tail}`);
-      }
+      if (r) toast(`Синхронизировано · получено ${r.pulled}, отправлено ${r.pushed}${skippedTail(r.skipped)}`);
     } catch {
       toast('Не удалось синхронизировать');
     } finally {
@@ -60,7 +60,9 @@ export function SyncSection() {
       await navigator.clipboard.writeText(config.accountId);
       toast('ID аккаунта скопирован');
     } catch {
-      toast('Не удалось скопировать');
+      // Клипборд недоступен (нет secure context / отказ WebKit) — показываем
+      // значение в prompt, откуда его можно выделить и скопировать вручную.
+      window.prompt('ID аккаунта — скопируйте вручную:', config.accountId);
     }
   }
 
@@ -68,17 +70,22 @@ export function SyncSection() {
     if (busy) return;
     if (
       !window.confirm(
-        'Сбросить курсоры синхронизации? Следующий синк заново пройдёт всю историю аккаунта. Данные не пострадают, сопряжение устройств сохранится.',
+        'Пройти всю историю синхронизации заново?\n\nЭто выгрузит с сервера все записи аккаунта и переотправит локальные. Сопряжение устройств сохранится.\n\nВажно: записи, удалённые из корзины окончательно, могут вернуться — на сервере они ещё лежат.',
       )
     )
       return;
     setBusy(true);
     try {
-      await resetSyncCursors();
-      const r = await runSync();
-      toast(r ? `Курсоры сброшены · получено ${r.pulled}, отправлено ${r.pushed}` : 'Курсоры сброшены');
+      const r = await resetAndResync();
+      // null = синк выключен или уже идёт. Рапортовать об успехе тут нельзя:
+      // сброс в этом случае не состоялся.
+      toast(
+        r
+          ? `Пересинхронизировано · получено ${r.pulled}, отправлено ${r.pushed}${skippedTail(r.skipped)}`
+          : 'Синхронизация уже идёт — повторите через секунду',
+      );
     } catch {
-      toast('Курсоры сброшены, синк не прошёл');
+      toast('Не удалось пересинхронизировать');
     } finally {
       setBusy(false);
     }
@@ -116,22 +123,22 @@ export function SyncSection() {
               Показать QR для другого устройства
             </Button>
             <button
-              className="flex w-full items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2 text-left active:opacity-70"
+              className="flex w-full items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-left active:opacity-70"
               onClick={() => void handleCopyAccount()}
             >
               <span className="min-w-0">
                 <span className="block text-xs text-muted">ID аккаунта</span>
-                <span className="block truncate font-mono text-xs">{config.accountId}</span>
+                <span className="block font-mono text-xs break-all">{config.accountId}</span>
               </span>
               <Copy size={16} className="shrink-0 text-muted" />
             </button>
             <button
-              className="inline-flex w-full items-center justify-center gap-2 pt-1 text-sm text-muted active:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 pt-1 text-sm text-muted active:opacity-60 disabled:opacity-40"
               disabled={busy}
               onClick={() => void handleResetCursors()}
             >
-              <RotateCcw size={16} />
-              Сбросить курсоры и пересинхронизировать
+              <RotateCcw size={16} className={busy ? 'animate-spin' : ''} />
+              Пройти историю синхронизации заново
             </button>
             <button
               className="w-full pt-1 text-sm text-danger active:opacity-60"

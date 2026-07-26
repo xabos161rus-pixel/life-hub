@@ -27,6 +27,12 @@ import { SyncSection } from './sync/SyncSection';
 import { InstallLink } from './InstallLink';
 import type { Settings } from '../../db/types';
 
+// Метка сборки подставляется в <meta> при сборке (см. vite.config.ts). В JS её
+// держать нельзя: она меняла бы контент-хэш бандла на каждой сборке и заставляла
+// cron-сторож рассылать пуш «вышло обновление» без единой правки кода.
+const BUILD_ID =
+  document.querySelector('meta[name="build-id"]')?.getAttribute('content') ?? 'dev';
+
 const THEME_OPTIONS: { value: Settings['theme']; label: string }[] = [
   { value: 'dark', label: 'Тёмная' },
   { value: 'light', label: 'Светлая' },
@@ -430,7 +436,7 @@ export function SettingsPage() {
               <InstallLink />
             </div>
             <p className="border-t border-hairline px-4 py-3 text-sm text-muted">
-              Версия 1.0.0 · сборка {__BUILD_ID__}
+              Версия 1.0.0 · сборка {BUILD_ID}
               <br />
               данные хранятся только на этом устройстве
             </p>
