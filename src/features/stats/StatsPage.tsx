@@ -107,14 +107,14 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
 function formatDuration(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
-  if (h === 0) return `${m}м`;
-  return m === 0 ? `${h}ч` : `${h}ч ${m}м`;
+  if (h === 0) return `${m}\u00A0мин`;
+  return m === 0 ? `${h}\u00A0ч` : `${h}\u00A0ч ${m}\u00A0мин`;
 }
 
 /** Компактная подпись столбца графика: «45м», «2ч», «1.5ч». */
 function compactDuration(min: number): string {
   if (min === 0) return '';
-  if (min < 60) return `${min}м`;
+  if (min < 60) return `${min}\u00A0мин`;
   const h = min / 60;
   return Number.isInteger(h) ? `${h}ч` : `${h.toFixed(1)}ч`;
 }
@@ -224,7 +224,7 @@ export function StatsPage() {
       } catch (err) {
         // AbortError — пользователь закрыл шит шаринга, это не ошибка
         if (!(err instanceof DOMException && err.name === 'AbortError')) {
-          alert('Не удалось поделиться отчётом');
+          alert('Не удалось поделиться отчётом. Попробуйте ещё раз');
         }
         return;
       }

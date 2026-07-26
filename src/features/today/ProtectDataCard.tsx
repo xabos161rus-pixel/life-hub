@@ -8,7 +8,7 @@ import { pushEnabled } from '../../lib/push';
 /**
  * Мягкое напоминание на «Сегодня»: защитить данные — включить синхронизацию,
  * облачную копию и уведомления. Показывается, пока и синхронизация, и
- * уведомления не включены; исчезает сама, когда оба включены. «Позже» скрывает
+ * уведомления не включены; исчезает сама, когда оба включены. «Скрыть» скрывает
  * до следующего запуска (несознательно навсегда не прячем).
  *
  * Не включаем ничего по умолчанию намеренно: ключ шифрования нужно осознанно
@@ -41,7 +41,7 @@ export function ProtectDataCard() {
       <div className="card relative p-4">
         <button
           type="button"
-          aria-label="Позже"
+          aria-label="Скрыть"
           onClick={() => setDismissed(true)}
           className="absolute top-2.5 right-2.5 flex size-7 items-center justify-center rounded-full text-muted active:opacity-60"
         >

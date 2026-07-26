@@ -61,8 +61,8 @@ const REMIND_PRESETS = [5, 10, 15, 30, 45, 60, 120, 180, 360, 720, 1440];
 function formatDuration(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
-  if (h === 0) return `${m}м`;
-  return m === 0 ? `${h}ч` : `${h}ч ${m}м`;
+  if (h === 0) return `${m}\u00A0мин`;
+  return m === 0 ? `${h}\u00A0ч` : `${h}\u00A0ч ${m}\u00A0мин`;
 }
 
 type TaskEditProps = {

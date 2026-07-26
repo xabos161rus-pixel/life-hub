@@ -205,3 +205,59 @@ describe('compareToFigo', () => {
     expect(r.bleedingTypical).toBeNull();
   });
 });
+
+describe('числительные в текстах о здоровье', () => {
+  // Тексты читает человек, и читает про своё здоровье. «21 дней», «91 дней»
+  // и «5 менструации» были тремя разными багами в трёх разных подсказках.
+  const cyclesOf = (lengths: number[]) => {
+    let start = '2026-01-01';
+    return lengths.map((len) => {
+      const c: Cycle = {
+        startDate: start,
+        endDate: addDaysKey(start, len - 1),
+        lengthDays: len,
+        periodLengthDays: 5,
+        status: 'complete',
+        excluded: 0,
+        hasDataGaps: 0,
+        startConfirmed: 1,
+        derivedAt: '2026-01-01T00:00:00.000Z',
+      };
+      start = addDaysKey(start, len);
+      return c;
+    });
+  };
+
+  it('разница длин циклов склоняется', () => {
+    // 21 и 22 — разные формы, и обе ломались одинаково.
+    const out = detectAnomalies({
+      cycles: cyclesOf([21, 40, 22]),
+      days: [],
+      episodes: [],
+      today: '2026-04-01',
+    });
+    const irr = out.find((a) => a.kind === 'irregular');
+    expect(irr?.detail).toContain('21 день');
+    expect(irr?.detail).not.toMatch(/\d+ дней, самый|21 дней/);
+  });
+
+  it('число долгих менструаций склоняется', () => {
+    const long = cyclesOf([28, 28, 28, 28, 28]).map((c) => ({ ...c, periodLengthDays: 11 }));
+    const out = detectAnomalies({ cycles: long, days: [], episodes: [], today: '2026-06-01' });
+    const p = out.find((a) => a.kind === 'prolonged');
+    expect(p?.detail).toMatch(/За полгода \d+ менструаци[йи] длились/);
+    expect(p?.detail).toContain('10 дней');
+  });
+
+  it('давность последней менструации склоняется', () => {
+    const out = detectAnomalies({
+      cycles: cyclesOf([28]),
+      days: [{ date: '2026-01-01', isBleedingDay: 1, bleeding: 'moderate' } as never],
+      episodes: [],
+      today: '2026-04-02', // 91 день
+    });
+    const a = out.find((x) => x.kind === 'amenorrhea');
+    expect(a?.detail).toContain('91 день');
+    expect(a?.detail).not.toContain('91 дней');
+  });
+});

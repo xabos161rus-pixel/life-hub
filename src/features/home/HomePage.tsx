@@ -63,8 +63,8 @@ function ProfileCard() {
   const hasAny = Boolean(p?.name || p?.avatar || p?.heightCm || p?.weightKg);
 
   const facts = [
-    p?.heightCm ? `${p.heightCm} см` : null,
-    p?.weightKg ? `${String(p.weightKg).replace('.', ',')} кг` : null,
+    p?.heightCm ? `${p.heightCm}\u00A0см` : null,
+    p?.weightKg ? `${String(p.weightKg).replace('.', ',')}\u00A0кг` : null,
     p?.birthDate ? formatRu(p.birthDate, 'd MMMM yyyy') : null,
   ].filter(Boolean);
 
@@ -141,7 +141,7 @@ function DataStatusCard() {
             делали» на 320px не влезает в 158px и обрывалось на «не дел…» —
             ровно то предупреждение, которое обязано читаться целиком. */}
         <p className={`text-sm leading-snug ${stale ? 'text-warning' : 'text-muted'}`}>
-          {last ? `Копия: ${formatRu(last.slice(0, 10), 'd MMMM')}` : 'Копию ещё не делали'}
+          {last ? `Копия: ${formatRu(last.slice(0, 10), 'd MMMM')}` : 'Резервную копию ещё не делали'}
         </p>
       </div>
       <ChevronRight size={20} className="shrink-0 text-muted" />

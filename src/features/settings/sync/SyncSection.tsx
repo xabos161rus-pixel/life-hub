@@ -43,7 +43,7 @@ export function SyncSection() {
       const r = await runSync();
       if (r) toast(`Синхронизировано · получено ${r.pulled}, отправлено ${r.pushed}`);
     } catch {
-      toast('Не удалось синхронизировать');
+      toast('Не удалось синхронизировать. Проверьте связь и попробуйте ещё раз');
     } finally {
       setBusy(false);
     }

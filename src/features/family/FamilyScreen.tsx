@@ -56,7 +56,7 @@ export function FamilyScreen({ familyId, onLeft }: { familyId: string; onLeft: (
     }
     const res = await enablePush();
     if (!res.ok) {
-      alert(res.reason === 'denied' ? 'Разрешение не выдано. Включите в настройках устройства.' : 'Не удалось включить уведомления.');
+      alert(res.reason === 'denied' ? 'Разрешение не выдано. Включите в настройках устройства.' : 'Не удалось включить уведомления. Проверьте разрешения в настройках устройства');
       return;
     }
     await registerAllFamilyPush();

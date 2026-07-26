@@ -77,7 +77,7 @@ export function ReinstallNotice() {
           </div>
           <button
             type="button"
-            aria-label="Позже"
+            aria-label="Скрыть"
             onClick={dismiss}
             className="absolute top-3.5 right-3.5 flex size-8 items-center justify-center rounded-full text-muted active:opacity-60"
           >
@@ -199,7 +199,7 @@ export function ReinstallNotice() {
             onClick={dismiss}
             className="px-3 py-3 text-sm font-medium text-muted active:opacity-60"
           >
-            Позже
+            Скрыть
           </button>
           <a
             href={INSTALL_URL}

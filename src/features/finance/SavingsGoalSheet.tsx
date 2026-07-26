@@ -113,7 +113,7 @@ function GoalForm({ goal, onClose }: { goal: SavingsGoal | null; onClose: () => 
           ))}
         </div>
       </div>
-      <Field label="Срок (необязательно)">
+      <Field label="Срок">
         <Input
           type="date"
           value={date}

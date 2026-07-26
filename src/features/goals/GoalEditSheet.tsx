@@ -113,7 +113,7 @@ function GoalEditForm({
             value={title}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
             onClear={() => setTitle('')}
-            placeholder="Например: Прочитать 20 книг"
+            placeholder="Например, Прочитать 20 книг"
           />
         </Field>
 
@@ -145,7 +145,7 @@ function GoalEditForm({
           </div>
         </Field>
 
-        <Field label="Срок (необязательно)">
+        <Field label="Срок">
           <Input
             type="date"
             value={targetDate}

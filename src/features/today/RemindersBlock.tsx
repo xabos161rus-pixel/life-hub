@@ -223,7 +223,7 @@ function ItemSheet({
           <AutoGrowTextarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Например: максимальные расходы на работе 465 ₽"
+            placeholder="Например, максимальные расходы на работе 465 ₽"
             className="min-h-[4.5rem]"
             autoFocus
           />

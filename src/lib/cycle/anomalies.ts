@@ -18,6 +18,11 @@
 import type { AgeBand, Cycle, CycleDayLog, CycleEpisode, LocalDate } from '../../db/cycleTypes';
 import { addDaysKey } from '../dates';
 import { daysBetween, overlapsEpisode } from './derive';
+import { plur } from '../plural';
+
+// Числа в этих текстах — про здоровье, и читает их человек, а не машина.
+// «21 дней» и «5 менструации» здесь были не опечаткой, а тремя багами подряд.
+const DAYS = ['день', 'дня', 'дней'] as const;
 
 export type AnomalyKind =
   | 'irregular'
@@ -135,7 +140,7 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
       out.push({
         kind: 'irregular',
         title: 'Циклы заметно разной длины',
-        detail: `За полгода самый короткий цикл ${Math.min(...lens)} дней, самый длинный ${Math.max(...lens)} — разница ${spread} дней.`,
+        detail: `За полгода самый короткий цикл ${plur(Math.min(...lens), DAYS)}, самый длинный ${Math.max(...lens)} — разница ${plur(spread, DAYS)}.`,
         worthAsking: true,
       });
     }
@@ -168,7 +173,7 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
     out.push({
       kind: 'prolonged',
       title: 'Долгие менструации',
-      detail: `За полгода ${prolonged} менструации длились ${PROLONGED_DAYS} дней и дольше.`,
+      detail: `За полгода ${plur(prolonged, ['менструация', 'менструации', 'менструаций'])} длились ${plur(PROLONGED_DAYS, DAYS)} и дольше.`,
       worthAsking: true,
     });
   }
@@ -208,7 +213,7 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
       out.push({
         kind: 'amenorrhea',
         title: 'Менструации нет три месяца',
-        detail: `Последнее начало — ${since} дней назад. Если беременность исключена, это повод показаться врачу.`,
+        detail: `Последнее начало — ${plur(since, DAYS)} назад. Если беременность исключена, это повод показаться врачу.`,
         worthAsking: true,
       });
     }

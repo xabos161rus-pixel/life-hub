@@ -54,7 +54,7 @@ export function SharePage() {
       }
       setValue((cur) => (cur.trim() ? `${cur}\n${text}` : text));
     } catch {
-      toast('Не удалось прочитать буфер обмена');
+      toast('Не удалось прочитать буфер обмена. Вставьте текст вручную');
     }
   }
 
@@ -106,7 +106,7 @@ export function SharePage() {
   }
 
   return (
-    <Screen title="Быстрый захват" backTo="/">
+    <Screen title="Захват" backTo="/">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted">
           Вставьте или отредактируйте текст и сохраните его задачей или заметкой. Для задачи дата и

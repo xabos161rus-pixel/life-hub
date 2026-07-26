@@ -100,7 +100,7 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
           onChange={(e: ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
         />
       </Field>
-      <Field label="Заметка (необязательно)">
+      <Field label="Заметка">
         <Input
           value={note}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setNote(e.target.value)}
@@ -131,7 +131,7 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
                 <button
                   type="button"
                   onClick={() => void remove(db.savingsDeposits, d.id)}
-                  aria-label="Удалить пополнение"
+                  aria-label="Удалить запись"
                   className="p-1.5 text-muted active:text-danger"
                 >
                   <Trash2 size={16} />
@@ -144,7 +144,7 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
 
       <div className="pt-1">
         <Button variant="secondary" className="w-full" onClick={onClose}>
-          Готово
+          Закрыть
         </Button>
       </div>
     </div>

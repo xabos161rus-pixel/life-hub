@@ -68,7 +68,11 @@ export function CycleLock({
     const delay = delayFor(next);
     if (delay > 0) setWaitUntil(Date.now() + delay);
     setNow(Date.now());
-    setError(delay > 0 ? 'Неверный код' : 'Неверный код, попробуй ещё раз');
+    setError(
+      delay > 0
+        ? `Неверный код. Подождите ${Math.ceil(delay / 1000)}\u00A0с`
+        : 'Неверный код. Попробуйте ещё раз',
+    );
   }
 
   return (
@@ -104,7 +108,7 @@ export function CycleLock({
       {error && (
         <p className="text-sm text-danger" role="alert">
           {error}
-          {left > 0 && ` — подожди ${left} с`}
+          {left > 0 && ` — подождите ${left}\u00A0с`}
         </p>
       )}
 

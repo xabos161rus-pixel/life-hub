@@ -573,7 +573,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
       await navigator.clipboard.writeText(m.text);
       toast('Скопировано');
     } catch {
-      toast('Не удалось скопировать');
+      toast('Не удалось скопировать. Выделите текст вручную');
     }
   }
 
@@ -606,9 +606,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
       } else if (err instanceof ImageDecodeError) {
         // Чаще всего это HEIC с айфона, открытый в стороннем браузере: формат
         // системный, и разобрать его умеет не всякий движок.
-        toast('Не удалось открыть это изображение');
+        toast('Не удалось открыть фото. Попробуйте другой файл');
       } else {
-        toast('Не удалось отправить фото');
+        toast('Не удалось отправить фото. Проверьте связь');
       }
     } finally {
       setSendingImage(false);

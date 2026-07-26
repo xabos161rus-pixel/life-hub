@@ -168,7 +168,7 @@ export function SettingsPage() {
         } catch (err) {
           // AbortError — пользователь закрыл шит шаринга, это не ошибка
           if (!(err instanceof DOMException && err.name === 'AbortError')) {
-            alert('Не удалось поделиться файлом бэкапа');
+            alert('Не удалось поделиться файлом резервной копии. Он сохранён — найдите его в «Файлах»');
           }
           return;
         }
@@ -363,7 +363,7 @@ export function SettingsPage() {
           <div className="card space-y-3 p-4">
             {/* Автоматическая облачная копия — переживает потерю телефона */}
             <div className="flex items-center justify-between gap-3">
-              <span className="min-w-0 text-sm font-medium">Автокопия в облако</span>
+              <span className="min-w-0 text-sm font-medium">Копия в облаке</span>
               {syncOn && (
                 <div className="w-32 shrink-0">
                   <SegmentedControl<'off' | 'cloud'>
@@ -406,7 +406,7 @@ export function SettingsPage() {
                   </Select>
                 </label>
                 <p className="text-sm text-muted">
-                  Облачная копия:{' '}
+                  Копия в облаке:{' '}
                   {settings.lastCloudBackupAt ? (
                     formatRu(settings.lastCloudBackupAt.slice(0, 10), 'd MMMM yyyy')
                   ) : (
@@ -451,7 +451,7 @@ export function SettingsPage() {
               у посторонних. Копия в облако, в отличие от файла, шифруется на устройстве.
             </p>
             <p className="text-sm text-muted">
-              Последняя копия:{' '}
+              Последняя резервная копия:{' '}
               {settings.lastBackupAt ? (
                 formatRu(settings.lastBackupAt.slice(0, 10), 'd MMMM yyyy')
               ) : (

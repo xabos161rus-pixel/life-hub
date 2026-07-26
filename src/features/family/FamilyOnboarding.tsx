@@ -249,7 +249,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
       canvas.height = h;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        setError('Не удалось обработать картинку.');
+        setError('Не удалось открыть фото. Попробуйте другой файл');
         return;
       }
       ctx.drawImage(img, 0, 0, w, h);
@@ -258,7 +258,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
       if (found?.data) joinRef.current(found.data);
       else setError('На картинке не найден QR-код. Попробуйте другое фото или вставьте код вручную.');
     } catch {
-      setError('Не удалось прочитать картинку.');
+      setError('Не удалось открыть фото. Попробуйте другой файл');
     } finally {
       URL.revokeObjectURL(url);
     }

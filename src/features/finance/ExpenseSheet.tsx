@@ -139,7 +139,7 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
         />
       </Field>
       {recurrence === 'monthly' && (
-        <Field label="День месяца (необязательно)">
+        <Field label="День месяца">
           <Input
             type="number"
             inputMode="numeric"

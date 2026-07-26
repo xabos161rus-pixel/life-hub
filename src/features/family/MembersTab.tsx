@@ -170,7 +170,7 @@ function RemoveMemberSheet({
       await removeMember(familyId, member.id);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось исключить участника');
+      setError(e instanceof Error ? e.message : 'Не удалось исключить участника. Проверьте связь и попробуйте ещё раз');
     } finally {
       setBusy(false);
     }

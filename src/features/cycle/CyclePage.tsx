@@ -32,19 +32,19 @@ function predictionText(p: CyclePredictionResult): { title: string; note?: strin
   if (p.confidence === 'population_prior') {
     return {
       title: `Примерно ${range(p.lo80, p.hi80)}`,
-      note: 'Пока это оценка по усреднённым данным, а не по твоим: циклов слишком мало.',
+      note: 'Пока это оценка по усреднённым данным, а не по вашим: циклов слишком мало.',
     };
   }
   if (p.confidence === 'very_wide') {
     return {
       title: `Между ${range(p.lo80, p.hi80)}`,
-      note: 'Прогноз ориентировочный: разница между твоими циклами больше двух недель.',
+      note: 'Прогноз ориентировочный: разница между вашими циклами больше двух недель.',
     };
   }
   if (p.confidence === 'wide') {
     return {
       title: `Между ${range(p.lo80, p.hi80)}`,
-      note: 'Твои циклы заметно разной длины, поэтому диапазон широкий.',
+      note: 'Циклы заметно разной длины, поэтому диапазон широкий.',
     };
   }
   return {
@@ -109,7 +109,7 @@ export function CyclePage() {
           <EmptyState
             icon={Droplet}
             title="Пока нет ни одной отметки"
-            hint="Отметь дни последней менструации — и появится календарь. Прогноз включится, когда наберётся хотя бы один полный цикл."
+            hint="Отметьте дни последней менструации — и появится календарь. Прогноз включится, когда наберётся хотя бы один полный цикл."
           />
         ) : (
           <>
@@ -177,7 +177,7 @@ export function CyclePage() {
                     настройках: приложение считает по введённым отметкам и не
                     ставит диагнозов. */}
                 <p className="mt-2 px-1 text-xs leading-snug text-muted">
-                  Это наблюдения по твоим отметкам, а не диагноз. Приложение ничего не измеряет —
+                  Это наблюдения по вашим отметкам, а не диагноз. Приложение ничего не измеряет —
                   только считает то, что ты отметила.
                 </p>
               </section>
@@ -189,22 +189,22 @@ export function CyclePage() {
                 <div className="card divide-y divide-hairline px-4">
                   <Row label="Циклов учтено" value={String(stats.n)} />
                   {stats.medianLength !== undefined && (
-                    <Row label="Обычная длина" value={`${stats.medianLength} дн.`} />
+                    <Row label="Обычная длина" value={formatDays(stats.medianLength)} />
                   )}
                   {stats.shortestLength !== undefined && stats.longestLength !== undefined && (
                     <Row
                       label="Самый короткий и длинный"
-                      value={`${stats.shortestLength} и ${stats.longestLength} дн.`}
+                      value={`${stats.shortestLength} и ${formatDays(stats.longestLength)}`}
                     />
                   )}
                   {stats.variability !== undefined && (
                     <Row
                       label="Разница между соседними"
-                      value={`${stats.variability} дн.`}
+                      value={formatDays(stats.variability)}
                     />
                   )}
                   {stats.averagePeriodLength !== undefined && (
-                    <Row label="Менструация" value={`${stats.averagePeriodLength} дн.`} />
+                    <Row label="Менструация" value={formatDays(stats.averagePeriodLength)} />
                   )}
                   {/* Точность прогноза — то, чего не показывает ни один
                       конкурент. Цифра может оказаться неприятной; смягчать её
@@ -212,7 +212,11 @@ export function CyclePage() {
                   {data.accuracy.n >= 3 && (
                     <Row
                       label="Прогноз сбывался"
-                      value={`${data.accuracy.hits} из ${data.accuracy.n}, ошибка ${data.accuracy.mae} дн.`}
+                      value={`${data.accuracy.hits} из ${data.accuracy.n}${
+                        data.accuracy.mae === undefined
+                          ? ''
+                          : `, ошибка ${formatDays(data.accuracy.mae)}`
+                      }`}
                     />
                   )}
                 </div>
@@ -245,7 +249,7 @@ export function CyclePage() {
 function formatDays(v: number): string {
   const isFraction = !Number.isInteger(v);
   const text = String(v).replace('.', ',');
-  return `${text} ${isFraction ? 'дня' : plural(v, ['день', 'дня', 'дней'])}`;
+  return `${text}\u00A0${isFraction ? 'дня' : plural(v, ['день', 'дня', 'дней'])}`;
 }
 
 function Row({ label, value }: { label: string; value: string }) {

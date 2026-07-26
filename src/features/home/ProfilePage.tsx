@@ -80,9 +80,9 @@ export function ProfilePage() {
       if (err instanceof ImageTooLargeError) {
         toast(`Файл больше ${Math.round(MAX_INPUT_BYTES / 1024 / 1024)} МБ`);
       } else if (err instanceof ImageDecodeError) {
-        toast('Не удалось открыть это изображение');
+        toast('Не удалось открыть фото. Попробуйте другой файл');
       } else {
-        toast('Не удалось сохранить фото');
+        toast('Не удалось сохранить фото. Попробуйте ещё раз');
       }
     } finally {
       setBusy(false);
