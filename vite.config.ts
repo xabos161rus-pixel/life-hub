@@ -6,6 +6,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig(({ command }) => ({
   // в dev — корень (удобнее для предпросмотра), в проде — путь GitHub Pages
   base: command === 'build' ? '/life-hub/' : '/',
+  // Метка сборки в Настройках: на iOS обновление PWA иногда подхватывается со
+  // второго запуска, и без неё невозможно отличить настоящий баг от старой
+  // закэшированной версии.
+  define: {
+    __BUILD_ID__: JSON.stringify(new Date().toISOString().replace('T', ' ').slice(0, 16)),
+  },
   plugins: [
     react(),
     tailwindcss(),

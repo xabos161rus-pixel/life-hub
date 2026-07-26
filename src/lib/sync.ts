@@ -81,90 +81,113 @@ function authHeaders(c: SyncConfig): Record<string, string> {
 }
 
 // === PULL ===
+
+/** Применить одну входящую запись. true — если что-то записано локально. */
+async function applyRecord(c: SyncConfig, r: RemoteRecord): Promise<boolean> {
+  // Семейное подключение с другого МОЕГО устройства: восстанавливаем конфиг
+  // (ключ/токен зашифрованы аккаунтным ключом). Курсоры чтения — свои,
+  // с нуля: бэкфилл комнаты доберёт историю. FamilyRunner увидит новую
+  // группу через liveQuery и сам поднимет соединение.
+  if (r.table === 'familyShare') {
+    const p = await decryptJSON<FamilySharePayload>(c.key, r.ciphertext);
+    const local = await db.family.get(p.familyId);
+    if (!local) {
+      await db.family.put({
+        id: p.familyId,
+        familyId: p.familyId,
+        familyToken: p.familyToken,
+        familyKey: await importKeyRaw(p.keyRaw),
+        familyName: p.familyName,
+        selfMemberId: p.selfMemberId,
+        lastSeq: 0,
+        lastReadSeq: 0,
+        enabled: p.enabled,
+        joinedAt: p.joinedAt,
+        updatedAt: p.updatedAt,
+      });
+      return true;
+    }
+    if (shouldApply(local.updatedAt, p.updatedAt)) {
+      await db.family.update(p.familyId, {
+        familyToken: p.familyToken,
+        familyName: p.familyName,
+        enabled: p.enabled,
+        updatedAt: p.updatedAt,
+      });
+      return true;
+    }
+    return false;
+  }
+  if (!isSynced(r.table)) return false; // незнакомая таблица — пропускаем
+  const table = db.table<Row>(r.table);
+  const local = await table.get(r.id);
+  if (!shouldApply(local?.updatedAt, r.updatedAt)) return false;
+  const obj = await decryptJSON<Row>(c.key, r.ciphertext);
+  // Пишем НАПРЯМУЮ (минуя repo) — сохраняем серверный updatedAt, иначе синк
+  // зациклится (repo проставил бы новый updatedAt → бесконечный пинг-понг).
+  await table.put(obj);
+  return true;
+}
+
 async function pullPage(
   c: SyncConfig,
   since: string,
-): Promise<{ applied: number; nextSince: string; hasMore: boolean }> {
+): Promise<{ applied: number; skipped: number; nextSince: string; hasMore: boolean }> {
   const res = await fetch(`${WORKER_URL}/sync/pull?since=${encodeURIComponent(since)}`, {
     headers: authHeaders(c),
   });
   if (!res.ok) throw new Error(`pull ${res.status}`);
   const data = (await res.json()) as { records: RemoteRecord[]; hasMore: boolean; nextSince: string };
   let applied = 0;
+  let skipped = 0;
   for (const r of data.records) {
-    // Семейное подключение с другого МОЕГО устройства: восстанавливаем конфиг
-    // (ключ/токен зашифрованы аккаунтным ключом). Курсоры чтения — свои,
-    // с нуля: бэкфилл комнаты доберёт историю. FamilyRunner увидит новую
-    // группу через liveQuery и сам поднимет соединение.
-    if (r.table === 'familyShare') {
-      const p = await decryptJSON<FamilySharePayload>(c.key, r.ciphertext);
-      const local = await db.family.get(p.familyId);
-      if (!local) {
-        await db.family.put({
-          id: p.familyId,
-          familyId: p.familyId,
-          familyToken: p.familyToken,
-          familyKey: await importKeyRaw(p.keyRaw),
-          familyName: p.familyName,
-          selfMemberId: p.selfMemberId,
-          lastSeq: 0,
-          lastReadSeq: 0,
-          enabled: p.enabled,
-          joinedAt: p.joinedAt,
-          updatedAt: p.updatedAt,
-        });
-        applied++;
-      } else if (shouldApply(local.updatedAt, p.updatedAt)) {
-        await db.family.update(p.familyId, {
-          familyToken: p.familyToken,
-          familyName: p.familyName,
-          enabled: p.enabled,
-          updatedAt: p.updatedAt,
-        });
-        applied++;
-      }
-      continue;
+    // Сбой на ОДНОЙ записи (битый шифротекст, неожиданная форма данных) не
+    // должен ронять весь цикл: иначе курсор lastPullAt не сдвинется и синк
+    // встанет навсегда — перестанут приходить и задачи, и заметки, и семья.
+    // Пропускаем запись, считаем её и идём дальше.
+    try {
+      if (await applyRecord(c, r)) applied++;
+    } catch (e) {
+      skipped++;
+      console.warn(`sync: пропущена запись ${r.table}/${r.id}`, e);
     }
-    if (!isSynced(r.table)) continue; // незнакомая таблица — пропускаем
-    const table = db.table<Row>(r.table);
-    const local = await table.get(r.id);
-    if (!shouldApply(local?.updatedAt, r.updatedAt)) continue;
-    const obj = await decryptJSON<Row>(c.key, r.ciphertext);
-    // Пишем НАПРЯМУЮ (минуя repo) — сохраняем серверный updatedAt, иначе синк
-    // зациклится (repo проставил бы новый updatedAt → бесконечный пинг-понг).
-    await table.put(obj);
-    applied++;
   }
-  return { applied, nextSince: data.nextSince, hasMore: data.hasMore };
+  return { applied, skipped, nextSince: data.nextSince, hasMore: data.hasMore };
 }
 
-async function pull(c: SyncConfig): Promise<number> {
-  let total = 0;
+async function pull(c: SyncConfig): Promise<{ applied: number; skipped: number }> {
+  let applied = 0;
+  let skipped = 0;
   let since = c.lastPullAt;
   for (;;) {
-    const { applied, nextSince, hasMore } = await pullPage(c, since);
-    total += applied;
-    since = nextSince;
-    if (!hasMore) break;
+    const page = await pullPage(c, since);
+    applied += page.applied;
+    skipped += page.skipped;
+    since = page.nextSince;
+    if (!page.hasMore) break;
   }
   await patchSyncConfig({ lastPullAt: since });
-  return total;
+  return { applied, skipped };
 }
 
 // === PUSH ===
-// Полный скан таблиц + фильтр по updatedAt > курсора. Для личного объёма данных
-// (сотни записей) это миллисекунды; при росте можно перейти на outbox/индекс.
+// Полный скан таблиц + фильтр по updatedAt в окне (lastPushAt, cutoff]. Для
+// личного объёма данных (сотни записей) это миллисекунды; при росте можно
+// перейти на outbox/индекс.
 async function push(c: SyncConfig): Promise<number> {
-  let maxUpdatedAt = c.lastPushAt;
+  // Курсор снимаем ДО скана и двигаем ровно на него — а НЕ на максимум
+  // updatedAt среди найденных строк. Иначе правка, сделанная во время скана в
+  // уже прочитанную таблицу, получает штамп МЕНЬШЕ нового курсора и не уедет
+  // в облако никогда (фильтр следующего цикла её отбросит). Верхняя граница
+  // окна отсекает всё, что записано после снятия курсора, — оно уедет
+  // следующим циклом.
+  const cutoff = new Date().toISOString();
+  const inWindow = (u: unknown): u is string =>
+    typeof u === 'string' && u > c.lastPushAt && u <= cutoff;
   const fresh: { name: string; row: Row }[] = [];
   for (const name of SYNCED_TABLES) {
-    const rows = (await db.table<Row>(name).toArray()).filter(
-      (r) => typeof r.updatedAt === 'string' && r.updatedAt > c.lastPushAt,
-    );
-    for (const row of rows) {
-      fresh.push({ name, row });
-      if (row.updatedAt > maxUpdatedAt) maxUpdatedAt = row.updatedAt;
-    }
+    const rows = (await db.table<Row>(name).toArray()).filter((r) => inWindow(r.updatedAt));
+    for (const row of rows) fresh.push({ name, row });
   }
   // Шифруем параллельно (Promise.all), а не последовательно await в цикле —
   // не блокирует main-thread при правке задачи с большим набором изменений.
@@ -179,9 +202,7 @@ async function push(c: SyncConfig): Promise<number> {
   );
   // Семейные подключения — на другие МОИ устройства (ключ семьи внутри
   // шифротекста аккаунтного ключа; серверу, как и всё остальное, не виден).
-  const famFresh = (await db.family.toArray()).filter(
-    (f) => typeof f.updatedAt === 'string' && f.updatedAt > c.lastPushAt,
-  );
+  const famFresh = (await db.family.toArray()).filter((f) => inWindow(f.updatedAt));
   for (const f of famFresh) {
     const payload: FamilySharePayload = {
       familyId: f.familyId,
@@ -200,7 +221,6 @@ async function push(c: SyncConfig): Promise<number> {
       deletedAt: null,
       ciphertext: await encryptJSON(c.key, payload),
     });
-    if (f.updatedAt! > maxUpdatedAt) maxUpdatedAt = f.updatedAt!;
   }
   for (let i = 0; i < out.length; i += PUSH_CHUNK) {
     const res = await fetch(`${WORKER_URL}/sync/push`, {
@@ -210,7 +230,7 @@ async function push(c: SyncConfig): Promise<number> {
     });
     if (!res.ok) throw new Error(`push ${res.status}`);
   }
-  await patchSyncConfig({ lastPushAt: maxUpdatedAt });
+  await patchSyncConfig({ lastPushAt: cutoff });
   return out.length;
 }
 
@@ -219,18 +239,18 @@ let running = false;
 let lastError: string | null = null;
 
 /** Один цикл: pull → push. Возвращает null, если синк выключен или уже идёт. */
-export async function runSync(): Promise<{ pulled: number; pushed: number } | null> {
+export async function runSync(): Promise<{ pulled: number; pushed: number; skipped: number } | null> {
   if (running) return null;
   const c = await getSyncConfig();
   if (!c || !c.enabled) return null;
   running = true;
   lastError = null;
   try {
-    const pulled = await pull(c);
+    const { applied: pulled, skipped } = await pull(c);
     const fresh = await getSyncConfig(); // курсор pull обновился
     const pushed = fresh ? await push(fresh) : 0;
     await patchSyncConfig({ lastSyncedAt: new Date().toISOString() });
-    return { pulled, pushed };
+    return { pulled, pushed, skipped };
   } catch (e) {
     lastError = String(e);
     throw e;
@@ -304,4 +324,14 @@ export async function getPairingCode(): Promise<string | null> {
 /** Полностью отключить синхронизацию на этом устройстве (локальные данные целы). */
 export async function disableSync(): Promise<void> {
   await clearSyncConfig();
+}
+
+/**
+ * Сбросить курсоры чтения/отправки, не трогая сопряжение. Следующий синк
+ * заново пройдёт всю историю аккаунта и переотправит все локальные записи.
+ * Страховка на случай рассинхрона версий или пропущенных записей — раньше
+ * это лечилось только отключением синка и повторным сопряжением по QR.
+ */
+export async function resetSyncCursors(): Promise<void> {
+  await patchSyncConfig({ lastPullAt: '', lastPushAt: '' });
 }

@@ -156,13 +156,23 @@ export default {
       if (url.pathname === '/sync/pull' && request.method === 'GET') {
         const accountId = await authAccount(request, env);
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
-        const since = url.searchParams.get('since') || '';
+        // Курсор СОСТАВНОЙ: "updatedAt|id" — сортировка идёт по (updated_at, id),
+        // поэтому и продолжать надо по паре. С курсором только по updated_at
+        // записи с одинаковым миллисекундным штампом, не поместившиеся на
+        // страницу, терялись навсегда: следующий запрос просил строго больше
+        // этого значения. Старый формат (без "|") понимаем как есть — тогда
+        // id пустой и условие вырождается в прежнее поведение.
+        const sinceRaw = url.searchParams.get('since') || '';
+        const sep = sinceRaw.indexOf('|');
+        const sinceU = sep >= 0 ? sinceRaw.slice(0, sep) : sinceRaw;
+        const sinceId = sep >= 0 ? sinceRaw.slice(sep + 1) : '';
         const res = await env.DB.prepare(
           `SELECT table_name AS tbl, id, updated_at AS u, deleted_at AS d, ciphertext AS c
-           FROM records WHERE account_id = ? AND updated_at > ?
+           FROM records
+           WHERE account_id = ? AND (updated_at > ? OR (updated_at = ? AND id > ?))
            ORDER BY updated_at, id LIMIT ?`,
         )
-          .bind(accountId, since, PULL_LIMIT + 1)
+          .bind(accountId, sinceU, sinceU, sinceId, PULL_LIMIT + 1)
           .all();
         const rows = res.results || [];
         const hasMore = rows.length > PULL_LIMIT;
@@ -174,7 +184,8 @@ export default {
           deletedAt: r.d,
           ciphertext: r.c,
         }));
-        const nextSince = out.length ? out[out.length - 1].updatedAt : since;
+        const last = out.length ? out[out.length - 1] : null;
+        const nextSince = last ? `${last.updatedAt}|${last.id}` : sinceRaw;
         return json({ records: out, hasMore, nextSince }, 200, origin);
       }
 

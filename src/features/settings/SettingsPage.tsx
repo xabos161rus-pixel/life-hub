@@ -430,7 +430,9 @@ export function SettingsPage() {
               <InstallLink />
             </div>
             <p className="border-t border-hairline px-4 py-3 text-sm text-muted">
-              Версия 1.0.0 · данные хранятся только на этом устройстве
+              Версия 1.0.0 · сборка {__BUILD_ID__}
+              <br />
+              данные хранятся только на этом устройстве
             </p>
           </div>
         </Section>
