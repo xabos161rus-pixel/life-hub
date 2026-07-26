@@ -114,6 +114,19 @@ export interface Note extends BaseEntity {
   content: string; // HTML (v1-заметки — markdown, мигрируют в HTML при первом открытии)
   tags: string[];
   pinned: boolean;
+  // В какой папке лежит. null/undefined — «Все заметки», корень. Один уровень
+  // вложенности намеренно: папка в папке в папке — это то, из-за чего люди
+  // перестают раскладывать вообще и сваливают всё в корень.
+  folderId?: string | null;
+}
+
+/** Папка заметок. Плоский список, без вложенности. */
+export interface NoteFolder extends BaseEntity {
+  name: string;
+  // Цвет и эмодзи — чтобы папка узнавалась с одного взгляда, а не читалась.
+  emoji: string;
+  color: string;
+  sortOrder: number;
 }
 
 export type LearningKind =

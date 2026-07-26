@@ -6,6 +6,7 @@ import type {
   Habit,
   HabitLog,
   Note,
+  NoteFolder,
   LearningItem,
   LearningLog,
   ExpenseItem,
@@ -43,6 +44,7 @@ export class LifeHubDB extends Dexie {
   habits!: Table<Habit, string>;
   habitLogs!: Table<HabitLog, string>;
   notes!: Table<Note, string>;
+  noteFolders!: Table<NoteFolder, string>;
   learningItems!: Table<LearningItem, string>;
   learningLogs!: Table<LearningLog, string>;
   expenseItems!: Table<ExpenseItem, string>;
@@ -219,6 +221,16 @@ export class LifeHubDB extends Dexie {
     // Существующие задачи не трогаем: undefined означает «человек сам создал».
     this.version(12).stores({
       tasks: 'id, projectId, goalId, dueDate, completedAt, *tags, origin',
+    });
+
+    // Папки заметок. Один уровень вложенности намеренно: папка в папке в папке
+    // — самый быстрый способ добиться того, что человек перестанет
+    // раскладывать вообще и свалит всё в корень.
+    // У существующих заметок folderId остаётся undefined — это и есть корень,
+    // переносить ничего не нужно.
+    this.version(13).stores({
+      noteFolders: 'id, sortOrder',
+      notes: 'id, *tags, pinned, folderId',
     });
   }
 }

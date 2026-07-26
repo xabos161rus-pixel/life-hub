@@ -30,6 +30,7 @@ const SYNCED_TABLES = [
   'habits',
   'habitLogs',
   'notes',
+  'noteFolders',
   'learningItems',
   'learningLogs',
   'expenseItems',

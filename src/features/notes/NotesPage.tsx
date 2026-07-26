@@ -1,16 +1,18 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { Pin, Search, NotebookText } from 'lucide-react';
+import { Pin, Search, NotebookText, FolderPlus, ChevronLeft, Check } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
-import { alive, remove } from '../../db/repo';
-import type { Note } from '../../db/types';
+import { alive, remove, update } from '../../db/repo';
+import type { Note, NoteFolder } from '../../db/types';
 import { formatRu, toKey } from '../../lib/dates';
+import { FolderSheet } from './FolderSheet';
+import { plur } from '../../lib/plural';
 
 /** HTML заметки → плоский текст для превью/поиска (с переносами на блоках). */
 function htmlToText(html: string): string {
@@ -32,10 +34,15 @@ function NoteRow({
   note,
   onOpen,
   onDelete,
+  onMoveToFolder,
 }: {
   note: Note;
   onOpen: () => void;
   onDelete: () => void;
+  /** Долгое нажатие — перенос в папку. Свайп по строке уже занят удалением, а
+   *  перетаскивать строку пальцем через весь список к нужной папке на телефоне
+   *  мучительно. */
+  onMoveToFolder: () => void;
 }) {
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -45,22 +52,44 @@ function NoteRow({
   const title = note.title || text.split('\n')[0] || 'Без названия';
   const preview = text.split('\n').slice(1).join(' ').trim();
 
+  const holdRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const heldRef = useRef(false);
+
+  const cancelHold = () => {
+    clearTimeout(holdRef.current);
+    holdRef.current = undefined;
+  };
+
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
     drag.current = { x: e.clientX, dx, moved: false };
     setDragging(true);
+    heldRef.current = false;
+    // 500 мс — обычный порог долгого нажатия в iOS. Меньше — срабатывает при
+    // обычном тапе, больше — человек успевает решить, что ничего не работает.
+    holdRef.current = setTimeout(() => {
+      if (drag.current.moved) return; // это свайп, а не удержание
+      heldRef.current = true;
+      // Отклик обязателен: без него неясно, что удержание засчиталось.
+      navigator.vibrate?.(12);
+      onMoveToFolder();
+    }, 500);
   };
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
     if (e.buttons === 0) return;
     const d = e.clientX - drag.current.x;
-    if (Math.abs(d) > 6) drag.current.moved = true;
+    if (Math.abs(d) > 6) {
+      drag.current.moved = true;
+      cancelHold(); // палец поехал — это свайп
+    }
     setDx(Math.max(-88, Math.min(0, drag.current.dx + d)));
   };
   const onUp = () => {
+    cancelHold();
     setDragging(false);
     setDx((cur) => (cur < -44 ? -88 : 0));
   };
   const onClick = () => {
-    if (drag.current.moved) return; // это был свайп, не тап
+    if (drag.current.moved || heldRef.current) return; // свайп или удержание, не тап
     if (dx !== 0) {
       setDx(0); // открыт — закрываем
       return;
@@ -113,31 +142,59 @@ function NoteRow({
 export function NotesPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  // Открытая папка. null — корень, «Все заметки». Состояние экрана, а не
+  // адреса: возврат из заметки не должен выкидывать человека в корень, а
+  // отдельный маршрут на папку ради этого — лишняя сущность.
+  const [openFolder, setOpenFolder] = useState<string | null>(null);
+  const [folderSheet, setFolderSheet] = useState<NoteFolder | 'new' | null>(null);
+  // Режим переноса: выбрана заметка, дальше человек тыкает в папку.
+  const [moving, setMoving] = useState<Note | null>(null);
 
   const rows = useLiveQuery(() => db.notes.toArray(), []);
-  const loaded = useLoaded(rows);
-  const notes = useMemo(() => alive(rows ?? []), [rows]);
+  const folderRows = useLiveQuery(() => db.noteFolders.toArray(), []);
+  const loaded = useLoaded(rows, folderRows);
+  const allNotes = useMemo(() => alive(rows ?? []), [rows]);
+  const folders = useMemo(
+    () => alive(folderRows ?? []).sort((a, b) => a.sortOrder - b.sortOrder),
+    [folderRows],
+  );
+  // Что показывать списком: в папке — её заметки, в корне — те, что НЕ
+  // разложены. Иначе заметка видна и в папке, и в общем списке, и человек не
+  // понимает, перенеслась она или скопировалась.
+  const notes = useMemo(
+    () =>
+      openFolder
+        ? allNotes.filter((n) => n.folderId === openFolder)
+        : allNotes.filter((n) => !n.folderId),
+    [allNotes, openFolder],
+  );
+  const countIn = (id: string) => allNotes.filter((n) => n.folderId === id).length;
+  const current = folders.find((f) => f.id === openFolder) ?? null;
 
   // Индекс поиска считаем один раз на изменение заметок, а не на каждый ввод.
+  // Индекс — по ВСЕМ заметкам, а не по текущему списку: искать надо везде.
+  // Результат, молча ограниченный открытой папкой, читается как «заметка
+  // пропала», и это худшее, что может сделать раздел заметок.
   const index = useMemo(
     () =>
-      notes.map((n) => ({
+      allNotes.map((n) => ({
         note: n,
         haystack: `${n.title}\n${htmlToText(n.content)}`.toLowerCase(),
       })),
-    [notes],
+    [allNotes],
   );
 
   const q = query.trim().toLowerCase();
+  const visibleIds = useMemo(() => new Set(notes.map((n) => n.id)), [notes]);
   const filtered = useMemo(
     () =>
       index
-        .filter((x) => !q || x.haystack.includes(q))
+        .filter((x) => (q ? x.haystack.includes(q) : visibleIds.has(x.note.id)))
         .map((x) => x.note)
         .sort(
           (a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt),
         ),
-    [index, q],
+    [index, q, visibleIds],
   );
 
   const pinned = filtered.filter((n) => n.pinned);
@@ -155,18 +212,132 @@ export function NotesPage() {
           note={n}
           onOpen={() => navigate(`/notes/${n.id}`)}
           onDelete={() => del(n)}
+          onMoveToFolder={() => setMoving(n)}
         />
       ))}
     </div>
   );
 
+  // Перенос заметки. Отдельный режим, а не перетаскивание: тащить строку
+  // пальцем через весь список к нужной папке на телефоне мучительно, а свайп
+  // по строке уже занят удалением.
+  async function moveTo(folderId: string | null) {
+    if (!moving) return;
+    await update(db.notes, moving.id, { folderId });
+    setMoving(null);
+  }
+
+  if (moving) {
+    return (
+      <Screen title="Куда перенести?" backTo="/notes">
+        <p className="mb-3 px-1 text-sm leading-snug text-muted">
+          Заметка «{moving.title || 'Без названия'}» — выберите папку.
+        </p>
+        <div className="card divide-y divide-hairline">
+          <button
+            onClick={() => void moveTo(null)}
+            className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-lg">
+              📄
+            </span>
+            <span className="min-w-0 flex-1 font-medium">Все заметки</span>
+            {!moving.folderId && <Check size={18} className="shrink-0 text-accent" />}
+          </button>
+          {folders.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => void moveTo(f.id)}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
+            >
+              <span
+                className="flex size-9 shrink-0 items-center justify-center rounded-xl text-lg"
+                style={{ background: `${f.color}26` }}
+              >
+                {f.emoji}
+              </span>
+              <span className="min-w-0 flex-1 font-medium">{f.name}</span>
+              {moving.folderId === f.id && <Check size={18} className="shrink-0 text-accent" />}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setMoving(null)}
+          className="mt-4 w-full py-2 text-sm text-muted active:opacity-60"
+        >
+          Отмена
+        </button>
+      </Screen>
+    );
+  }
+
   return (
-    <Screen title="Заметки">
+    <Screen
+      title={current ? `${current.emoji} ${current.name}` : 'Заметки'}
+      right={
+        current ? (
+          <button
+            onClick={() => setFolderSheet(current)}
+            className="text-sm font-medium text-accent active:opacity-60"
+          >
+            Изменить
+          </button>
+        ) : (
+          <button
+            onClick={() => setFolderSheet('new')}
+            aria-label="Новая папка"
+            className="p-1 text-accent active:opacity-60"
+          >
+            <FolderPlus size={20} />
+          </button>
+        )
+      }
+    >
+      {current && (
+        <button
+          onClick={() => setOpenFolder(null)}
+          className="mb-3 -ml-1 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent active:opacity-60"
+        >
+          <ChevronLeft size={16} /> Все заметки
+        </button>
+      )}
+
       <SearchField value={query} onChange={setQuery} className="mb-3" />
+
+      {/* Папки — только в корне и только когда не ищут: во время поиска нужен
+          результат по всем заметкам, а не разбивка по хранилищам. */}
+      {!current && !q && folders.length > 0 && (
+        <div className="card mb-4 divide-y divide-hairline">
+          {folders.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setOpenFolder(f.id)}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
+            >
+              <span
+                className="flex size-9 shrink-0 items-center justify-center rounded-xl text-lg"
+                style={{ background: `${f.color}26` }}
+              >
+                {f.emoji}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-medium">{f.name}</span>
+              <span className="shrink-0 text-xs tabular-nums text-muted">{countIn(f.id)}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {notes.length === 0 ? (
         loaded && (
-          <EmptyState icon={NotebookText} title="Пока нет заметок" hint="Нажмите +, чтобы создать первую" />
+          <EmptyState
+            icon={NotebookText}
+            title={current ? 'В папке пусто' : 'Пока нет заметок'}
+            hint={
+              current
+                ? 'Перенесите сюда заметку долгим нажатием на неё в общем списке'
+                : 'Нажмите +, чтобы создать первую'
+            }
+          />
         )
       ) : filtered.length === 0 ? (
         <EmptyState icon={Search} title="Ничего не найдено" hint="Попробуйте другой запрос" />
@@ -189,7 +360,26 @@ export function NotesPage() {
         </>
       )}
 
-      <Fab onClick={() => navigate('/notes/new')} />
+      {/* Сводка по корню: сколько заметок вне папок — иначе непонятно, всё ли
+          разложено. Показываем, только когда папки есть. */}
+      {!current && !q && folders.length > 0 && rest.length > 0 && (
+        <p className="mt-1 px-1 text-xs text-muted">
+          Вне папок: {plur(allNotes.filter((n) => !n.folderId).length, ['заметка', 'заметки', 'заметок'])}
+        </p>
+      )}
+
+      <Fab onClick={() => navigate(current ? `/notes/new?folder=${current.id}` : '/notes/new')} />
+      <FolderSheet
+        key={folderSheet === 'new' ? 'new' : (folderSheet?.id ?? 'closed')}
+        open={folderSheet !== null}
+        folder={folderSheet === 'new' ? null : folderSheet}
+        onClose={() => {
+          // Папку могли удалить — тогда возвращаемся в корень, иначе экран
+          // остался бы открытым на несуществующей папке.
+          if (folderSheet && folderSheet !== 'new') setOpenFolder(null);
+          setFolderSheet(null);
+        }}
+      />
     </Screen>
   );
 }

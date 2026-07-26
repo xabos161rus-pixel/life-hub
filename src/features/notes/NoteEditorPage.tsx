@@ -9,11 +9,12 @@ import {
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import { Bold, Italic, List, ListOrdered, Pin, SlidersHorizontal, Trash2, Type } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { MicButton } from '../../components/ui/MicButton';
 import { Hint } from '../../components/ui/Hint';
 import { db } from '../../db/db';
+import { normalizeEditor } from './editorDom';
 import { create, remove, update } from '../../db/repo';
 
 const AUTOSAVE_MS = 600;
@@ -66,6 +67,11 @@ function ToolBtn({
 
 export function NoteEditorPage() {
   const { id: routeId } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  // Папка, в которой нажали «+». В ref, а не в state: значение нужно внутри
+  // flush, который вызывается по таймеру и из обработчика ухода со страницы —
+  // там актуальность важнее реактивности.
+  const folderRef = useRef<string | null>(searchParams.get('folder'));
   const navigate = useNavigate();
   const isNew = routeId === 'new';
 
@@ -170,6 +176,7 @@ export function NoteEditorPage() {
           content: html,
           tags: [],
           pinned: pinnedRef.current,
+          folderId: folderRef.current,
         });
         savedIdRef.current = created.id;
         navigate(`/notes/${created.id}`, { replace: true });
@@ -387,6 +394,11 @@ export function NoteEditorPage() {
           const text = e.clipboardData.getData('text/plain');
           const clean = html ? DOMPurify.sanitize(html, SANITIZE) : text;
           document.execCommand('insertHTML', false, clean);
+          // Вставленная разметка приносит свои <div>/<p>, и первая строка
+          // оказывается внутри блока — то есть перестаёт быть заголовком.
+          // Из мессенджера (только plain text) этого не видно, из браузера и
+          // документов — видно всегда.
+          if (editorRef.current) normalizeEditor(editorRef.current);
           touch();
         }}
         onKeyDown={handleEditorKeyDown}
