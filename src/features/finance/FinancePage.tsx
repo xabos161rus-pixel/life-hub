@@ -14,6 +14,7 @@ import { financeSummary, formatRub, upcomingExpenses, wrapRub } from '../../lib/
 import { formatRu, todayKey } from '../../lib/dates';
 import { ExpenseSheet } from './ExpenseSheet';
 import { SavingsSection } from './SavingsSection';
+import { plur } from '../../lib/plural';
 
 const RECURRENCE_LABEL: Record<ExpenseRecurrence, string> = {
   monthly: 'Ежемесячно',
@@ -206,7 +207,7 @@ export function FinancePage() {
                           ? 'сегодня'
                           : daysLeft === 1
                             ? 'завтра'
-                            : `через ${daysLeft}\u00A0дн.`}{' '}
+                            : `через ${plur(daysLeft, ['день', 'дня', 'дней'])}`}{' '}
                         ({formatRu(date)})
                       </p>
                     </div>

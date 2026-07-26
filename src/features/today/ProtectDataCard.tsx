@@ -4,7 +4,7 @@ import { ChevronRight, ShieldCheck, X } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { pushEnabled } from '../../lib/push';
-import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 
 /**
  * Мягкое напоминание на «Сегодня»: защитить данные — включить синхронизацию,
@@ -44,7 +44,7 @@ export function ProtectDataCard() {
           type="button"
           aria-label="Скрыть"
           onClick={() => setDismissed(true)}
-          className={`absolute top-2.5 right-2.5 flex size-7 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44}`}
+          className={`absolute top-2.5 right-2.5 flex size-7 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
         >
           <X size={16} />
         </button>

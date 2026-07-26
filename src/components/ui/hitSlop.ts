@@ -6,5 +6,18 @@
 //
 // Единственное ограничение: соседние кнопки должны стоять не ближе 11px,
 // иначе зоны перекроются и палец попадёт не туда.
-export const HIT_SLOP_44 =
-  "relative after:absolute after:left-1/2 after:top-1/2 after:size-[44px] after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']";
+const SLOP_AFTER =
+  "after:absolute after:left-1/2 after:top-1/2 after:size-[44px] after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']";
+
+/** Для элементов в обычном потоке. Ставит relative, чтобы псевдоэлементу было
+ *  от чего считать координаты. */
+export const HIT_SLOP_44 = `relative ${SLOP_AFTER}`;
+
+/** Для элементов, которые уже позиционированы сами (absolute/fixed).
+ *
+ *  Обычный HIT_SLOP_44 им не подходит: он несёт relative, а Tailwind решает
+ *  конфликт двух position не по порядку в атрибуте class, а по порядку правил
+ *  в CSS — relative перебивал absolute, и кнопка уезжала из своего угла в
+ *  поток. Именно так крестик на карточке «Защитите свои данные» переехал
+ *  из правого верхнего угла к заголовку. */
+export const HIT_SLOP_44_POSITIONED = SLOP_AFTER;
