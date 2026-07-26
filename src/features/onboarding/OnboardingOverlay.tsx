@@ -123,7 +123,7 @@ export function OnboardingOverlay() {
         <button
           type="button"
           onClick={last ? finish : () => setStep((s) => s + 1)}
-          className="flex flex-1 items-center justify-center gap-1 rounded-2xl bg-accent px-5 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80"
+          className="flex flex-1 items-center justify-center gap-1 rounded-2xl bg-accent-fill px-5 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80"
         >
           {last ? 'Начать' : 'Далее'}
           {!last && <ChevronRight size={18} />}

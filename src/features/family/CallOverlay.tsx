@@ -103,7 +103,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
       {/* Кто и статус */}
       <div className="flex flex-1 flex-col items-center justify-center gap-6">
         <span
-          className={`flex size-28 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-4xl font-semibold text-white shadow-2xl ${
+          className={`flex size-28 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-4xl font-semibold text-white shadow-2xl ${
             snap.status === 'outgoing' || incoming ? 'animate-pulse' : ''
           }`}
         >
@@ -195,11 +195,11 @@ function CallButton({
 }) {
   const cls =
     color === 'danger'
-      ? 'bg-danger text-white'
+      ? 'bg-danger-fill text-white'
       : color === 'success'
-        ? 'bg-success text-white'
+        ? 'bg-success-fill text-on-light'
         : color === 'active'
-          ? 'bg-accent text-white'
+          ? 'bg-accent-fill text-white'
           : 'bg-surface-2 text-text';
   return (
     <button onClick={onClick} className="flex flex-col items-center gap-2 active:scale-95" aria-label={label}>

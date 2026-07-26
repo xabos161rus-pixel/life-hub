@@ -197,10 +197,14 @@ export function CalendarPage() {
                 onClick={() => setSelectedDate(day.key)}
                 className={`relative flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition-colors ${
                   isSelected
-                    ? 'bg-accent font-semibold text-white'
+                    ? 'bg-accent-fill font-semibold text-white'
                     : day.inMonth
                       ? 'text-text active:bg-surface-2'
-                      : 'text-muted/40'
+                      : // Дни соседних месяцев. Были text-muted/40 — контраст 1.76:1,
+                        // то есть число видно только если знать, что оно там.
+                        // Они кликабельны (переводят календарь на тот месяц),
+                        // значит это управляющий элемент, а не декорация.
+                        'text-muted'
                 } ${isToday && !isSelected ? 'ring-1 ring-accent' : ''}`}
               >
                 {/* Отметка цикла — полоса сверху, а не точка: точка снизу уже

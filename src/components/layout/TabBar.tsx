@@ -47,7 +47,7 @@ export function TabBar() {
                     // неусыхаемый min-content и выталкивать ряд за край.
                     className={`flex h-9 w-full max-w-16 items-center justify-center rounded-2xl transition-colors duration-200 ${
                       isActive
-                        ? 'bg-accent/15 text-accent shadow-[0_5px_18px_-7px_var(--app-accent)]'
+                        ? 'bg-accent/15 text-accent shadow-[0_5px_18px_-7px_var(--app-accent-fill)]'
                         : 'text-muted'
                     }`}
                   >

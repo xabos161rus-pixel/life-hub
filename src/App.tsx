@@ -85,7 +85,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-xl bg-accent px-5 py-3 font-semibold text-white active:opacity-80"
+            className="rounded-xl bg-accent-fill px-5 py-3 font-semibold text-white active:opacity-80"
           >
             Перезагрузить
           </button>

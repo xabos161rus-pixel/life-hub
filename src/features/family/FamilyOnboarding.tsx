@@ -29,7 +29,7 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
       <button
         onClick={() => setMode('choose')}
         aria-label="Создать группу или войти по приглашению"
-        className="flex size-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-accent to-accent-2 text-white shadow-accent active:scale-95"
+        className="flex size-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent active:scale-95"
       >
         <Plus size={40} strokeWidth={2.4} />
       </button>

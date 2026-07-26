@@ -68,7 +68,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
           <button
             type="button"
             onClick={() => setAssigneeId(null)}
-            className={`rounded-full px-3 py-1.5 text-sm ${assigneeId === null ? 'bg-accent text-white' : 'bg-surface-2 text-muted'}`}
+            className={`rounded-full px-3 py-1.5 text-sm ${assigneeId === null ? 'bg-accent-fill text-white' : 'bg-surface-2 text-muted'}`}
           >
             Всем
           </button>

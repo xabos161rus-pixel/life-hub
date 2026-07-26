@@ -187,7 +187,7 @@ export function SectionsSettingsPage() {
   const dropLine = (zone: Zone, index: number) =>
     drop && drop.zone === zone && drop.index === index ? (
       <div
-        className="my-1 h-1 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent)]"
+        className="my-1 h-1 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent-fill)]"
         aria-hidden
       />
     ) : null;

@@ -307,7 +307,7 @@ function MessageRow({
             }}
             className={`cursor-pointer select-none overflow-hidden rounded-2xl transition-shadow active:opacity-80 ${
               m.image ? 'p-1' : 'px-3 py-2'
-            } ${own ? 'bg-accent text-white' : 'bg-surface-2 text-text'} ${
+            } ${own ? 'bg-accent-fill text-white' : 'bg-surface-2 text-text'} ${
               highlight ? 'ring-2 ring-frost' : ''
             }`}
           >
@@ -815,7 +815,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             <button
               onClick={rec.stop}
               aria-label="Отправить голосовое"
-              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-white active:scale-95"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
             >
               <Send size={20} />
             </button>
@@ -869,7 +869,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 onClick={() => void submit()}
                 disabled={!text.trim()}
                 aria-label="Отправить"
-                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent to-accent-2 text-white disabled:opacity-40 active:scale-95"
+                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white disabled:opacity-40 active:scale-95"
               >
                 <Send size={20} />
               </button>
@@ -877,7 +877,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               <button
                 onClick={() => void rec.start()}
                 aria-label="Записать голосовое"
-                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent to-accent-2 text-white active:scale-95"
+                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
               >
                 <Mic size={20} />
               </button>

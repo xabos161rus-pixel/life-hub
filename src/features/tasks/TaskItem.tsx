@@ -242,7 +242,7 @@ export function TaskItem({
           <button
             type="button"
             onClick={handleDelete}
-            className="flex w-[76px] items-center justify-center bg-danger text-sm font-medium text-white"
+            className="flex w-[76px] items-center justify-center bg-danger-fill text-sm font-medium text-white"
           >
             Удалить
           </button>

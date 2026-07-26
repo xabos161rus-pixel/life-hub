@@ -75,7 +75,7 @@ export function CallGuard({
           onPointerUp={onUp}
           onPointerCancel={onUp}
           style={{ transform: `translateX(${offset}px)` }}
-          className="absolute top-1 left-1 flex size-12 touch-none items-center justify-center rounded-full bg-accent text-white shadow-lg active:scale-95"
+          className="absolute top-1 left-1 flex size-12 touch-none items-center justify-center rounded-full bg-accent-fill text-white shadow-lg active:scale-95"
         >
           <ChevronsRight size={24} />
         </button>

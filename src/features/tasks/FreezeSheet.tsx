@@ -130,7 +130,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
       >
         <span
           className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-            on ? 'border-frost bg-frost text-white' : 'border-border'
+            on ? 'border-frost-fill bg-frost-fill text-on-light' : 'border-border'
           }`}
         >
           {on && <Check size={13} />}

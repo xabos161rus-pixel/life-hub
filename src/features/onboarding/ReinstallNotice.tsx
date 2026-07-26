@@ -107,7 +107,7 @@ export function ReinstallNotice() {
           {/* Три шага */}
           <ol className="space-y-3">
             <li className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-accent">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-text">
                 1
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
@@ -130,7 +130,7 @@ export function ReinstallNotice() {
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-accent">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-text">
                 2
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
@@ -142,7 +142,7 @@ export function ReinstallNotice() {
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-accent">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-text">
                 3
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
@@ -205,7 +205,7 @@ export function ReinstallNotice() {
             href={INSTALL_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-accent to-accent-2 px-5 py-3.5 font-semibold text-white shadow-[0_6px_20px_-9px_var(--app-accent)] active:opacity-90"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-accent-fill to-accent-2-fill px-5 py-3.5 font-semibold text-white shadow-[0_6px_20px_-9px_var(--app-accent-fill)] active:opacity-90"
           >
             <ExternalLink size={18} />
             Открыть сайт установки

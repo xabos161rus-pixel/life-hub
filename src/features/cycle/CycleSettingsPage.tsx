@@ -44,7 +44,7 @@ function ToggleRow({
       <span
         aria-hidden
         className={`mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border transition-colors ${
-          checked ? 'border-accent bg-accent text-white' : 'border-border bg-surface-2'
+          checked ? 'border-accent bg-accent-fill text-white' : 'border-border bg-surface-2'
         }`}
       >
         {checked && <Check size={15} strokeWidth={3} />}

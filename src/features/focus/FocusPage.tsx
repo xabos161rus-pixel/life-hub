@@ -86,6 +86,11 @@ const STEP_MIN = 5; // шаг при перетаскивании кольца
 const FOCUS_VARS = {
   '--app-accent': 'var(--focus-accent)',
   '--app-accent-2': 'var(--focus-accent-2)',
+  // Заливки перекрываем отдельно: они живут в своих токенах, и без этой пары
+  // кнопка «Фокуса» брала бы общий синий вместо тёплого — весь смысл
+  // перекрытия пропадает.
+  '--app-accent-fill': 'var(--focus-accent-fill)',
+  '--app-accent-2-fill': 'var(--focus-accent-2-fill)',
   '--shadow-accent': 'var(--shadow-focus)',
 } as unknown as CSSProperties;
 
@@ -206,7 +211,7 @@ function PresetForm({
       </div>
       <button
         onClick={() => onSave({ ...initial, name: name.trim() || fallbackName, work, break: brk, long })}
-        style={{ backgroundImage: 'linear-gradient(150deg, var(--focus-accent), var(--focus-accent-2))' }}
+        style={{ backgroundImage: 'linear-gradient(150deg, var(--focus-accent-fill), var(--focus-accent-2-fill))' }}
         className="rounded-2xl py-3 text-center font-semibold text-white active:opacity-95"
       >
         Сохранить
@@ -388,7 +393,7 @@ export function FocusPage() {
             onClick={p.running ? p.toggle : () => (p.active ? p.toggle() : p.start())}
             aria-label={p.running ? 'Пауза' : 'Старт'}
             style={{
-              backgroundImage: 'linear-gradient(150deg, var(--focus-accent), var(--focus-accent-2))',
+              backgroundImage: 'linear-gradient(150deg, var(--focus-accent-fill), var(--focus-accent-2-fill))',
               boxShadow: 'var(--shadow-focus)',
             }}
             className="flex size-20 items-center justify-center rounded-full text-white active:scale-90"
