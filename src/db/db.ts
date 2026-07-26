@@ -21,9 +21,11 @@ import type {
   FamilyMessage,
   ReminderSection,
   ReminderItem,
+  LlmChat,
+  LlmMessage,
 } from './types';
 
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -47,6 +49,8 @@ export class LifeHubDB extends Dexie {
   familyMessages!: Table<FamilyMessage, string>;
   reminderSections!: Table<ReminderSection, string>;
   reminderItems!: Table<ReminderItem, string>;
+  llmChats!: Table<LlmChat, string>;
+  llmMessages!: Table<LlmMessage, string>;
 
   constructor() {
     super('life-hub');
@@ -160,6 +164,16 @@ export class LifeHubDB extends Dexie {
             if (l.value === undefined) l.value = null;
           });
       });
+    // v10 — раздел ИИ: чаты с языковой моделью. Только новые таблицы,
+    // существующие не трогаются → upgrade-функция не нужна.
+    // Индексы минимальные: чаты сортируем по lastMessageAt, сообщения читаем
+    // выборкой по chatId. Составной [chatId+createdAt] не добавляем — его не
+    // использовал бы ни один запрос, а каждый лишний индекс это запись на
+    // каждое сообщение.
+    this.version(10).stores({
+      llmChats: 'id, lastMessageAt',
+      llmMessages: 'id, chatId',
+    });
   }
 }
 

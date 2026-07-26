@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
-import { BellRing, ChevronRight, GraduationCap, PhoneCall, Trash2 } from 'lucide-react';
+import { BellRing, Bot, ChevronRight, GraduationCap, PhoneCall, Trash2 } from 'lucide-react';
 import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/sounds';
 import { RINGTONES, previewRingtone, type RingtoneKind } from '../../lib/family/ringtone';
 import { Screen } from '../../components/layout/Screen';
@@ -405,6 +405,27 @@ export function SettingsPage() {
 
         <Section title="Приложение">
           <div className="card">
+            {/* Раздел ИИ за флагом: пока фича дописывается, её можно мержить в
+                main рабочего приложения, не показывая в «Ещё». */}
+            <div className="border-b border-hairline p-4">
+              <div className="mb-2.5 flex items-center gap-2">
+                <Bot size={20} className="shrink-0 text-muted" />
+                <span className="flex-1">
+                  Раздел «ИИ»
+                  <span className="block text-sm text-muted">
+                    Чат с языковой моделью. Нужна включённая синхронизация — ею идёт авторизация.
+                  </span>
+                </span>
+              </div>
+              <SegmentedControl<'off' | 'on'>
+                options={[
+                  { value: 'off', label: 'Скрыт' },
+                  { value: 'on', label: 'Показать' },
+                ]}
+                value={settings.aiEnabled ? 'on' : 'off'}
+                onChange={(v) => void updateSettings({ aiEnabled: v === 'on' })}
+              />
+            </div>
             <Link to="/more/trash" className="flex items-center gap-2 border-b border-hairline p-4">
               <Trash2 size={20} className="shrink-0 text-muted" />
               <span className="flex-1">Корзина</span>

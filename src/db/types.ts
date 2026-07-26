@@ -238,6 +238,11 @@ export interface Settings {
   autoBackup?: 'off' | 'cloud';
   autoBackupEvery?: 'daily' | 'weekly';
   lastCloudBackupAt?: string | null; // ISO последней успешной облачной копии
+  // Раздел ИИ. Пока фича не доведена — скрыт: недописанный код можно спокойно
+  // мержить в main рабочего приложения, не дожидаясь готовности всего раздела.
+  // Device-local (settings не синкается) — включается на каждом устройстве
+  // отдельно, что удобно и для отладки.
+  aiEnabled?: boolean;
 }
 
 // === Семейный раздел (общие задачи + чат) ===
@@ -328,6 +333,41 @@ export interface ReminderItem extends BaseEntity {
   sectionId: string;
   text: string; // может быть многострочным
   sortOrder: number;
+}
+
+// ── Раздел ИИ: чат с языковой моделью через свой Worker-прокси ──────────
+//
+// llmChats/llmMessages СОЗНАТЕЛЬНО не входят ни в SYNCED_TABLES, ни в TABLES
+// бэкапа. Причины: pull молча пропускает записи неизвестной таблицы, поэтому
+// устройство со старой сборкой навсегда потеряло бы часть переписки; push
+// делает полный скан таблиц, а история чата — самая крупная из них; плюс
+// раздувание облачного снапшота. Страховка от потери — экспорт диалога.
+// Синхронизацию включаем отдельным шагом, когда фича приживётся.
+
+export interface LlmChat extends BaseEntity {
+  title: string; // авто-заголовок из первого вопроса, редактируемый
+  model: string; // id модели, которой отвечаем в этом чате
+  systemPrompt: string; // '' — без системного промпта
+  lastMessageAt: string | null; // для сортировки списка чатов
+}
+
+export type LlmRole = 'user' | 'assistant';
+
+/** Статус ответа. 'streaming' появится вместе со стримингом (этап 2). */
+export type LlmStatus = 'done' | 'error';
+
+export interface LlmMessage extends BaseEntity {
+  chatId: string;
+  role: LlmRole;
+  content: string;
+  model: string | null; // чем отвечено (у сообщений пользователя null)
+  tokensIn: number | null;
+  tokensOut: number | null;
+  // Стоимость считаем на клиенте от usage и прайса модели. Храним снимок в
+  // рублях: прайс со временем меняется, а «сколько это стоило» — факт.
+  costRub: number | null;
+  status: LlmStatus;
+  error: string | null;
 }
 
 // Конфиг E2E-синхронизации. НЕ синкается и НЕ входит в бэкап (содержит ключ

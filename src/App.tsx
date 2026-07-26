@@ -31,6 +31,7 @@ import { SettingsPage } from './features/settings/SettingsPage';
 import { InstallInstructionsPage } from './features/settings/InstallInstructionsPage';
 import { FocusPage } from './features/focus/FocusPage';
 import { FamilyPage } from './features/family/FamilyPage';
+import { AiPage } from './features/ai/AiPage';
 import { PomodoroProvider } from './features/focus/PomodoroProvider';
 import { MiniTimer } from './features/focus/MiniTimer';
 import { OnboardingOverlay } from './features/onboarding/OnboardingOverlay';
@@ -131,6 +132,7 @@ export default function App() {
                 <Route path="/goals/:id" element={<GoalDetailPage />} />
                 <Route path="/more" element={<MorePage />} />
                 <Route path="/more/family" element={<FamilyPage />} />
+                <Route path="/more/ai" element={<AiPage />} />
                 <Route path="/more/focus" element={<FocusPage />} />
                 <Route path="/more/learning" element={<LearningPage />} />
                 <Route path="/more/finance" element={<FinancePage />} />

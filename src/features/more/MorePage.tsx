@@ -10,6 +10,7 @@ import {
   Timer,
   CalendarCheck,
   Sparkles,
+  Bot,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -71,6 +72,7 @@ export function MorePage() {
     }, []) ?? false;
 
   const learningCount = alive(learning ?? []).length;
+  const aiEnabled = useLiveQuery(async () => (await db.settings.get('app'))?.aiEnabled ?? false, []) ?? false;
 
   // Порядок по логике: ежедневное → сферы жизни → сервис/обзор.
   // «Семья» вынесена в нижний таб-бар, поэтому здесь её нет.
@@ -83,6 +85,11 @@ export function MorePage() {
           title="Быстрый захват"
           subtitle="Вставить текст → задача или заметка"
         />
+        {/* Раздел ИИ показывается только при включённом флаге в Настройках:
+            пока фича не доведена, недописанный код можно спокойно мержить. */}
+        {aiEnabled && (
+          <MenuCard to="/more/ai" icon={Bot} title="ИИ" subtitle="Чат с языковой моделью" />
+        )}
         <MenuCard to="/more/focus" icon={Timer} title="Фокус" subtitle="Таймер помодоро" />
         <MenuCard
           to="/more/habits"
