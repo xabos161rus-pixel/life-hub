@@ -154,3 +154,86 @@ test.describe('папки', () => {
     await expect(page.getByText('Важная заметка внутри папки')).toBeVisible();
   });
 });
+
+test.describe('редактор', () => {
+  test('чек-лист: создаётся, отмечается тапом, переживает перезагрузку', async ({ page }) => {
+    // Список дел — главное, чего в редакторе не было. Проверяем весь путь:
+    // кнопка, ввод, отметка галочкой и сохранение состояния.
+    await newNote(page);
+    await page.keyboard.type('Покупки');
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Список задач' }).click();
+    await page.keyboard.type('Молоко');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Хлеб');
+    await expect(page.locator('.note-editor ul.cl > li')).toHaveCount(2);
+
+    // Тап по галочке первого пункта — по левому краю, где она нарисована.
+    const first = page.locator('.note-editor ul.cl > li').first();
+    const box = (await first.boundingBox())!;
+    await page.mouse.click(box.x + 10, box.y + box.height / 2);
+    await expect(first).toHaveAttribute('data-done', '1');
+
+    // Отметка обязана пережить сохранение: она в атрибуте, а санитайзер режет
+    // всё, чего нет в списке разрешённых.
+    await page.waitForTimeout(900);
+    await page.reload();
+    await page.waitForTimeout(900);
+    await expect(page.locator('.note-editor ul.cl > li[data-done="1"]')).toHaveCount(1);
+  });
+
+  test('тап по тексту пункта ставит каретку, а не отмечает', async ({ page }) => {
+    // Зона галочки узкая намеренно: шире — и она начнёт перехватывать тапы по
+    // тексту, когда человек хочет просто поправить слово.
+    await newNote(page);
+    await page.keyboard.type('Дела');
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Список задач' }).click();
+    await page.keyboard.type('Позвонить в банк');
+    const li = page.locator('.note-editor ul.cl > li').first();
+    const box = (await li.boundingBox())!;
+    await page.mouse.click(box.x + box.width - 12, box.y + box.height / 2);
+    await expect(li).not.toHaveAttribute('data-done', '1');
+  });
+
+  test('подзаголовок и цитата включаются и выключаются', async ({ page }) => {
+    // Без повторного нажатия из блочного формата нельзя выйти, не удаляя
+    // строку — это и была бы ловушка.
+    await newNote(page);
+    await page.keyboard.type('Заметка');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Раздел');
+    await page.getByRole('button', { name: 'Подзаголовок' }).click();
+    await expect(page.locator('.note-editor h2')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Подзаголовок' }).click();
+    await expect(page.locator('.note-editor h2')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Цитата' }).click();
+    await expect(page.locator('.note-editor blockquote')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Цитата' }).click();
+    await expect(page.locator('.note-editor blockquote')).toHaveCount(0);
+  });
+
+  test('зачёркнутый текст сохраняется', async ({ page }) => {
+    await newNote(page);
+    await page.keyboard.type('Заголовок');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Отменённый пункт');
+    await page.keyboard.press('Shift+Home');
+    await page.getByRole('button', { name: 'Зачёркнутый' }).click();
+    await page.waitForTimeout(900);
+    await page.reload();
+    await page.waitForTimeout(900);
+    await expect(page.locator('.note-editor s, .note-editor strike')).toHaveCount(1);
+  });
+
+  test('панель форматирования не выталкивает страницу вбок', async ({ page }) => {
+    // Кнопок стало девять, в ширину телефона они не помещаются. Прокручиваться
+    // должна панель, а не страница.
+    await newNote(page);
+    const scrollable = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+    );
+    expect(scrollable).toBe(false);
+  });
+});

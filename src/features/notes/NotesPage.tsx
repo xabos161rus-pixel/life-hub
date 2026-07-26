@@ -11,8 +11,9 @@ import { db } from '../../db/db';
 import { alive, remove, update } from '../../db/repo';
 import type { Note, NoteFolder } from '../../db/types';
 import { formatRu, toKey } from '../../lib/dates';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { FolderSheet } from './FolderSheet';
-import { plur } from '../../lib/plural';
+import { checklistProgress } from './checklist';
 
 /** HTML заметки → плоский текст для превью/поиска (с переносами на блоках). */
 function htmlToText(html: string): string {
@@ -50,6 +51,7 @@ function NoteRow({
 
   const text = useMemo(() => htmlToText(note.content), [note.content]);
   const title = note.title || text.split('\n')[0] || 'Без названия';
+  const progress = useMemo(() => checklistProgress(note.content), [note.content]);
   const preview = text.split('\n').slice(1).join(' ').trim();
 
   const holdRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -129,9 +131,17 @@ function NoteRow({
         {note.pinned && <Pin size={13} className="mt-1 shrink-0 text-accent" fill="currentColor" />}
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 break-words font-semibold">{title}</p>
-          <p className="mt-0.5 flex gap-1.5 text-sm text-muted">
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted">
             <span className="shrink-0">{formatRu(toKey(new Date(note.updatedAt)))}</span>
-            {preview && <span className="truncate">{preview}</span>}
+            {/* У списка задач важно не начало текста, а сколько осталось —
+                ради этого в него и заглядывают из общего списка. */}
+            {progress ? (
+              <span className="shrink-0 tabular-nums">
+                {progress.done} из {progress.total}
+              </span>
+            ) : (
+              preview && <span className="truncate">{preview}</span>
+            )}
           </p>
         </div>
       </div>
@@ -286,7 +296,7 @@ export function NotesPage() {
           <button
             onClick={() => setFolderSheet('new')}
             aria-label="Новая папка"
-            className="p-1 text-accent active:opacity-60"
+            className={`p-1 text-accent active:opacity-60 ${HIT_SLOP_44}`}
           >
             <FolderPlus size={20} />
           </button>
@@ -351,21 +361,15 @@ export function NotesPage() {
           )}
           {rest.length > 0 && (
             <div className="mb-4">
-              {pinned.length > 0 && (
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Заметки</h2>
+              {(pinned.length > 0 || (!current && folders.length > 0)) && (
+                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">
+                  {!current && folders.length > 0 ? 'Вне папок' : 'Заметки'}
+                </h2>
               )}
               {renderList(rest)}
             </div>
           )}
         </>
-      )}
-
-      {/* Сводка по корню: сколько заметок вне папок — иначе непонятно, всё ли
-          разложено. Показываем, только когда папки есть. */}
-      {!current && !q && folders.length > 0 && rest.length > 0 && (
-        <p className="mt-1 px-1 text-xs text-muted">
-          Вне папок: {plur(allNotes.filter((n) => !n.folderId).length, ['заметка', 'заметки', 'заметок'])}
-        </p>
       )}
 
       <Fab onClick={() => navigate(current ? `/notes/new?folder=${current.id}` : '/notes/new')} />
