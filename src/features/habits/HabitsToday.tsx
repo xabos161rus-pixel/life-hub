@@ -41,7 +41,7 @@ export function HabitsToday() {
 
   return (
     <section className="mb-5">
-      <h2 className="mb-2 flex items-center justify-between text-sm font-semibold text-muted">
+      <h2 className="mb-2 flex items-center justify-between px-1 text-sm font-semibold text-muted">
         <span>Привычки</span>
         <span className="text-xs font-normal">
           {doneCount}/{planned.length}
@@ -63,7 +63,7 @@ export function HabitsToday() {
               }}
               className="flex items-center gap-3 py-3 active:opacity-80"
             >
-              <span className="text-xl leading-none" aria-hidden>
+              <span className="text-lg leading-none" aria-hidden>
                 {h.emoji}
               </span>
               <div className="min-w-0 flex-1">

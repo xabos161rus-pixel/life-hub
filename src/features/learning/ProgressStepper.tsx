@@ -20,9 +20,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
     // Лог на каждый клик — это ок, это история прогресса.
     await create(db.learningLogs, { itemId: item.id, date: todayKey(), value });
     if (value >= item.progressTarget && item.progressTarget > 0) {
-      if (window.confirm('Отметить завершённым?')) {
-        await update(db.learningItems, item.id, { status: 'done', finishedAt: now() });
-      }
+      await update(db.learningItems, item.id, { status: 'done', finishedAt: now() });
     }
   };
 

@@ -6,6 +6,13 @@ import { Field, Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { createFamily, joinFamily } from '../../lib/family/familyLifecycle';
+import {
+  InviteExpiredError,
+  InviteWordError,
+  normalizeInviteWord,
+  peekInvite,
+} from '../../lib/crypto';
+import { STROKE_HEAVY } from '../../components/ui/icons';
 
 const JOIN_TABS = [
   { value: 'scan' as const, label: 'Сканировать' },
@@ -23,9 +30,9 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
       <button
         onClick={() => setMode('choose')}
         aria-label="Создать группу или войти по приглашению"
-        className="flex size-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-accent to-accent-2 text-white shadow-accent active:scale-95"
+        className="flex size-20 items-center justify-center rounded-3xl bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent active:scale-95"
       >
-        <Plus size={40} strokeWidth={2.4} />
+        <Plus size={40} strokeWidth={STROKE_HEAVY} />
       </button>
       <div className="space-y-1.5">
         <p className="text-lg font-semibold">Создать или войти по приглашению</p>
@@ -108,6 +115,31 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
   const rafRef = useRef(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Код прочитан, ждём кодовое слово. null — этого шага сейчас нет.
+  const [pendingCode, setPendingCode] = useState<string | null>(null);
+  const [pendingName, setPendingName] = useState('');
+  const [wordInput, setWordInput] = useState('');
+
+  async function confirmWord() {
+    if (!pendingCode || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const id = await joinFamily(pendingCode, name, wordInput);
+      onClose();
+      onReady?.(id);
+    } catch (err) {
+      setError(
+        err instanceof InviteExpiredError
+          ? 'Срок действия приглашения истёк — попросите новое'
+          : err instanceof InviteWordError
+            ? 'Слово не подошло. Проверьте и попробуйте снова'
+            : 'Не удалось войти. Проверьте код',
+      );
+      setBusy(false);
+    }
+  }
+
   // Подключение через ref (стабильная ссылка для камеры-эффекта).
   const joinRef = useRef<(code: string) => void>(() => {});
   useEffect(() => {
@@ -117,17 +149,31 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
         setError('Сначала введите своё имя');
         return;
       }
-      setBusy(true);
+      // Код прочитан — теперь нужно кодовое слово. Раньше вход происходил
+      // сразу, потому что ключ лежал прямо в коде; теперь код без слова
+      // бесполезен, и это второй шаг, а не лишний вопрос.
+      let peeked;
+      try {
+        peeked = peekInvite(code.trim());
+      } catch {
+        // Старый код без слова (формат v:2) — принимаем как есть, чтобы
+        // сохранённые до обновления приглашения продолжали работать.
+        setBusy(true);
+        setError('');
+        void joinFamily(code.trim(), name)
+          .then((id) => {
+            onClose();
+            onReady?.(id);
+          })
+          .catch(() => {
+            setError('Не удалось войти. Проверьте код.');
+            setBusy(false);
+          });
+        return;
+      }
+      setPendingCode(code.trim());
+      setPendingName(peeked.familyName);
       setError('');
-      void joinFamily(code.trim(), name)
-        .then((id) => {
-          onClose();
-          onReady?.(id);
-        })
-        .catch(() => {
-          setError('Не удалось войти. Проверьте код.');
-          setBusy(false);
-        });
     };
   });
 
@@ -204,7 +250,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
       canvas.height = h;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        setError('Не удалось обработать картинку.');
+        setError('Не удалось открыть фото. Попробуйте другой файл');
         return;
       }
       ctx.drawImage(img, 0, 0, w, h);
@@ -213,7 +259,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
       if (found?.data) joinRef.current(found.data);
       else setError('На картинке не найден QR-код. Попробуйте другое фото или вставьте код вручную.');
     } catch {
-      setError('Не удалось прочитать картинку.');
+      setError('Не удалось открыть фото. Попробуйте другой файл');
     } finally {
       URL.revokeObjectURL(url);
     }
@@ -226,7 +272,57 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Брат" />
         </Field>
         <SegmentedControl options={JOIN_TABS} value={tab} onChange={setTab} />
-        {tab === 'scan' ? (
+        {pendingCode !== null ? (
+          // Второй шаг входа: код прочитан, нужно слово. Показываем название
+          // группы — человек должен видеть, куда его зовут, до ввода.
+          <div className="space-y-3">
+            <div className="card p-4 text-center">
+              <p className="text-sm text-muted">Приглашение в группу</p>
+              <p className="mt-0.5 font-semibold">{pendingName || 'Семья'}</p>
+            </div>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-muted">
+                Кодовое слово от приглашающего
+              </span>
+              <input
+                value={wordInput}
+                onChange={(e) => setWordInput(normalizeInviteWord(e.target.value).slice(0, 8))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void confirmWord();
+                }}
+                placeholder="ABCD EFGH"
+                autoComplete="off"
+                autoCapitalize="characters"
+                className="w-full rounded-xl border border-border bg-surface p-3 text-center font-mono text-lg tracking-[0.15em] uppercase"
+                aria-label="Кодовое слово"
+              />
+            </label>
+            <p className="text-xs leading-snug text-muted">
+              Его называет тот, кто вас приглашает. Без слова код не открыть — так перехваченное
+              приглашение остаётся бесполезным.
+            </p>
+            {/* Столбиком: на 320px две кнопки в ряд обрезают «Назад к коду». */}
+            <div className="flex flex-col gap-2 min-[380px]:flex-row">
+              <Button
+                className="min-[380px]:flex-1"
+                disabled={wordInput.length < 4 || busy}
+                onClick={() => void confirmWord()}
+              >
+                {busy ? 'Вхожу…' : 'Войти'}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setPendingCode(null);
+                  setWordInput('');
+                  setError('');
+                }}
+              >
+                Назад к коду
+              </Button>
+            </div>
+          </div>
+        ) : tab === 'scan' ? (
           <div className="space-y-2">
             <div className="relative overflow-hidden rounded-2xl bg-black">
               <video ref={videoRef} className="aspect-square w-full object-cover" muted playsInline />

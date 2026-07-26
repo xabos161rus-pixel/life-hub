@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { BatteryCharging } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
@@ -54,7 +55,7 @@ function EnergyCard({ item, onOpen }: { item: EnergyItem; onOpen: () => void }) 
       )}
       <div className="mt-3 flex items-center justify-between gap-3">
         {item.category ? (
-          <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted">
+          <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-0.5 text-2xs text-muted">
             {item.category}
           </span>
         ) : (
@@ -72,6 +73,7 @@ export function EnergyPage() {
   const [editing, setEditing] = useState<EnergyItem | null>(null);
 
   const rows = useLiveQuery(() => db.energyItems.toArray(), []);
+  const loaded = useLoaded(rows);
   const items = alive(rows ?? [])
     .filter((i) => filter === 'all' || i.effort === filter)
     .sort((a, b) => b.effectiveness - a.effectiveness);
@@ -87,7 +89,7 @@ export function EnergyPage() {
   };
 
   return (
-    <Screen title="Энергия" backTo="/more">
+    <Screen title="Энергия" backTo="/home">
       <div className="space-y-3">
         <div className="card p-4">
           <p className="text-sm leading-relaxed text-muted">
@@ -105,11 +107,13 @@ export function EnergyPage() {
           onChange={setFilter}
         />
         {items.length === 0 ? (
-          <EmptyState
-            icon={BatteryCharging}
-            title="Пока нет способов"
-            hint="Нажмите +, чтобы добавить то, что возвращает вам силы."
-          />
+          loaded && (
+            <EmptyState
+              icon={BatteryCharging}
+              title="Пока нет способов"
+              hint="Нажмите +, чтобы добавить то, что возвращает вам силы."
+            />
+          )
         ) : (
           items.map((item) => (
             <EnergyCard key={item.id} item={item} onOpen={() => openEdit(item)} />

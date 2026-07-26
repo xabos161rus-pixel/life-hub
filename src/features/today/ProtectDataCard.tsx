@@ -4,11 +4,12 @@ import { ChevronRight, ShieldCheck, X } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { pushEnabled } from '../../lib/push';
+import { HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 
 /**
  * Мягкое напоминание на «Сегодня»: защитить данные — включить синхронизацию,
  * облачную копию и уведомления. Показывается, пока и синхронизация, и
- * уведомления не включены; исчезает сама, когда оба включены. «Позже» скрывает
+ * уведомления не включены; исчезает сама, когда оба включены. «Скрыть» скрывает
  * до следующего запуска (несознательно навсегда не прячем).
  *
  * Не включаем ничего по умолчанию намеренно: ключ шифрования нужно осознанно
@@ -41,22 +42,22 @@ export function ProtectDataCard() {
       <div className="card relative p-4">
         <button
           type="button"
-          aria-label="Позже"
+          aria-label="Скрыть"
           onClick={() => setDismissed(true)}
-          className="absolute top-2.5 right-2.5 flex size-7 items-center justify-center rounded-full text-muted active:opacity-60"
+          className={`absolute top-2.5 right-2.5 flex size-7 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
         >
           <X size={16} />
         </button>
         <div className="flex items-start gap-3 pr-6">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-            <ShieldCheck size={22} />
+            <ShieldCheck size={20} />
           </div>
           <div className="min-w-0">
             <h3 className="font-semibold">Защитите свои данные</h3>
             <p className="mt-0.5 text-sm leading-relaxed text-muted">{text}</p>
             <Link
               to="/more/settings"
-              className="mt-2.5 inline-flex items-center gap-1 text-sm font-semibold text-accent active:opacity-70"
+              className="mt-2.5 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-accent active:opacity-70"
             >
               Настроить
               <ChevronRight size={16} />

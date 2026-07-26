@@ -8,21 +8,51 @@ import {
 } from 'react';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { Bold, Italic, List, ListOrdered, Pin, SlidersHorizontal, Trash2, Type } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router';
+import { Bold, Italic, List, ListOrdered, ListChecks, Heading, Strikethrough, Quote, Undo2, Pin, SlidersHorizontal, Trash2, Type } from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { MicButton } from '../../components/ui/MicButton';
 import { Hint } from '../../components/ui/Hint';
 import { db } from '../../db/db';
+import { normalizeEditor } from './editorDom';
+import {
+  CHECKLIST_CLASS,
+  closestChecklistItem,
+  hitCheckbox,
+  toggleChecklist,
+  toggleItem,
+} from './checklist';
 import { create, remove, update } from '../../db/repo';
+import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { IconButton } from '../../components/ui/IconButton';
 
 const AUTOSAVE_MS = 600;
 
 // Содержимое — это HTML из contentEditable. Чистим перед записью: заметки
 // свои, не импортированные, но санитайз защищает от вставленного из буфера.
+// Санитайз идёт и на вставке, и на сохранении.
+//
+// Здесь стоял ALLOWED_CLASSES: { ul: ['cl'] } — такой опции у DOMPurify НЕТ
+// (она из sanitize-html), незнакомые ключи конфига просто игнорируются. То
+// есть class проходил целиком и на всех тегах — ровно наоборот тому, что
+// обещал прежний комментарий. Приложение на Tailwind с глобальными
+// утилитами, поэтому вставленный из веба фрагмент с class="hidden" давал
+// сохранённый, но невидимый текст, а class="fixed inset-0 z-50" — блок
+// поверх всего экрана.
+//
+// Класс нужен ровно один — маркер чек-листа. Оставляем его хуком, который
+// работает уже ПОСЛЕ разбора атрибутов, и стираем всё остальное.
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (!(node instanceof Element) || !node.hasAttribute('class')) return;
+  const keep = node.tagName === 'UL' && node.classList.contains(CHECKLIST_CLASS);
+  if (keep) node.setAttribute('class', CHECKLIST_CLASS);
+  else node.removeAttribute('class');
+});
+
 const SANITIZE = {
-  ALLOWED_TAGS: ['p', 'div', 'br', 'b', 'strong', 'i', 'em', 'u', 'ul', 'ol', 'li', 'h1', 'h2', 'span'],
-  ALLOWED_ATTR: [],
+  ALLOWED_TAGS: ['p', 'div', 'br', 'b', 'strong', 'i', 'em', 'u', 's', 'strike',
+    'ul', 'ol', 'li', 'h1', 'h2', 'span', 'blockquote'],
+  ALLOWED_ATTR: ['class', 'data-done'],
 };
 
 /** Заголовок заметки = первая непустая строка её текста (как в iOS).
@@ -44,7 +74,8 @@ function ToolBtn({
 }: {
   onClick: () => void;
   label: string;
-  active: boolean;
+  /** Подсветка «формат включён». У кнопок-действий (отмена) состояния нет. */
+  active?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -66,6 +97,11 @@ function ToolBtn({
 
 export function NoteEditorPage() {
   const { id: routeId } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  // Папка, в которой нажали «+». В ref, а не в state: значение нужно внутри
+  // flush, который вызывается по таймеру и из обработчика ухода со страницы —
+  // там актуальность важнее реактивности.
+  const folderRef = useRef<string | null>(searchParams.get('folder'));
   const navigate = useNavigate();
   const isNew = routeId === 'new';
 
@@ -81,7 +117,10 @@ export function NoteEditorPage() {
   const [pinned, setPinned] = useState(false);
   const [saved, setSaved] = useState(false);
   // Активность кнопок форматирования для подсветки в тулбаре.
-  const [active, setActive] = useState({ bold: false, italic: false, ul: false, ol: false });
+  const [active, setActive] = useState({
+    bold: false, italic: false, ul: false, ol: false,
+    strike: false, h2: false, quote: false, checklist: false,
+  });
 
   // Пересчитываем активные форматы по текущему выделению (в обработчике, не в
   // рендере). Тротл: selectionchange стреляет на каждый символ, а 4 вызова
@@ -94,11 +133,20 @@ export function NoteEditorPage() {
     const el = editorRef.current;
     const sel = document.getSelection();
     if (!el || !sel || sel.rangeCount === 0 || !el.contains(sel.anchorNode)) return;
+    // Блочные форматы queryCommandState не отдаёт — смотрим по DOM вокруг
+    // каретки. queryCommandValue('formatBlock') на Safari возвращает пустую
+    // строку внутри списков, поэтому на него полагаться нельзя.
+    const anchor = sel.anchorNode;
+    const host = anchor instanceof Element ? anchor : anchor?.parentElement;
     setActive({
       bold: document.queryCommandState('bold'),
       italic: document.queryCommandState('italic'),
       ul: document.queryCommandState('insertUnorderedList'),
       ol: document.queryCommandState('insertOrderedList'),
+      strike: document.queryCommandState('strikeThrough'),
+      h2: Boolean(host?.closest('h2')),
+      quote: Boolean(host?.closest('blockquote')),
+      checklist: Boolean(closestChecklistItem(anchor)),
     });
   }, []);
 
@@ -170,6 +218,7 @@ export function NoteEditorPage() {
           content: html,
           tags: [],
           pinned: pinnedRef.current,
+          folderId: folderRef.current,
         });
         savedIdRef.current = created.id;
         navigate(`/notes/${created.id}`, { replace: true });
@@ -302,11 +351,20 @@ export function NoteEditorPage() {
     [touch],
   );
 
-  const exec = (command: string) => {
+  const exec = (command: string, value?: string) => {
     // тег-based разметка (<b>/<i>), иначе на Gecko execCommand даёт
     // <span style> и наш санитайзер срезал бы форматирование
     document.execCommand('styleWithCSS', false, 'false');
-    document.execCommand(command);
+    // Повторное нажатие на блочный формат снимает его: без этого из
+    // подзаголовка или цитаты нельзя выйти, не удаляя строку.
+    if (command === 'formatBlock' && value) {
+      const sel = document.getSelection();
+      const host = sel?.anchorNode instanceof Element ? sel.anchorNode : sel?.anchorNode?.parentElement;
+      const already = host?.closest(value);
+      document.execCommand('formatBlock', false, already ? 'div' : value);
+    } else {
+      document.execCommand(command);
+    }
     editorRef.current?.focus();
     syncActive();
     touch();
@@ -334,25 +392,19 @@ export function NoteEditorPage() {
 
   return (
     <Screen
-      title="Заметка"
+      title=""
       backTo="/notes"
       right={
         <div className="flex items-center gap-1">
           <MicButton onText={appendVoice} />
-          <button
+          <IconButton
+            icon={Pin}
+            label={pinned ? 'Открепить' : 'Закрепить'}
             onClick={togglePin}
-            aria-label={pinned ? 'Открепить' : 'Закрепить'}
-            className={`p-2 ${pinned ? 'text-accent' : 'text-muted'}`}
-          >
-            <Pin size={20} fill={pinned ? 'currentColor' : 'none'} />
-          </button>
-          <button
-            onClick={() => void handleDelete()}
-            aria-label="Удалить"
-            className="p-2 text-danger"
-          >
-            <Trash2 size={20} />
-          </button>
+            tone={pinned ? 'accent' : 'muted'}
+            filled={pinned}
+          />
+          <IconButton icon={Trash2} label="Удалить" onClick={() => void handleDelete()} tone="danger" />
           <button
             onClick={() => void handleDone()}
             className="pl-1 pr-1 font-semibold text-accent active:opacity-60"
@@ -387,6 +439,21 @@ export function NoteEditorPage() {
           const text = e.clipboardData.getData('text/plain');
           const clean = html ? DOMPurify.sanitize(html, SANITIZE) : text;
           document.execCommand('insertHTML', false, clean);
+          // Вставленная разметка приносит свои <div>/<p>, и первая строка
+          // оказывается внутри блока — то есть перестаёт быть заголовком.
+          // Из мессенджера (только plain text) этого не видно, из браузера и
+          // документов — видно всегда.
+          if (editorRef.current) normalizeEditor(editorRef.current);
+          touch();
+        }}
+        onPointerDown={(e) => {
+          // Тап по галочке переключает пункт. Ловим на pointerdown, а не на
+          // click: click внутри contenteditable уже переставил каретку, и
+          // отменять это поздно — экран дёргается.
+          const li = closestChecklistItem(e.target as Node);
+          if (!li || !hitCheckbox(li, e.clientX)) return;
+          e.preventDefault();
+          toggleItem(li);
           touch();
         }}
         onKeyDown={handleEditorKeyDown}
@@ -404,28 +471,54 @@ export function NoteEditorPage() {
       <div
         ref={toolbarRef}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface p-2 pb-[calc(env(safe-area-inset-bottom)+8px)]"
+        style={{ position: 'fixed' }}
       >
-        <div className="mx-auto flex w-full max-w-lg items-center gap-1">
+        <div className="mx-auto flex w-full max-w-lg items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <ToolBtn
+          onClick={() => {
+            const el = editorRef.current;
+            if (!el) return;
+            el.focus();
+            toggleChecklist(el);
+            touch();
+          }}
+          label="Список задач"
+          active={active.checklist}
+        >
+          <ListChecks size={ICON.header} strokeWidth={STROKE_STRONG} />
+        </ToolBtn>
         <ToolBtn onClick={() => exec('bold')} label="Жирный" active={active.bold}>
-          <Bold size={20} strokeWidth={2.25} />
+          <Bold size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('italic')} label="Курсив" active={active.italic}>
-          <Italic size={20} strokeWidth={2.25} />
+          <Italic size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('insertUnorderedList')} label="Маркированный список" active={active.ul}>
-          <List size={20} strokeWidth={2.25} />
+          <List size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('insertOrderedList')} label="Нумерованный список" active={active.ol}>
-          <ListOrdered size={20} strokeWidth={2.25} />
+          <ListOrdered size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
+        <ToolBtn onClick={() => exec('strikeThrough')} label="Зачёркнутый" active={active.strike}>
+          <Strikethrough size={ICON.header} strokeWidth={STROKE_STRONG} />
+        </ToolBtn>
+        <ToolBtn onClick={() => exec('formatBlock', 'h2')} label="Подзаголовок" active={active.h2}>
+          <Heading size={ICON.header} strokeWidth={STROKE_STRONG} />
+        </ToolBtn>
+        <ToolBtn onClick={() => exec('formatBlock', 'blockquote')} label="Цитата" active={active.quote}>
+          <Quote size={ICON.header} strokeWidth={STROKE_STRONG} />
+        </ToolBtn>
+        <ToolBtn onClick={() => exec('undo')} label="Отменить">
+          <Undo2 size={ICON.header} strokeWidth={STROKE_STRONG} />
+        </ToolBtn>
+        </div>
         <span
-          className={`ml-auto pr-1.5 text-xs font-medium text-muted transition-opacity ${
+          className={`pointer-events-none absolute right-3 -top-6 text-xs font-medium text-muted transition-opacity ${
             saved ? 'opacity-100' : 'opacity-0'
           }`}
         >
           Сохранено
         </span>
-        </div>
       </div>
     </Screen>
   );

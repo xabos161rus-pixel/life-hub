@@ -46,12 +46,15 @@ export class FamilyRoom extends DurableObject {
       );
       CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
     `);
-    // last_online_at добавляем отдельным ALTER: у уже существующих DO таблица
-    // members создана без неё (CREATE TABLE IF NOT EXISTS колонку не добавит).
-    try {
-      this.sql.exec('ALTER TABLE members ADD COLUMN last_online_at TEXT');
-    } catch {
-      /* колонка уже есть */
+    // last_online_at и колонки исключения добавляем отдельными ALTER: у уже
+    // существующих DO таблица members создана без них (CREATE TABLE IF NOT
+    // EXISTS колонку не добавит).
+    for (const col of ['last_online_at TEXT', 'box_pub TEXT', 'removed_at TEXT']) {
+      try {
+        this.sql.exec(`ALTER TABLE members ADD COLUMN ${col}`);
+      } catch {
+        /* колонка уже есть */
+      }
     }
     this.insertsSincePrune = 0;
   }
@@ -89,6 +92,37 @@ export class FamilyRoom extends DurableObject {
     return row.v === hash;
   }
 
+  metaGet(k) {
+    return this.sql.exec('SELECT v FROM meta WHERE k=?', k).toArray()[0]?.v ?? null;
+  }
+
+  metaSet(k, v) {
+    this.sql.exec('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', k, v);
+  }
+
+  isRemoved(memberId) {
+    if (!memberId) return false;
+    const r = this.sql
+      .exec('SELECT removed_at FROM members WHERE member_id=?', memberId)
+      .toArray()[0];
+    return Boolean(r?.removed_at);
+  }
+
+  /** Владелец группы — тот, кто её создал. Доказательство владения: секрет,
+   *  который есть только у него (в приглашение не попадает). Сервер хранит
+   *  хеш; TOFU, как и с токеном — первый заявивший становится владельцем.
+   *
+   *  Зачем отдельный секрет, а не общий токен: токен есть у всех, включая
+   *  того, кого исключают. С ним любой участник мог бы сменить токен группы
+   *  на свой и запереть остальных снаружи — не прочитать переписку, но
+   *  сломать её всем. */
+  async checkOwner(secret) {
+    if (!secret) return false;
+    const stored = this.metaGet('owner_secret_hash');
+    if (!stored) return false;
+    return stored === (await sha256hex(secret));
+  }
+
   json(data, status = 200) {
     return new Response(JSON.stringify(data), {
       status,
@@ -117,6 +151,31 @@ export class FamilyRoom extends DurableObject {
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
 
+    // Конверты с новым ключом группы — БЕЗ авторизации, и это намеренно.
+    // После исключения участника токен группы меняется, и тот, кто был офлайн,
+    // приходит со старым: авторизоваться ему нечем, а новый токен лежит как раз
+    // в его конверте. Без этой двери он остался бы заперт снаружи вместе с
+    // исключённым. Отдавать конверты безопасно: каждый зашифрован личным ключом
+    // адресата, и посторонний не откроет ни одного. Знать при этом надо и
+    // familyId, и memberId — оба случайные uuid.
+    if (path.endsWith('/keys') && request.method === 'GET') {
+      const member = url.searchParams.get('member') || '';
+      const row = this.sql
+        .exec('SELECT ciphertext FROM items WHERE channel=? AND item_id=?', 'key', member)
+        .toArray()[0];
+      if (!row || this.isRemoved(member)) return this.json({ sealed: null });
+      return this.json({ sealed: row.ciphertext });
+    }
+
+    // Исключённого отсекаем ДО проверки токена — иначе он получал бы 401,
+    // неотличимый от «токен устарел, забери новый конверт», и его приложение
+    // молча переподключалось бы вечно, так и не сказав человеку, что случилось.
+    // Отдельный код 403 — единственный способ показать ему внятное сообщение.
+    // Утечки здесь нет: чтобы спросить, надо знать и familyId, и memberId.
+    if (this.isRemoved(url.searchParams.get('memberId'))) {
+      return this.json({ error: 'removed' }, 403);
+    }
+
     // Остальное — Bearer-токен
     if (!(await this.checkToken(token))) return this.json({ error: 'unauthorized' }, 401);
 
@@ -124,6 +183,65 @@ export class FamilyRoom extends DurableObject {
       const ticket = crypto.randomUUID();
       this.sql.exec('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', `ticket:${ticket}`, String(Date.now() + TICKET_TTL_MS));
       return this.json({ ticket });
+    }
+
+    // Регистрация участника: публичный ключ для адресных конвертов. TOFU —
+    // первый заявленный ключ закрепляется за memberId навсегда, иначе любой с
+    // токеном подменил бы чужой ключ и получил бы адресованный тому конверт.
+    if (path.endsWith('/register') && request.method === 'POST') {
+      const { memberId, boxPub, ownerSecretHash } = await request.json();
+      if (!memberId || !boxPub) return this.json({ error: 'bad request' }, 400);
+      if (this.isRemoved(memberId)) return this.json({ error: 'removed' }, 403);
+      this.sql.exec(
+        'INSERT INTO members (member_id, box_pub, joined_at) VALUES (?,?,?) ON CONFLICT(member_id) DO UPDATE SET box_pub = COALESCE(members.box_pub, excluded.box_pub)',
+        memberId,
+        boxPub,
+        new Date().toISOString(),
+      );
+      // Владелец закрепляется один раз — за тем, кто создал группу. Приглашённые
+      // секрета не знают и заявку не пришлют.
+      let owner = this.metaGet('owner_member_id');
+      if (!owner && ownerSecretHash) {
+        this.metaSet('owner_member_id', memberId);
+        this.metaSet('owner_secret_hash', ownerSecretHash);
+        owner = memberId;
+      }
+      return this.json({ ok: true, owner, isOwner: owner === memberId });
+    }
+
+    // Исключить участника. Пускает только владелец — по своему секрету.
+    // Здесь же меняется токен группы: без этого исключённый вошёл бы заново
+    // под новым memberId, ведь токен у него на руках.
+    if (path.endsWith('/remove') && request.method === 'POST') {
+      const { memberId, newTokenHash } = await request.json();
+      if (!(await this.checkOwner(request.headers.get('X-Family-Owner')))) {
+        return this.json({ error: 'forbidden' }, 403);
+      }
+      if (!memberId || !newTokenHash) return this.json({ error: 'bad request' }, 400);
+      if (memberId === this.metaGet('owner_member_id')) {
+        return this.json({ error: 'owner cannot be removed' }, 400);
+      }
+      this.sql.exec(
+        "UPDATE members SET removed_at = ?, push_sub = NULL WHERE member_id = ?",
+        new Date().toISOString(),
+        memberId,
+      );
+      // Конверт исключённого выкидываем: иначе он бы забрал из него новый ключ.
+      this.sql.exec('DELETE FROM items WHERE channel=? AND item_id=?', 'key', memberId);
+      this.metaSet('token_hash', newTokenHash);
+      // Живое соединение рвём сразу — иначе он читал бы чат до следующего
+      // разрыва сети, а нового ключа у него уже нет.
+      for (const ws of this.ctx.getWebSockets()) {
+        if (ws.deserializeAttachment()?.memberId === memberId) {
+          try {
+            ws.close(4403, 'removed');
+          } catch {
+            /* уже закрыт */
+          }
+        }
+      }
+      this.broadcastFrame({ type: 'removed', memberId });
+      return this.json({ ok: true });
     }
 
     if (path.endsWith('/messages') && request.method === 'GET') {
@@ -146,6 +264,7 @@ export class FamilyRoom extends DurableObject {
 
     if (path.endsWith('/push-sub') && request.method === 'POST') {
       const { memberId, subscription } = await request.json();
+      if (this.isRemoved(memberId)) return this.json({ error: 'removed' }, 403);
       if (memberId) {
         this.sql.exec(
           'INSERT INTO members (member_id, push_sub, joined_at) VALUES (?, ?, ?) ON CONFLICT(member_id) DO UPDATE SET push_sub=excluded.push_sub',
@@ -169,7 +288,7 @@ export class FamilyRoom extends DurableObject {
   }
 
   // === Запись (идемпотентная по client_msg_id для msg; новый seq для версии task/member) ===
-  async ingest({ channel, itemId, clientMsgId, senderMemberId, createdAt, ciphertext, edit, silent }) {
+  async ingest({ channel, itemId, clientMsgId, senderMemberId, createdAt, ciphertext, edit, silent, notify }) {
     if (!channel || !ciphertext || (channel === 'msg' && !clientMsgId) || (channel !== 'msg' && !itemId)) {
       return { error: 'bad request' };
     }
@@ -184,7 +303,8 @@ export class FamilyRoom extends DurableObject {
       if (dup) return { seq: dup.seq, channel, itemId: id, clientMsgId, duplicate: true };
     }
     // Новая ли это задача (для пуша «новая задача») — проверяем ДО удаления
-    // прежней версии: при обновлении/выполнении задачи (тот же item_id) пуша нет.
+    // прежней версии: остальные правки задачи молчат, кроме отмеченного клиентом
+    // notify (см. ниже).
     const isNewTask =
       channel === 'task' && !this.sql.exec('SELECT 1 FROM items WHERE channel=? AND item_id=? LIMIT 1', channel, id).toArray()[0];
 
@@ -213,6 +333,11 @@ export class FamilyRoom extends DurableObject {
       }
     } else if (isNewTask) {
       this.ctx.waitUntil(this.pushOffline(item, senderMemberId, 'task'));
+    } else if (channel === 'task' && notify === 'done') {
+      // Содержимое задачи шифруется end-to-end, поэтому «выполнена» сервер сам
+      // распознать не может — клиент помечает это событие открытым флагом.
+      // Флаг несёт только тип события: ни названия, ни имени в него не попадает.
+      this.ctx.waitUntil(this.pushOffline(item, senderMemberId, 'task-done'));
     }
     return { seq, channel, itemId: id, clientMsgId: clientMsgId || null };
   }
@@ -269,6 +394,11 @@ export class FamilyRoom extends DurableObject {
       return;
     }
     if (msg.type === 'hello') {
+      // Исключённый мог держать тикет, взятый за секунду до исключения.
+      if (this.isRemoved(msg.memberId)) {
+        ws.close(4403, 'removed');
+        return;
+      }
       ws.serializeAttachment({ memberId: msg.memberId || null });
       if (msg.memberId) {
         this.sql.exec(
@@ -449,13 +579,25 @@ export class FamilyRoom extends DurableObject {
     const subs = this.sql
       .exec('SELECT member_id, push_sub FROM members WHERE push_sub IS NOT NULL AND member_id != ?', senderMemberId || '')
       .toArray();
-    // Адресный пуш по группе: имя группы в заголовке (если известно) и тег с
-    // familyId — иначе уведомления двух групп схлопывались бы в одно.
+    // Заголовок нейтральный, без названия группы. Название лежит на сервере
+    // открытым текстом и попадает в уведомление на экран блокировки — то есть
+    // видно любому, кто взял телефон в руки, и известно тому, кто держит
+    // сервер. «Ремонт на Пушкина» или фамилия семьи — это утечка, ради которой
+    // не стоит различать группы в шторке.
+    // Тег с familyId остаётся: он не осмыслен для стороннего наблюдателя, но
+    // не даёт уведомлениям двух групп схлопнуться в одно.
     const familyId = this.sql.exec('SELECT v FROM meta WHERE k=?', 'family_id').toArray()[0]?.v || '';
-    const name = this.roomName() || 'Семья';
-    const isTask = kind === 'task';
-    const bodyText = isTask ? 'Новая общая задача' : 'Новое сообщение';
-    const tag = (isTask ? 'family-task:' : 'family-chat:') + (familyId || 'all');
+    const name = 'Семья';
+    // Тег у каждого типа события свой: с общим тегом «задача выполнена» затирала
+    // бы уведомление о новой задаче, и человек не узнал бы, что ему её поставили.
+    const KIND = {
+      msg: { body: 'Новое сообщение', tag: 'family-chat:' },
+      task: { body: 'Новая общая задача', tag: 'family-task:' },
+      'task-done': { body: 'Общая задача выполнена', tag: 'family-task-done:' },
+    };
+    const k = KIND[kind] || KIND.msg;
+    const bodyText = k.body;
+    const tag = k.tag + (familyId || 'all');
     for (const m of subs) {
       if (online.has(m.member_id)) continue;
       try {
@@ -542,10 +684,12 @@ export class FamilyRoom extends DurableObject {
     } catch {
       return;
     }
-    const name = this.roomName() || 'Семья';
     await this.sendPushTo(sub, {
+      // Без названия группы: экран блокировки виден любому, кто рядом, а само
+      // название хранится на сервере открытым текстом — двойная утечка ради
+      // строки, которую всё равно видно уже в приложении.
       title: 'Входящий звонок',
-      body: `${name} — откройте, чтобы ответить`,
+      body: 'Откройте, чтобы ответить',
       family: true,
       familyId: this.familyIdMeta(),
       call: true,
@@ -565,10 +709,9 @@ export class FamilyRoom extends DurableObject {
     } catch {
       return;
     }
-    const name = this.roomName() || 'Семья';
     await this.sendPushTo(sub, {
       title: 'Пропущенный звонок',
-      body: name,
+      body: 'Откройте приложение',
       family: true,
       familyId: this.familyIdMeta(),
       missed: true,

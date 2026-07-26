@@ -18,9 +18,9 @@ export function SegmentedControl<T extends string>({ options, value, onChange }:
           type="button"
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`flex-1 whitespace-nowrap rounded-lg px-1 py-1.5 text-sm font-medium transition-all duration-200 ${
+          className={`flex-1 whitespace-nowrap rounded-lg px-1 py-2.5 text-sm font-medium transition-all duration-200 ${
             value === o.value
-              ? 'bg-accent text-white shadow-[0_2px_10px_-3px_var(--app-accent)]'
+              ? 'bg-accent-fill text-white shadow-[0_2px_10px_-3px_var(--app-accent-fill)]'
               : 'text-muted active:text-text'
           }`}
         >

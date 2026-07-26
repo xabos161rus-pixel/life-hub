@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { BookOpen, FileText, FlaskConical, GraduationCap, Languages, Video } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
@@ -49,7 +50,7 @@ function LearningCard({ item, onOpen }: { item: LearningItem; onOpen: () => void
   return (
     <div
       onClick={onOpen}
-      className="rounded-2xl border border-border bg-surface p-4 active:opacity-90"
+      className="card p-4 active:opacity-90"
     >
       <div className="flex items-start gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
@@ -59,7 +60,7 @@ function LearningCard({ item, onOpen }: { item: LearningItem; onOpen: () => void
           <div className="flex items-center gap-2">
             <p className="truncate font-semibold">{item.title}</p>
             {item.status === 'dropped' && (
-              <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted">
+              <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-2xs text-muted">
                 Брошено
               </span>
             )}
@@ -86,6 +87,7 @@ export function LearningPage() {
   const [editing, setEditing] = useState<LearningItem | null>(null);
 
   const rows = useLiveQuery(() => db.learningItems.toArray(), []);
+  const loaded = useLoaded(rows);
   const items = alive(rows ?? [])
     .filter((i) =>
       filter === 'done' ? i.status === 'done' || i.status === 'dropped' : i.status === filter,
@@ -103,7 +105,7 @@ export function LearningPage() {
   };
 
   return (
-    <Screen title="Обучение" backTo="/more">
+    <Screen title="Обучение" backTo="/home">
       <div className="space-y-3">
         <SegmentedControl<Filter>
           options={[
@@ -115,11 +117,13 @@ export function LearningPage() {
           onChange={setFilter}
         />
         {items.length === 0 ? (
-          <EmptyState
-            icon={GraduationCap}
-            title="Пока ничего нет"
-            hint={EMPTY_HINTS[filter]}
-          />
+          loaded && (
+            <EmptyState
+              icon={GraduationCap}
+              title="Пока ничего нет"
+              hint={EMPTY_HINTS[filter]}
+            />
+          )
         ) : (
           items.map((item) => (
             <LearningCard key={item.id} item={item} onOpen={() => openEdit(item)} />

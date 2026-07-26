@@ -30,6 +30,7 @@ const SYNCED_TABLES = [
   'habits',
   'habitLogs',
   'notes',
+  'noteFolders',
   'learningItems',
   'learningLogs',
   'expenseItems',
@@ -67,6 +68,24 @@ interface FamilySharePayload {
   joinedAt: string;
   enabled: boolean;
   updatedAt: string;
+  // Всё, что связано с исключением участников. Без этого второе устройство
+  // после смены ключа группы читало бы старую переписку, но не новую, а с
+  // потерей ownerSecret владелец перестал бы быть владельцем.
+  keyEpoch?: number;
+  keysRaw?: Record<string, string>;
+  boxPub?: string;
+  boxPriv?: string;
+  ownerSecret?: string;
+  ownerMemberId?: string;
+}
+
+/** Связка ключей из сырых значений синка. Общая для «группы ещё нет» и
+ *  «группа есть, ключ сменился» — оба пути раскладывают её одинаково. */
+async function keyRingFrom(p: FamilySharePayload, current: CryptoKey): Promise<Record<string, CryptoKey>> {
+  const ring: Record<string, CryptoKey> = {};
+  for (const [e, raw] of Object.entries(p.keysRaw ?? {})) ring[e] = await importKeyRaw(raw);
+  ring[String(p.keyEpoch ?? 0)] = current;
+  return ring;
 }
 
 /** Применять ли удалённую правку: если локальной нет или удалённая новее (LWW). */
@@ -101,12 +120,13 @@ async function pullPage(
     if (r.table === 'familyShare') {
       const p = await decryptJSON<FamilySharePayload>(c.key, r.ciphertext);
       const local = await db.family.get(p.familyId);
+      const key = await importKeyRaw(p.keyRaw);
       if (!local) {
         await db.family.put({
           id: p.familyId,
           familyId: p.familyId,
           familyToken: p.familyToken,
-          familyKey: await importKeyRaw(p.keyRaw),
+          familyKey: key,
           familyName: p.familyName,
           selfMemberId: p.selfMemberId,
           lastSeq: 0,
@@ -114,6 +134,12 @@ async function pullPage(
           enabled: p.enabled,
           joinedAt: p.joinedAt,
           updatedAt: p.updatedAt,
+          keyEpoch: p.keyEpoch ?? 0,
+          keyRing: await keyRingFrom(p, key),
+          boxPub: p.boxPub,
+          boxPriv: p.boxPriv,
+          ownerSecret: p.ownerSecret,
+          ownerMemberId: p.ownerMemberId,
         });
         applied++;
       } else if (shouldApply(local.updatedAt, p.updatedAt)) {
@@ -122,6 +148,14 @@ async function pullPage(
           familyName: p.familyName,
           enabled: p.enabled,
           updatedAt: p.updatedAt,
+          // Ключ забираем, только если пришла эпоха новее: два устройства
+          // одного человека могут разойтись, и откат на прежний ключ сделал бы
+          // свежую переписку нечитаемой.
+          ...((p.keyEpoch ?? 0) > (local.keyEpoch ?? 0)
+            ? { familyKey: key, keyEpoch: p.keyEpoch ?? 0, keyRing: { ...(local.keyRing ?? {}), ...(await keyRingFrom(p, key)) } }
+            : {}),
+          ...(local.ownerSecret ? {} : { ownerSecret: p.ownerSecret }),
+          ...(local.ownerMemberId ? {} : { ownerMemberId: p.ownerMemberId }),
         });
         applied++;
       }
@@ -140,9 +174,38 @@ async function pullPage(
   return { applied, nextSince: data.nextSince, hasMore: data.hasMore };
 }
 
+/** Курсор pull двигается по времени, а сервер отдаёт только updated_at > since.
+ *  Значит запись, пропущенную как «незнакомая таблица», уже не переспросить:
+ *  курсор ушёл вперёд вместе со всей страницей.
+ *
+ *  Так и терялись данные при обновлении. Второй телефон на старом бандле
+ *  получал папки заметок и цели-копилок, не знал таких таблиц, пропускал их
+ *  через continue — но lastPullAt всё равно сдвигал. После обновления
+ *  приложения эти записи не приходили уже никогда, и причина ниоткуда не
+ *  видна: на сервере всё цело, на одном устройстве есть, на другом нет.
+ *
+ *  Поэтому запоминаем набор таблиц, который знала двигавшая курсор версия.
+ *  Появились новые — один раз переспрашиваем всё с начала. Полный ре-pull
+ *  безопасен: запись применяется только если она свежее локальной. */
+async function rewindIfTablesGrew(c: SyncConfig): Promise<string> {
+  const known = c.knownTables;
+  const now = [...SYNCED_TABLES];
+  if (known && now.every((t) => known.includes(t))) return c.lastPullAt;
+  // Поля ещё нет — значит курсор двигала версия ДО этой защиты, и что она
+  // умела, мы не знаем. Раз не знаем — считаем, что могли пропустить, и
+  // перечитываем. Пропустить этот случай было бы бессмысленно: именно этот
+  // релиз и добавляет таблицы, из-за которых всё затевалось.
+  //
+  // Цена — один полный pull истории аккаунта, единожды. Для личных объёмов
+  // это секунды, и он безопасен: запись применяется, только если свежее
+  // локальной.
+  await patchSyncConfig({ knownTables: now, lastPullAt: '' });
+  return '';
+}
+
 async function pull(c: SyncConfig): Promise<number> {
   let total = 0;
-  let since = c.lastPullAt;
+  let since = await rewindIfTablesGrew(c);
   for (;;) {
     const { applied, nextSince, hasMore } = await pullPage(c, since);
     total += applied;
@@ -185,6 +248,8 @@ async function push(c: SyncConfig): Promise<number> {
     (f) => typeof f.updatedAt === 'string' && f.updatedAt > c.lastPushAt,
   );
   for (const f of famFresh) {
+    const keysRaw: Record<string, string> = {};
+    for (const [e, k] of Object.entries(f.keyRing ?? {})) keysRaw[e] = await exportKeyRaw(k);
     const payload: FamilySharePayload = {
       familyId: f.familyId,
       familyToken: f.familyToken,
@@ -194,6 +259,12 @@ async function push(c: SyncConfig): Promise<number> {
       joinedAt: f.joinedAt,
       enabled: f.enabled,
       updatedAt: f.updatedAt!,
+      keyEpoch: f.keyEpoch ?? 0,
+      keysRaw,
+      boxPub: f.boxPub,
+      boxPriv: f.boxPriv,
+      ownerSecret: f.ownerSecret,
+      ownerMemberId: f.ownerMemberId,
     };
     out.push({
       table: 'familyShare',

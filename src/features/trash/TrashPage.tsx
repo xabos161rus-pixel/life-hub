@@ -17,7 +17,7 @@ import type { Table } from 'dexie';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Button } from '../../components/ui/Button';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { update } from '../../db/repo';
 import { formatRu } from '../../lib/dates';
@@ -35,24 +35,24 @@ interface TrashEntry {
 export function TrashPage() {
   const toast = useToast();
 
-  const tasks = useLiveQuery<BaseEntity[]>(() => db.tasks.toArray(), []) ?? [];
-  const notes = useLiveQuery<BaseEntity[]>(() => db.notes.toArray(), []) ?? [];
-  const goals = useLiveQuery<BaseEntity[]>(() => db.goals.toArray(), []) ?? [];
-  const projects = useLiveQuery<BaseEntity[]>(() => db.projects.toArray(), []) ?? [];
-  const learning = useLiveQuery<BaseEntity[]>(() => db.learningItems.toArray(), []) ?? [];
-  const expenses = useLiveQuery<BaseEntity[]>(() => db.expenseItems.toArray(), []) ?? [];
-  const energy = useLiveQuery<BaseEntity[]>(() => db.energyItems.toArray(), []) ?? [];
-  const places = useLiveQuery<BaseEntity[]>(() => db.placeItems.toArray(), []) ?? [];
+  const tasks = useLiveQuery<BaseEntity[]>(() => db.tasks.toArray(), []);
+  const notes = useLiveQuery<BaseEntity[]>(() => db.notes.toArray(), []);
+  const goals = useLiveQuery<BaseEntity[]>(() => db.goals.toArray(), []);
+  const projects = useLiveQuery<BaseEntity[]>(() => db.projects.toArray(), []);
+  const learning = useLiveQuery<BaseEntity[]>(() => db.learningItems.toArray(), []);
+  const expenses = useLiveQuery<BaseEntity[]>(() => db.expenseItems.toArray(), []);
+  const energy = useLiveQuery<BaseEntity[]>(() => db.energyItems.toArray(), []);
+  const places = useLiveQuery<BaseEntity[]>(() => db.placeItems.toArray(), []);
 
   const entries = useMemo<TrashEntry[]>(() => {
     const collect = (
       table: Table<BaseEntity, string>,
       tableName: string,
       icon: LucideIcon,
-      rows: BaseEntity[],
+      rows: BaseEntity[] | undefined,
       titleOf: (row: Record<string, unknown>) => string,
     ): TrashEntry[] =>
-      rows
+      (rows ?? [])
         .filter((r): r is BaseEntity & { deletedAt: string } => r.deletedAt != null)
         .map((r) => ({
           table,

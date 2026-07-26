@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import { Bell, Copy, Repeat, SkipForward, Snowflake } from 'lucide-react';
 import type { Project, Task } from '../../db/types';
-import { TaskCheck } from '../../components/ui/Checkbox';
+import { HIT_SLOP_44, TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressBar } from '../../components/ui/ProgressBar';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { remove, update } from '../../db/repo';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
@@ -242,7 +242,7 @@ export function TaskItem({
           <button
             type="button"
             onClick={handleDelete}
-            className="flex w-[76px] items-center justify-center bg-danger text-sm font-medium text-white"
+            className="flex w-[76px] items-center justify-center bg-danger-fill text-sm font-medium text-white"
           >
             Удалить
           </button>
@@ -274,7 +274,10 @@ export function TaskItem({
               void handleSkip();
             }}
             aria-label="Пропущено — не выполнено"
-            className="flex size-[22px] shrink-0 items-center justify-center rounded-[6px] active:scale-90"
+            // Хит-зона перекрывается с зоной чекбокса (между ними всего 12.75px):
+            // в спорной полосе выигрывает чекбокс — он ниже по DOM и он же
+            // основное действие строки.
+            className={`flex size-[22px] shrink-0 items-center justify-center rounded-[6px] active:scale-90 ${HIT_SLOP_44}`}
             style={{ color: 'var(--app-warning)' }}
           >
             <SkipForward size={18} />
@@ -291,7 +294,7 @@ export function TaskItem({
             {task.title}
           </p>
           {task.notes && (
-            <p className="mt-1 whitespace-pre-line break-words border-l-2 border-hairline pl-2 font-mono text-[13px] leading-relaxed text-text/65">
+            <p className="mt-1 whitespace-pre-line break-words border-l-2 border-hairline pl-2 font-mono text-xs leading-relaxed text-text/65">
               {task.notes}
             </p>
           )}
@@ -316,7 +319,7 @@ export function TaskItem({
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
               {frozen && (
                 <span className="flex items-center gap-0.5 text-frost">
-                  <Snowflake size={11} />
+                  <Snowflake size={14} />
                   заморожено
                 </span>
               )}
@@ -337,12 +340,12 @@ export function TaskItem({
               ) : null}
               {task.remindBefore != null && task.dueTime && (
                 <span className="flex items-center" aria-label="Напоминание включено">
-                  <Bell size={11} />
+                  <Bell size={14} />
                 </span>
               )}
               {task.recurrence && (
                 <span className="flex items-center gap-0.5">
-                  <Repeat size={11} />
+                  <Repeat size={14} />
                   {describeRecurrence(task.recurrence)}
                 </span>
               )}
@@ -369,7 +372,7 @@ export function TaskItem({
               {task.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] text-muted"
+                  className="rounded-full bg-surface-2 px-1.5 py-0.5 text-2xs text-muted"
                 >
                   #{tag}
                 </span>
@@ -381,9 +384,9 @@ export function TaskItem({
           type="button"
           aria-label="Скопировать задачу"
           onClick={handleCopy}
-          className="-mr-1 mt-0.5 shrink-0 p-1 text-muted active:opacity-60"
+          className={`-mr-1 mt-0.5 shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
         >
-          <Copy size={15} />
+          <Copy size={14} />
         </button>
       </div>
     </div>

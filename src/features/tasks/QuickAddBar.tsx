@@ -5,6 +5,7 @@ import { db } from '../../db/db';
 import { create } from '../../db/repo';
 import { Input } from '../../components/ui/Input';
 import { MicButton } from '../../components/ui/MicButton';
+import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { Hint } from '../../components/ui/Hint';
 import { describeParsed, parseQuickTask } from '../../lib/nlDate';
 
@@ -62,7 +63,14 @@ export function QuickAddBar({
   return (
     <div className="mb-4">
       <div ref={wrapRef} className="card px-3 py-2">
-        <div className="flex items-center gap-1">
+        {/* gap-2 (8.5px), а не gap-1 (4.25px): микрофон и «отправить» — по 37px,
+            их зоны 44x44 вылезают на 3.5px в каждую сторону, поэтому при зазоре
+            4.25px зоны перекрывались на 2.75px. Верх по DOM — «отправить», и
+            промах мимо микрофона вправо создавал задачу вместо диктовки. При
+            8.5px между зонами остаётся 1.5px чистого зазора. Поле ужимается на
+            8.5px (на 320px остаётся 167.5px) — это только обрезка плейсхолдера,
+            min-w-0 у обёртки Input не даёт строке уехать за карточку. */}
+        <div className="flex items-center gap-2">
           <Input
             value={text}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setText(e.target.value)}
@@ -71,13 +79,16 @@ export function QuickAddBar({
             placeholder="Что нужно сделать?"
             className="border-0 bg-transparent px-1 py-2 focus:ring-0"
           />
-          <MicButton onText={(t) => setText((cur) => (cur ? `${cur} ${t}` : t))} />
+          <MicButton
+            onText={(t) => setText((cur) => (cur ? `${cur} ${t}` : t))}
+            className={HIT_SLOP_44}
+          />
           <button
             type="button"
             onClick={() => void submit()}
             disabled={!canSend}
             aria-label="Добавить задачу"
-            className={`shrink-0 rounded-full p-2 transition-transform active:scale-90 ${
+            className={`shrink-0 rounded-full p-2 transition-transform active:scale-90 ${HIT_SLOP_44} ${
               canSend ? 'text-accent' : 'text-muted opacity-40'
             }`}
           >

@@ -9,6 +9,7 @@ import { pushEnabled, pushSupported, isStandalone, enablePush } from '../../lib/
 import { MembersTab } from './MembersTab';
 import { ChatTab } from './ChatTab';
 import { FamilyTasksTab } from './FamilyTasksTab';
+import { useToast } from '../../components/ui/toastContext';
 
 type Tab = 'chat' | 'tasks' | 'members';
 const TABS = [
@@ -42,21 +43,22 @@ export function FamilyScreen({ familyId, onLeft }: { familyId: string; onLeft: (
     const alive = new Set((membersRaw ?? []).filter((m) => !m.leftAt).map((m) => m.id));
     return online.filter((id) => id !== config?.selfMemberId && alive.has(id)).length;
   }, [online, membersRaw, config]);
+  const toast = useToast();
   const [pushOn, setPushOn] = useState(pushEnabled());
   const [pushHidden, setPushHidden] = useState(false);
 
   async function enableFamilyPush() {
     if (!pushSupported()) {
-      alert('Уведомления не поддерживаются этим браузером.');
+      toast('Уведомления не поддерживаются этим браузером.');
       return;
     }
     if (!isStandalone()) {
-      alert('Уведомления работают только в установленном приложении. Добавьте LifeHearth на экран «Домой» и откройте оттуда.');
+      toast('Уведомления работают только в установленном приложении. Добавьте LifeHearth на экран «Домой» и откройте оттуда.');
       return;
     }
     const res = await enablePush();
     if (!res.ok) {
-      alert(res.reason === 'denied' ? 'Разрешение не выдано. Включите в настройках устройства.' : 'Не удалось включить уведомления.');
+      toast(res.reason === 'denied' ? 'Разрешение не выдано. Включите в настройках устройства.' : 'Не удалось включить уведомления. Проверьте разрешения в настройках устройства');
       return;
     }
     await registerAllFamilyPush();
@@ -66,11 +68,21 @@ export function FamilyScreen({ familyId, onLeft }: { familyId: string; onLeft: (
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 space-y-3 pb-3">
-        <div className="flex items-center gap-1.5 px-0.5 text-xs text-muted">
-          <span className={`size-2 rounded-full ${conn === 'online' ? 'bg-success' : conn === 'connecting' ? 'bg-warning' : 'bg-muted'}`} />
-          <span>{CONN_LABEL[conn]}</span>
-          {onlineOthers > 0 && <span>· {onlineOthers} в сети</span>}
-        </div>
+        {config?.removedAt ? (
+          // Молчаливое «не в сети» тут было бы обманом: человек чинил бы связь,
+          // которой больше нет. Переписку оставляем — она его, и стирать её
+          // вдогонку к исключению незачем.
+          <div className="rounded-xl bg-danger/10 p-3 text-sm leading-snug text-danger">
+            Вас исключили из этой группы. Переписка на этом устройстве осталась, но новые
+            сообщения приходить не будут.
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-0.5 text-xs text-muted">
+            <span className={`size-2 rounded-full ${conn === 'online' ? 'bg-success' : conn === 'connecting' ? 'bg-warning' : 'bg-muted'}`} />
+            <span>{CONN_LABEL[conn]}</span>
+            {onlineOthers > 0 && <span>· {onlineOthers} в сети</span>}
+          </div>
+        )}
         {!pushOn && !pushHidden && (
           <div className="flex items-center gap-2 rounded-xl bg-accent/10 p-3 text-sm">
             <BellRing size={18} className="shrink-0 text-accent" />

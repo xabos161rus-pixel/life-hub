@@ -13,11 +13,12 @@ import {
   CloudLightning,
 } from 'lucide-react';
 import { getWeather, weatherLabel, type Weather } from '../../../lib/weather';
+import { ICON, STROKE_STRONG } from '../../../components/ui/icons';
 
 // Возвращаем готовый JSX-элемент (а не тип компонента) — иначе eslint-правило
 // react-hooks/static-components ругается на динамический <Icon/> в рендере.
 function weatherIcon(code: number, isDay: boolean) {
-  const p = { size: 30, strokeWidth: 1.75 };
+  const p = { size: ICON.accent, strokeWidth: STROKE_STRONG };
   if (code === 0) return isDay ? <Sun {...p} /> : <Moon {...p} />;
   if (code <= 2) return isDay ? <CloudSun {...p} /> : <CloudMoon {...p} />;
   if (code === 3) return <Cloud {...p} />;
@@ -51,7 +52,7 @@ export function WeatherWidget() {
 
   return (
     <section className="card mb-4 flex items-center gap-4 px-4 py-3.5">
-      <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-accent/12 text-accent">
+      <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-accent/12 text-accent">
         {weatherIcon(w.code, w.isDay)}
       </div>
       <div className="min-w-0 flex-1">

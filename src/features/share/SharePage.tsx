@@ -4,7 +4,7 @@ import { ClipboardPaste, ListTodo, NotebookPen } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea } from '../../components/ui/Input';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { create } from '../../db/repo';
 import { parseQuickTask } from '../../lib/nlDate';
@@ -54,7 +54,7 @@ export function SharePage() {
       }
       setValue((cur) => (cur.trim() ? `${cur}\n${text}` : text));
     } catch {
-      toast('Не удалось прочитать буфер обмена');
+      toast('Не удалось прочитать буфер обмена. Вставьте текст вручную');
     }
   }
 
@@ -106,7 +106,7 @@ export function SharePage() {
   }
 
   return (
-    <Screen title="Быстрый захват" backTo="/">
+    <Screen title="Захват" backTo="/">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted">
           Вставьте или отредактируйте текст и сохраните его задачей или заметкой. Для задачи дата и

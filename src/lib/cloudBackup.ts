@@ -38,12 +38,78 @@ function chunkByBytes(s: string, maxBytes: number): string[] {
   return out;
 }
 
+/** Таблицы, которых НЕТ в дельта-синке (SYNCED_TABLES в lib/sync.ts): история
+ *  цикла и семейный чат. Они существуют ровно в одном экземпляре — на том
+ *  устройстве, где их вводили, — и облачная копия для них единственный способ
+ *  пережить потерю телефона. Именно их и нельзя потерять при перезаписи. */
+const UNSYNCED_TABLES = [
+  'cycleDays',
+  'cycleOverrides',
+  'cycleEpisodes',
+  'cycleSettings',
+  'cycleSymptoms',
+  'cyclePredictions',
+  'familyMessages',
+  'familyTasks',
+  'familyMembers',
+] as const;
+
+/** Копия в облаке содержит то, чего нет на этом устройстве. */
+export class BackupWouldLoseDataError extends Error {
+  readonly losing: { table: string; had: number; now: number }[];
+  readonly remoteDate: string | null;
+  constructor(losing: { table: string; had: number; now: number }[], remoteDate: string | null) {
+    super('Копия в облаке полнее, чем данные на этом устройстве');
+    this.name = 'BackupWouldLoseDataError';
+    this.losing = losing;
+    this.remoteDate = remoteDate;
+  }
+}
+
+function counts(f: BackupFile): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const t of UNSYNCED_TABLES) out[t] = f.data[t]?.length ?? 0;
+  return out;
+}
+
 /** Загрузить зашифрованный снапшот аккаунта в облако. Возвращает число чанков
- *  (0 — если синхронизация не включена: без аккаунтного ключа копии нет). */
-export async function pushAccountSnapshot(): Promise<number> {
+ *  (0 — если синхронизация не включена: без аккаунтного ключа копии нет).
+ *
+ *  ПОЧЕМУ СНАЧАЛА ЧИТАЕМ. Хранение latest-only: /backup/put стирает прежнюю
+ *  копию и кладёт новую. А отметка «копия создана» лежит в settings, которые
+ *  между устройствами НЕ синхронизируются, — значит на втором телефоне в
+ *  настройках всегда горит «копию ещё не делали», даже когда она есть.
+ *  Человек жмёт «Сохранить сейчас» (или включает автокопию), и полная копия с
+ *  основного устройства заменяется снапшотом без истории цикла и без старой
+ *  переписки. Восстановить неоткуда: дельта-синк эти таблицы не возит, а
+ *  сервер чата чистит сообщения старше полугода.
+ *
+ *  Поэтому перед записью скачиваем существующую копию и сверяем по таблицам,
+ *  которых нет в синке. Стало меньше — не пишем, а рассказываем. force —
+ *  осознанное «да, всё равно заменить». */
+export async function pushAccountSnapshot(force = false): Promise<number> {
   const c = await getSyncConfig();
   if (!c?.enabled) return 0;
   const snapshot = await exportBackup();
+
+  if (!force) {
+    // Не смогли прочитать удалённую копию — пишем свою. Иначе повреждённая
+    // или чужая копия заблокировала бы резервное копирование навсегда, а это
+    // хуже: остаться совсем без копии опаснее, чем заменить непонятную.
+    const got = await fetchRemote(c).catch(() => null);
+    const remote = got?.file ?? null;
+    if (remote) {
+      const was = counts(remote);
+      const nowC = counts(snapshot);
+      const losing = UNSYNCED_TABLES.filter((t) => was[t] > nowC[t]).map((t) => ({
+        table: t,
+        had: was[t],
+        now: nowC[t],
+      }));
+      if (losing.length) throw new BackupWouldLoseDataError(losing, got?.updatedAt ?? null);
+    }
+  }
+
   const parts = chunkByBytes(JSON.stringify(snapshot), CHUNK_BYTES);
   const chunks = await Promise.all(
     parts.map(async (p, i) => ({ chunk: i, ciphertext: await encryptJSON(c.key, p) })),
@@ -57,19 +123,45 @@ export async function pushAccountSnapshot(): Promise<number> {
   return chunks.length;
 }
 
-/** Скачать и расшифровать облачную копию. null — копии нет / синк выключен. */
-export async function pullAccountSnapshot(): Promise<BackupFile | null> {
-  const c = await getSyncConfig();
-  if (!c?.enabled) return null;
+/** Скачать, склеить и расшифровать копию. Дата — та, что помнит сервер, а не
+ *  устройство: локальная отметка о копии не синхронизируется и на втором
+ *  телефоне всегда пуста. */
+async function fetchRemote(c: SyncConfig): Promise<{ file: BackupFile | null; updatedAt: string | null }> {
   const res = await fetch(`${WORKER_URL}/backup/get`, { headers: authHeaders(c) });
   if (!res.ok) throw new Error(`backup get ${res.status}`);
   const data = (await res.json()) as {
     chunks: { chunk: number; ciphertext: string }[];
     updatedAt: string | null;
   };
-  if (!data.chunks?.length) return null;
+  if (!data.chunks?.length) return { file: null, updatedAt: null };
   const ordered = [...data.chunks].sort((a, b) => a.chunk - b.chunk);
   let s = '';
   for (const ch of ordered) s += await decryptJSON<string>(c.key, ch.ciphertext);
-  return validateBackup(JSON.parse(s));
+  return { file: validateBackup(JSON.parse(s)), updatedAt: data.updatedAt };
+}
+
+/** Скачать и расшифровать облачную копию. null — копии нет / синк выключен. */
+export async function pullAccountSnapshot(): Promise<BackupFile | null> {
+  const c = await getSyncConfig();
+  if (!c?.enabled) return null;
+  return (await fetchRemote(c)).file;
+}
+
+/** Когда копия в облаке обновлялась в последний раз. null — копии нет.
+ *
+ *  Нужно экрану настроек: отметка в settings device-local, и на втором
+ *  устройстве в этом месте всегда горело «копию ещё не делали» — ровно тот
+ *  текст, который толкает человека нажать «Сохранить сейчас» и затереть
+ *  единственную полную копию снапшотом пустого телефона. */
+export async function cloudBackupDate(): Promise<string | null> {
+  const c = await getSyncConfig();
+  if (!c?.enabled) return null;
+  try {
+    const res = await fetch(`${WORKER_URL}/backup/get`, { headers: authHeaders(c) });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { updatedAt: string | null; chunks?: unknown[] };
+    return data.chunks?.length ? data.updatedAt : null;
+  } catch {
+    return null;
+  }
 }

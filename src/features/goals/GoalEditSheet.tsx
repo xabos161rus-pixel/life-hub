@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { Check } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, create, remove, update } from '../../db/repo';
@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
+import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
 
 const MODE_OPTIONS: { value: GoalProgressMode; label: string }[] = [
   { value: 'manual', label: 'Вручную' },
@@ -32,26 +33,29 @@ export function GoalEditSheet({
   onClose: () => void;
   goal?: Goal | null;
 }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [color, setColor] = useState(PRESET_COLORS[0]);
-  const [targetDate, setTargetDate] = useState('');
-  const [mode, setMode] = useState<GoalProgressMode>('manual');
-  const [targetValue, setTargetValue] = useState('');
-  const [unitLabel, setUnitLabel] = useState('');
-  const [status, setStatus] = useState<GoalStatus>('active');
+  // Форма монтируется заново на каждое открытие (и при смене цели —
+  // через key): состояние берётся из props, сброс эффектом не нужен.
+  if (!open) return null;
+  return <GoalEditForm key={goal?.id ?? 'new'} onClose={onClose} goal={goal} />;
+}
 
-  useEffect(() => {
-    if (!open) return;
-    setTitle(goal?.title ?? '');
-    setDescription(goal?.description ?? '');
-    setColor(goal?.color ?? PRESET_COLORS[0]);
-    setTargetDate(goal?.targetDate ?? '');
-    setMode(goal?.progressMode ?? 'manual');
-    setTargetValue(goal?.targetValue != null ? String(goal.targetValue) : '');
-    setUnitLabel(goal?.unitLabel ?? '');
-    setStatus(goal?.status ?? 'active');
-  }, [open, goal]);
+function GoalEditForm({
+  onClose,
+  goal,
+}: {
+  onClose: () => void;
+  goal?: Goal | null;
+}) {
+  const [title, setTitle] = useState(goal?.title ?? '');
+  const [description, setDescription] = useState(goal?.description ?? '');
+  const [color, setColor] = useState(goal?.color ?? PRESET_COLORS[0]);
+  const [targetDate, setTargetDate] = useState(goal?.targetDate ?? '');
+  const [mode, setMode] = useState<GoalProgressMode>(goal?.progressMode ?? 'manual');
+  const [targetValue, setTargetValue] = useState(
+    goal?.targetValue != null ? String(goal.targetValue) : '',
+  );
+  const [unitLabel, setUnitLabel] = useState(goal?.unitLabel ?? '');
+  const [status, setStatus] = useState<GoalStatus>(goal?.status ?? 'active');
 
   const savingRef = useRef(false);
   async function handleSave() {
@@ -103,14 +107,14 @@ export function GoalEditSheet({
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={goal ? 'Редактировать цель' : 'Новая цель'}>
+    <Sheet open onClose={onClose} title={goal ? 'Редактировать цель' : 'Новая цель'}>
       <div className="flex flex-col gap-4 pb-2">
         <Field label="Название">
           <AutoGrowTextarea
             value={title}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
             onClear={() => setTitle('')}
-            placeholder="Например: Прочитать 20 книг"
+            placeholder="Например, Прочитать 20 книг"
           />
         </Field>
 
@@ -135,14 +139,14 @@ export function GoalEditSheet({
                 style={{ background: c }}
               >
                 {color === c && (
-                  <Check size={18} color={isLightColor(c) ? ON_COLOR_DARK : '#fff'} strokeWidth={3} />
+                  <Check size={ICON.base} color={isLightColor(c) ? ON_COLOR_DARK : '#fff'} strokeWidth={STROKE_HEAVY} />
                 )}
               </button>
             ))}
           </div>
         </Field>
 
-        <Field label="Срок (необязательно)">
+        <Field label="Срок">
           <Input
             type="date"
             value={targetDate}

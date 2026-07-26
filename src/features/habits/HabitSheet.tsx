@@ -170,7 +170,7 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
                 onClick={() => toggleDay(d)}
                 className={`size-10 rounded-full border text-sm font-medium transition-colors ${
                   active
-                    ? 'border-transparent bg-accent text-white'
+                    ? 'border-transparent bg-accent-fill text-white'
                     : 'border-hairline bg-surface-2 text-muted'
                 }`}
               >

@@ -33,14 +33,14 @@ export function FamilyPage() {
 
   if (!configs)
     return (
-      <Screen title="Семья" backTo="/more">
+      <Screen title="Семья" backTo="/home">
         <div />
       </Screen>
     );
 
   if (configs.length === 0) {
     return (
-      <Screen title="Семья" backTo="/more">
+      <Screen title="Семья" backTo="/home">
         <FamilyOnboarding onReady={select} />
       </Screen>
     );
@@ -59,7 +59,7 @@ export function FamilyPage() {
   const current = configs.find((c) => c.familyId === selected)!;
 
   return (
-    <Screen title={current.familyName} backTo="/more" fill>
+    <Screen title={current.familyName} backTo="/home" fill>
       <div className="flex h-full flex-col">
         <GroupSwitcher
           configs={configs}
@@ -158,14 +158,14 @@ function GroupSwitcher({
             key={c.familyId}
             onClick={() => onSelect(c.familyId)}
             className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium active:opacity-80 ${
-              active ? 'bg-gradient-to-br from-accent to-accent-2 text-white shadow-accent' : 'bg-surface-2 text-muted'
+              active ? 'bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent' : 'bg-surface-2 text-muted'
             }`}
           >
             <span className="max-w-[9rem] truncate">{c.familyName || 'Семья'}</span>
             {n > 0 && (
               <span
-                className={`flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-[11px] font-bold leading-none ${
-                  active ? 'bg-white/25 text-white' : 'bg-accent text-white'
+                className={`flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-2xs font-bold leading-none ${
+                  active ? 'bg-white/25 text-white' : 'bg-accent-fill text-white'
                 }`}
               >
                 {n > 99 ? '99+' : n}

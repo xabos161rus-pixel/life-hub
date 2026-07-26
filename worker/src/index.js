@@ -11,7 +11,11 @@ export { FamilyRoom } from './familyRoom.js';
 const corsHeaders = (origin) => ({
   'Access-Control-Allow-Origin': origin,
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Account',
+  // X-Family-Owner обязателен: это непростой заголовок, браузер шлёт на него
+  // preflight OPTIONS, и без него в этом списке запрос на /family/remove до
+  // воркера не долетает вообще — fetch падает TypeError «Failed to fetch»,
+  // человек видит «проверьте связь» и думает, что дело в интернете.
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Account, X-Family-Owner',
   'Access-Control-Max-Age': '86400',
 });
 
@@ -250,7 +254,12 @@ export default {
   },
 };
 
-const DEFAULT_UPDATE_TEXT = 'Откройте приложение и нажмите «Обновить»';
+// Текст по умолчанию для рассылки об обновлении. Кнопки «Обновить» в
+// приложении НЕТ: service worker ставит новую версию сам и перезагружает
+// страницу. Прежний текст «нажмите «Обновить»» отправлял человека искать то,
+// чего не существует, — а прилетает он автоматически, кроном раз в минуту,
+// как только меняется хэш бандла на GitHub Pages.
+const DEFAULT_UPDATE_TEXT = 'Приложение обновилось — откройте, чтобы посмотреть, что нового';
 const APP_INDEX_URL = 'https://xabos161rus-pixel.github.io/life-hub/index.html';
 
 /** Разослать пуш «вышло обновление» всем подписчикам. Возвращает число доставок. */

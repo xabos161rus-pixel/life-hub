@@ -8,6 +8,7 @@ const TABLES = [
   'habits',
   'habitLogs',
   'notes',
+  'noteFolders',
   'learningItems',
   'learningLogs',
   'expenseItems',
@@ -25,6 +26,27 @@ const TABLES = [
   'familyMembers',
   'familyTasks',
   'familyMessages',
+  // Раздел «Женские дни». Эти таблицы не синхронизируются между устройствами
+  // (см. SYNCED_TABLES в lib/sync.ts), но в резервную копию входят: иначе
+  // потеря телефона означала бы потерю всей истории цикла безвозвратно, а
+  // восстановить её неоткуда — данные существуют в одном экземпляре.
+  // Облачная копия шифруется аккаунтным ключом на устройстве, сервер видит
+  // только шифротекст. Файловая копия НЕ шифрована — об этом человека
+  // предупреждает экран экспорта.
+  // Таблицу cycles (кэш циклов) не включаем сознательно: она выводится из
+  // cycleDays и пересчитывается после импорта. Класть в файл производные
+  // данные — значит однажды получить файл, где кэш противоречит источнику.
+  'cycleDays',
+  'cycleOverrides',
+  'cycleEpisodes',
+  'cycleSettings',
+  'cycleSymptoms',
+  'cyclePredictions',
+  // Настройки приложения: тема, начало недели, раскладка разделов, пройденный
+  // онбординг, скрытые подсказки. Без них восстановление возвращает данные, но
+  // не возвращает приложение в привычный вид. Секреты сюда не попадают: ключи
+  // синхронизации живут в отдельной таблице sync, её в копии нет.
+  'settings',
 ] as const;
 
 type TableName = (typeof TABLES)[number];
@@ -36,9 +58,52 @@ export interface BackupFile {
   data: Record<TableName, unknown[]>;
 }
 
+/** ДАННЫЕ раздела «Женские дни» — записи о днях. Выделены отдельно, потому что
+ *  их попадание в копию — единственное, чем человек управляет сам. Выключил и
+ *  восстановился — раздел очищается, это и есть смысл настройки. */
+const CYCLE_TABLES: readonly TableName[] = [
+  'cycleDays',
+  'cycleOverrides',
+  'cycleEpisodes',
+  'cyclePredictions',
+];
+
+/** НАСТРОЙКИ раздела и справочник симптомов. Сюда же по ошибке попадали
+ *  cycleSettings и cycleSymptoms, и это давало самоотменяющуюся приватность:
+ *  человек ставил код доступа и выключал раздел из копий, а любое
+ *  восстановление стирало строку настроек. Дальше ensureCycleSetup молча
+ *  заводил её заново с умолчаниями — lock:'none', hideFromNavigation:false,
+ *  includeInGeneralBackup:true. То есть раздел, спрятанный и запароленный
+ *  ровно против чужих глаз, снова появлялся в меню без кода, и следующая
+ *  копия опять уносила его в облако.
+ *
+ *  Настройки — не данные раздела. Их не кладём в копию вовсе и при
+ *  восстановлении не трогаем: importBackup пропускает отсутствующий ключ. */
+const CYCLE_CONFIG_TABLES: readonly TableName[] = ['cycleSettings', 'cycleSymptoms'];
+
 export async function exportBackup(): Promise<BackupFile> {
+  // Настройка раздела решает, попадёт ли он в копию. По умолчанию попадает:
+  // синхронизация ему закрыта, и без копии история существует в одном
+  // экземпляре. Кто выключил — получает файл без раздела, и это его выбор,
+  // а не молчаливое решение приложения.
+  const cycleSettings = await db.cycleSettings.get('app');
+  const includeCycle = cycleSettings?.includeInGeneralBackup !== false;
+
   const data = {} as Record<TableName, unknown[]>;
   for (const name of TABLES) {
+    if (!includeCycle && CYCLE_CONFIG_TABLES.includes(name)) {
+      // Ключа нет вовсе — importBackup такую таблицу не тронет, и код доступа
+      // с настройкой приватности переживут восстановление.
+      continue;
+    }
+    if (!includeCycle && CYCLE_TABLES.includes(name)) {
+      // Пустой массив, а не пропуск ключа: importBackup отсутствующую таблицу
+      // не трогает вовсе, и старые данные пережили бы восстановление — то
+      // есть «выключил и восстановился» не очистило бы раздел, как ожидалось.
+      // Пустой массив честно означает «в этой копии раздела нет».
+      data[name] = [];
+      continue;
+    }
     // включая soft-deleted — бэкап должен быть полным
     data[name] = await db.table(name).toArray();
   }
@@ -116,4 +181,17 @@ export async function importBackup(b: BackupFile): Promise<void> {
       if (rows.length) await table.bulkPut(rows.map((r) => normalizeRow(name, r)));
     }
   });
+
+  // Кэш циклов в файле не лежит — восстанавливаем его из дневных записей.
+  // Отдельной транзакцией, после основной: db.cycles в её область не входит.
+  // Ошибку глушим: не пересчитались циклы — данные всё равно на месте, и
+  // следующая правка любого дня всё исправит.
+  if (b.data.cycleDays !== undefined) {
+    try {
+      const { rebuildCycles } = await import('../lib/cycle/cycleRepo');
+      await rebuildCycles();
+    } catch {
+      /* пересчитается при следующей правке */
+    }
+  }
 }

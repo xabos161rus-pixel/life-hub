@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router';
 import { db } from '../../db/db';
 import { useFamilyUnread } from '../../hooks/useFamilyUnread';
 import { useNavLayout } from '../../hooks/useNavLayout';
+import { ICON, STROKE, STROKE_STRONG } from '../ui/icons';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -26,35 +27,43 @@ export function TabBar() {
       <div className="mx-auto flex max-w-lg px-1">
         {bottom.map(({ id, to, label, icon: Icon, end }) => {
           // Бейджи привязаны к разделу, куда бы он ни встал: непрочитанное у
-          // «Семьи», «пора сделать копию» у «Ещё».
-          const showBadge = (id === 'more' && backupStale) || (id === 'family' && familyUnread);
+          // «Семьи», «пора сделать копию» у «Главной» (настройки живут там).
+          const showBadge = (id === 'home' && backupStale) || (id === 'family' && familyUnread);
           return (
             <NavLink
               key={id}
               to={to}
               end={end}
-              className="flex flex-1 flex-col items-center gap-1 pt-2 pb-1.5"
+              // min-w-0 обязателен: без него flex-элемент не сжимается ниже
+              // min-content своей подписи, и пятая вкладка уезжает за край
+              // экрана (на 320px ряд требовал 348px и обрезался).
+              className="flex min-w-0 flex-1 flex-col items-center gap-1 pt-2 pb-1.5"
             >
               {({ isActive }) => (
                 <>
                   <span
-                    className={`flex h-9 w-16 items-center justify-center rounded-2xl transition-colors duration-200 ${
+                    // Пилюля тянется по вкладке, но не шире прежних w-16 (4rem
+                    // при root 17px = 68px): на 393/430px вид не меняется, а на
+                    // узком экране она сжимается вместо того, чтобы задавать
+                    // неусыхаемый min-content и выталкивать ряд за край.
+                    className={`flex h-9 w-full max-w-16 items-center justify-center rounded-2xl transition-colors duration-200 ${
                       isActive
-                        ? 'bg-accent/15 text-accent shadow-[0_5px_18px_-7px_var(--app-accent)]'
+                        ? 'bg-accent/15 text-accent shadow-[0_5px_18px_-7px_var(--app-accent-fill)]'
                         : 'text-muted'
                     }`}
                   >
-                    <span className="relative">
+                    <span className="relative shrink-0">
                       <Icon
-                        size={22}
-                        // strokeWidth через inline style (перебивает глобальное
-                        // правило .lucide): активный таб «наливается» весом 2.5.
-                        style={{
-                          strokeWidth: isActive ? 2.5 : 1.75,
-                          ...(isActive
-                            ? { filter: 'drop-shadow(0 0 6px var(--app-accent))' }
-                            : {}),
-                        }}
+                        size={ICON.header}
+                        // Активная вкладка «наливается» весом. Раньше это
+                        // делалось через inline style — единственный способ
+                        // перебить глобальное .lucide{stroke-width}. Правила
+                        // больше нет, вес идёт обычным пропом и означает
+                        // пиксели (ui/icons.ts).
+                        strokeWidth={isActive ? STROKE_STRONG : STROKE}
+                        style={
+                          isActive ? { filter: 'drop-shadow(0 0 6px var(--app-accent))' } : undefined
+                        }
                       />
                       {showBadge && (
                         <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-elevated" />
@@ -62,7 +71,12 @@ export function TabBar() {
                     </span>
                   </span>
                   <span
-                    className={`text-[11px] font-semibold transition-colors ${
+                    // На узком экране подпись мельчает и поджимает трекинг, а не
+                    // режется многоточием: при 320px и шести вкладках на ярлык
+                    // остаётся ~52px, и даже «Статистика» укладывается в них
+                    // целиком. max-w-full + truncate — страховка на случай
+                    // более длинной метки, чтобы она распирала не ряд, а себя.
+                    className={`max-w-full truncate text-2xs font-semibold transition-colors max-[380px]:tracking-[-0.01em] max-[340px]:tracking-tight ${
                       isActive ? 'text-accent' : 'text-muted'
                     }`}
                   >

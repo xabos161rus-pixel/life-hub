@@ -135,7 +135,7 @@ export function ManageGroupsSheet({
                   className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pr-1 text-left"
                 >
                   <span className="truncate font-medium">{name}</span>
-                  <Pencil size={13} className="shrink-0 text-muted" />
+                  <Pencil size={14} className="shrink-0 text-muted" />
                 </button>
               )}
               <button

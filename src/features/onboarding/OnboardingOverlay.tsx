@@ -16,47 +16,48 @@ import { db } from '../../db/db';
 import { now } from '../../db/repo';
 import { updateSettings } from '../../hooks/useSettings';
 import { REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
+import { STROKE_STRONG } from '../../components/ui/icons';
 
 const SLIDES: { icon: LucideIcon; title: string; text: string }[] = [
   {
     icon: Sparkles,
     title: 'Добро пожаловать в LifeHearth',
-    text: 'LifeHearth — тихий центр твоей жизни. Задачи, цели, заметки, деньги и семья — в одном спокойном месте, всегда под рукой и даже без интернета. Всё живёт на твоём устройстве и принадлежит только тебе.',
+    text: 'LifeHearth — тихий центр жизни. Задачи, цели, заметки, деньги и семья — в одном спокойном месте, всегда под рукой и даже без интернета. Всё живёт на устройстве и принадлежит только вам.',
   },
   {
     icon: Sun,
     title: 'Сегодня',
-    text: 'Начинай день с ясной головой. «Сегодня» мягко показывает только то, что важно сейчас — без давления длинных списков. Один взгляд — и понятно, куда двигаться.',
+    text: 'День начинается с ясной головы. «Сегодня» мягко показывает только то, что важно сейчас — без давления длинных списков. Один взгляд — и понятно, куда двигаться.',
   },
   {
     icon: ListTodo,
     title: 'Задачи без давления',
-    text: 'Задачи — не про «надо», а про свободу не держать всё в голове. Записал — и отпустил: приложение напомнит вовремя, а ты живёшь, а не сверяешься со списком.',
+    text: 'Задачи — не про «надо», а про свободу не держать всё в голове. Записали и отпустили: приложение напомнит вовремя, и можно жить, а не сверяться со списком.',
   },
   {
     icon: NotebookText,
     title: 'Заметки',
-    text: 'Место для мыслей и идей, которые жалко потерять. Просто начни писать — первая строка станет заголовком. Твой второй мозг, всегда под рукой.',
+    text: 'Место для мыслей и идей, которые жалко потерять. Просто начните писать — первая строка станет заголовком. Второй мозг, всегда под рукой.',
   },
   {
     icon: Target,
     title: 'Цели',
-    text: 'Мечты становятся ближе, когда виден прогресс. Накопить, пробежать, выучить — поставь цель и наблюдай, как шаг за шагом к ней приближаешься.',
+    text: 'Мечты становятся ближе, когда виден прогресс. Накопить, пробежать, выучить — поставьте цель и смотрите, как она приближается шаг за шагом.',
   },
   {
     icon: LayoutGrid,
-    title: 'Всё под тебя',
-    text: 'Остальные грани жизни: семья и общий чат, финансы и накопления, привычки, здоровье, места. Оставь нужное, спрячь лишнее — приложение подстраивается под тебя, а не наоборот.',
+    title: 'Настраивается под вас',
+    text: 'Остальные грани жизни: семья и общий чат, финансы и накопления, привычки, здоровье, места. Оставьте нужное, спрячьте лишнее — приложение подстраивается под вас, а не наоборот.',
   },
   {
     icon: ShieldCheck,
-    title: 'Только твоё',
-    text: 'Твоя жизнь — только твоя. Включи синхронизацию: всё будет на твоих устройствах под твоим ключом, а зашифрованная копия переживёт даже потерю телефона. И напоминания придут, даже когда приложение закрыто.',
+    title: 'Никто, кроме вас',
+    text: 'Данные остаются на устройстве. Включите синхронизацию — они будут на всех ваших устройствах под вашим ключом, а зашифрованная копия переживёт даже потерю телефона. И напоминания придут, даже когда приложение закрыто.',
   },
   {
     icon: Lightbulb,
     title: 'Рядом, когда нужно',
-    text: 'Ничего не нужно заучивать. LifeHearth — как добрый советник: подскажет удобные мелочи тогда, когда пригодятся — жесты, быстрый ввод, даже что кнопку «+» можно перетащить под себя. А дальше просто живи — остальное рядом.',
+    text: 'Ничего не нужно заучивать. LifeHearth подскажет удобные мелочи тогда, когда пригодятся: жесты, быстрый ввод, даже то, что кнопку «+» можно перетащить куда удобно. А дальше — просто жить, остальное рядом.',
   },
 ];
 
@@ -92,10 +93,10 @@ export function OnboardingOverlay() {
         className="relative flex min-h-0 flex-1 animate-fade-in flex-col items-center justify-center gap-5 px-8 text-center"
       >
         <div className="flex size-20 items-center justify-center rounded-3xl bg-accent/15 text-accent shadow-[var(--shadow-accent)]">
-          <Icon size={40} strokeWidth={1.5} />
+          <Icon size={40} strokeWidth={STROKE_STRONG} />
         </div>
         <h2 className="text-2xl font-bold tracking-tight">{slide.title}</h2>
-        <p className="max-w-sm text-[15px] leading-relaxed text-muted">{slide.text}</p>
+        <p className="max-w-sm text-sm leading-relaxed text-muted">{slide.text}</p>
       </div>
 
       <div className="relative flex items-center justify-center gap-1.5 pb-5">
@@ -123,7 +124,7 @@ export function OnboardingOverlay() {
         <button
           type="button"
           onClick={last ? finish : () => setStep((s) => s + 1)}
-          className="flex flex-1 items-center justify-center gap-1 rounded-2xl bg-accent px-5 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80"
+          className="flex flex-1 items-center justify-center gap-1 rounded-2xl bg-accent-fill px-5 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80"
         >
           {last ? 'Начать' : 'Далее'}
           {!last && <ChevronRight size={18} />}

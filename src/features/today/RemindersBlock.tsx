@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { ChevronDown, Plus, Pencil, Trash2 } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive, create, update, remove } from '../../db/repo';
@@ -11,7 +12,9 @@ import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 /** Закреплённые напоминания на «Сегодня»: разделы по темам (Работа и т.п.),
  *  каждый сворачивается/разворачивается по ситуации. */
 export function RemindersBlock() {
-  const sections = (alive(useLiveQuery(() => db.reminderSections.toArray(), []) ?? []) as ReminderSection[]).sort(
+  const sectionsRaw = useLiveQuery(() => db.reminderSections.toArray(), []);
+  const loaded = useLoaded(sectionsRaw);
+  const sections = (alive(sectionsRaw ?? []) as ReminderSection[]).sort(
     (a, b) => a.sortOrder - b.sortOrder,
   );
   const items = alive(useLiveQuery(() => db.reminderItems.toArray(), []) ?? []) as ReminderItem[];
@@ -37,14 +40,14 @@ export function RemindersBlock() {
         <h2 className="text-sm font-semibold text-muted">Напоминания</h2>
         <button
           onClick={() => setSectionSheet('new')}
-          className="inline-flex items-center gap-1 text-sm font-medium text-accent active:opacity-70"
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent active:opacity-70"
         >
           <Plus size={16} /> раздел
         </button>
       </div>
 
       {sections.length === 0 ? (
-        <button
+        loaded && <button
           onClick={() => setSectionSheet('new')}
           className="card w-full px-4 py-3 text-left text-sm text-muted active:opacity-80"
         >
@@ -111,7 +114,7 @@ function ReminderSectionCard({
           <span className="shrink-0 text-xs text-muted">{items.length}</span>
         </button>
         <button onClick={onEditSection} aria-label="Изменить раздел" className="px-3.5 py-3 text-muted active:opacity-60">
-          <Pencil size={15} />
+          <Pencil size={14} />
         </button>
       </div>
 
@@ -123,7 +126,7 @@ function ReminderSectionCard({
               onClick={() => onEditItem(it)}
               className="block w-full rounded-xl border-l-[3px] border-accent bg-surface-2 px-3.5 py-2.5 text-left active:opacity-80"
             >
-              <p className="whitespace-pre-wrap break-words text-[14px] leading-relaxed text-text">{it.text}</p>
+              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-text">{it.text}</p>
             </button>
           ))}
           <button
@@ -220,7 +223,7 @@ function ItemSheet({
           <AutoGrowTextarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Например: максимальные расходы на работе 465 ₽"
+            placeholder="Например, максимальные расходы на работе 465 ₽"
             className="min-h-[4.5rem]"
             autoFocus
           />

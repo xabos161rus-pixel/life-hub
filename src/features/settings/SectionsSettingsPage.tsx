@@ -29,8 +29,8 @@ const ZONES: Zone[] = ['bottom', 'more', 'hidden'];
 const LAYOUT_OPTS = { maxBottom: MAX_BOTTOM, defaultBottom: DEFAULT_BOTTOM, anchorId: ANCHOR_ID };
 
 /** Экран «Настроить разделы»: пользователь перекладывает разделы между нижней
- *  панелью и «Ещё» удержанием за ручку и прячет ненужные тумблером. Раскладка
- *  автосохраняется в settings.navConfig (device-local). «Ещё» — жёсткий якорь
+ *  панелью и «Главной» удержанием за ручку и прячет ненужные тумблером. Раскладка
+ *  автосохраняется в settings.navConfig (device-local). «Главная» — жёсткий якорь
  *  панели, «Сегодня»/«Настройки» нельзя спрятать. */
 export function SectionsSettingsPage() {
   const settingsRow = useLiveQuery(() => db.settings.get('app'), []);
@@ -45,8 +45,8 @@ export function SectionsSettingsPage() {
     setOrder({ bottom: l.bottom.filter((id) => id !== ANCHOR_ID), more: l.more, hidden: l.hidden });
   }, [settingsRow]);
 
-  // Автосохранение при каждом изменении раскладки — панель и «Ещё» обновляются
-  // сразу. Сохраняем и порядок внутри «Ещё» (more), чтобы он тоже пережил перезапуск.
+  // Автосохранение при каждом изменении раскладки — панель и «Главная» обновляются
+  // сразу. Сохраняем и порядок внутри «Главной» (more), чтобы он тоже пережил перезапуск.
   useEffect(() => {
     if (!order) return;
     void updateSettings({
@@ -153,7 +153,7 @@ export function SectionsSettingsPage() {
       const inHidden = next.hidden.indexOf(id);
       if (inHidden !== -1) {
         next.hidden.splice(inHidden, 1);
-        next.more.push(id); // показать → в «Ещё»
+        next.more.push(id); // показать → в «Главную»
       } else {
         for (const z of ['bottom', 'more'] as Zone[]) {
           const i = next[z].indexOf(id);
@@ -187,7 +187,7 @@ export function SectionsSettingsPage() {
   const dropLine = (zone: Zone, index: number) =>
     drop && drop.zone === zone && drop.index === index ? (
       <div
-        className="my-1 h-1 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent)]"
+        className="my-1 h-1 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent-fill)]"
         aria-hidden
       />
     ) : null;
@@ -202,17 +202,32 @@ export function SectionsSettingsPage() {
       <div
         key={id}
         data-sid={id}
-        className={`flex items-center gap-3 rounded-2xl border border-border bg-surface p-3 transition-opacity ${
+        // Ниже 375px строка режет собственные зазоры, а не текст: на 320px под
+        // содержимое остаётся 258.5px, а строке «Настройки» с бейджем «всегда»
+        // нужно 295px. px-2 вместо px-3 даёт 8.5px, gap-2 вместо gap-3 — ещё
+        // 12.75px (три зазора). Вместе с ужатым бейджем этого хватает, чтобы
+        // название влезало целиком (см. комментарии у бейджа).
+        className={`flex items-center gap-3 card p-3 transition-opacity max-[375px]:gap-2 max-[375px]:px-2 ${
           hidden ? 'opacity-45' : ''
         } ${dragId === id ? 'opacity-30' : ''}`}
       >
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
           <Icon size={20} />
         </div>
-        <span className="min-w-0 flex-1 truncate font-semibold">{sec.label}</span>
+        {/* Обычный shrink (был shrink-[0.05]): при сумме flex-факторов меньше 1
+            браузер раздаёт только эту долю нехватки, поэтому строка не ужималась,
+            а вылезала за свой content-box — у «Статистики» на 7.53px в правый
+            паддинг, к ручке перетаскивания. Теперь недостачу целиком берёт на
+            себя название (min-w-0 + truncate), а бейдж остаётся целым. */}
+        <span className="min-w-0 grow basis-auto truncate font-semibold">{sec.label}</span>
         {locked ? (
-          <span className="flex items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted">
-            <Lock size={12} /> всегда
+          // shrink-0: бейдж короткий и осмысленный только целиком — «вс…» и тем
+          // более одно «…» не значат ничего. Ниже 375px он отдаёт названию свои
+          // 16.25px, пряча замок (12px иконка + 4.25px зазор): слово «всегда»
+          // несёт смысл само, а замок здесь лишь украшение. Плюс 4.25px на
+          // сжатии боковых полей — этого хватает, чтобы «Настройки» влезли.
+          <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
+            <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
           </span>
         ) : (
           <button
@@ -247,15 +262,15 @@ export function SectionsSettingsPage() {
   return (
     <Screen title="Настроить разделы" backTo="/more/settings">
       <p className="mb-4 px-1 text-sm leading-relaxed text-muted">
-        Перетащите раздел за ручку, чтобы поменять порядок или перенести между «Нижней панелью» и
-        «Ещё». Тумблер показывает или скрывает раздел.
+        Перетащите раздел за ручку, чтобы поменять порядок или перенести между нижней панелью и
+        «Главной». Тумблер показывает или скрывает раздел.
       </p>
 
       {/* Нижняя панель */}
       <div className="mb-1.5 flex items-center gap-2 px-1 text-xs font-bold uppercase tracking-wide text-muted">
         Нижняя панель
-        <span className="font-semibold normal-case tracking-normal opacity-80">
-          · до {MAX_BOTTOM} + «Ещё»
+        <span className="min-w-0 font-semibold normal-case tracking-normal opacity-80">
+          · до {MAX_BOTTOM} + «Главная»
         </span>
       </div>
       <div data-zone="bottom" className="mb-6 space-y-2">
@@ -266,23 +281,25 @@ export function SectionsSettingsPage() {
           </div>
         ))}
         {dropLine('bottom', order.bottom.length)}
-        {/* якорь «Ещё» — всегда последний, без тумблера и ручки */}
+        {/* якорь «Главная» — всегда последний, без тумблера и ручки */}
         {anchor && (
-          <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-3">
+          // Раскладка и поведение при нехватке ширины — как у обычной строки
+          // (см. row): те же зазоры, тот же неусыхаемый бейдж.
+          <div className="flex items-center gap-3 card p-3 max-[375px]:gap-2 max-[375px]:px-2">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
               <anchor.icon size={20} />
             </div>
-            <span className="min-w-0 flex-1 truncate font-semibold">{anchor.label}</span>
-            <span className="flex items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted">
-              <Lock size={12} /> всегда
+            <span className="min-w-0 grow basis-auto truncate font-semibold">{anchor.label}</span>
+            <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
+              <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
             </span>
           </div>
         )}
       </div>
 
-      {/* В Ещё */}
+      {/* В «Главной» */}
       <div className="mb-1.5 px-1 text-xs font-bold uppercase tracking-wide text-muted">
-        В разделе «Ещё»
+        В разделе «Главная»
       </div>
       <div data-zone="more" className="mb-6 min-h-[8px] space-y-2">
         {order.more.map((id, i) => (
@@ -327,9 +344,19 @@ export function SectionsSettingsPage() {
       <div className="flex overflow-hidden rounded-2xl border border-hairline bg-elevated">
         {previewBottom.map((s) =>
           s ? (
-            <div key={s.id} className="flex flex-1 flex-col items-center gap-1 py-2.5">
+            <div key={s.id} className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2.5">
               <s.icon size={20} className="text-muted" />
-              <span className="text-[10px] font-semibold text-muted">{s.label}</span>
+              {/* без max-w-full подпись раздвигает колонку и превью уезжает вбок.
+                  Кегль плавающий и мельче, чем в самой панели: колонка превью
+                  уже настоящей вкладки (страница отъедает px-4 = 34px), на 320px
+                  это 56.8px против 62.3px. При фиксированных 10px «Статистика»
+                  (64.95px) обрезалась бы именно в том превью, ради которого
+                  пользователь её сюда и переносит. 2.6vw даёт 8.32px на 320px —
+                  запас 2.76px, а с 393px кегль упирается в прежние 10px.
+                  Боковых полей нет: 4.25px в такой колонке дороже, чем воздух. */}
+              <span className="max-w-full truncate text-2xs font-semibold text-muted">
+                {s.label}
+              </span>
             </div>
           ) : null,
         )}

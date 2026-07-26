@@ -15,6 +15,7 @@ import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { useCall } from '../../lib/family/familyCall';
 import { INSTALL_URL, REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
+import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 
 /**
  * Одноразовое окно о смене имени и значка (Life Hub → LifeHearth).
@@ -69,7 +70,7 @@ export function ReinstallNotice() {
         {/* Шапка */}
         <div className="relative flex items-center gap-3 px-5 pt-5 pb-4">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent">
-            <Sparkles size={24} strokeWidth={1.75} />
+            <Sparkles size={ICON.accent} strokeWidth={STROKE_STRONG} />
           </div>
           <div className="min-w-0 pr-7">
             <h2 className="text-lg font-bold leading-tight">Новое имя и значок</h2>
@@ -77,7 +78,7 @@ export function ReinstallNotice() {
           </div>
           <button
             type="button"
-            aria-label="Позже"
+            aria-label="Скрыть"
             onClick={dismiss}
             className="absolute top-3.5 right-3.5 flex size-8 items-center justify-center rounded-full text-muted active:opacity-60"
           >
@@ -88,7 +89,7 @@ export function ReinstallNotice() {
         {/* Прокручиваемое тело */}
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-2">
           {/* Зачем — коротко */}
-          <p className="text-[15px] leading-relaxed">
+          <p className="text-sm leading-relaxed">
             У приложения новое название и значок. Внутри всё обновилось само, но на экране
             «Домой» iPhone показывает старую иконку — систему не переубедить, она запоминает
             значок при установке. Чтобы увидеть новый вид — переустановите приложение.
@@ -107,14 +108,14 @@ export function ReinstallNotice() {
           {/* Три шага */}
           <ol className="space-y-3">
             <li className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-accent">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-text">
                 1
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
                 <p className="font-semibold">Сохраните данные</p>
                 {syncOn ? (
                   <p className="text-muted">
-                    Надёжнее всего — выгрузить файл: «Ещё → Настройки → Данные → Экспортировать
+                    Надёжнее всего — выгрузить файл: «Главная → Настройки → Данные → Экспортировать
                     резервную копию» (ляжет в «Файлы»). Синхронизация тоже держит копию в облаке,
                     но <span className="font-semibold text-text">ключ хранится только на телефоне</span>{' '}
                     и сотрётся вместе с приложением. Если устройство одно — обязательно сохраните
@@ -123,14 +124,14 @@ export function ReinstallNotice() {
                   </p>
                 ) : (
                   <p className="text-muted">
-                    «Ещё → Настройки → Данные → Экспортировать резервную копию». Файл ляжет в
+                    «Главная → Настройки → Данные → Экспортировать резервную копию». Файл ляжет в
                     «Файлы» и переживёт удаление приложения.
                   </p>
                 )}
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-accent">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-text">
                 2
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
@@ -142,7 +143,7 @@ export function ReinstallNotice() {
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-accent">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-text">
                 3
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
@@ -157,7 +158,7 @@ export function ReinstallNotice() {
           </ol>
 
           {/* Ссылка на сайт установки — открыть в Safari */}
-          <div className="rounded-2xl border border-border bg-surface p-3.5">
+          <div className="card p-3.5">
             <div className="mb-2 flex items-center gap-2 text-sm text-muted">
               <Share size={16} className="shrink-0" />
               <span>Откройте эту ссылку в Safari:</span>
@@ -199,13 +200,13 @@ export function ReinstallNotice() {
             onClick={dismiss}
             className="px-3 py-3 text-sm font-medium text-muted active:opacity-60"
           >
-            Позже
+            Скрыть
           </button>
           <a
             href={INSTALL_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-accent to-accent-2 px-5 py-3.5 font-semibold text-white shadow-[0_6px_20px_-9px_var(--app-accent)] active:opacity-90"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-accent-fill to-accent-2-fill px-5 py-3.5 font-semibold text-white shadow-[0_6px_20px_-9px_var(--app-accent-fill)] active:opacity-90"
           >
             <ExternalLink size={18} />
             Открыть сайт установки

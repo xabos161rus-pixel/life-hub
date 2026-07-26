@@ -119,3 +119,305 @@ export function decodeFamilyPairing(code: string): FamilyPairingData {
   }
   return d;
 }
+
+// === Проверка кода доступа ===
+// Нужна разделу «Женские дни»: сам код нигде не хранится, хранится только
+// результат его прогонки через PBKDF2 с солью. Подобрать код по хешу тем
+// дороже, чем больше итераций; 210 000 — рекомендация OWASP 2023 для
+// PBKDF2-HMAC-SHA256.
+//
+// Честная граница этой защиты: она закрывает раздел от чужих глаз, а не
+// данные от того, кто добрался до устройства и умеет открыть хранилище
+// браузера. Записи в IndexedDB лежат как есть. Шифровать их ключом из кода
+// было бы сильнее, но тогда забытый код означал бы безвозвратную потерю всей
+// истории — а это прямо противоречит требованию «данные не должны теряться».
+
+const PIN_ITERATIONS = 210_000;
+
+export interface PinHash {
+  salt: string;
+  hash: string;
+  iterations: number;
+}
+
+async function derivePin(pin: string, salt: Uint8Array, iterations: number): Promise<string> {
+  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, [
+    'deriveBits',
+  ]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations, hash: 'SHA-256' },
+    material,
+    256,
+  );
+  return bytesToB64url(new Uint8Array(bits));
+}
+
+export async function hashPin(pin: string): Promise<PinHash> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return {
+    salt: bytesToB64url(salt),
+    hash: await derivePin(pin, salt, PIN_ITERATIONS),
+    iterations: PIN_ITERATIONS,
+  };
+}
+
+export async function verifyPin(pin: string, stored: PinHash): Promise<boolean> {
+  const hash = await derivePin(pin, b64urlToBytes(stored.salt), stored.iterations);
+  // Сравнение постоянного времени: обычное === выходит на первом же
+  // несовпавшем символе, и по времени ответа код подбирается посимвольно.
+  if (hash.length !== stored.hash.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hash.length; i++) diff |= hash.charCodeAt(i) ^ stored.hash.charCodeAt(i);
+  return diff === 0;
+}
+
+// === Приглашение под кодовым словом (v:3) ===
+//
+// Пакет v:2 содержал ключ группы открытым текстом: base64 — это запись, а не
+// шифрование. Код передают людям обычными каналами, значит ключ от всей
+// переписки проходил через чужой мессенджер, а перехвативший читал не только
+// новые сообщения, но и всю прошлую историю — сервер отдаёт её при подключении.
+//
+// Здесь ключ и токен зашифрованы кодовым словом, которое приглашающий называет
+// отдельно: голосом, при встрече, другим каналом. Перехваченный код без слова
+// бесполезен. Слово короткое, поэтому его стойкость держится на PBKDF2 с
+// 210 000 итераций: перебор восьми символов из 32-буквенного алфавита стоит
+// порядка 10^12 попыток по 210 000 хешей каждая.
+//
+// Алфавит без похожих символов (нет 0/O, 1/I/l): код диктуют вслух, и «ноль
+// или буква о» — это гарантированная ошибка ввода.
+
+const INVITE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const INVITE_WORD_LEN = 8;
+const INVITE_ITERATIONS = 210_000;
+
+/** Кодовое слово для приглашения. Показывается приглашающему, диктуется вслух. */
+export function generateInviteWord(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(INVITE_WORD_LEN));
+  let out = '';
+  for (const b of bytes) out += INVITE_ALPHABET[b % INVITE_ALPHABET.length];
+  return out;
+}
+
+/** Приводит введённое слово к канону: верхний регистр, без пробелов и дефисов
+ *  (код показывают группами по четыре, и человек их переносит).
+ *
+ *  Похожие символы НЕ подменяем: в алфавите нет ни O, ни 0, ни I, ни 1 — как
+ *  раз чтобы подменять было нечего. Если человек ввёл O, он ослышался, и любая
+ *  «догадка» с нашей стороны либо угадает, либо тихо испортит верный ввод. */
+export function normalizeInviteWord(raw: string): string {
+  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/** Код группами по четыре: восемь символов подряд не читаются и не диктуются. */
+export function formatInviteWord(word: string): string {
+  return word.replace(/(.{4})(?=.)/g, '$1 ');
+}
+
+async function inviteKey(word: string, salt: Uint8Array): Promise<CryptoKey> {
+  const material = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(word),
+    'PBKDF2',
+    false,
+    ['deriveKey'],
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations: INVITE_ITERATIONS, hash: 'SHA-256' },
+    material,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+export interface SealedInvite {
+  v: 3;
+  familyId: string;
+  /** Название группы остаётся открытым: по нему человек понимает, куда его
+   *  зовут, ещё до ввода слова. Секретом оно не является — сервер его и так
+   *  видит. */
+  familyName: string;
+  salt: string;
+  payload: string;
+  /** До какого момента приглашение считается годным (ISO). Проверяется на
+   *  устройстве и потому обходится изменением часов — это не защита, а
+   *  гигиена: старый код в переписке перестаёт работать сам собой. */
+  expiresAt: string;
+}
+
+/** Что лежит внутри приглашения. keys/epoch появились вместе с исключением
+ *  участников: после смены ключа группа хранит все прежние эпохи, и новому
+ *  участнику их надо отдать целиком — иначе переписка до его прихода
+ *  превратится у него в нечитаемые записи. */
+export interface InviteSecrets {
+  familyId: string;
+  familyToken: string;
+  key: string;
+  familyName: string;
+  keys?: Record<string, string>;
+  epoch?: number;
+}
+
+export async function sealInvite(
+  data: InviteSecrets,
+  word: string,
+  ttlHours = 24,
+): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const k = await inviteKey(word, salt);
+  const sealed: SealedInvite = {
+    v: 3,
+    familyId: data.familyId,
+    familyName: data.familyName,
+    salt: bytesToB64url(salt),
+    payload: await encryptJSON(k, {
+      familyToken: data.familyToken,
+      key: data.key,
+      ...(data.keys ? { keys: data.keys, epoch: data.epoch ?? 0 } : {}),
+    }),
+    expiresAt: new Date(Date.now() + ttlHours * 3600_000).toISOString(),
+  };
+  return bytesToB64url(new TextEncoder().encode(JSON.stringify(sealed)));
+}
+
+export class InviteExpiredError extends Error {
+  constructor() {
+    super('Срок действия приглашения истёк');
+    this.name = 'InviteExpiredError';
+  }
+}
+
+export class InviteWordError extends Error {
+  constructor() {
+    super('Неверное кодовое слово');
+    this.name = 'InviteWordError';
+  }
+}
+
+/** Читает конверт, не расшифровывая: нужно, чтобы показать название группы и
+ *  срок ещё до того, как человек введёт слово. */
+export function peekInvite(code: string): SealedInvite {
+  const json = new TextDecoder().decode(b64urlToBytes(code.trim()));
+  const d = JSON.parse(json) as SealedInvite;
+  if (d.v !== 3 || !d.familyId || !d.salt || !d.payload) {
+    throw new Error('Некорректный код приглашения');
+  }
+  return d;
+}
+
+export async function openInvite(code: string, word: string): Promise<InviteSecrets> {
+  const sealed = peekInvite(code);
+  if (Date.parse(sealed.expiresAt) < Date.now()) throw new InviteExpiredError();
+  const k = await inviteKey(normalizeInviteWord(word), b64urlToBytes(sealed.salt));
+  try {
+    const inner = await decryptJSON<Omit<InviteSecrets, 'familyId' | 'familyName'>>(
+      k,
+      sealed.payload,
+    );
+    return {
+      familyId: sealed.familyId,
+      familyName: sealed.familyName,
+      familyToken: inner.familyToken,
+      key: inner.key,
+      keys: inner.keys,
+      epoch: inner.epoch,
+    };
+  } catch {
+    // AES-GCM не расшифровал — либо слово неверное, либо код испорчен.
+    // Различить нельзя, и не нужно: для человека это один и тот же случай.
+    throw new InviteWordError();
+  }
+}
+
+// === Личный конверт участника (ECDH P-256 + AES-256-GCM) ===
+//
+// Нужен ровно для одной вещи: раздать новый ключ группы оставшимся участникам
+// так, чтобы исключённый его не получил. Общим каналом это сделать нельзя —
+// исключённый ещё в группе и прочитает рассылку старым ключом. Значит каждому
+// оставшемуся нужен свой конверт, который открывается только его ключом.
+//
+// Схема без подписи намеренно: конверт выводится из пары (отправитель,
+// получатель), поэтому получатель, деривируя секрет ПУБЛИЧНЫМ ключом
+// владельца, заодно убеждается, что конверт запечатал именно владелец. Никто
+// другой такой же секрет не выведет — подпись была бы вторым ключом ради того
+// же самого.
+//
+// Приватный ключ выгружаемый (extractable): конфиг группы реплицируется между
+// СВОИМИ устройствами через аккаунтный E2E-синк, и у второго телефона тот же
+// memberId. Без выгрузки он не смог бы открыть адресованный себе конверт.
+
+const BOX_CURVE = { name: 'ECDH', namedCurve: 'P-256' } as const;
+
+export function generateBoxKeyPair(): Promise<CryptoKeyPair> {
+  return crypto.subtle.generateKey(BOX_CURVE, true, ['deriveKey']) as Promise<CryptoKeyPair>;
+}
+
+/** Публичный ключ в сыром виде (65 байт несжатой точки P-256) — уходит всем. */
+export async function exportBoxPublic(key: CryptoKey): Promise<string> {
+  return bytesToB64url(new Uint8Array(await crypto.subtle.exportKey('raw', key)));
+}
+
+/** Приватный ключ в pkcs8 — только внутри аккаунтного шифротекста. */
+export async function exportBoxPrivate(key: CryptoKey): Promise<string> {
+  return bytesToB64url(new Uint8Array(await crypto.subtle.exportKey('pkcs8', key)));
+}
+
+export function importBoxPublic(b64: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey('raw', b64urlToBytes(b64), BOX_CURVE, true, []);
+}
+
+export function importBoxPrivate(b64: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey('pkcs8', b64urlToBytes(b64), BOX_CURVE, true, ['deriveKey']);
+}
+
+async function sharedKey(theirPublic: CryptoKey, myPrivate: CryptoKey): Promise<CryptoKey> {
+  return crypto.subtle.deriveKey(
+    { name: 'ECDH', public: theirPublic },
+    myPrivate,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+/** Запечатать данные так, чтобы открыл только владелец theirPublic. */
+export async function sealFor(
+  theirPublic: CryptoKey,
+  myPrivate: CryptoKey,
+  data: unknown,
+): Promise<string> {
+  return encryptJSON(await sharedKey(theirPublic, myPrivate), data);
+}
+
+/** Открыть конверт, запечатанный владельцем theirPublic. */
+export async function openFrom<T>(
+  theirPublic: CryptoKey,
+  myPrivate: CryptoKey,
+  sealed: string,
+): Promise<T> {
+  return decryptJSON<T>(await sharedKey(theirPublic, myPrivate), sealed);
+}
+
+// === Эпоха ключа в шифротексте ===
+//
+// После исключения участника группа переходит на новый ключ, но старые
+// сообщения остаются зашифрованными прежним — их надо продолжать читать.
+// Поэтому шифротекст несёт номер эпохи: 'e2.<данные>'. Точки в base64url нет,
+// так что разделитель однозначен. Эпоха 0 — записи, сделанные до появления
+// ротации: у них префикса нет вовсе, и это же означает «читай общим ключом».
+
+export function packEpoch(epoch: number, payload: string): string {
+  return epoch > 0 ? `e${epoch}.${payload}` : payload;
+}
+
+export function unpackEpoch(raw: string): { epoch: number; payload: string } {
+  const m = /^e(\d+)\.(.*)$/s.exec(raw);
+  return m ? { epoch: Number(m[1]), payload: m[2] } : { epoch: 0, payload: raw };
+}
+
+/** sha256 в hex — тем же способом, что считает сервер. */
+export async function sha256hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}

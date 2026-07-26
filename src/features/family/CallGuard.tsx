@@ -52,9 +52,9 @@ export function CallGuard({
       {/* Кто и сколько — чтобы было видно, что звонок идёт */}
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
         <span className="flex size-14 items-center justify-center rounded-full bg-surface-2 text-muted">
-          <Lock size={26} />
+          <Lock size={24} />
         </span>
-        <p className="text-xl font-semibold">{peerName}</p>
+        <p className="text-lg font-semibold">{peerName}</p>
         <p className="text-sm text-muted">На связи · {elapsed}</p>
         <p className="mt-1 text-sm text-muted">Экран заблокирован, чтобы не нажать щекой</p>
       </div>
@@ -75,7 +75,7 @@ export function CallGuard({
           onPointerUp={onUp}
           onPointerCancel={onUp}
           style={{ transform: `translateX(${offset}px)` }}
-          className="absolute top-1 left-1 flex size-12 touch-none items-center justify-center rounded-full bg-accent text-white shadow-lg active:scale-95"
+          className="absolute top-1 left-1 flex size-12 touch-none items-center justify-center rounded-full bg-accent-fill text-white shadow-lg active:scale-95"
         >
           <ChevronsRight size={24} />
         </button>

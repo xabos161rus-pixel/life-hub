@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowRight, Check, CheckCheck, ChevronsDown, Clock, Copy, Hand, Heart, Send, Pencil, Reply, Trash2, X, Paperclip, Mic, Play, Pause } from 'lucide-react';
+import { useLoaded } from '../../hooks/useLoaded';
+import { ArrowRight, Check, CheckCheck, ChevronsDown, Clock, Copy, Hand, Heart, Send, Pencil, Reply, Trash2, X, Paperclip, Mic, Play, Pause,
+  Loader2,
+} from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Hint } from '../../components/ui/Hint';
-import { useToast } from '../../components/ui/Toast';
-import { compressImage } from '../../lib/image';
+import { useToast } from '../../components/ui/toastContext';
+import {
+  compressImage,
+  ImageDecodeError,
+  ImageTooLargeError,
+  MAX_INPUT_BYTES,
+} from '../../lib/image';
 import { isTouch } from '../../lib/platform';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import {
@@ -58,7 +66,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
       <div className={`h-1 flex-1 overflow-hidden rounded-full ${own ? 'bg-white/25' : 'bg-hairline'}`}>
         <div className="h-full rounded-full bg-current" style={{ width: `${Math.min(100, (pos / total) * 100)}%` }} />
       </div>
-      <span className="shrink-0 text-[11px] tabular-nums">{fmtDur(playing || pos ? pos : duration)}</span>
+      <span className="shrink-0 text-2xs tabular-nums">{fmtDur(playing || pos ? pos : duration)}</span>
       <audio
         ref={aRef}
         src={src}
@@ -299,7 +307,7 @@ function MessageRow({
             }}
             className={`cursor-pointer select-none overflow-hidden rounded-2xl transition-shadow active:opacity-80 ${
               m.image ? 'p-1' : 'px-3 py-2'
-            } ${own ? 'bg-accent text-white' : 'bg-surface-2 text-text'} ${
+            } ${own ? 'bg-accent-fill text-white' : 'bg-surface-2 text-text'} ${
               highlight ? 'ring-2 ring-frost' : ''
             }`}
           >
@@ -319,7 +327,7 @@ function MessageRow({
                   m.image ? 'mx-2 mt-1 w-auto' : ''
                 } ${own ? 'border-white/60 bg-white/15' : 'border-accent bg-accent/10'}`}
               >
-                <span className={`block text-[11px] font-semibold ${own ? 'text-white/90' : 'text-accent'}`}>
+                <span className={`block text-2xs font-semibold ${own ? 'text-white/90' : 'text-accent'}`}>
                   {m.replyTo.name}
                 </span>
                 <span className={`block truncate text-xs ${own ? 'text-white/75' : 'text-muted'}`}>
@@ -332,18 +340,18 @@ function MessageRow({
               <img src={m.image} alt="Фото" loading="lazy" className="block max-h-80 max-w-full rounded-xl" draggable={false} />
             )}
             {m.text && (
-              <p className={`whitespace-pre-wrap break-words text-[15px] ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
+              <p className={`whitespace-pre-wrap break-words text-sm ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
             )}
-            <span className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${m.image ? 'px-2 pb-1' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
+            <span className={`mt-0.5 flex items-center justify-end gap-1 text-2xs ${m.image ? 'px-2 pb-1' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
               {m.editedAt && <span>изменено</span>}
               {timeLabel(m.createdAt)}
               {own &&
                 (m.status === 'pending' ? (
-                  <Clock size={11} />
+                  <Clock size={14} />
                 ) : m.seq != null && maxOtherRead >= m.seq ? (
-                  <CheckCheck size={13} className="text-sky-300" />
+                  <CheckCheck size={14} className="text-sky-300" />
                 ) : (
-                  <Check size={11} />
+                  <Check size={14} />
                 ))}
             </span>
           </div>
@@ -377,6 +385,10 @@ export function ChatTab({ familyId }: { familyId: string }) {
   const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
   const selfId = config?.selfMemberId;
 
+  // Лента открывается чаще любого другого экрана, и заглушка занимает её
+  // целиком. Пока Dexie не ответил, «Пока нет сообщений» — неправда, а
+  // выглядит как потерянная переписка.
+  const loaded = useLoaded(messagesRaw);
   const memberMap = useMemo(() => Object.fromEntries((membersRaw ?? []).map((m) => [m.id, m])), [membersRaw]);
   const list = useMemo(() => ordered(messagesRaw ?? []), [messagesRaw]);
 
@@ -416,6 +428,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
     () => (membersRaw ?? []).filter((m) => !m.leftAt && m.id !== selfId),
     [membersRaw, selfId],
   );
+  // Пока фото сжимается и шифруется, кнопка занята: на большом снимке это
+  // заметная пауза, и без индикации человек жмёт второй раз.
+  const [sendingImage, setSendingImage] = useState(false);
   const [online, setOnline] = useState<string[]>([]);
   const [lastSeen, setLastSeen] = useState<Record<string, string>>({});
   const [now, setNow] = useState(0);
@@ -558,7 +573,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
       await navigator.clipboard.writeText(m.text);
       toast('Скопировано');
     } catch {
-      toast('Не удалось скопировать');
+      toast('Не удалось скопировать. Выделите текст вручную');
     }
   }
 
@@ -578,11 +593,25 @@ export function ChatTab({ familyId }: { familyId: string }) {
   }
 
   async function handlePickImage(file: File) {
+    // Раньше ошибка глоталась молча: человек выбирал фото, ничего не
+    // происходило, и понять почему было невозможно. Молчаливый отказ хуже
+    // отказа с текстом — второй хотя бы подсказывает, что делать.
+    setSendingImage(true);
     try {
       const dataUrl = await compressImage(file);
       await sendImage(familyId, dataUrl);
-    } catch {
-      /* не удалось обработать картинку */
+    } catch (err) {
+      if (err instanceof ImageTooLargeError) {
+        toast(`Файл больше ${Math.round(MAX_INPUT_BYTES / 1024 / 1024)} МБ — выберите поменьше`);
+      } else if (err instanceof ImageDecodeError) {
+        // Чаще всего это HEIC с айфона, открытый в стороннем браузере: формат
+        // системный, и разобрать его умеет не всякий движок.
+        toast('Не удалось открыть фото. Попробуйте другой файл');
+      } else {
+        toast('Не удалось отправить фото. Проверьте связь');
+      }
+    } finally {
+      setSendingImage(false);
     }
   }
 
@@ -665,14 +694,16 @@ export function ChatTab({ familyId }: { familyId: string }) {
           className="h-full overflow-y-auto overscroll-contain px-1"
         >
           {list.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted">Пока нет сообщений. Напишите первым!</p>
+            loaded && (
+              <p className="py-12 text-center text-sm text-muted">Пока нет сообщений. Напишите первым!</p>
+            )
           ) : (
             <div className="space-y-2 py-2">
               {list.map((m, i) => {
                 const divider =
                   i === 0 || dayKey(list[i - 1].createdAt) !== dayKey(m.createdAt) ? (
                     <div key={`d-${m.clientMsgId}`} className="flex items-center justify-center py-1.5">
-                      <span className="rounded-full bg-surface-2/80 px-3 py-0.5 text-[11px] font-medium text-muted">
+                      <span className="rounded-full bg-surface-2/80 px-3 py-0.5 text-2xs font-medium text-muted">
                         {now ? dayLabel(m.createdAt, now) : ''}
                       </span>
                     </div>
@@ -751,7 +782,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         )}
         {replyTo && (
           <div className="flex items-center gap-2 px-1 pt-2 text-sm">
-            <Reply size={15} className="shrink-0 text-accent" />
+            <Reply size={14} className="shrink-0 text-accent" />
             <div className="min-w-0 flex-1 border-l-2 border-accent pl-2">
               <p className="text-xs font-semibold text-accent">
                 {memberMap[replyTo.senderMemberId]?.displayName || 'Участник'}
@@ -784,7 +815,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             <button
               onClick={rec.stop}
               aria-label="Отправить голосовое"
-              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-white active:scale-95"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
             >
               <Send size={20} />
             </button>
@@ -804,10 +835,16 @@ export function ChatTab({ familyId }: { familyId: string }) {
             />
             <button
               onClick={() => fileRef.current?.click()}
-              aria-label="Прикрепить фото"
-              className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted transition-colors active:bg-surface active:text-accent"
+              disabled={sendingImage}
+              aria-label={sendingImage ? 'Фото отправляется' : 'Прикрепить фото'}
+              aria-busy={sendingImage || undefined}
+              className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted transition-colors active:bg-surface active:text-accent disabled:opacity-50"
             >
-              <Paperclip size={21} />
+              {sendingImage ? (
+                <Loader2 size={20} className="animate-spin motion-reduce:animate-none" />
+              ) : (
+                <Paperclip size={20} />
+              )}
             </button>
             <textarea
               value={text}
@@ -825,14 +862,14 @@ export function ChatTab({ familyId }: { familyId: string }) {
               }}
               rows={1}
               placeholder="Сообщение…"
-              className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-3xl border border-border bg-surface px-4 py-2.5 text-[15px] leading-tight outline-none focus:border-accent"
+              className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-3xl border border-border bg-surface px-4 py-2.5 text-sm leading-tight outline-none focus:border-accent"
             />
             {text.trim() || !rec.supported ? (
               <button
                 onClick={() => void submit()}
                 disabled={!text.trim()}
                 aria-label="Отправить"
-                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent to-accent-2 text-white disabled:opacity-40 active:scale-95"
+                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white disabled:opacity-40 active:scale-95"
               >
                 <Send size={20} />
               </button>
@@ -840,7 +877,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               <button
                 onClick={() => void rec.start()}
                 aria-label="Записать голосовое"
-                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent to-accent-2 text-white active:scale-95"
+                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
               >
                 <Mic size={20} />
               </button>
@@ -860,7 +897,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                     type="button"
                     onClick={() => void toggleReaction(actionMsg, emoji)}
                     aria-label={`Реакция ${emoji}`}
-                    className={`flex size-10 items-center justify-center rounded-full text-[22px] transition-transform active:scale-90 ${
+                    className={`flex size-10 items-center justify-center rounded-full text-lg transition-transform active:scale-90 ${
                       myReactions.get(actionMsg.clientMsgId) === emoji ? 'bg-accent/20 ring-1 ring-accent/50' : ''
                     }`}
                   >

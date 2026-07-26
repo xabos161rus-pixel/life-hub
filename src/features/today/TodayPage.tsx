@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Link } from 'react-router';
+import { useLoaded } from '../../hooks/useLoaded';
 import { Search, Sun } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
@@ -10,12 +10,14 @@ import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { QuickAddBar } from '../tasks/QuickAddBar';
+import { CycleTodayLine } from '../cycle/CycleTodayLine';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { WeatherWidget } from './widgets/WeatherWidget';
 import { RemindersBlock } from './RemindersBlock';
 import { HabitsToday } from '../habits/HabitsToday';
 import { ProtectDataCard } from './ProtectDataCard';
+import { IconButton } from '../../components/ui/IconButton';
 
 /** Список задач в карточке — как в TasksPage. */
 function TaskList({
@@ -49,8 +51,14 @@ export function TodayPage() {
   const [editing, setEditing] = useState<Task | null>(null);
   const today = todayKey();
 
-  const tasks = alive(useLiveQuery(() => db.tasks.toArray(), []) ?? []);
-  const projects = alive(useLiveQuery(() => db.projects.toArray(), []) ?? []);
+  // Сырые значения держим отдельно: undefined значит «Dexie ещё не ответил»,
+  // и это не то же самое, что «задач нет». Склей их — и на первом кадре
+  // самого посещаемого экрана вспыхивает «На сегодня задач нет».
+  const tasksRaw = useLiveQuery(() => db.tasks.toArray(), []);
+  const projectsRaw = useLiveQuery(() => db.projects.toArray(), []);
+  const loaded = useLoaded(tasksRaw, projectsRaw);
+  const tasks = alive(tasksRaw ?? []);
+  const projects = alive(projectsRaw ?? []);
   const projectById = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
 
   const byPriorityThenOrder = (a: Task, b: Task) =>
@@ -82,14 +90,16 @@ export function TodayPage() {
       title="Сегодня"
       subtitle={formatHeaderDate()}
       right={
-        <Link to="/search" aria-label="Поиск" className="p-1 text-accent active:opacity-60">
-          <Search size={24} />
-        </Link>
+        <IconButton icon={Search} label="Поиск" to="/search" />
       }
     >
       <WeatherWidget />
 
       <ProtectDataCard />
+
+      {/* Строка раздела «Женские дни». Сама решает, показываться ли: без
+          включённого переключателя и без данных цикла ничего не рисует. */}
+      <CycleTodayLine />
 
       <RemindersBlock />
 
@@ -105,7 +115,7 @@ export function TodayPage() {
       )}
 
       {noTasks ? (
-        <EmptyState icon={Sun} title="На сегодня задач нет" hint="Добавьте задачу кнопкой +" />
+        loaded && <EmptyState icon={Sun} title="На сегодня задач нет" hint="Добавьте задачу кнопкой +" />
       ) : (
         (todayOpen.length > 0 || todayDone.length > 0) && (
           <section className="mb-5">

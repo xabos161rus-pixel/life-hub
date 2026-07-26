@@ -103,7 +103,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
       {/* Кто и статус */}
       <div className="flex flex-1 flex-col items-center justify-center gap-6">
         <span
-          className={`flex size-28 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-4xl font-semibold text-white shadow-2xl ${
+          className={`flex size-28 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-3xl font-semibold text-white shadow-2xl ${
             snap.status === 'outgoing' || incoming ? 'animate-pulse' : ''
           }`}
         >
@@ -125,10 +125,10 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
           {incoming ? (
             <>
               <CallButton color="danger" label="Отклонить" onClick={() => callManager.decline()}>
-                <PhoneOff size={28} />
+                <PhoneOff size={24} />
               </CallButton>
               <CallButton color="success" label="Ответить" onClick={() => void callManager.accept()}>
-                <Phone size={28} />
+                <Phone size={24} />
               </CallButton>
             </>
           ) : (
@@ -138,7 +138,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
                 label={snap.muted ? 'Включить' : 'Микрофон'}
                 onClick={bump(() => callManager.toggleMute())}
               >
-                {snap.muted ? <MicOff size={26} /> : <Mic size={26} />}
+                {snap.muted ? <MicOff size={24} /> : <Mic size={24} />}
               </CallButton>
               {snap.speakerAvailable && (
                 <CallButton
@@ -146,7 +146,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
                   label={snap.speakerOn ? 'Динамик' : 'К уху'}
                   onClick={bump(() => void callManager.toggleSpeaker())}
                 >
-                  <Volume2 size={26} />
+                  <Volume2 size={24} />
                 </CallButton>
               )}
               {snap.outputPickerAvailable && (
@@ -155,7 +155,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
                   label="Наушники"
                   onClick={bump(() => callManager.showOutputPicker())}
                 >
-                  <Headphones size={26} />
+                  <Headphones size={24} />
                 </CallButton>
               )}
               {earpiece && (
@@ -164,7 +164,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
                 </CallButton>
               )}
               <CallButton color="danger" label="Завершить" onClick={bump(() => callManager.hangup())}>
-                <PhoneOff size={28} />
+                <PhoneOff size={24} />
               </CallButton>
             </>
           )}
@@ -195,11 +195,11 @@ function CallButton({
 }) {
   const cls =
     color === 'danger'
-      ? 'bg-danger text-white'
+      ? 'bg-danger-fill text-white'
       : color === 'success'
-        ? 'bg-success text-white'
+        ? 'bg-success-fill text-on-light'
         : color === 'active'
-          ? 'bg-accent text-white'
+          ? 'bg-accent-fill text-white'
           : 'bg-surface-2 text-text';
   return (
     <button onClick={onClick} className="flex flex-col items-center gap-2 active:scale-95" aria-label={label}>

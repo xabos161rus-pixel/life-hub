@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { RefreshCw, QrCode, Smartphone, ShieldCheck } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
-import { useToast } from '../../../components/ui/Toast';
+import { useToast } from '../../../components/ui/toastContext';
 import { getSyncConfig } from '../../../lib/syncState';
 import { createSyncAccount, disableSync, runSync } from '../../../lib/sync';
 import { PairingSheet } from './PairingSheet';
@@ -43,7 +43,7 @@ export function SyncSection() {
       const r = await runSync();
       if (r) toast(`Синхронизировано · получено ${r.pulled}, отправлено ${r.pushed}`);
     } catch {
-      toast('Не удалось синхронизировать');
+      toast('Не удалось синхронизировать. Проверьте связь и попробуйте ещё раз');
     } finally {
       setBusy(false);
     }
@@ -57,7 +57,7 @@ export function SyncSection() {
 
   return (
     <>
-      <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+      <div className="space-y-3 card p-4">
         {config ? (
           <>
             <p className="flex items-center gap-2 text-sm">
@@ -101,7 +101,7 @@ export function SyncSection() {
               className="w-full inline-flex items-center justify-center gap-2"
               onClick={() => setSheet('connect')}
             >
-              <Smartphone size={18} />
+              <Smartphone size={18} className="shrink-0" />
               Подключить к другому устройству
             </Button>
           </>

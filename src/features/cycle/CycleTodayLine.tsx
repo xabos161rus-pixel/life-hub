@@ -1,0 +1,52 @@
+import { Link } from 'react-router';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { ChevronRight } from 'lucide-react';
+import { db } from '../../db/db';
+import { todayKey } from '../../lib/dates';
+import { formatRu } from '../../lib/dates';
+import { cycleDayFor } from '../../lib/cycle/derive';
+import { predictNextPeriod } from '../../lib/cycle/predict';
+
+/** Строка раздела на экране «Сегодня».
+ *
+ *  Выключена по умолчанию и включается в настройках раздела. «Сегодня» — экран,
+ *  который чаще прочих видят через плечо, поэтому здесь только номер дня и, если
+ *  прогноз включён, диапазон дат. Никаких предсказаний состояния: ни «может быть
+ *  мало сил», ни эмодзи, ни советов. Приложение знает день цикла, а не то, как
+ *  человек себя чувствует.
+ *
+ *  Считает сама, а не через useCycleData: тому нужны все дни и симптомы ради
+ *  статистики, а здесь хватает циклов и эпизодов — на экране «Сегодня» лишний
+ *  запрос ко всей истории ни к чему. */
+export function CycleTodayLine() {
+  const settings = useLiveQuery(() => db.cycleSettings.get('app'), []);
+  const cycles = useLiveQuery(() => db.cycles.orderBy('startDate').toArray(), []);
+  const episodes = useLiveQuery(() => db.cycleEpisodes.toArray(), []);
+
+  if (!settings?.integrations.todayCard) return null;
+  if (cycles === undefined || episodes === undefined || cycles.length === 0) return null;
+
+  const today = todayKey();
+  const day = cycleDayFor(today, cycles, episodes);
+  if (day === undefined) return null;
+
+  const prediction = settings.predictionsEnabled
+    ? predictNextPeriod({ cycles, episodes, today })
+    : null;
+  const range =
+    prediction?.lo80 !== undefined && prediction.hi80 !== undefined
+      ? `${formatRu(prediction.lo80, 'd')}–${formatRu(prediction.hi80)}`
+      : null;
+
+  return (
+    <Link to="/more/cycle" className="card mb-5 flex items-center gap-3 p-4 active:opacity-80">
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold">День цикла {day}</span>
+        {range && (
+          <span className="mt-0.5 block text-sm text-muted">Следующая менструация {range}</span>
+        )}
+      </span>
+      <ChevronRight size={18} className="shrink-0 text-muted" />
+    </Link>
+  );
+}

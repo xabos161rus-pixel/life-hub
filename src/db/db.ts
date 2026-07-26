@@ -6,6 +6,7 @@ import type {
   Habit,
   HabitLog,
   Note,
+  NoteFolder,
   LearningItem,
   LearningLog,
   ExpenseItem,
@@ -24,8 +25,17 @@ import type {
   ReminderSection,
   ReminderItem,
 } from './types';
+import type {
+  Cycle,
+  CycleDayLog,
+  CycleEpisode,
+  CycleOverride,
+  CyclePrediction,
+  CycleSettings,
+  SymptomDef,
+} from './cycleTypes';
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 13;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -34,6 +44,7 @@ export class LifeHubDB extends Dexie {
   habits!: Table<Habit, string>;
   habitLogs!: Table<HabitLog, string>;
   notes!: Table<Note, string>;
+  noteFolders!: Table<NoteFolder, string>;
   learningItems!: Table<LearningItem, string>;
   learningLogs!: Table<LearningLog, string>;
   expenseItems!: Table<ExpenseItem, string>;
@@ -51,6 +62,17 @@ export class LifeHubDB extends Dexie {
   familyMessages!: Table<FamilyMessage, string>;
   reminderSections!: Table<ReminderSection, string>;
   reminderItems!: Table<ReminderItem, string>;
+  // Раздел «Женские дни». Ключ дневной записи и цикла — строка даты, а не uuid:
+  // на календарный день приходится ровно одна запись, суррогатный id позволил
+  // бы завести вторую. Эти таблицы НЕ входят в SYNCED_TABLES (lib/sync.ts) и
+  // пишутся мимо db/repo — см. lib/cycle/cycleRepo.ts.
+  cycleDays!: Table<CycleDayLog, string>;
+  cycles!: Table<Cycle, string>;
+  cycleOverrides!: Table<CycleOverride, string>;
+  cycleEpisodes!: Table<CycleEpisode, string>;
+  cycleSettings!: Table<CycleSettings, string>;
+  cycleSymptoms!: Table<SymptomDef, string>;
+  cyclePredictions!: Table<CyclePrediction, string>;
 
   constructor() {
     super('life-hub');
@@ -170,6 +192,68 @@ export class LifeHubDB extends Dexie {
       savingsGoals: 'id, sortOrder, archivedAt',
       savingsDeposits: 'id, goalId, date',
     });
+    // v11 — раздел «Женские дни». Только новые таблицы, существующие не
+    // трогаются → upgrade-функция не нужна.
+    //
+    // cycleDays.date первичным ключом даёт уникальность записи на день без
+    // отдельного индекса и корректный between('2026-01-01','2026-07-25'):
+    // лексикографический порядок ISO-дат совпадает с хронологическим.
+    // isBleedingDay — 0|1, потому что boolean в индекс IndexedDB не попадает
+    // вообще. *symptomKeys — multi-entry: «все дни, когда болела голова» одним
+    // проходом вместо скана истории.
+    // [excluded+startDate] — основной запрос статистики: последние N
+    // неисключённых циклов. Без составного индекса это скан всех циклов с
+    // фильтром в JS; на трёх годах терпимо, на импорте за десять лет уже нет.
+    this.version(11).stores({
+      cycleDays: 'date, isBleedingDay, *symptomKeys',
+      cycles: 'startDate, endDate, [excluded+startDate]',
+      cycleOverrides: 'startDate',
+      cycleEpisodes: 'id, kind, startDate',
+      cycleSettings: 'id',
+      // enabled в индекс НЕ идёт: это boolean, а IndexedDB индексирует только
+      // числа, строки, даты и массивы. Симптомов пара десятков — фильтруем в JS.
+      cycleSymptoms: 'key, group',
+      cyclePredictions: 'forCycleStart',
+    });
+    // v12 — происхождение задачи. Индекс по origin нужен, чтобы раздел находил
+    // свои автозадачи одним запросом, а не сканом всего списка; и чтобы
+    // проверка «не утекло ли что-то из закрытого раздела» была дешёвой.
+    // Существующие задачи не трогаем: undefined означает «человек сам создал».
+    this.version(12).stores({
+      tasks: 'id, projectId, goalId, dueDate, completedAt, *tags, origin',
+    });
+
+    // Папки заметок. Один уровень вложенности намеренно: папка в папке в папке
+    // — самый быстрый способ добиться того, что человек перестанет
+    // раскладывать вообще и свалит всё в корень.
+    // У существующих заметок folderId остаётся undefined — это и есть корень,
+    // переносить ничего не нужно.
+    this.version(13)
+      .stores({
+        noteFolders: 'id, sortOrder',
+        notes: 'id, *tags, pinned, folderId',
+      })
+      .upgrade(async (tx) => {
+        // Помечаем уже существующую строку настроек как «старого» пользователя.
+        //
+        // Экраны онбординга появились только в этом релизе, поля onboardingDone
+        // в прежних настройках нет вовсе, а ensureSettings пишет строку лишь
+        // когда её нет целиком. Без этой строчки человек, у которого приложение
+        // стоит давно и полно данных, после тихого обновления получил бы
+        // вводный тур для новичка поверх собственных задач — и, что хуже,
+        // окно «Новое имя и значок» не показалось бы уже никогда: оно ждёт
+        // пройденного онбординга.
+        //
+        // Дата — не «сейчас», а заведомо прошлая: онбординг человек не проходил,
+        // и притворяться, что прошёл сегодня, значит соврать в собственных
+        // данных. Важен только факт «не новичок».
+        await tx
+          .table('settings')
+          .toCollection()
+          .modify((row: { onboardingDone?: string }) => {
+            if (row.onboardingDone === undefined) row.onboardingDone = '2000-01-01T00:00:00.000Z';
+          });
+      });
   }
 }
 

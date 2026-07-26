@@ -6,6 +6,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig(({ command }) => ({
   // в dev — корень (удобнее для предпросмотра), в проде — путь GitHub Pages
   base: command === 'build' ? '/life-hub/' : '/',
+  // vitest берёт конфиг отсюда. e2e/** исключаем: там Playwright, и его
+  // test() при запуске под vitest падает с «did not expect test() to be called
+  // here» — два раннера на одном расширении .spec.ts.
+  test: {
+    exclude: ['node_modules/**', 'dist/**', 'e2e/**'],
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -24,7 +30,14 @@ export default defineConfig(({ command }) => ({
         scope: '/life-hub/',
         display: 'standalone',
         orientation: 'portrait',
-        theme_color: '#1d1d27',
+        // theme_color красит системный хром (строка статуса на Android, полоса
+        // над шапкой в standalone на iOS) — он должен совпадать с ВЕРХОМ
+        // приложения, а верх это bg. Раньше здесь стоял цвет таб-бара, и
+        // сверху получалась полоса на два тона светлее шапки.
+        theme_color: '#0e0e15',
+        // background_color — заставка до первого кадра, и она обязана
+        // совпадать с заливкой html/body (см. index.css: --app-elevated),
+        // иначе при запуске мигает полоса под таб-баром.
         background_color: '#1d1d27',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },

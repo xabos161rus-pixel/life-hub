@@ -22,7 +22,7 @@ export function ProfileNameSheet({ familyId, open, currentName, onClose }: Props
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Ваше имя">
+    <Sheet open={open} onClose={onClose} title="Имя в группе">
       <div className="space-y-4">
         <Field label="Имя в группе">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Влад" autoFocus />

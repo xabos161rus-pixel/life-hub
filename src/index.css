@@ -15,10 +15,71 @@
   --color-success: var(--app-success);
   --color-warning: var(--app-warning);
   --color-frost: var(--app-frost);
+  /* Заливки — отдельно от текстовых токенов. См. комментарий у палитры. */
+  --color-accent-fill: var(--app-accent-fill);
+  --color-accent-2-fill: var(--app-accent-2-fill);
+  --color-danger-fill: var(--app-danger-fill);
+  --color-success-fill: var(--app-success-fill);
+  --color-warning-fill: var(--app-warning-fill);
+  --color-frost-fill: var(--app-frost-fill);
+  /* Глиф на светлой заливке (успех, предупреждение, мороз). */
+  --color-on-light: var(--app-on-light);
+
+  /* ШКАЛА КЕГЛЕЙ — восемь ступеней вместо двадцати четырёх.
+     Разъехалось не от небрежности, а оттого что шкалы не было: где не хватало
+     ступени, ставили произвольное значение, и набралось 47 таких плюс 5 clamp.
+     Здесь переопределяются ЗНАЧЕНИЯ существующих ступеней Tailwind, а не
+     заводятся новые имена: 300 мест с text-sm и text-xs остаются как есть.
+
+     Размер и интерлиньяж задаются парой намеренно. Иначе произвольные
+     text-[15px] продолжали бы наследовать 1.5 из preflight и давать строку
+     разреженнее, чем у токена рядом.
+
+     Три значения интерлиньяжа: 1.1–1.15 для дисплейных чисел и крупных
+     заголовков, 1.25–1.35 для подписей и однострочников, 1.45 для прозы. */
+  --text-2xs: 11px;
+  --text-2xs--line-height: 1.35;
+  --text-xs: 13px;
+  --text-xs--line-height: 1.35;
+  --text-sm: 15px;
+  --text-sm--line-height: 1.45;
+  --text-base: 17px;
+  --text-base--line-height: 1.45;
+  --text-lg: 20px;
+  --text-lg--line-height: 1.25;
+  --text-2xl: 26px;
+  --text-2xl--line-height: 1.15;
+  --text-3xl: 32px;
+  --text-3xl--line-height: 1.1;
+  --text-5xl: 48px;
+  --text-5xl--line-height: 1;
 }
 
 /* Палитра OKLCH: глубокий тёплый-тёмный с фиолетово-индиговым подтоном.
-   Хрома снижена у крайних L, нейтрали тонированы к одному hue. */
+   Хрома снижена у крайних L, нейтрали тонированы к одному hue.
+
+   ЦВЕТ ТЕКСТА И ЦВЕТ ЗАЛИВКИ — РАЗНЫЕ ВЕЩИ. Токены изначально подбирались как
+   текст на тёмной поверхности, и там они хороши: 6–10:1. Но ими же заливали
+   кнопки и клали сверху белый глиф — а это совсем другая задача, и она была
+   провалена во всех парах: белое на accent давало 2.62, на «успехе» 1.75, на
+   «предупреждении» 1.71 при норме 4.5. Замеряно по пикселям в браузере
+   (scratchpad/contrast-dom.mjs), не прикидкой.
+
+   Отсюда раскол:
+     --app-<имя>        цвет ТЕКСТА и иконок на поверхности;
+     --app-<имя>-fill   ЗАЛИВКА, подобранная под свой глиф;
+     --app-on-light     тёмный глиф для светлых заливок.
+
+   Глиф выбирается по типу заливки, а не одним правилом на всё:
+   на холодных насыщенных (accent, accent-2, danger, focus) заливка темнеет до
+   L≈0.58 и глиф остаётся БЕЛЫМ — тёмный текст на синей кнопке читается как
+   ошибка вёрстки, а не как решение; на светлых по смыслу (success, warning,
+   frost) заливка остаётся яркой, а глиф ТЁМНЫЙ — затемнять зелёный до синевы
+   значило бы менять смысл цвета ради формального порога.
+
+   Значения L подобраны бинарным поиском при неизменных hue и хроме
+   (scratchpad/pick-fills.mjs): цвет тот же, меняется только глубина, и ровно
+   настолько, чтобы дотянуть до 4.5 — не темнее. */
 :root {
   --app-bg: oklch(0.168 0.013 283);
   --app-surface: oklch(0.214 0.016 284);
@@ -39,6 +100,21 @@
   --app-warning: oklch(0.83 0.135 80);
   /* «Мороз» — голубой заморозки задач: снежинка, бейджи, секция «Заморожено». */
   --app-frost: oklch(0.78 0.125 225);
+  /* Заливки. Холодные затемнены под белый глиф (было 2.62 / 3.28 / 2.91 / 3.65,
+     стало ≥4.5); светлые оставлены как есть — на них идёт --app-on-light. */
+  --app-accent-fill: oklch(0.562 0.18 264);
+  --app-accent-2-fill: oklch(0.579 0.21 300);
+  --app-danger-fill: oklch(0.578 0.185 20);
+  --focus-accent-fill: oklch(0.583 0.215 27);
+  /* Светлый конец градиента: без своей заливки белый глиф на нём тонул (2.29). */
+  --focus-accent-2-fill: oklch(0.60 0.165 55);
+  --app-success-fill: var(--app-success);
+  --app-warning-fill: var(--app-warning);
+  --app-frost-fill: var(--app-frost);
+  /* Тёмный глиф: почти цвет фона, но не он — чистый --app-bg на ярком зелёном
+     даёт лёгкий фиолетовый подтон. Это же значение живёт в colors.ts как
+     ON_COLOR_DARK для пользовательских цветов привычек и целей. */
+  --app-on-light: oklch(0.18 0.015 285);
   --shadow-card: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px -12px oklch(0 0 0 / 0.55);
   --shadow-pop: 0 8px 30px -8px oklch(0 0 0 / 0.6);
   --shadow-accent: 0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);
@@ -55,14 +131,36 @@
   --app-hairline: oklch(0 0 0 / 0.07);
   --app-text: oklch(0.26 0.022 284);
   --app-muted: oklch(0.52 0.022 282);
-  --app-accent: oklch(0.58 0.17 266);
+  /* 0.527, а не 0.58: акцентный текст лежит не только на белой поверхности,
+     но и на собственной подложке bg-accent/15 (чипы, подсказки, плитки) — там
+     фон ближе к самому акценту, и контраст падал до 3.67. Подобрано по
+     худшему из двух фонов (scratchpad/pick-ink.mjs). */
+  --app-accent: oklch(0.515 0.17 266);
   --app-accent-2: oklch(0.56 0.18 292);
-  --focus-accent: oklch(0.605 0.225 27);
+  /* Тёплый акцент «Фокуса» — тоже текст на трёх поверхностях. */
+  --focus-accent: oklch(0.553 0.225 27);
   --focus-accent-2: oklch(0.72 0.17 52);
-  --app-danger: oklch(0.58 0.2 22);
-  --app-success: oklch(0.6 0.16 158);
-  --app-warning: oklch(0.68 0.15 70);
-  --app-frost: oklch(0.60 0.135 235);
+  /* Светлая тема: этими цветами набран ТЕКСТ, и лежит он на трёх разных
+     поверхностях — bg, surface, surface-2. Мерить по одной белой оказалось
+     мало: подобранные по ней значения давали 3.9–4.2 на остальных двух.
+     Значения ниже подобраны по худшей из трёх, и опущены ровно до 4.5 — не
+     глубже, чтобы цвета остались собой.
+     Заливки при этом НЕ опускаются: янтарная плашка предупреждения на L 0.49
+     стала бы коричневой и перестала читаться как предупреждение. */
+  --app-danger: oklch(0.550 0.2 22);
+  --app-success: oklch(0.495 0.16 158);
+  --app-warning: oklch(0.533 0.15 70);
+  --app-frost: oklch(0.514 0.135 235);
+  /* Заливки светлой темы почти не двигаются: там белый глиф и так проходил. */
+  --app-accent-fill: oklch(0.563 0.17 266);
+  --app-accent-2-fill: oklch(0.56 0.18 292);
+  --app-danger-fill: oklch(0.568 0.2 22);
+  --focus-accent-fill: oklch(0.583 0.225 27);
+  --focus-accent-2-fill: oklch(0.585 0.17 52);
+  --app-success-fill: oklch(0.6 0.16 158);
+  --app-warning-fill: oklch(0.68 0.15 70);
+  --app-frost-fill: oklch(0.60 0.135 235);
+  --app-on-light: oklch(0.18 0.015 285);
   --shadow-card: 0 1px 2px oklch(0.7 0.02 284 / 0.18), 0 10px 24px -14px oklch(0.5 0.04 284 / 0.3);
   --shadow-pop: 0 10px 30px -8px oklch(0.5 0.04 284 / 0.25);
   --shadow-accent: 0 10px 30px -10px oklch(0.58 0.17 266 / 0.45);
@@ -117,20 +215,19 @@ body {
     radial-gradient(130% 80% at 50% -14%, oklch(0.95 0.02 285 / 0.55), transparent 74%);
 }
 
-/* Иконки lucide: единый тонкий штрих для лаконичного премиального вида
-   (по умолчанию 2 — визуально тяжело). CSS переопределяет SVG-атрибут,
-   поэтому действует на все иконки во всех разделах из одного места.
-   Точечные акценты (активный таб, тулбар заметок) задают вес через inline
-   style, который перебивает это правило. */
-.lucide {
-  stroke-width: 1.75;
-}
+/* Толщина штриха иконок здесь СОЗНАТЕЛЬНО не задаётся.
+   Раньше стояло .lucide{stroke-width:1.75} — одно значение на все размеры. Но
+   stroke-width у lucide живёт в сетке 24×24, а не в пикселях: те же 1.75 дают
+   1.02px настоящего штриха при size=14 и 2.92px при size=40. Плюс правило
+   перебивало атрибут SVG, из-за чего двенадцать strokeWidth в разметке не
+   действовали вообще. Теперь вес задаёт LucideProvider с absoluteStrokeWidth
+   (src/App.tsx, значения — src/components/ui/icons.ts). */
 
 /* Премиальная карточка: мягкая тень + тонкий верхний внутренний хайлайт. */
 .card {
   background-color: var(--app-surface);
   border: 1px solid var(--app-hairline);
-  border-radius: 1.15rem;
+  border-radius: 1rem;
   /* Клипаем содержимое скруглением: строки списков на всю ширину (-mx-4) иначе
      вылезают квадратными углами за бордер — «плывущая рамка». Тень не клипается
      (рисуется вне border-box), поэтому объём карточки сохраняется. */
@@ -187,7 +284,10 @@ select {
     button,
     a {
       transition-property: opacity;
-      transition-duration: 120ms;
+      /* 150 мс — та же длительность, что у отклика на нажатие. Раньше здесь
+         было 120: наведение отзывалось быстрее самого тапа, и это читалось
+         как нервозность интерфейса. */
+      transition-duration: 150ms;
     }
   }
 }
@@ -231,7 +331,8 @@ select {
 .note-editor ul,
 .note-editor ol,
 .note-editor h1,
-.note-editor h2 {
+.note-editor h2,
+.note-editor blockquote {
   font-size: 17px;
   font-weight: 400;
   line-height: 1.5;
@@ -254,7 +355,107 @@ select {
 .note-editor li {
   margin: 0.15em 0;
 }
+
+/* Чек-лист. Пункт — обычный <li>, состояние в атрибуте, галочка нарисована
+   через ::before: настоящие <input type="checkbox"> внутри contenteditable
+   ведут себя плохо — каретка проваливается в поле, а копирование выносит в
+   буфер разметку формы вместо текста. */
+.note-editor ul.cl {
+  list-style: none;
+  padding-left: 0;
+}
+.note-editor ul.cl > li {
+  position: relative;
+  padding-left: 34px;
+  min-height: 26px;
+}
+.note-editor ul.cl > li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.18em;
+  width: 21px;
+  height: 21px;
+  border: 2px solid var(--app-border);
+  border-radius: 6px;
+  box-sizing: border-box;
+  /* Клик по галочке ловит обработчик на редакторе по координате: сам
+     псевдоэлемент событий не получает. */
+}
+.note-editor ul.cl > li[data-done='1']::before {
+  background: var(--app-accent-fill);
+  border-color: var(--app-accent-fill);
+}
+/* Галочка — две линии через границы повёрнутого блока: рисовать её символом
+   нельзя, шрифтовая галка прыгает по вертикали между платформами. */
+.note-editor ul.cl > li[data-done='1']::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0.42em;
+  width: 6px;
+  height: 11px;
+  border: solid #fff;
+  border-width: 0 2.5px 2.5px 0;
+  transform: rotate(45deg);
+}
+.note-editor ul.cl > li[data-done='1'] {
+  color: var(--app-muted);
+  text-decoration: line-through;
+}
+
+/* Подзаголовок внутри заметки: третья ступень после заголовка и тела. */
+.note-editor h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0.6em 0 0.2em;
+}
+.note-editor blockquote {
+  margin: 0.4em 0;
+  padding-left: 0.9em;
+  border-left: 3px solid var(--app-accent);
+  color: var(--app-muted);
+}
+.note-editor s,
+.note-editor strike {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
 .note-editor b,
 .note-editor strong {
   font-weight: 700;
+}
+
+
+/* Видимый фокус клавиатуры. Правило намеренно ВНЕ @layer: утилита
+   outline-none живёт в @layer utilities, а всё, что вне слоёв, перебивает
+   слои целиком. Три поля в приложении гасят обводку и ничего не дают взамен —
+   при переходе табом фокус пропадал бесследно. Мышью и пальцем правило не
+   срабатывает: :focus-visible включается только у клавиатурного фокуса. */
+:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* «Уменьшение движения» — системный тумблер, и он должен выключать анимации
+   ВСЕ, а не только те, где мы вспомнили дописать motion-reduce:. До этого
+   блока учтённых мест было два из шести с лишним десятков, а инлайновые
+   transition в style (шит, строка задачи, заметки, чат, кольцо таймера) не
+   покрывались в принципе — до атрибута style утилита motion-reduce: не
+   дотягивается.
+
+   Не «убрать» движение, а сжать до 0.01ms: нулевая длительность в части
+   браузеров не даёт событию transitionend случиться вовсе, и код, который его
+   ждёт, зависает навсегда. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

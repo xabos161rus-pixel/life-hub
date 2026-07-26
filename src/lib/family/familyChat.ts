@@ -9,17 +9,26 @@
 
 import { db } from '../../db/db';
 import type { FamilyConfig, FamilyMessage, FamilyTask, FamilyMember } from '../../db/types';
-import { encryptJSON, decryptJSON } from '../crypto';
 import { getPushSubscription } from '../push';
 import { getFamilyConfig, patchFamilyConfig, listFamilyConfigs } from './familyState';
+import {
+  WORKER_URL,
+  adoptSealedKey,
+  decFamily,
+  encFamily,
+  publishBoxPub,
+  recoverAccess,
+  registerMember,
+} from './familyKeys';
 
-const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
 const WS_URL = 'wss://life-hub-push.xabos161rus.workers.dev';
 const RECONNECT_MS = 3000;
 const PING_MS = 25_000;
 
 type ConnState = 'offline' | 'connecting' | 'online';
-type Channel = 'msg' | 'task' | 'member';
+// 'key' — личный конверт с новым ключом группы после исключения участника.
+// Единственный канал, который НЕ зашифрован общим ключом: в этом весь смысл.
+type Channel = 'msg' | 'task' | 'member' | 'key';
 
 // Сигнал звонка (WebRTC): эфемерный, проходит через WS, в БД не пишется.
 export type SignalKind = 'offer' | 'answer' | 'ice' | 'decline' | 'hangup' | 'busy' | 'cancel';
@@ -32,11 +41,12 @@ export interface SignalFrame {
 }
 type RawItem = { seq: number; channel: Channel; itemId: string; senderMemberId: string | null; createdAt: string; ciphertext: string };
 
-function stripMeta<T extends { id: string; seq: number; familyId?: string }>(row: T) {
-  const { id, seq, familyId, ...rest } = row;
+function stripMeta<T extends { id: string; seq: number; familyId?: string; pendingNotify?: unknown }>(row: T) {
+  const { id, seq, familyId, pendingNotify, ...rest } = row;
   void id;
   void seq;
   void familyId;
+  void pendingNotify; // локальный флаг доставки, чужим устройствам он не нужен
   return rest;
 }
 
@@ -195,10 +205,20 @@ class FamilyEngine {
   // live=true — сообщения пришли в реальном времени (не бэкфилл истории):
   // чужой видимый текст/фото/голос дёргает слушателей звука уведомления.
   private async applyBatch(c: FamilyConfig, items: RawItem[], live = false) {
+    // Конверт с новым ключом разбираем ДО остального: он приходит в том же
+    // потоке, что и сообщения, зашифрованные уже новой эпохой. Возьмись мы за
+    // них раньше — расшифровать было бы нечем, и пачка ушла бы в мусор.
+    const mine = items.filter((it) => it.channel === 'key' && it.itemId === c.selfMemberId);
+    for (const it of mine) {
+      if (await adoptSealedKey(this.familyId, it.ciphertext)) {
+        c = (await this.cfg()) ?? c; // конфиг переписан: дальше работаем новым ключом
+      }
+    }
     const decoded: { it: RawItem; p: Record<string, unknown> }[] = [];
     for (const it of items) {
+      if (it.channel === 'key') continue; // не общий ключ и не сущность приложения
       try {
-        decoded.push({ it, p: await decryptJSON(c.familyKey, it.ciphertext) });
+        decoded.push({ it, p: await decFamily<Record<string, unknown>>(c, it.ciphertext) });
       } catch {
         /* чужой ключ / битый шифротекст */
       }
@@ -282,14 +302,18 @@ class FamilyEngine {
         createdAt: m.createdAt,
         edit: true, // при реконнекте могут быть правки/удаления — пропускаем дедуп
         silent: (m.system ?? false) || Boolean(m.reaction),
-        ciphertext: await encryptJSON(c.familyKey, this.msgPayload(m)),
+        ciphertext: await encFamily(c, this.msgPayload(m)),
       }));
     }
     for (const t of (await db.familyTasks.where('familyId').equals(this.familyId).toArray()).filter((x) => x.seq === 0)) {
-      this.ws.send(JSON.stringify({ type: 'send', channel: 'task', itemId: t.id, senderMemberId: c.selfMemberId, ciphertext: await encryptJSON(c.familyKey, stripMeta(t)) }));
+      // Отметку «выполнена», не ушедшую из-за отсутствия сети, помечаем снова —
+      // иначе она доедет молча. Флаг снимаем сразу: повтор пуша не нужен.
+      const notify = t.pendingNotify;
+      this.ws.send(JSON.stringify({ type: 'send', channel: 'task', itemId: t.id, senderMemberId: c.selfMemberId, ...(notify ? { notify } : {}), ciphertext: await encFamily(c, stripMeta(t)) }));
+      if (notify) await db.familyTasks.update(t.id, { pendingNotify: undefined });
     }
     for (const mem of (await db.familyMembers.where('familyId').equals(this.familyId).toArray()).filter((x) => x.seq === 0)) {
-      this.ws.send(JSON.stringify({ type: 'send', channel: 'member', itemId: mem.id, senderMemberId: c.selfMemberId, ciphertext: await encryptJSON(c.familyKey, stripMeta(mem)) }));
+      this.ws.send(JSON.stringify({ type: 'send', channel: 'member', itemId: mem.id, senderMemberId: c.selfMemberId, ciphertext: await encFamily(c, stripMeta(mem)) }));
     }
   }
 
@@ -303,7 +327,9 @@ class FamilyEngine {
     this.connecting = true;
     this.setState('connecting');
     try {
-      const c = await this.cfg();
+      // let, а не const: после восстановления доступа (смена ключа группы)
+      // конфиг перечитывается, и дальше нужен уже новый — со свежим токеном.
+      let c = await this.cfg();
       // Движок мог быть снят с реестра (выход/выключение группы), пока читали
       // конфиг. Если так — НЕ открываем сокет: его некому будет закрыть
       // (getEngine создаст новый экземпляр), а зомби писал бы бэкфилл в только
@@ -313,11 +339,33 @@ class FamilyEngine {
         this.setState('offline');
         return;
       }
+      // Нас исключили — переподключаться незачем и нечем. Локальная переписка
+      // остаётся: стирать человеку его же историю за то, что его убрали из
+      // группы, — лишнее.
+      if (c.removedAt) {
+        this.wantConnected = false;
+        this.connecting = false;
+        this.setState('offline');
+        return;
+      }
       this.lastReadSeqMem = Math.max(this.lastReadSeqMem, c.lastReadSeq ?? 0);
-      const tr = await fetch(`${WORKER_URL}/family/ticket?familyId=${c.familyId}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${c.familyToken}` },
-      });
+      let tr = await this.fetchTicket(c);
+      // 401 после смены ключа группы — обычное дело: пока нас не было, кого-то
+      // исключили, и токен сменился. Новый лежит в личном конверте.
+      if (tr.status === 401 && (await recoverAccess(this.familyId))) {
+        const fresh = await this.cfg();
+        if (fresh) {
+          c = fresh;
+          tr = await this.fetchTicket(fresh);
+        }
+      }
+      if (tr.status === 403) {
+        await patchFamilyConfig(this.familyId, { removedAt: new Date().toISOString() });
+        this.wantConnected = false;
+        this.connecting = false;
+        this.setState('offline');
+        return;
+      }
       if (!tr.ok) throw new Error('ticket');
       const { ticket } = (await tr.json()) as { ticket: string };
       // Ещё раз после сетевой задержки тикета — окно, в котором мог случиться leave.
@@ -347,6 +395,11 @@ class FamilyEngine {
           if (Array.isArray(m.reads)) this.setAllReads(m.reads);
           if (m.name) void patchFamilyConfig(this.familyId, { familyName: String(m.name) });
           this.startPing(sock);
+          // Публичный ключ регистрируем на КАЖДОМ подключении, а не только при
+          // входе: у тех, кто в группе давно, его нет вовсе, и без него их
+          // нечем перевести на новый ключ при исключении кого-то другого.
+          await registerMember(this.familyId);
+          await publishBoxPub(this.familyId);
           await this.resendOutbox();
           await this.registerPush(c);
         } else if (m.type === 'presence') {
@@ -364,10 +417,21 @@ class FamilyEngine {
           this.signalListeners.forEach((l) => l(m as SignalFrame));
         } else if (m.type === 'typing' && typeof m.memberId === 'string') {
           this.typingListeners.forEach((l) => l(m.memberId));
+        } else if (m.type === 'removed' && typeof m.memberId === 'string') {
+          const mem = await db.familyMembers.get(m.memberId);
+          if (mem && !mem.removedAt) {
+            await db.familyMembers.update(m.memberId, { removedAt: new Date().toISOString() });
+          }
         }
       };
-      sock.onclose = () => {
+      sock.onclose = (ev: CloseEvent) => {
         if (this.ws !== sock) return; // закрылся осиротевший сокет — актуальный не трогаем
+        // 4403 — сервер закрыл соединение исключённому. Реконнект бессмыслен:
+        // токен уже сменили, а нового ключа нам не положат.
+        if (ev.code === 4403) {
+          this.wantConnected = false;
+          void patchFamilyConfig(this.familyId, { removedAt: new Date().toISOString() });
+        }
         this.ws = null;
         this.connecting = false;
         this.stopPing();
@@ -381,6 +445,15 @@ class FamilyEngine {
       this.setState('offline');
       this.scheduleReconnect();
     }
+  }
+
+  /** Одноразовый тикет на WebSocket. memberId в запросе — чтобы сервер отсёк
+   *  исключённого сразу, не дожидаясь, пока до него дойдёт смена токена. */
+  private fetchTicket(c: FamilyConfig): Promise<Response> {
+    return fetch(
+      `${WORKER_URL}/family/ticket?familyId=${c.familyId}&memberId=${encodeURIComponent(c.selfMemberId)}`,
+      { method: 'POST', headers: { Authorization: `Bearer ${c.familyToken}` } },
+    );
   }
 
   // Регистрируем push-подписку этого участника в DO — чтобы получать
@@ -423,9 +496,13 @@ class FamilyEngine {
     this.setState('offline');
   }
 
-  private trySendFrame(frame: object) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(frame));
-    // иначе оставляем в БД — уйдёт на ближайшем ready через resendOutbox
+  /** true — кадр ушёл в сокет; false — сети не было, ждём resendOutbox. */
+  private trySendFrame(frame: object): boolean {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(frame));
+      return true;
+    }
+    return false; // оставляем в БД — уйдёт на ближайшем ready через resendOutbox
   }
 
   // Полный E2E-payload сообщения — ЕДИНСТВЕННОЕ место сборки: sendMessage /
@@ -453,7 +530,7 @@ class FamilyEngine {
     const createdAt = new Date().toISOString();
     const row: FamilyMessage = { clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: body, replyTo: replyTo ?? null, status: 'pending', deletedAt: null };
     await db.familyMessages.put(row);
-    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encryptJSON(c.familyKey, this.msgPayload(row)) });
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encFamily(c, this.msgPayload(row)) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -467,7 +544,7 @@ class FamilyEngine {
     const createdAt = new Date().toISOString();
     const row: FamilyMessage = { clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: '', reaction: { targetId, emoji }, status: 'pending', deletedAt: null };
     await db.familyMessages.put(row);
-    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, silent: true, ciphertext: await encryptJSON(c.familyKey, this.msgPayload(row)) });
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, silent: true, ciphertext: await encFamily(c, this.msgPayload(row)) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -480,7 +557,7 @@ class FamilyEngine {
     if (!m) return;
     const editedAt = new Date().toISOString();
     await db.familyMessages.update(clientMsgId, { text, editedAt, status: 'pending', seq: null });
-    const ciphertext = await encryptJSON(c.familyKey, this.msgPayload({ ...m, text, editedAt }));
+    const ciphertext = await encFamily(c, this.msgPayload({ ...m, text, editedAt }));
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
@@ -492,7 +569,7 @@ class FamilyEngine {
     if (!m) return;
     const deletedAt = new Date().toISOString();
     await db.familyMessages.update(clientMsgId, { deletedAt, status: 'pending', seq: null });
-    const ciphertext = await encryptJSON(c.familyKey, this.msgPayload({ ...m, deletedAt }));
+    const ciphertext = await encFamily(c, this.msgPayload({ ...m, deletedAt }));
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
@@ -504,7 +581,7 @@ class FamilyEngine {
     const clientMsgId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
     await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: '', image: dataUrl, status: 'pending', deletedAt: null });
-    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encryptJSON(c.familyKey, { text: '', deletedAt: null, image: dataUrl }) });
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encFamily(c, { text: '', deletedAt: null, image: dataUrl }) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -515,7 +592,7 @@ class FamilyEngine {
     const clientMsgId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
     await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: '', audio: dataUrl, audioDur: durationSec, status: 'pending', deletedAt: null });
-    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encryptJSON(c.familyKey, { text: '', deletedAt: null, audio: dataUrl, audioDur: durationSec }) });
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encFamily(c, { text: '', deletedAt: null, audio: dataUrl, audioDur: durationSec }) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -530,7 +607,7 @@ class FamilyEngine {
     const clientMsgId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
     await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: body, system: true, status: 'pending', deletedAt: null });
-    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, silent: true, ciphertext: await encryptJSON(c.familyKey, { text: body, deletedAt: null, system: true }) });
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, silent: true, ciphertext: await encFamily(c, { text: body, deletedAt: null, system: true }) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -553,11 +630,16 @@ class FamilyEngine {
     }
   }
 
-  async sendItem(channel: 'task' | 'member', itemId: string, payload: object): Promise<void> {
+  /** Возвращает, ушёл ли кадр прямо сейчас: вызывающий решает, помечать ли повтор. */
+  async sendItem(channel: 'task' | 'member', itemId: string, payload: object, notify?: 'done'): Promise<boolean> {
     const c = await this.cfg();
-    if (!c) return;
-    this.trySendFrame({ type: 'send', channel, itemId, senderMemberId: c.selfMemberId, ciphertext: await encryptJSON(c.familyKey, payload) });
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
+    if (!c) return false;
+    // notify идёт открытым полем: содержимое зашифровано, и сервер иначе не может
+    // отличить «задачу выполнили» от любой другой правки. Тип события — всё, что
+    // он узнаёт; ни названия задачи, ни имени в нём нет.
+    const sent = this.trySendFrame({ type: 'send', channel, itemId, senderMemberId: c.selfMemberId, ...(notify ? { notify } : {}), ciphertext: await encFamily(c, payload) });
+    if (!sent) void this.connect();
+    return sent;
   }
 }
 
@@ -667,8 +749,8 @@ export function renameFamily(familyId: string, name: string): Promise<void> {
 export function markSeen(familyId: string, seq: number): void {
   getEngine(familyId).markSeen(seq);
 }
-export function sendItem(familyId: string, channel: 'task' | 'member', itemId: string, payload: object): Promise<void> {
-  return getEngine(familyId).sendItem(channel, itemId, payload);
+export function sendItem(familyId: string, channel: 'task' | 'member', itemId: string, payload: object, notify?: 'done'): Promise<boolean> {
+  return getEngine(familyId).sendItem(channel, itemId, payload, notify);
 }
 export function subscribeSignals(familyId: string, fn: (f: SignalFrame) => void): () => void {
   return getEngine(familyId).subscribeSignals(fn);

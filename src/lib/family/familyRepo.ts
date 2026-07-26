@@ -8,11 +8,14 @@ import { PRESET_COLORS } from '../colors';
 import { getFamilyConfig } from './familyState';
 import { sendItem } from './familyChat';
 
-function stripMeta<T extends { id: string; seq: number; familyId: string }>(row: T): Omit<T, 'id' | 'seq' | 'familyId'> {
-  const { id, seq, familyId, ...rest } = row;
+function stripMeta<T extends { id: string; seq: number; familyId: string; pendingNotify?: unknown }>(
+  row: T,
+): Omit<T, 'id' | 'seq' | 'familyId' | 'pendingNotify'> {
+  const { id, seq, familyId, pendingNotify, ...rest } = row;
   void id;
   void seq;
   void familyId;
+  void pendingNotify; // локальный флаг доставки, чужим устройствам он не нужен
   return rest;
 }
 
@@ -34,6 +37,10 @@ export async function upsertSelfMember(familyId: string, displayName: string): P
     color: existing?.color ?? colorFor(c.selfMemberId),
     joinedAt: existing?.joinedAt ?? c.joinedAt,
     leftAt: null,
+    // Публичный ключ едет вместе с именем: остальным он нужен, чтобы при
+    // исключении кого-то третьего суметь передать нам новый ключ группы.
+    boxPub: c.boxPub ?? existing?.boxPub,
+    removedAt: existing?.removedAt ?? null,
   };
   await db.familyMembers.put(member);
   await sendItem(familyId, 'member', member.id, stripMeta(member));
@@ -70,23 +77,36 @@ export async function createFamilyTask(
   await sendItem(familyId, 'task', task.id, stripMeta(task));
 }
 
-export async function updateFamilyTask(familyId: string, id: string, changes: Partial<FamilyTask>): Promise<void> {
+export async function updateFamilyTask(
+  familyId: string,
+  id: string,
+  changes: Partial<FamilyTask>,
+  notify?: 'done',
+): Promise<void> {
   const local = await db.familyTasks.get(id);
   if (!local) return;
   const next: FamilyTask = { ...local, ...changes, id, familyId, seq: 0 }; // seq=0 → неподтверждённая правка
   await db.familyTasks.put(next);
-  await sendItem(familyId, 'task', id, stripMeta(next));
+  const sent = await sendItem(familyId, 'task', id, stripMeta(next), notify);
+  // Помечаем повтор, только если кадр не ушёл. Снятие галочки гасит флаг: иначе
+  // отложенный пуш объявит выполненной задачу, с которой отметку уже сняли.
+  let pending: 'done' | undefined;
+  if (!sent && changes.completedAt !== null) pending = notify ?? local.pendingNotify;
+  if (pending !== local.pendingNotify) await db.familyTasks.update(id, { pendingNotify: pending });
 }
 
 export async function toggleFamilyTask(familyId: string, task: FamilyTask): Promise<void> {
   const c = await getFamilyConfig(familyId);
   if (!c) return;
+  const done = !task.completedAt;
   await updateFamilyTask(
     familyId,
     task.id,
-    task.completedAt
-      ? { completedAt: null, completedBy: null }
-      : { completedAt: new Date().toISOString(), completedBy: c.selfMemberId },
+    done
+      ? { completedAt: new Date().toISOString(), completedBy: c.selfMemberId }
+      : { completedAt: null, completedBy: null },
+    // Пуш только на «выполнена». Снятие галочки — не событие для остальных.
+    done ? 'done' : undefined,
   );
 }
 

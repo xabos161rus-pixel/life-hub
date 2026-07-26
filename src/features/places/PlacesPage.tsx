@@ -80,7 +80,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
           <div className="flex items-start gap-2">
             <p className="min-w-0 flex-1 font-semibold">{item.title}</p>
             <span
-              className={`shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] ${
+              className={`shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-2xs ${
                 item.status === 'done' ? 'text-success' : 'text-muted'
               }`}
             >
@@ -95,7 +95,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
           )}
           {item.location && (
             <p className="mt-1 flex items-center gap-1 text-xs text-muted">
-              <MapPin size={12} className="shrink-0" />
+              <MapPin size={14} className="shrink-0" />
               <span className="truncate">{item.location}</span>
             </p>
           )}
@@ -104,7 +104,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
               {item.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-muted"
+                  className="rounded-full bg-surface-2 px-2 py-0.5 text-2xs text-muted"
                 >
                   {tag}
                 </span>
@@ -163,7 +163,7 @@ export function PlacesPage() {
   };
 
   return (
-    <Screen title="Места и путешествия" backTo="/more">
+    <Screen title="Места" backTo="/home">
       <div className="space-y-3">
         <ChipRow>
           <Chip active={kindFilter === 'all'} onClick={() => setKindFilter('all')}>

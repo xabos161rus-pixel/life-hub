@@ -6,9 +6,10 @@ import { alive } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
 import { formatDueDate } from '../../lib/dates';
 import { freezeTasks } from './taskActions';
+import { STROKE } from '../../components/ui/icons';
 
 // Строки списка: заголовок группы (проект/подпроект/«Без проекта») или задача.
 type Row =
@@ -25,7 +26,8 @@ function GroupIcon({ project, size = 15 }: { project: Project | null; size?: num
     <Folder
       size={size}
       aria-hidden
-      style={{ color: project.color, fill: project.color, strokeWidth: 1.5 }}
+      strokeWidth={STROKE}
+      style={{ color: project.color, fill: project.color }}
     />
   );
 }
@@ -111,7 +113,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
           }`}
         >
           <GroupIcon project={row.project} />
-          <span className={`truncate font-semibold ${row.depth ? 'text-[13px]' : 'text-sm'}`}>
+          <span className={`truncate font-semibold ${row.depth ? 'text-xs' : 'text-sm'}`}>
             {row.project ? row.project.name : 'Без проекта'}
           </span>
           <span className="text-xs text-muted">{row.count}</span>
@@ -129,11 +131,11 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
         }`}
       >
         <span
-          className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-            on ? 'border-frost bg-frost text-white' : 'border-border'
+          className={`flex size-5 shrink-0 items-center justify-center rounded-[6px] border transition-colors ${
+            on ? 'border-frost-fill bg-frost-fill text-on-light' : 'border-border'
           }`}
         >
-          {on && <Check size={13} />}
+          {on && <Check size={14} />}
         </span>
         <span className="min-w-0 flex-1">
           <span lang="ru" className="block break-words text-pretty hyphens-auto font-medium">
@@ -158,7 +160,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
         {candidateIds.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted">Нет активных задач для заморозки.</p>
         ) : (
-          <div className="max-h-[50dvh] divide-y divide-hairline overflow-y-auto rounded-2xl border border-border bg-surface">
+          <div className="max-h-[50dvh] divide-y divide-hairline overflow-y-auto card">
             {rows.map(renderRow)}
           </div>
         )}

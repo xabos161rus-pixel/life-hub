@@ -11,13 +11,13 @@ import {
 import { computeNavLayout } from '../lib/navLayout';
 
 export interface ResolvedNavLayout {
-  bottom: Section[]; // разделы нижней панели, «Ещё» последним
-  more: Section[]; // разделы списка «Ещё», по порядку
+  bottom: Section[]; // разделы нижней панели, «Главная» первой
+  more: Section[]; // разделы списка на «Главной», по порядку
   hidden: string[]; // id спрятанных
 }
 
 /** Раскладка навигации из settings.navConfig, нормализованная и разрешённая в
- *  объекты разделов. Единый источник для TabBar, MorePage и превью в настройке. */
+ *  объекты разделов. Единый источник для TabBar, HomePage и превью в настройке. */
 export function useNavLayout(): ResolvedNavLayout {
   const settings = useSettings();
   const navConfig = settings.navConfig;

@@ -16,9 +16,23 @@ import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
+import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { formatRu, todayKey, toKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
+
+/** Дни менструации из раздела «Женские дни» — но только если человек включил
+ *  отметки в настройках раздела. Отдельный хук, чтобы запрос к таблицам цикла
+ *  вообще не выполнялся у тех, кто раздел не включал. */
+function useCycleMarks(): Set<string> {
+  const settings = useLiveQuery(() => db.cycleSettings.get('app'), []);
+  const on = Boolean(settings?.integrations.calendarMarks);
+  const days = useLiveQuery(
+    async () => (on ? await db.cycleDays.where('isBleedingDay').equals(1).toArray() : []),
+    [on],
+  );
+  return useMemo(() => new Set((days ?? []).map((d) => d.date)), [days]);
+}
 
 export function CalendarPage() {
   const tasksRaw = useLiveQuery(() => db.tasks.toArray(), []);
@@ -101,39 +115,66 @@ export function CalendarPage() {
     setSheetOpen(true);
   }
 
+  const cycleMarks = useCycleMarks();
+
   return (
-    <Screen title="Календарь" backTo="/tasks">
+    <Screen
+      title="Календарь"
+      backTo="/tasks"
+      // «Сегодня» переехала сюда из строки месяца. Втроём с двумя стрелками она
+      // забирала 170px из 252px, доступных внутри карточки на 320px, и на
+      // заголовок оставалось 71px — обрезались все 12 месяцев, «Сентябрь 2026»
+      // показывался как «Сент…», год не был виден ни в одном. Без неё стрелки
+      // занимают 86.75px, месяцу достаётся 165px — хватает и худшему.
+      right={
+        <button
+          type="button"
+          onClick={goToday}
+          className="shrink-0 rounded-lg px-2 py-2.5 text-sm font-medium text-accent active:opacity-60"
+        >
+          Сегодня
+        </button>
+      }
+    >
       <div className="card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{monthLabel}</h2>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={goToday}
-              className="mr-1 rounded-lg px-2.5 py-1 text-sm font-medium text-accent active:opacity-60"
-            >
-              Сегодня
-            </button>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          {/* Название месяца не переносим: иначе шапка растёт на две строки.
+              Кегль ужимается только на узких экранах: «Сентябрь 2026» при 19px
+              требует 162px, при 17px — 145px, и запас до стрелок вырастает с
+              3px до 20px. От 400px и шире держим исходные 19px.
+              truncate (overflow:hidden) заодно снимает min-width:auto — без него
+              флекс-элемент не ужимается и распирает строку. */}
+          <h2 className="min-w-0 truncate text-lg font-semibold">
+            {monthLabel}
+          </h2>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Сами стрелки 32.75px (иконка 20 + p-1.5 при root 17px) — меньше 44px
+                минимума. Увеличивать их нельзя: шапка распухнет и месяц срежется
+                сильнее, поэтому добираем невидимой хит-зоной. */}
             <button
               type="button"
               aria-label="Предыдущий месяц"
               onClick={() => shiftMonth(-1)}
-              className="rounded-lg p-1.5 text-muted active:opacity-60"
+              className={`shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
               <ChevronLeft size={20} />
             </button>
+            {/* ml-1 поверх gap-2: зона 44px вылезает за кнопку на (44-32.75)/2 = 5.625px
+                с каждой стороны, значит между стрелками нужно ≥11.25px, иначе тап у
+                края уйдёт соседней стрелке — месяц перелистнётся не в ту сторону.
+                8.5 + 4.25 = 12.75px, запас 1.5px. */}
             <button
               type="button"
               aria-label="Следующий месяц"
               onClick={() => shiftMonth(1)}
-              className="rounded-lg p-1.5 text-muted active:opacity-60"
+              className={`ml-1 shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
               <ChevronRight size={20} />
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7">
           {WEEKDAY_LABELS.map((label) => (
             <div key={label} className="pb-1 text-center text-xs font-medium text-muted">
               {label}
@@ -149,17 +190,36 @@ export function CalendarPage() {
                 type="button"
                 aria-label={`${format(day.date, 'd MMMM yyyy', { locale: ru })}${
                   isSelected ? ', выбрано' : ''
-                }${stat ? `, задач: ${stat.count}${stat.overdue ? ', есть просроченные' : ''}` : ''}`}
+                }${stat ? `, задач: ${stat.count}${stat.overdue ? ', есть просроченные' : ''}` : ''}${
+                  cycleMarks.has(day.key) ? ', менструация' : ''
+                }`}
                 aria-pressed={isSelected}
                 onClick={() => setSelectedDate(day.key)}
                 className={`relative flex aspect-square flex-col items-center justify-center rounded-xl text-sm transition-colors ${
                   isSelected
-                    ? 'bg-accent font-semibold text-white'
+                    ? 'bg-accent-fill font-semibold text-white'
                     : day.inMonth
                       ? 'text-text active:bg-surface-2'
-                      : 'text-muted/40'
+                      : // Дни соседних месяцев. Были text-muted/40 — контраст 1.76:1,
+                        // то есть число видно только если знать, что оно там.
+                        // Они кликабельны (переводят календарь на тот месяц),
+                        // значит это управляющий элемент, а не декорация.
+                        'text-muted'
                 } ${isToday && !isSelected ? 'ring-1 ring-accent' : ''}`}
               >
+                {/* Отметка цикла — полоса сверху, а не точка: точка снизу уже
+                    занята задачами, и две точки в одной ячейке различить
+                    невозможно. Форма, а не только цвет: цвет как единственный
+                    носитель не работает у дальтоников и в скринридере (там
+                    отметка попадает в aria-label словом). */}
+                {cycleMarks.has(day.key) && (
+                  <span
+                    aria-hidden
+                    className={`absolute inset-x-2 top-1 h-0.5 rounded-full ${
+                      isSelected ? 'bg-white/80' : 'bg-danger'
+                    }`}
+                  />
+                )}
                 <span>{format(day.date, 'd')}</span>
                 {stat && (
                   <span
@@ -197,9 +257,9 @@ export function CalendarPage() {
         <button
           type="button"
           onClick={() => openTask(null)}
-          className="mt-2 flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
+          className="mt-2 flex min-h-11 items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
         >
-          <Plus size={15} /> Задача на этот день
+          <Plus size={14} /> Задача на этот день
         </button>
       </section>
 

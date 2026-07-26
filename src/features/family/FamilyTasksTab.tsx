@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { ChevronRight, Plus } from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyTask } from '../../db/types';
@@ -11,6 +12,7 @@ import { FamilyTaskSheet } from './FamilyTaskSheet';
 
 export function FamilyTasksTab({ familyId }: { familyId: string }) {
   const tasksRaw = useLiveQuery(() => db.familyTasks.where('familyId').equals(familyId).toArray(), [familyId]);
+  const loaded = useLoaded(tasksRaw);
   const membersRaw = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]);
   const members = useMemo(() => membersRaw ?? [], [membersRaw]);
   const memberMap = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
@@ -67,7 +69,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
       </Button>
 
       {active.length === 0 && completed.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted">Пока нет общих задач.</p>
+        loaded && <p className="py-10 text-center text-sm text-muted">Пока нет общих задач.</p>
       ) : (
         <>
           {active.length > 0 && <div className="card divide-y divide-hairline px-4">{active.map(renderRow)}</div>}

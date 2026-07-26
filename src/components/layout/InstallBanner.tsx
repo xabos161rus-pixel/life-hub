@@ -1,18 +1,31 @@
 import { Link } from 'react-router';
 import { Share, X } from 'lucide-react';
 import { dismissInstallBanner, useInstallBannerVisible } from '../../hooks/useInstallBanner';
+import { HIT_SLOP_44 } from '../ui/Checkbox';
 
 /**
  * iOS не поддерживает beforeinstallprompt — показываем баннер с инструкцией,
  * пока приложение открыто во вкладке Safari, а не с экрана «Домой».
- * Логика видимости — в useInstallBanner (её же читает Fab).
+ * Логика видимости — в useInstallBanner.
+ *
+ * Баннер — ПЕРВЫЙ ЭЛЕМЕНТ ЛЕНТЫ (App.tsx, внутри #app-scroll), а не каркаса,
+ * и уезжает вместе с прокруткой. Две прежние попытки не сработали: висел
+ * поверх на фиксированном отступе — накрывал последний блок, когда текст
+ * переносился в три строки; стоял отдельным блоком над таб-баром — занимал до
+ * 150px и на столько же поднимал плавающую кнопку, а та садилась в середину
+ * экрана и перехватывала тапы по всему, до чего доскроллили (сегмент «Год» в
+ * Финансах 66%, карандаш раздела 93%). В ленте он не отнимает места ни у
+ * кнопки, ни у контента и не требует, чтобы кто-то знал его высоту.
  */
 export function InstallBanner() {
   const visible = useInstallBannerVisible();
+
   if (!visible) return null;
 
   return (
-    <div className="card fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+78px)] z-30 mx-auto flex max-w-lg items-center gap-3 p-3">
+    <div
+      className="card mx-auto mt-4 flex w-[calc(100%-32px)] max-w-lg shrink-0 items-center gap-3 p-3"
+    >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
         <Share size={18} />
       </span>
@@ -24,7 +37,10 @@ export function InstallBanner() {
       </Link>
       <button
         aria-label="Скрыть"
-        className="shrink-0 p-1 text-muted"
+        // Хит-зона 44px выступает на 8.75px в стороны — меньше и p-3 карточки
+        // (12.75px, значит overflow:hidden у .card её не срежет), и зазора
+        // gap-3 до ссылки слева, так что промах не уводит на страницу установки.
+        className={`shrink-0 p-1 text-muted ${HIT_SLOP_44}`}
         onClick={dismissInstallBanner}
       >
         <X size={18} />

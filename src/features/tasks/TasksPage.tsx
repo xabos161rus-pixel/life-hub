@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Folder, FolderPlus, GripVertical, Hand, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
 import { db } from '../../db/db';
 import { isTouch } from '../../lib/platform';
@@ -17,12 +18,13 @@ import { alive, update } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { Fab } from '../../components/layout/Fab';
+import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { Chip, ChipRow } from '../../components/ui/Chip';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Hint } from '../../components/ui/Hint';
 import { useHint } from '../../hooks/useHint';
 import { updateSettings } from '../../hooks/useSettings';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
 import { formatDueDate } from '../../lib/dates';
 import { describeRecurrence } from '../../lib/recurrence';
 import { ProjectEditSheet } from './ProjectEditSheet';
@@ -31,6 +33,8 @@ import { TaskEditSheet } from './TaskEditSheet';
 import { TaskItem } from './TaskItem';
 import { FreezeSheet } from './FreezeSheet';
 import { unfreezeAll, unfreezeTask } from './taskActions';
+import { STROKE, STROKE_STRONG } from '../../components/ui/icons';
+import { IconButton } from '../../components/ui/IconButton';
 
 const NONE = '__none__';
 const FROZEN = '__frozen__'; // ключ свёрнутости секции «Заморожено»
@@ -64,7 +68,8 @@ function ProjectFolderIcon({ project, size = 18 }: { project: Project; size?: nu
     <Folder
       size={size}
       aria-hidden
-      style={{ color: project.color, fill: project.color, strokeWidth: 1.5 }}
+      strokeWidth={STROKE}
+      style={{ color: project.color, fill: project.color }}
     />
   );
 }
@@ -108,7 +113,7 @@ function SubSection({
           <span className="flex shrink-0 items-center">
             <ProjectFolderIcon project={project} size={16} />
           </span>
-          <h3 className="truncate text-[17px] font-semibold tracking-tight">{project.name}</h3>
+          <h3 className="truncate text-base font-semibold tracking-tight">{project.name}</h3>
           <span className="text-sm text-muted">{count}</span>
         </button>
         <button
@@ -233,7 +238,10 @@ function Section({
         highlight ? 'bg-accent/10 ring-2 ring-accent' : ''
       } ${isReorderSource ? 'opacity-40' : ''}`}
     >
-      <div className="mb-2 flex items-center gap-1 px-1">
+      {/* gap-2 (8.5px), а не gap-1: зона касания карандаша вылезает на 8.6px
+          влево, и при зазоре 4.25px она накрывала правый край заголовка —
+          промах открывал бы редактирование проекта вместо сворачивания секции. */}
+      <div className="mb-2 flex items-center gap-2 px-1">
         <button
           ref={headerRef}
           onClick={headerClick}
@@ -257,7 +265,11 @@ function Section({
           <button
             onClick={onEdit}
             aria-label="Редактировать проект"
-            className="p-1.5 text-muted active:opacity-60"
+            // Карандаш в шапке секции — 26.75px: растить его нельзя, шапка
+            // потеряет плотность. Добираем до минимума 44x44 невидимой зоной —
+            // у section нет overflow:hidden, а до правого края колонки 21px,
+            // так что зона не срезается ни рамкой, ни overflow-x у #app-scroll.
+            className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
           >
             <Pencil size={14} />
           </button>
@@ -271,7 +283,7 @@ function Section({
 /** Тонкая линия-индикатор вставки задачи между строками. */
 function TaskDropLine() {
   return (
-    <div className="my-1.5 h-1 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent)]" aria-hidden />
+    <div className="my-1.5 h-1 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent-fill)]" aria-hidden />
   );
 }
 
@@ -404,7 +416,7 @@ function FrozenSection({
                     )}
                     {t.recurrence && (
                       <span className="flex items-center gap-0.5">
-                        <Repeat size={11} />
+                        <Repeat size={14} />
                         {describeRecurrence(t.recurrence)}
                       </span>
                     )}
@@ -421,7 +433,7 @@ function FrozenSection({
                   // Тёплое солнце-«разморозка» — контраст к голубой теме секции.
                   className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning active:opacity-70"
                 >
-                  <Sun size={17} />
+                  <Sun size={16} />
                 </button>
               </div>
             );
@@ -436,8 +448,8 @@ function FrozenSection({
 function DropLine() {
   return (
     <div className="mx-1 mb-4 flex items-center gap-2" aria-hidden>
-      <span className="size-3 shrink-0 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent)]" />
-      <span className="h-1.5 flex-1 rounded-full bg-accent shadow-[0_0_12px_2px_var(--app-accent)]" />
+      <span className="size-3 shrink-0 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent-fill)]" />
+      <span className="h-1.5 flex-1 rounded-full bg-accent shadow-[0_0_12px_2px_var(--app-accent-fill)]" />
     </div>
   );
 }
@@ -450,7 +462,7 @@ function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; onAddSu
         aria-label="Добавить задачу"
         className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
       >
-        <Plus size={15} /> Задача
+        <Plus size={14} /> Задача
       </button>
       {onAddSubproject && (
         <button
@@ -458,7 +470,7 @@ function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; onAddSu
           aria-label="Добавить подпроект"
           className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-muted active:opacity-60"
         >
-          <FolderPlus size={15} /> Подпроект
+          <FolderPlus size={14} /> Подпроект
         </button>
       )}
     </div>
@@ -813,7 +825,10 @@ export function TasksPage() {
     // Переупорядочивание перетаскиванием — только для секций верхнего уровня.
     projectsRef.current = topProjects;
   }, [projects, topProjects]);
-  const loaded = tasksRaw !== undefined;
+  // «Пока нет задач» до ответа Dexie — самая заметная ложь в приложении:
+  // человек с сотней задач видит её при каждом заходе. Проекты в том же
+  // условии: без них список отрисовался бы без разбивки по секциям.
+  const loaded = useLoaded(tasksRaw, projectsRaw);
 
   const activeByProject = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -896,14 +911,16 @@ export function TasksPage() {
     <Screen
       title="Задачи"
       right={
-        <button
+        // Голубой «морозный» кружок со свечением — видно, что это кнопка.
+        // Метрика и зона касания 44×44 — из IconButton; здесь только заливка.
+        <IconButton
+          icon={Snowflake}
+          label="Заморозить задачи"
           onClick={() => setFreezeSheetOpen(true)}
-          aria-label="Заморозить задачи"
-          // Голубой «морозный» кружок со свечением — видно, что это кнопка.
-          className="flex size-10 items-center justify-center rounded-full bg-frost/15 text-frost shadow-[0_0_16px_-6px_var(--app-frost)] transition-transform active:scale-90"
-        >
-          <Snowflake size={21} style={{ strokeWidth: 2 }} />
-        </button>
+          tone="frost"
+          strokeWidth={STROKE_STRONG}
+          className="bg-frost/15 shadow-[0_0_16px_-6px_var(--app-frost)] transition-transform active:scale-90"
+        />
       }
     >
       <QuickAddBar />

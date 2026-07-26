@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useLoaded } from '../../hooks/useLoaded';
 import { ChartColumnBig, Share2 } from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
@@ -12,7 +13,8 @@ import { buildReport, reportFilename } from '../../lib/report';
 import { Screen } from '../../components/layout/Screen';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { useToast } from '../../components/ui/Toast';
+import { useToast } from '../../components/ui/toastContext';
+import { IconButton } from '../../components/ui/IconButton';
 
 interface TaskStats {
   /** последние 7 дней (старые → новые): подпись дня + число выполненных */
@@ -106,14 +108,14 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
 function formatDuration(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
-  if (h === 0) return `${m}м`;
-  return m === 0 ? `${h}ч` : `${h}ч ${m}м`;
+  if (h === 0) return `${m}\u00A0мин`;
+  return m === 0 ? `${h}\u00A0ч` : `${h}\u00A0ч ${m}\u00A0мин`;
 }
 
 /** Компактная подпись столбца графика: «45м», «2ч», «1.5ч». */
 function compactDuration(min: number): string {
   if (min === 0) return '';
-  if (min < 60) return `${min}м`;
+  if (min < 60) return `${min}\u00A0мин`;
   const h = min / 60;
   return Number.isInteger(h) ? `${h}ч` : `${h.toFixed(1)}ч`;
 }
@@ -153,7 +155,7 @@ function computeTaskTime(tasks: Task[]): TaskTimeStats {
 function StatCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="card p-4">
-      <h2 className="mb-3 text-sm font-semibold text-muted">{title}</h2>
+      <h2 className="mb-2 px-1 text-sm font-semibold text-muted">{title}</h2>
       {children}
     </section>
   );
@@ -161,8 +163,8 @@ function StatCard({ title, children }: { title: string; children: ReactNode }) {
 
 function StatNumber({ value, label, color }: { value: number; label: string; color?: string }) {
   return (
-    <div>
-      <p className="text-2xl font-bold" style={color ? { color } : undefined}>
+    <div className="min-w-0">
+      <p className="text-lg font-bold leading-tight" style={color ? { color } : undefined}>
         {value}
       </p>
       <p className="text-xs text-muted">{label}</p>
@@ -174,23 +176,40 @@ function StatNumber({ value, label, color }: { value: number; label: string; col
  *  сетке не сливались в стену цифр. */
 function StatTile({ value, label, color }: { value: ReactNode; label: string; color?: string }) {
   return (
-    <div className="rounded-xl border border-hairline bg-surface-2 px-3 py-2.5">
-      <p className="text-[22px] font-bold leading-none" style={color ? { color } : undefined}>
+    // min-w-0 обязателен: у grid-элемента, как и у flex, min-width:auto — без него
+    // колонка распирается по min-content подписи и вся сетка вылезает за карточку.
+    <div className="min-w-0 rounded-xl border border-hairline bg-surface-2 px-2.5 py-2.5">
+      <p
+        className="text-lg font-bold leading-none"
+        style={color ? { color } : undefined}
+      >
         {value}
       </p>
-      <p className="mt-1.5 text-[11px] leading-tight text-muted">{label}</p>
+      {/* На 320px под подпись остаётся ~55px: без переноса и уменьшения «всего
+          активных» наезжает на рамку. clamp тянет 11px → 9px к узким экранам. */}
+      <p className="mt-1.5 break-words hyphens-auto text-2xs leading-tight text-muted">
+        {label}
+      </p>
     </div>
   );
 }
 
 /** Экран статистики/обзора продуктивности. */
 export function StatsPage() {
-  const allTasks = useLiveQuery<Task[]>(() => db.tasks.toArray(), []) ?? [];
+  // Четыре источника, и «пусто» здесь подменяет ВЕСЬ экран. Пока хотя бы один
+  // не ответил, показывать «Пока нет данных» нельзя: человек с полным
+  // приложением видел бы вспышку пустого экрана при каждом заходе.
+  const tasksRaw = useLiveQuery<Task[]>(() => db.tasks.toArray(), []);
+  const goalsRaw = useLiveQuery<Goal[]>(() => db.goals.toArray(), []);
+  const learningRaw = useLiveQuery<LearningItem[]>(() => db.learningItems.toArray(), []);
+  const expensesRaw = useLiveQuery(() => db.expenseItems.toArray(), []);
+  const loaded = useLoaded(tasksRaw, goalsRaw, learningRaw, expensesRaw);
+  const allTasks = tasksRaw ?? [];
   const tasks = alive(allTasks);
   const deletedTasks = allTasks.length - tasks.length;
-  const goals = alive(useLiveQuery<Goal[]>(() => db.goals.toArray(), []) ?? []);
-  const learning = alive(useLiveQuery<LearningItem[]>(() => db.learningItems.toArray(), []) ?? []);
-  const expenses = alive(useLiveQuery(() => db.expenseItems.toArray(), []) ?? []);
+  const goals = alive(goalsRaw ?? []);
+  const learning = alive(learningRaw ?? []);
+  const expenses = alive(expensesRaw ?? []);
   const toast = useToast();
 
   async function handleShareReport() {
@@ -206,7 +225,7 @@ export function StatsPage() {
       } catch (err) {
         // AbortError — пользователь закрыл шит шаринга, это не ошибка
         if (!(err instanceof DOMException && err.name === 'AbortError')) {
-          alert('Не удалось поделиться отчётом');
+          toast('Не удалось поделиться отчётом. Попробуйте ещё раз');
         }
         return;
       }
@@ -286,9 +305,18 @@ export function StatsPage() {
     learning.length === 0 &&
     expenses.length === 0;
 
+  // Пока не ответил хотя бы один источник — только оболочка экрана. Иначе
+  // выбор был бы между двумя вспышками: ложное «нет данных» или графики,
+  // построенные по нулям.
+  if (!loaded) return (
+    <Screen title="Статистика" backTo="/home">
+      <div />
+    </Screen>
+  );
+
   if (noData) {
     return (
-      <Screen title="Статистика" backTo="/more">
+      <Screen title="Статистика" backTo="/home">
         <EmptyState
           icon={ChartColumnBig}
           title="Пока нет данных"
@@ -301,15 +329,9 @@ export function StatsPage() {
   return (
     <Screen
       title="Статистика"
-      backTo="/more"
+      backTo="/home"
       right={
-        <button
-          onClick={() => void handleShareReport()}
-          aria-label="Поделиться отчётом"
-          className="-mr-2 p-1 text-accent active:opacity-60"
-        >
-          <Share2 size={22} />
-        </button>
+        <IconButton icon={Share2} label="Поделиться отчётом" onClick={() => void handleShareReport()} />
       }
     >
       <div className="flex flex-col gap-4">
@@ -317,9 +339,9 @@ export function StatsPage() {
         <StatCard title="Эффективность">
           {/* Хедлайн: процент выполнения + полоса */}
           <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
-            <div className="mb-2 flex items-baseline justify-between">
-              <span className="text-sm font-medium">Выполнено из всех</span>
-              <span className="text-lg font-bold" style={{ color: 'var(--app-success)' }}>
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <span className="min-w-0 truncate text-sm font-medium">Выполнено из всех</span>
+              <span className="shrink-0 text-lg font-bold" style={{ color: 'var(--app-success)' }}>
                 {taskBreakdown.completionRate}%
               </span>
             </div>
@@ -357,9 +379,9 @@ export function StatsPage() {
         {taskTime.weekTotal > 0 && (
           <StatCard title="Время на задачи">
             <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm font-medium">Сегодня на задачи</span>
-                <span className="text-xl font-bold" style={{ color: 'var(--app-accent-2)' }}>
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="min-w-0 truncate text-sm font-medium">Сегодня на задачи</span>
+                <span className="shrink-0 text-lg font-bold" style={{ color: 'var(--app-accent-2)' }}>
                   {taskTime.today > 0 ? formatDuration(taskTime.today) : '0м'}
                 </span>
               </div>
@@ -368,7 +390,7 @@ export function StatsPage() {
             <div className="flex items-end justify-between gap-2" style={{ height: 96 }}>
               {taskTime.days.map((d, i) => (
                 <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
-                  <span className="text-[10px] font-semibold text-muted">{compactDuration(d.minutes)}</span>
+                  <span className="text-2xs font-semibold text-muted">{compactDuration(d.minutes)}</span>
                   <div className="flex w-full flex-1 items-end">
                     <div
                       className="w-full rounded-t-md transition-[height] duration-300"
@@ -416,10 +438,10 @@ export function StatsPage() {
         {/* Цели */}
         {activeGoals.length > 0 && (
           <StatCard title="Цели">
-            <div className="mb-4 grid grid-cols-2 gap-y-4">
+            <div className="mb-4 grid grid-cols-2 gap-x-4 gap-y-4">
               <StatNumber value={activeGoals.length} label="активных" />
-              <div>
-                <p className="text-2xl font-bold">{avgGoalProgress}%</p>
+              <div className="min-w-0">
+                <p className="text-lg font-bold leading-tight">{avgGoalProgress}%</p>
                 <p className="text-xs text-muted">средний прогресс</p>
               </div>
             </div>
@@ -454,14 +476,20 @@ export function StatsPage() {
         {/* Финансы */}
         {expenses.length > 0 && (
           <StatCard title="Финансы">
-            <div className="grid grid-cols-2 gap-y-4">
-              <div>
-                <p className="text-2xl font-bold">{formatRub(finance.expense)}</p>
+            {/* formatRub склеивает разряды NBSP — сумма физически не переносится,
+                значит помещать её можно только уменьшением кегля. clamp по vw
+                делает это плавно и сохраняет две колонки (ломать сетку в одну
+                на узких пришлось бы ради одного крайнего случая). */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+              <div className="min-w-0">
+                <p className="text-lg font-bold leading-tight tabular-nums">
+                  {formatRub(finance.expense)}
+                </p>
                 <p className="text-xs text-muted">расходы в месяц</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p
-                  className="text-2xl font-bold"
+                  className="text-lg font-bold leading-tight tabular-nums"
                   style={{
                     color:
                       finance.balance < 0 ? 'var(--app-danger)' : 'var(--app-success)',

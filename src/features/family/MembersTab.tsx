@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { UserPlus, LogOut, Pencil, Phone } from 'lucide-react';
+import { UserPlus, LogOut, Pencil, Phone, UserMinus } from 'lucide-react';
 import { db } from '../../db/db';
+import type { FamilyMember } from '../../db/types';
 import { Button } from '../../components/ui/Button';
 import { Sheet } from '../../components/ui/Sheet';
 import { Field, Input } from '../../components/ui/Input';
@@ -9,6 +10,13 @@ import { getFamilyConfig } from '../../lib/family/familyState';
 import { subscribePresence, renameFamily } from '../../lib/family/familyChat';
 import { callManager } from '../../lib/family/familyCall';
 import { leaveFamily } from '../../lib/family/familyLifecycle';
+import {
+  claimOwnership,
+  familyHasOwner,
+  planRemoval,
+  removeMember,
+  type RemovalPlan,
+} from '../../lib/family/familyKeys';
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
 
@@ -22,9 +30,43 @@ export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () 
   const [invite, setInvite] = useState(false);
   const [editName, setEditName] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [removing, setRemoving] = useState<FamilyMember | null>(null);
 
   const alive = members.filter((m) => !m.leftAt).sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
   const self = alive.find((m) => m.id === selfId);
+  // Исключать может только создатель группы: у него есть секрет владельца, и
+  // только его сервер пустит. У остальных кнопки нет вовсе — показывать её,
+  // чтобы потом отказать, хуже, чем не показывать.
+  const isOwner = Boolean(config?.ownerSecret);
+  // Группы, созданные до появления владельцев, остались без него: поля
+  // ownerSecret тогда не было ни у кого, заявку не шлёт никто, и «Исключить»
+  // не появится ни у кого и никогда. Спрашиваем сервер и предлагаем взять
+  // владение — явным действием, а не гонкой при подключении.
+  const [ownerless, setOwnerless] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  useEffect(() => {
+    if (isOwner) return;
+    let live = true;
+    void familyHasOwner(familyId).then((has) => {
+      if (live && has === false) setOwnerless(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, [familyId, isOwner]);
+
+  async function claim() {
+    if (!window.confirm(
+      'Стать владельцем группы?\n\nВладелец — единственный, кто может исключать участников. ' +
+        'Обратно передать владение нельзя, и второго владельца не будет. ' +
+        'Берите, только если эту группу создали вы.',
+    )) return;
+    setClaiming(true);
+    const ok = await claimOwnership(familyId);
+    setClaiming(false);
+    if (ok) setOwnerless(false);
+    else window.alert('Не получилось: владельца уже забрал кто-то другой либо нет связи.');
+  }
 
   async function leave() {
     if (!window.confirm('Выйти из группы? Её общий чат и задачи перестанут синхронизироваться на этом устройстве.')) return;
@@ -36,7 +78,7 @@ export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () 
     <div className="space-y-3">
       <button
         onClick={() => setRenaming(true)}
-        className="flex w-full items-center gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-left active:opacity-80"
+        className="flex w-full items-center gap-2 card px-4 py-3 text-left active:opacity-80"
       >
         <Pencil size={16} className="shrink-0 text-muted" />
         <span className="flex-1 truncate font-medium">{config?.familyName || 'Семья'}</span>
@@ -48,7 +90,7 @@ export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () 
         Пригласить участника
       </Button>
 
-      <div className="divide-y divide-hairline overflow-hidden rounded-2xl border border-border bg-surface">
+      <div className="divide-y divide-hairline overflow-hidden card">
         {alive.map((m) => (
           <div key={m.id} className="flex w-full items-center gap-3 p-3">
             <button
@@ -69,32 +111,64 @@ export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () 
                 )}
               </span>
               <span className="min-w-0 flex-1 truncate font-medium">
-                {m.displayName}
+                <span className={m.removedAt ? 'line-through opacity-60' : undefined}>{m.displayName}</span>
                 {m.id === selfId ? (
                   <span className="text-muted"> · вы</span>
+                ) : m.removedAt ? (
+                  <span className="text-xs text-muted"> · исключён</span>
                 ) : (
                   <span className="text-xs text-muted"> · {onlineSet.has(m.id) ? 'в сети' : 'не в сети'}</span>
                 )}
               </span>
             </button>
-            {m.id !== selfId && (
-              <button
-                onClick={() => void callManager.startCall(familyId, m.id)}
-                aria-label={`Позвонить ${m.displayName}`}
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success active:scale-95"
-              >
-                <Phone size={18} />
-              </button>
+            {m.id !== selfId && !m.removedAt && (
+              <>
+                {isOwner && (
+                  <button
+                    onClick={() => setRemoving(m)}
+                    aria-label={`Исключить ${m.displayName}`}
+                    className="flex size-10 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95"
+                  >
+                    <UserMinus size={18} />
+                  </button>
+                )}
+                <button
+                  onClick={() => void callManager.startCall(familyId, m.id)}
+                  aria-label={`Позвонить ${m.displayName}`}
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success active:scale-95"
+                >
+                  <Phone size={18} />
+                </button>
+              </>
             )}
           </div>
         ))}
       </div>
+
+      {ownerless && (
+        <div className="card p-4">
+          <p className="font-semibold">У группы нет владельца</p>
+          <p className="mt-0.5 text-sm leading-relaxed text-muted">
+            Она создана до того, как появилась возможность исключать участников. Пока владельца
+            нет, исключить никого нельзя.
+          </p>
+          <Button className="mt-3 w-full" disabled={claiming} onClick={() => void claim()}>
+            {claiming ? 'Забираем…' : 'Стать владельцем'}
+          </Button>
+        </div>
+      )}
 
       <button onClick={() => void leave()} className="flex w-full items-center justify-center gap-2 pt-2 text-sm text-danger active:opacity-60">
         <LogOut size={16} />
         Выйти из группы
       </button>
 
+      <RemoveMemberSheet
+        key={removing?.id ?? 'rm-closed'}
+        familyId={familyId}
+        member={removing}
+        onClose={() => setRemoving(null)}
+      />
       <FamilyInviteSheet familyId={familyId} open={invite} onClose={() => setInvite(false)} />
       <ProfileNameSheet familyId={familyId} open={editName} currentName={self?.displayName ?? ''} onClose={() => setEditName(false)} />
       <RenameSheet
@@ -105,6 +179,85 @@ export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () 
         onClose={() => setRenaming(false)}
       />
     </div>
+  );
+}
+
+/** Подтверждение исключения. Здесь же — единственное место, где человеку
+ *  говорят правду о границах: новые сообщения исключённый не прочитает, а
+ *  скачанные раньше останутся при нём. Обещать большее нечестно, а промолчать
+ *  значит дать понять, что переписка стёрлась и у него. */
+function RemoveMemberSheet({
+  familyId,
+  member,
+  onClose,
+}: {
+  familyId: string;
+  member: FamilyMember | null;
+  onClose: () => void;
+}) {
+  const [plan, setPlan] = useState<RemovalPlan | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!member) return;
+    let alive = true;
+    void planRemoval(familyId, member.id).then((p) => {
+      if (alive) setPlan(p);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [familyId, member]);
+
+  async function confirm() {
+    if (!member) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await removeMember(familyId, member.id);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось исключить участника. Проверьте связь и попробуйте ещё раз');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const stranded = plan?.stranded ?? [];
+
+  return (
+    <Sheet open={Boolean(member)} onClose={onClose} title={`Исключить ${member?.displayName ?? ''}?`}>
+      <div className="space-y-4 pb-2">
+        <ul className="space-y-2 text-sm leading-snug text-text/90">
+          <li>Новые сообщения, задачи и звонки станут ему недоступны: группа перейдёт на новый ключ.</li>
+          <li>Переписку, которую он уже скачал, вернуть нельзя — она осталась на его устройстве.</li>
+          <li>Вернуть его можно только новым приглашением.</li>
+        </ul>
+
+        {stranded.length > 0 && (
+          <div className="rounded-2xl border border-warning/40 bg-warning/10 p-3 text-sm leading-snug">
+            {/* Не обновившиеся участники не получат новый ключ: передать его
+                нечем. Молча выкинуть их вместе с исключённым нельзя. */}
+            Вместе с ним группу потеряют: {stranded.map((m) => m.displayName).join(', ')}. У них старая
+            версия приложения — новый ключ передать нечем. Попросите их открыть приложение и повторите.
+          </div>
+        )}
+
+        {error && <p className="text-sm text-danger">{error}</p>}
+
+        <Button
+          className="w-full bg-danger-fill text-white"
+          disabled={busy || !plan}
+          onClick={() => void confirm()}
+        >
+          {busy ? 'Исключаем…' : 'Исключить'}
+        </Button>
+        <button onClick={onClose} className="w-full py-2 text-sm text-muted active:opacity-60">
+          Отмена
+        </button>
+      </div>
+    </Sheet>
   );
 }
 

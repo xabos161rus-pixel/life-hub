@@ -11,9 +11,13 @@ export function Chip({ active = false, onClick, children }: Props) {
     <button
       onClick={onClick}
       aria-pressed={active}
-      className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+      className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors active:scale-95 ${
         active
-          ? 'border-accent bg-accent/15 text-accent'
+          ? // Сплошная заливка, а не подложка того же цвета: акцентный текст на
+            // акцентной подложке упирается в 3.3:1 и выше не поднимается —
+            // фон подтягивается к цвету текста, сколько его ни ослабляй.
+            // Заодно выбранный фильтр теперь видно с одного взгляда.
+            'border-accent-fill bg-accent-fill text-white'
           : 'border-border bg-surface text-muted'
       }`}
     >

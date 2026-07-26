@@ -1,5 +1,7 @@
 import { Mic } from 'lucide-react';
 import { isIOS, useSpeechInput } from '../../hooks/useSpeechInput';
+import { useToast } from './toastContext';
+import { IconButton } from './IconButton';
 
 interface Props {
   /** получает распознанный текст — обычно дописывает в поле */
@@ -14,37 +16,39 @@ interface Props {
  */
 export function MicButton({ onText, className = '' }: Props) {
   const { listening, start, stop, supported } = useSpeechInput({ onResult: onText });
+  // Подсказка про диктовку на iOS — не ошибка и не блокирующее сообщение:
+  // кнопка стоит в основном потоке ввода, и системное окно посреди набора
+  // текста читается как сбой, хотя человек ничего не сломал.
+  const toast = useToast();
 
   if (!supported) {
     if (isIOS()) {
       return (
-        <button
-          type="button"
-          aria-label="Голосовой ввод"
+        <IconButton
+          icon={Mic}
+          label="Голосовой ввод"
+          tone="muted"
           onClick={() =>
-            alert(
+            toast(
               'Для диктовки нажмите 🎤 на клавиатуре iPhone (рядом с пробелом) и говорите — текст появится в поле.',
             )
           }
-          className={`shrink-0 rounded-full p-2 text-muted active:scale-90 ${className}`}
-        >
-          <Mic size={20} />
-        </button>
+          className={`active:scale-90 ${className}`}
+        />
       );
     }
     return null;
   }
 
   return (
-    <button
-      type="button"
-      aria-label={listening ? 'Остановить' : 'Голосовой ввод'}
+    <IconButton
+      icon={Mic}
+      label={listening ? 'Остановить' : 'Голосовой ввод'}
       onClick={listening ? stop : start}
-      className={`shrink-0 rounded-full p-2 transition-transform active:scale-90 ${
-        listening ? 'animate-pulse bg-danger/20 text-danger' : 'text-muted'
+      tone={listening ? 'danger' : 'muted'}
+      className={`transition-transform active:scale-90 ${
+        listening ? 'animate-pulse bg-danger/20' : ''
       } ${className}`}
-    >
-      <Mic size={20} />
-    </button>
+    />
   );
 }
