@@ -228,6 +228,33 @@ export function NotesPage() {
     </div>
   );
 
+  /** Список заметок: сначала закреплённые, потом остальные.
+   *
+   *  Заголовок «Вне папок» появляется только в корне и только когда папки
+   *  вообще есть, — иначе он объясняет разделение, которого человек не видит.
+   *  При поиске заголовков нет вовсе: найденное лежит где угодно, и делить
+   *  результат на «вне папок» и остальное значило бы врать о том, где оно. */
+  const renderFound = () => (
+    <>
+      {pinned.length > 0 && (
+        <div className="mb-4">
+          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Закреплённые</h2>
+          {renderList(pinned)}
+        </div>
+      )}
+      {rest.length > 0 && (
+        <div className="mb-4">
+          {!q && (pinned.length > 0 || (!current && folders.length > 0)) && (
+            <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">
+              {!current && folders.length > 0 ? 'Вне папок' : 'Заметки'}
+            </h2>
+          )}
+          {renderList(rest)}
+        </div>
+      )}
+    </>
+  );
+
   // Перенос заметки. Отдельный режим, а не перетаскивание: тащить строку
   // пальцем через весь список к нужной папке на телефоне мучительно, а свайп
   // по строке уже занят удалением.
@@ -239,7 +266,7 @@ export function NotesPage() {
 
   if (moving) {
     return (
-      <Screen title="Куда перенести?" backTo="/notes">
+      <Screen title="Куда перенести?" onBack={() => setMoving(null)}>
         <p className="mb-3 px-1 text-sm leading-snug text-muted">
           Заметка «{moving.title || 'Без названия'}» — выберите папку.
         </p>
@@ -337,7 +364,21 @@ export function NotesPage() {
         </div>
       )}
 
-      {notes.length === 0 ? (
+      {/* Поиск проверяется ПЕРВЫМ, и это не вкусовщина.
+          Раньше первой стояла ветка «notes.length === 0», а notes — срез только
+          текущего уровня: в корне это заметки БЕЗ папки. Стоило разложить всё
+          по папкам, и корневой срез становился пуст — поиск по любому слову
+          рисовал «Пока нет заметок», хотя найденное лежало в filtered (он
+          считается по ВСЕМ заметкам). То же внутри пустой папки: «В папке
+          пусто» вместо результата. Ровно то поведение, которое комментарий у
+          индекса объявляет худшим, что может сделать раздел заметок. */}
+      {q ? (
+        filtered.length === 0 ? (
+          <EmptyState icon={Search} title="Ничего не найдено" hint="Попробуйте другой запрос" />
+        ) : (
+          renderFound()
+        )
+      ) : notes.length === 0 ? (
         loaded && (
           <EmptyState
             icon={NotebookText}
@@ -349,27 +390,8 @@ export function NotesPage() {
             }
           />
         )
-      ) : filtered.length === 0 ? (
-        <EmptyState icon={Search} title="Ничего не найдено" hint="Попробуйте другой запрос" />
       ) : (
-        <>
-          {pinned.length > 0 && (
-            <div className="mb-4">
-              <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Закреплённые</h2>
-              {renderList(pinned)}
-            </div>
-          )}
-          {rest.length > 0 && (
-            <div className="mb-4">
-              {(pinned.length > 0 || (!current && folders.length > 0)) && (
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">
-                  {!current && folders.length > 0 ? 'Вне папок' : 'Заметки'}
-                </h2>
-              )}
-              {renderList(rest)}
-            </div>
-          )}
-        </>
+        renderFound()
       )}
 
       <Fab onClick={() => navigate(current ? `/notes/new?folder=${current.id}` : '/notes/new')} />

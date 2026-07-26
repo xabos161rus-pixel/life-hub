@@ -10,7 +10,13 @@ import { getFamilyConfig } from '../../lib/family/familyState';
 import { subscribePresence, renameFamily } from '../../lib/family/familyChat';
 import { callManager } from '../../lib/family/familyCall';
 import { leaveFamily } from '../../lib/family/familyLifecycle';
-import { planRemoval, removeMember, type RemovalPlan } from '../../lib/family/familyKeys';
+import {
+  claimOwnership,
+  familyHasOwner,
+  planRemoval,
+  removeMember,
+  type RemovalPlan,
+} from '../../lib/family/familyKeys';
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
 
@@ -32,6 +38,35 @@ export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () 
   // только его сервер пустит. У остальных кнопки нет вовсе — показывать её,
   // чтобы потом отказать, хуже, чем не показывать.
   const isOwner = Boolean(config?.ownerSecret);
+  // Группы, созданные до появления владельцев, остались без него: поля
+  // ownerSecret тогда не было ни у кого, заявку не шлёт никто, и «Исключить»
+  // не появится ни у кого и никогда. Спрашиваем сервер и предлагаем взять
+  // владение — явным действием, а не гонкой при подключении.
+  const [ownerless, setOwnerless] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  useEffect(() => {
+    if (isOwner) return;
+    let live = true;
+    void familyHasOwner(familyId).then((has) => {
+      if (live && has === false) setOwnerless(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, [familyId, isOwner]);
+
+  async function claim() {
+    if (!window.confirm(
+      'Стать владельцем группы?\n\nВладелец — единственный, кто может исключать участников. ' +
+        'Обратно передать владение нельзя, и второго владельца не будет. ' +
+        'Берите, только если эту группу создали вы.',
+    )) return;
+    setClaiming(true);
+    const ok = await claimOwnership(familyId);
+    setClaiming(false);
+    if (ok) setOwnerless(false);
+    else window.alert('Не получилось: владельца уже забрал кто-то другой либо нет связи.');
+  }
 
   async function leave() {
     if (!window.confirm('Выйти из группы? Её общий чат и задачи перестанут синхронизироваться на этом устройстве.')) return;
@@ -109,6 +144,19 @@ export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () 
           </div>
         ))}
       </div>
+
+      {ownerless && (
+        <div className="card p-4">
+          <p className="font-semibold">У группы нет владельца</p>
+          <p className="mt-0.5 text-sm leading-relaxed text-muted">
+            Она создана до того, как появилась возможность исключать участников. Пока владельца
+            нет, исключить никого нельзя.
+          </p>
+          <Button className="mt-3 w-full" disabled={claiming} onClick={() => void claim()}>
+            {claiming ? 'Забираем…' : 'Стать владельцем'}
+          </Button>
+        </div>
+      )}
 
       <button onClick={() => void leave()} className="flex w-full items-center justify-center gap-2 pt-2 text-sm text-danger active:opacity-60">
         <LogOut size={16} />

@@ -49,6 +49,22 @@ interface SealedKeyPayload {
   epoch: number;
   keyRaw: string;
   familyToken: string;
+  /** ВСЯ связка эпох, а не только текущая: { '0': raw, '1': raw, ... }.
+   *
+   *  Конверт на сервере один на участника — ingest перезаписывает его по паре
+   *  (channel, item_id). Значит второе исключение затирает конверт первого, и
+   *  тот, кто был офлайн во время обоих, забирает только последний. С одним
+   *  ключом внутри он получал связку без пропущенной эпохи, и сообщения,
+   *  написанные между двумя исключениями, у него не расшифровывались уже
+   *  никогда — decFamily бросал «нет ключа эпохи N», а applyBatch глотал это
+   *  молча.
+   *
+   *  Ровно так же устроено приглашение (InviteSecrets.keys) — там связка
+   *  нужна по той же причине: без неё прошлая переписка нечитаема.
+   *
+   *  Поле необязательное: конверт, положенный прежней версией, разбирается
+   *  по-старому. */
+  keys?: Record<string, string>;
 }
 
 // === Эпохи: шифруем текущей, читаем любой известной ===
@@ -122,6 +138,69 @@ export async function registerMember(familyId: string): Promise<string | null> {
   }
 }
 
+/** Есть ли у группы владелец на сервере. null — не смогли спросить.
+ *
+ *  Нужно группам, созданным до появления владельцев: у их конфигов нет
+ *  ownerSecret ни у кого, поэтому заявку на владение не шлёт никто, сервер
+ *  так и остаётся без owner_member_id, и кнопка «Исключить» не появляется ни
+ *  у кого и никогда. */
+export async function familyHasOwner(familyId: string): Promise<boolean | null> {
+  const c = await getFamilyConfig(familyId);
+  if (!c) return null;
+  try {
+    const res = await fetch(`${WORKER_URL}/family/register?familyId=${familyId}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${c.familyToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memberId: c.selfMemberId, boxPub: c.boxPub }),
+    });
+    if (!res.ok) return null;
+    const { owner } = (await res.json()) as { owner: string | null };
+    return Boolean(owner);
+  } catch {
+    return null;
+  }
+}
+
+/** Забрать владение группой, у которой владельца нет.
+ *
+ *  Делается ЯВНЫМ действием человека, а не молча при подключении. Отличить
+ *  создателя старой группы от того, кто вошёл по приглашению, в её конфиге
+ *  нечем — такого поля тогда просто не существовало. Значит любой
+ *  автоматический захват был бы гонкой: владельцем навсегда становился бы тот,
+ *  чей телефон первым вышел в сеть. Для чужой семейной группы это плохая
+ *  цена за удобство, поэтому решение принимает человек, а не порядок запуска.
+ *
+ *  Сервер держит TOFU: первая заявка выигрывает, вторая ничего не меняет.
+ *  Возвращает true, если владение теперь наше. */
+export async function claimOwnership(familyId: string): Promise<boolean> {
+  let c = await getFamilyConfig(familyId);
+  if (!c) return false;
+  if (c.ownerSecret) return true;
+  c = await ensureBoxKeys(c);
+  const secret = randomToken();
+  try {
+    const res = await fetch(`${WORKER_URL}/family/register?familyId=${familyId}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${c.familyToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        memberId: c.selfMemberId,
+        boxPub: c.boxPub,
+        ownerSecretHash: await sha256hex(secret),
+      }),
+    });
+    if (!res.ok) return false;
+    const { owner } = (await res.json()) as { owner: string | null };
+    if (owner !== c.selfMemberId) return false; // нас опередили
+    // Секрет храним ТОЛЬКО после подтверждения сервером: иначе у нас лежал бы
+    // «ключ владельца», которого сервер не признаёт, и кнопка «Исключить»
+    // появилась бы, чтобы отказать при нажатии.
+    await patchFamilyConfig(familyId, { ownerSecret: secret, ownerMemberId: owner });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Разослать свой публичный ключ остальным через канал 'member'. */
 export async function publishBoxPub(familyId: string): Promise<void> {
   const c = await getFamilyConfig(familyId);
@@ -175,10 +254,17 @@ export async function adoptSealedKey(familyId: string, sealed: string): Promise<
   const stale = inner.epoch === epochOf(c) && inner.familyToken !== c.familyToken;
   if (inner.epoch < epochOf(c) || (inner.epoch === epochOf(c) && !stale)) return false;
   const key = await importKeyRaw(inner.keyRaw);
+  // Достраиваем связку всеми эпохами из конверта, а не только принятой: иначе
+  // пропущенная смена ключа навсегда оставила бы дыру в читаемости переписки.
+  const ring: Record<string, CryptoKey> = { ...(c.keyRing ?? {}) };
+  for (const [e, raw] of Object.entries(inner.keys ?? {})) {
+    if (!ring[e]) ring[e] = await importKeyRaw(raw);
+  }
+  ring[String(inner.epoch)] = key;
   await patchFamilyConfig(familyId, {
     familyKey: key,
     keyEpoch: inner.epoch,
-    keyRing: { ...(c.keyRing ?? {}), [String(inner.epoch)]: key },
+    keyRing: ring,
     familyToken: inner.familyToken,
     // Своим устройствам новый ключ уедет аккаунтным синком — им конверт
     // забирать не придётся.
@@ -250,10 +336,14 @@ export async function resendKeys(familyId: string): Promise<string[]> {
   const c = await getFamilyConfig(familyId);
   if (!c?.boxPriv) return [];
   const epoch = epochOf(c);
+  const ring = { ...(c.keyRing ?? {}), [String(epoch)]: c.familyKey };
+  const keys: Record<string, string> = {};
+  for (const [e, k] of Object.entries(ring)) keys[e] = await exportKeyRaw(k);
   const payload: SealedKeyPayload = {
     epoch,
-    keyRaw: await exportKeyRaw(c.familyKey),
+    keyRaw: keys[String(epoch)],
     familyToken: c.familyToken,
+    keys,
   };
   const myPriv = await importBoxPrivate(c.boxPriv);
   const all = await db.familyMembers.where('familyId').equals(familyId).toArray();

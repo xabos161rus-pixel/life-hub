@@ -101,7 +101,7 @@ export function SyncSection() {
               className="w-full inline-flex items-center justify-center gap-2"
               onClick={() => setSheet('connect')}
             >
-              <Smartphone size={18} />
+              <Smartphone size={18} className="shrink-0" />
               Подключить к другому устройству
             </Button>
           </>

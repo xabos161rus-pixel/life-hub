@@ -35,7 +35,7 @@ import type {
   SymptomDef,
 } from './cycleTypes';
 
-export const SCHEMA_VERSION = 12;
+export const SCHEMA_VERSION = 13;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -228,10 +228,32 @@ export class LifeHubDB extends Dexie {
     // раскладывать вообще и свалит всё в корень.
     // У существующих заметок folderId остаётся undefined — это и есть корень,
     // переносить ничего не нужно.
-    this.version(13).stores({
-      noteFolders: 'id, sortOrder',
-      notes: 'id, *tags, pinned, folderId',
-    });
+    this.version(13)
+      .stores({
+        noteFolders: 'id, sortOrder',
+        notes: 'id, *tags, pinned, folderId',
+      })
+      .upgrade(async (tx) => {
+        // Помечаем уже существующую строку настроек как «старого» пользователя.
+        //
+        // Экраны онбординга появились только в этом релизе, поля onboardingDone
+        // в прежних настройках нет вовсе, а ensureSettings пишет строку лишь
+        // когда её нет целиком. Без этой строчки человек, у которого приложение
+        // стоит давно и полно данных, после тихого обновления получил бы
+        // вводный тур для новичка поверх собственных задач — и, что хуже,
+        // окно «Новое имя и значок» не показалось бы уже никогда: оно ждёт
+        // пройденного онбординга.
+        //
+        // Дата — не «сейчас», а заведомо прошлая: онбординг человек не проходил,
+        // и притворяться, что прошёл сегодня, значит соврать в собственных
+        // данных. Важен только факт «не новичок».
+        await tx
+          .table('settings')
+          .toCollection()
+          .modify((row: { onboardingDone?: string }) => {
+            if (row.onboardingDone === undefined) row.onboardingDone = '2000-01-01T00:00:00.000Z';
+          });
+      });
   }
 }
 

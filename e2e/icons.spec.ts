@@ -12,12 +12,25 @@ import { openApp, test } from './fixtures';
  *  приложения нет маршрута-заглушки, и опечатка вроде «/today» вместо «/»
  *  отрисовала бы голый каркас — тест прошёл бы, ничего не измерив. Поэтому
  *  openRoute ниже требует заголовок экрана. */
-const ROUTES = ['/', '/tasks', '/home', '/notes', '/goals', '/more/finance', '/more/habits'];
+const ROUTES = [
+  '/', '/tasks', '/home', '/notes', '/goals', '/stats', '/calendar', '/search',
+  '/more/finance', '/more/habits', '/more/learning', '/more/energy', '/more/places',
+  '/more/focus', '/more/family', '/more/cycle', '/more/trash',
+  // Настроек тут сначала не было — и мимо замера прошла иконка, сжатая флексом
+  // с 18 до 15px: реальный штрих 1.27px вместо 1.5. Ровно та ошибка, ради
+  // которой шкала и вводилась.
+  '/more/settings', '/more/settings/sections', '/more/settings/install',
+];
 
-/** Открыть маршрут и убедиться, что экран действительно отрисовался. */
+/** Открыть маршрут и убедиться, что экран действительно отрисовался.
+ *
+ *  Без повторного засева: флаги онбординга уже в IndexedDB после первого
+ *  openApp, а полная перезагрузка со сбросом на каждый из двух десятков
+ *  маршрутов — это втрое больше загрузок и выход за таймаут. */
 async function openRoute(page: import('@playwright/test').Page, route: string) {
-  await openApp(page, route);
+  await page.goto(route);
   await expect(page.locator('header h1')).toBeVisible();
+  await page.waitForLoadState('networkidle').catch(() => {});
 }
 
 interface Glyph {
@@ -48,6 +61,7 @@ async function collectGlyphs(page: import('@playwright/test').Page): Promise<Gly
 }
 
 test('штрих иконок одинаков в пикселях независимо от размера', async ({ page }) => {
+  test.setTimeout(120_000); // два десятка маршрутов
   await openApp(page);
   const all: Glyph[] = [];
   for (const route of ROUTES) {
@@ -77,6 +91,7 @@ test('размеры иконок — только со ступеней шка�
   // означает, что в разметку снова просочилось произвольное число: 17 и 18
   // рядом глазом не различить, а вместе они читаются как небрежность.
   const ALLOWED = new Set([14, 16, 18, 20, 24, 32, 40]);
+  test.setTimeout(120_000);
   await openApp(page);
   const bad: Glyph[] = [];
   for (const route of ROUTES) {

@@ -7,6 +7,11 @@ interface Props {
   title: string;
   /** маршрут «назад»; если задан — слева появляется стрелка */
   backTo?: string;
+  /** Выход «назад» для экранов, которые не маршрут, а состояние внутри
+   *  страницы (перенос заметки в папку). Для них backTo не годится: ссылка на
+   *  собственный адрес компонент не размонтирует, состояние остаётся, и
+   *  стрелка выглядит рабочей, ничего не делая. */
+  onBack?: () => void;
   /** слот справа в шапке (кнопки) */
   right?: ReactNode;
   /** подзаголовок под title (например, дата) */
@@ -38,7 +43,7 @@ interface Props {
  *  Высоту таб-бара и safe-area сюда НЕ добавляем сознательно: таб-бар —
  *  соседний flex-элемент каркаса (App.tsx), а не наложение, свою safe-area он
  *  держит сам; контент физически заканчивается на его верхней границе. */
-export function Screen({ title, backTo, right, subtitle, fill = false, children }: Props) {
+export function Screen({ title, backTo, onBack, right, subtitle, fill = false, children }: Props) {
   return (
     <div className={fill ? 'flex h-full flex-col' : 'min-h-full pb-[max(16px,var(--fab-space,0px))]'}>
       {/* Широкие экраны (Mac/Windows/iPad): контент — центральная колонка
@@ -48,11 +53,11 @@ export function Screen({ title, backTo, right, subtitle, fill = false, children 
           {/* Стрелка «Назад» — единственная навигация вверх по иерархии, и вес
               у неё акцентный: обычным 1.5px шеврон рядом с жирным заголовком
               читался как случайная чёрточка. В iOS он тоже полужирный. */}
-          {backTo && (
+          {(backTo || onBack) && (
             <IconButton
               icon={ChevronLeft}
               label="Назад"
-              to={backTo}
+              {...(onBack ? { onClick: onBack } : { to: backTo })}
               size={ICON.accent}
               strokeWidth={STROKE_STRONG}
             />

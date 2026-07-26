@@ -15,7 +15,13 @@ import { MicButton } from '../../components/ui/MicButton';
 import { Hint } from '../../components/ui/Hint';
 import { db } from '../../db/db';
 import { normalizeEditor } from './editorDom';
-import { closestChecklistItem, hitCheckbox, toggleChecklist, toggleItem } from './checklist';
+import {
+  CHECKLIST_CLASS,
+  closestChecklistItem,
+  hitCheckbox,
+  toggleChecklist,
+  toggleItem,
+} from './checklist';
 import { create, remove, update } from '../../db/repo';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
@@ -24,15 +30,29 @@ const AUTOSAVE_MS = 600;
 
 // Содержимое — это HTML из contentEditable. Чистим перед записью: заметки
 // свои, не импортированные, но санитайз защищает от вставленного из буфера.
-// Санитайз идёт и на вставке, и на сохранении. Список тегов расширен под
-// чек-листы, цитаты и зачёркивание; из атрибутов пропускаем ровно два — класс
-// чек-листа и его состояние. Открывать class целиком нельзя: чужая вставка
-// притащит стили, которые перекрасят заметку.
+// Санитайз идёт и на вставке, и на сохранении.
+//
+// Здесь стоял ALLOWED_CLASSES: { ul: ['cl'] } — такой опции у DOMPurify НЕТ
+// (она из sanitize-html), незнакомые ключи конфига просто игнорируются. То
+// есть class проходил целиком и на всех тегах — ровно наоборот тому, что
+// обещал прежний комментарий. Приложение на Tailwind с глобальными
+// утилитами, поэтому вставленный из веба фрагмент с class="hidden" давал
+// сохранённый, но невидимый текст, а class="fixed inset-0 z-50" — блок
+// поверх всего экрана.
+//
+// Класс нужен ровно один — маркер чек-листа. Оставляем его хуком, который
+// работает уже ПОСЛЕ разбора атрибутов, и стираем всё остальное.
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (!(node instanceof Element) || !node.hasAttribute('class')) return;
+  const keep = node.tagName === 'UL' && node.classList.contains(CHECKLIST_CLASS);
+  if (keep) node.setAttribute('class', CHECKLIST_CLASS);
+  else node.removeAttribute('class');
+});
+
 const SANITIZE = {
   ALLOWED_TAGS: ['p', 'div', 'br', 'b', 'strong', 'i', 'em', 'u', 's', 'strike',
     'ul', 'ol', 'li', 'h1', 'h2', 'span', 'blockquote'],
   ALLOWED_ATTR: ['class', 'data-done'],
-  ALLOWED_CLASSES: { ul: ['cl'] },
 };
 
 /** Заголовок заметки = первая непустая строка её текста (как в iOS).

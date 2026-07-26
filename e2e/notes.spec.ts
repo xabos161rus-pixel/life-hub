@@ -128,6 +128,56 @@ test.describe('папки', () => {
     await expect(page.getByText('Уникальное слово фонарь')).toBeVisible();
   });
 
+  test('поиск находит заметку, УБРАННУЮ в папку, из общего списка', async ({ page }) => {
+    // Тест выше эту поломку не ловил: он ищет заметку, лежащую в корне, и
+    // корневой список не пуст. А ветка пустого состояния проверяла именно его —
+    // стоило разложить всё по папкам, и поиск по любому слову рисовал «Пока нет
+    // заметок» вместо найденного.
+    await newNote(page);
+    await page.keyboard.type('Спрятанная заметка про якорь');
+    await page.waitForTimeout(900);
+    await openApp(page, '/notes');
+
+    await page.getByRole('button', { name: 'Новая папка' }).click();
+    await page.getByPlaceholder('Например, «Работа»').fill('Архив');
+    await page.getByRole('button', { name: 'Создать папку' }).click();
+
+    // Долгим нажатием отправляем единственную заметку в папку — корень пустеет.
+    const row = page.getByText('Спрятанная заметка про якорь').first();
+    await row.hover();
+    await page.mouse.down();
+    await page.waitForTimeout(700);
+    await page.mouse.up();
+    await page.getByRole('button', { name: /Архив/ }).click();
+    await expect(page.getByText('Пока нет заметок')).toBeVisible();
+
+    // И ищем её из корня.
+    await page.getByPlaceholder(/Поиск/i).fill('якорь');
+    await expect(page.getByText('Пока нет заметок')).toHaveCount(0);
+    await expect(page.getByText('Спрятанная заметка про якорь')).toBeVisible();
+  });
+
+  test('стрелка «Назад» на экране «Куда перенести?» возвращает к списку', async ({ page }) => {
+    // Экран переноса — состояние внутри /notes, а не отдельный маршрут. Ссылка
+    // на собственный адрес компонент не размонтирует: стрелка выглядела рабочей
+    // и не делала ничего, а «Отмена» лежит под длинным списком папок.
+    await newNote(page);
+    await page.keyboard.type('Заметка для переноса');
+    await page.waitForTimeout(900);
+    await openApp(page, '/notes');
+
+    const row = page.getByText('Заметка для переноса').first();
+    await row.hover();
+    await page.mouse.down();
+    await page.waitForTimeout(700);
+    await page.mouse.up();
+    await expect(page.getByRole('heading', { name: 'Куда перенести?' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Назад' }).click();
+    await expect(page.getByRole('heading', { name: 'Куда перенести?' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Заметки' })).toBeVisible();
+  });
+
   test('удаление папки не удаляет заметки', async ({ page }) => {
     await newNote(page);
     await page.keyboard.type('Важная заметка внутри папки');
@@ -225,6 +275,40 @@ test.describe('редактор', () => {
     await page.reload();
     await page.waitForTimeout(900);
     await expect(page.locator('.note-editor s, .note-editor strike')).toHaveCount(1);
+  });
+
+  test('вставка из веба не приносит чужие классы', async ({ page }) => {
+    // В конфиге санитайзера стоял ALLOWED_CLASSES — такой опции у DOMPurify
+    // нет вовсе (она из sanitize-html), и незнакомые ключи он молча
+    // игнорирует. То есть class проходил целиком, а приложение на Tailwind с
+    // глобальными утилитами: фрагмент с class="hidden" давал сохранённый, но
+    // невидимый текст, class="fixed inset-0 z-50" — блок поверх экрана.
+    await newNote(page);
+    await page.keyboard.type('Заголовок');
+    await paste(
+      page,
+      'вставленный текст',
+      '<p class="hidden">вставленный текст</p><div class="fixed inset-0 z-50">поверх</div>',
+    );
+
+    const html = await page.locator('.note-editor').innerHTML();
+    expect(html, `чужие классы уцелели: ${html}`).not.toContain('hidden');
+    expect(html).not.toContain('fixed');
+
+    // И текст при этом видно — санитайз чистит атрибут, а не содержимое.
+    await expect(page.getByText('вставленный текст')).toBeVisible();
+  });
+
+  test('класс чек-листа санитайз переживает', async ({ page }) => {
+    // Обратная сторона: единственный класс, который нужен приложению, обязан
+    // остаться — иначе чек-лист после сохранения перестанет быть чек-листом.
+    await newNote(page);
+    await page.keyboard.type('Список');
+    await page.getByRole('button', { name: 'Список задач' }).click();
+    await page.keyboard.type('пункт');
+    await page.waitForTimeout(900);
+    await page.reload();
+    await expect(page.locator('.note-editor ul.cl')).toHaveCount(1);
   });
 
   test('панель форматирования не выталкивает страницу вбок', async ({ page }) => {

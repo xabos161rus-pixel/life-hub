@@ -448,6 +448,10 @@ export interface SyncConfig {
   key: CryptoKey;
   enabled: boolean;
   lastPullAt: string; // ISO-курсор: последний полученный updatedAt
+  // Набор таблиц, который знала версия приложения, двигавшая курсор. Нужен
+  // ровно для одного: заметить, что после обновления мы умеем больше, чем
+  // умели, — и переспросить сервер с нуля. См. lib/sync.ts.
+  knownTables?: string[];
   lastPushAt: string; // ISO-курсор: последний отправленный updatedAt
   lastSyncedAt: string; // ISO времени последнего успешного синка ('' — ни разу)
 }

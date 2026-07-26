@@ -385,4 +385,41 @@ describe('исключение участника: клиент против с�
     // нет: иначе тест выше про «устаревший конверт» ничего бы не значил.
     expect(await adoptSealedKey(FAMILY_ID, sealed)).toBe(false);
   });
+  it('пропустивший ДВЕ смены ключа читает всю переписку, а не половину', async () => {
+    // Конверт на сервере один на участника: второе исключение перезаписывает
+    // конверт первого. Раньше внутри лежал ровно ОДИН ключ, и тот, кто был
+    // офлайн во время обоих исключений, забирал только последний — сообщения
+    // между двумя исключениями у него не расшифровывались уже никогда. Теперь
+    // конверт несёт всю связку эпох, как это давно сделано в приглашении.
+    const aliceBefore = aliceCfg;
+
+    // Нужен четвёртый: исключить дважды можно только двух разных людей, а
+    // владельца исключать нельзя.
+    const bobId = await makeMember({ token: TOKEN });
+    await restore(ownerCfg);
+
+    // Исключение №1 → эпоха 1. Алисы в сети нет, конверт она не забирает.
+    await removeMember(FAMILY_ID, kickedId);
+    const ownerE1 = (await snapshot())!;
+    expect(ownerE1.keyEpoch).toBe(1);
+    const secretE1 = await encFamily(ownerE1, { text: 'между двумя исключениями' });
+
+    // Исключение №2 → эпоха 2. Конверт Алисы перезаписан вторым.
+    await removeMember(FAMILY_ID, bobId);
+    expect((await snapshot())!.keyEpoch).toBe(2);
+
+    // Алиса возвращается и забирает единственный оставшийся конверт.
+    const sealed = (
+      await (await fetch(`https://x/family/keys?familyId=${FAMILY_ID}&member=${aliceId}`)).json()
+    ).sealed;
+    await restore(aliceBefore);
+    expect(await adoptSealedKey(FAMILY_ID, sealed)).toBe(true);
+    expect((await snapshot())!.keyEpoch).toBe(2);
+
+    // И читает сообщение ПРОПУЩЕННОЙ эпохи 1 — ключ приехал в связке.
+    const aliceNow = (await snapshot())!;
+    await expect(decFamily<{ text: string }>(aliceNow, secretE1)).resolves.toEqual({
+      text: 'между двумя исключениями',
+    });
+  });
 });
