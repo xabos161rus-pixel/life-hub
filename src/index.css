@@ -256,7 +256,10 @@ select {
     button,
     a {
       transition-property: opacity;
-      transition-duration: 120ms;
+      /* 150 мс — та же длительность, что у отклика на нажатие. Раньше здесь
+         было 120: наведение отзывалось быстрее самого тапа, и это читалось
+         как нервозность интерфейса. */
+      transition-duration: 150ms;
     }
   }
 }
@@ -326,4 +329,37 @@ select {
 .note-editor b,
 .note-editor strong {
   font-weight: 700;
+}
+
+
+/* Видимый фокус клавиатуры. Правило намеренно ВНЕ @layer: утилита
+   outline-none живёт в @layer utilities, а всё, что вне слоёв, перебивает
+   слои целиком. Три поля в приложении гасят обводку и ничего не дают взамен —
+   при переходе табом фокус пропадал бесследно. Мышью и пальцем правило не
+   срабатывает: :focus-visible включается только у клавиатурного фокуса. */
+:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* «Уменьшение движения» — системный тумблер, и он должен выключать анимации
+   ВСЕ, а не только те, где мы вспомнили дописать motion-reduce:. До этого
+   блока учтённых мест было два из шести с лишним десятков, а инлайновые
+   transition в style (шит, строка задачи, заметки, чат, кольцо таймера) не
+   покрывались в принципе — до атрибута style утилита motion-reduce: не
+   дотягивается.
+
+   Не «убрать» движение, а сжать до 0.01ms: нулевая длительность в части
+   браузеров не даёт событию transitionend случиться вовсе, и код, который его
+   ждёт, зависает навсегда. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

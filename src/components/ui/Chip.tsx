@@ -11,7 +11,7 @@ export function Chip({ active = false, onClick, children }: Props) {
     <button
       onClick={onClick}
       aria-pressed={active}
-      className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+      className={`shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors active:scale-95 ${
         active
           ? // Сплошная заливка, а не подложка того же цвета: акцентный текст на
             // акцентной подложке упирается в 3.3:1 и выше не поднимается —
