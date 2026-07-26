@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowRight, Check, CheckCheck, ChevronsDown, Clock, Copy, Hand, Heart, Send, Pencil, Reply, Trash2, X, Paperclip, Mic, Play, Pause } from 'lucide-react';
+import { ArrowRight, Check, CheckCheck, ChevronsDown, Clock, Copy, Hand, Heart, Send, Pencil, Reply, Trash2, X, Paperclip, Mic, Play, Pause,
+  Loader2,
+} from 'lucide-react';
 import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Hint } from '../../components/ui/Hint';
 import { useToast } from '../../components/ui/toastContext';
-import { compressImage } from '../../lib/image';
+import {
+  compressImage,
+  ImageDecodeError,
+  ImageTooLargeError,
+  MAX_INPUT_BYTES,
+} from '../../lib/image';
 import { isTouch } from '../../lib/platform';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import {
@@ -416,6 +423,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
     () => (membersRaw ?? []).filter((m) => !m.leftAt && m.id !== selfId),
     [membersRaw, selfId],
   );
+  // Пока фото сжимается и шифруется, кнопка занята: на большом снимке это
+  // заметная пауза, и без индикации человек жмёт второй раз.
+  const [sendingImage, setSendingImage] = useState(false);
   const [online, setOnline] = useState<string[]>([]);
   const [lastSeen, setLastSeen] = useState<Record<string, string>>({});
   const [now, setNow] = useState(0);
@@ -578,11 +588,25 @@ export function ChatTab({ familyId }: { familyId: string }) {
   }
 
   async function handlePickImage(file: File) {
+    // Раньше ошибка глоталась молча: человек выбирал фото, ничего не
+    // происходило, и понять почему было невозможно. Молчаливый отказ хуже
+    // отказа с текстом — второй хотя бы подсказывает, что делать.
+    setSendingImage(true);
     try {
       const dataUrl = await compressImage(file);
       await sendImage(familyId, dataUrl);
-    } catch {
-      /* не удалось обработать картинку */
+    } catch (err) {
+      if (err instanceof ImageTooLargeError) {
+        toast(`Файл больше ${Math.round(MAX_INPUT_BYTES / 1024 / 1024)} МБ — выберите поменьше`);
+      } else if (err instanceof ImageDecodeError) {
+        // Чаще всего это HEIC с айфона, открытый в стороннем браузере: формат
+        // системный, и разобрать его умеет не всякий движок.
+        toast('Не удалось открыть это изображение');
+      } else {
+        toast('Не удалось отправить фото');
+      }
+    } finally {
+      setSendingImage(false);
     }
   }
 
@@ -804,10 +828,16 @@ export function ChatTab({ familyId }: { familyId: string }) {
             />
             <button
               onClick={() => fileRef.current?.click()}
-              aria-label="Прикрепить фото"
-              className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted transition-colors active:bg-surface active:text-accent"
+              disabled={sendingImage}
+              aria-label={sendingImage ? 'Фото отправляется' : 'Прикрепить фото'}
+              aria-busy={sendingImage || undefined}
+              className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted transition-colors active:bg-surface active:text-accent disabled:opacity-50"
             >
-              <Paperclip size={21} />
+              {sendingImage ? (
+                <Loader2 size={21} className="animate-spin motion-reduce:animate-none" />
+              ) : (
+                <Paperclip size={21} />
+              )}
             </button>
             <textarea
               value={text}
