@@ -53,11 +53,19 @@ const SCROLL_STEP = 11; // px за кадр
 
 // Переупорядочивание проектов: удержание заголовка → drag.
 const LONG_PRESS_MS = 400; // удержание без движения → старт drag
-// Граница уровня при переносе проекта: левее — верхний уровень, правее — внутрь.
-// 64px, а не половина экрана: подпроекты и так нарисованы с отступом, и палец
-// естественно повторяет этот отступ. Порог у самого края сделал бы «вынести
-// наружу» случайным, порог по центру — недостижимым одной рукой.
-const NEST_X = 64;
+// Смена уровня при переносе проекта — по СДВИГУ пальца от точки нажатия, а не
+// по абсолютной координате.
+//
+// Абсолютный порог (было 64px от края) выглядел разумно ровно до замеров.
+// Название проекта начинается примерно с 68px — значит взявший папку за имя,
+// самую очевидную цель, уже стоял правее порога, и обычное переупорядочивание
+// молча превращалось во вложение. А шеврон и папка ПОДпроекта лежат левее —
+// и удержание за них с отпусканием НА МЕСТЕ выкидывало подпроект на верхний
+// уровень, хотя человек ничего не тянул.
+//
+// Сдвиг от точки нажатия не зависит ни от ширины экрана, ни от того, за какое
+// место схватились: не двинул по горизонтали — уровень не меняется вовсе.
+const NEST_DX = 40;
 const DRAG_CANCEL_MOVE = 8; // сдвиг до старта = скролл, а не drag — отменяем
 
 /** Ближайший прокручиваемый предок (overflow-y auto/scroll с переполнением). */
@@ -570,9 +578,11 @@ export function TasksPage() {
   const projInsertRef = useRef<number | null>(null);
   const projectsRef = useRef<Project[]>([]);
   const childrenRef = useRef<Map<string, Project[]>>(new Map());
+  const startXRef = useRef(0);
 
   const onProjectReorderStart = useCallback((p: Project, at: { x: number; y: number }) => {
     pointerRef.current = at; // стартовая позиция пальца — «призрак» из неё, не из угла
+    startXRef.current = at.x; // от неё же считается сдвиг, решающий уровень
     setPointer(at);
     const idx = projectsRef.current.findIndex((x) => x.id === p.id);
     projInsertRef.current = idx;
@@ -757,9 +767,16 @@ export function TasksPage() {
         if (y > r.top + r.height / 2) idx++;
         if (proj.id !== dp.id && y >= r.top && y <= r.bottom) hovered = proj.id;
       }
-      // Правее порога и есть над кем — вкладываем. Иначе верхний уровень: это
-      // и есть «вытащить подпроект в отдельный проект».
-      const parent = canNest && x > NEST_X && hovered ? hovered : null;
+      // Уровень меняется только при осознанном сдвиге вбок. Вправо — внутрь
+      // того, над кем стоим; влево — наружу. Между порогами уровень остаётся
+      // прежним: человек просто двигает по вертикали.
+      const dx = x - startXRef.current;
+      const parent =
+        dx > NEST_DX && canNest && hovered
+          ? hovered
+          : dx < -NEST_DX
+            ? null
+            : (dp.parentId ?? null);
       if (idx !== projInsertRef.current) {
         projInsertRef.current = idx;
         setProjInsertIndex(idx);

@@ -80,6 +80,26 @@ export function caretLineHasText(root: HTMLElement): boolean {
   return (block.textContent ?? '').trim() !== '';
 }
 
+/** Стоит ли каретка в самом начале своей строки.
+ *
+ *  Отдельно от caretLineHasText, потому что вопрос другой: там «строка пустая
+ *  ли», здесь «пусто ли ПЕРЕД кареткой». Начало непустой строки — ровно та
+ *  точка, где смещение по видимому тексту становится неоднозначным: «конец
+ *  предыдущей строки» и «начало этой» дают одно и то же число символов. */
+export function caretAtLineStart(root: HTMLElement): boolean {
+  const sel = document.getSelection();
+  if (!sel || sel.rangeCount === 0 || !sel.anchorNode) return false;
+  const anchor = sel.anchorNode;
+  if (!root.contains(anchor)) return false;
+  if (anchor === root) return true; // «между блоками» — начало по определению
+  const host = anchor instanceof Element ? anchor : anchor.parentElement;
+  const block = host?.closest('li, p, div, h1, h2, blockquote') ?? root;
+  const r = sel.getRangeAt(0).cloneRange();
+  r.selectNodeContents(block);
+  r.setEnd(anchor, sel.anchorOffset);
+  return r.toString() === '';
+}
+
 /** Развернуть ведущий блок, чтобы первая строка снова стала заголовком.
  *
  *  Возвращает true, если структура изменилась — вызывающему это нужно, чтобы

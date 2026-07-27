@@ -126,3 +126,49 @@ test('проект верхнего уровня можно вложить в д
 
   expect(await parentOf(page, 'p2')).toBe('p1');
 });
+
+test('удержание БЕЗ движения ничего не меняет', async ({ page }) => {
+  // Самая дорогая находка аудита: уровень считался по абсолютной горизонтали,
+  // а шеврон и папка подпроекта лежат левее порога. Подержал палец на
+  // заголовке, отпустил на месте — и подпроект уехал на верхний уровень и в
+  // конец списка, хотя человек ничего не тянул.
+  await openApp(page, '/tasks');
+  await seed(page);
+
+  const el = page.getByText('Поставщики', { exact: true }).first();
+  await el.scrollIntoViewIfNeeded();
+  const box = (await el.boundingBox())!;
+  // Целимся ЛЕВЕЕ текста — туда, где шеврон и папка: ровно та зона, где
+  // абсолютный порог давал ложное «вынести наружу».
+  await page.mouse.move(box.x - 24, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(700);
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+
+  expect(await parentOf(page, 's1')).toBe('p1');
+});
+
+test('проект, взятый за НАЗВАНИЕ, меняет порядок, а не вкладывается', async ({ page }) => {
+  // Название начинается примерно с 68px, порог был 64px — то есть взявший
+  // папку за имя (самая крупная и очевидная цель) вместо смены порядка
+  // вкладывал её в соседнюю.
+  await openApp(page, '/tasks');
+  await seed(page);
+
+  const health = page.getByText('Здоровье', { exact: true }).first();
+  await health.scrollIntoViewIfNeeded();
+  const box = (await health.boundingBox())!;
+  // Берём точно за середину названия и тянем ТОЛЬКО вверх, без сдвига вбок.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(700);
+  const biz = (await page.getByText('Бизнес', { exact: true }).first().boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, biz.y - 10, { steps: 12 });
+  await page.waitForTimeout(200);
+  await expect(page.getByText('Поменяет порядок')).toBeVisible();
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+
+  expect(await parentOf(page, 'p2')).toBeNull();
+});
