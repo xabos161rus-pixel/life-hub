@@ -43,34 +43,17 @@ import { GoalsProgress } from './GoalsProgress';
 import { unfreezeAll, unfreezeTask } from './taskActions';
 import { STROKE, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
+import { autoScrollStep } from './autoScroll';
 
 const NONE = '__none__';
 const FROZEN = '__frozen__'; // ключ свёрнутости секции «Заморожено»
 
-// Авто-скролл во время drag: зона у краёв скролл-контейнера и шаг за кадр.
-const SCROLL_EDGE = 72; // px от верх/низ края, где включается авто-скролл
-const SCROLL_MAX_STEP = 10; // px за кадр У САМОГО КРАЯ; на границе зоны — 0
-
-/** Сколько прокрутить за кадр: знак — направление, ноль — стоять.
- *
- *  Скорость нарастает от нуля на границе зоны до максимума у самого края.
- *  Постоянные 11px/кадр (≈660px/с при 60Гц) уносили список из-под пальца почти
- *  мгновенно: экран задач прокручивается целиком за полсекунды. Человек вёл
- *  задачу к проекту ниже, неизбежно задевал нижние 72px — и проект, к которому
- *  он целился, уезжал вверх быстрее, чем палец до него доходил. Под пальцем
- *  оставалась пустота, а пустота в hitTest — это null, то есть жест впустую.
- *  Замер: за один перенос список уходил на 368px, всю доступную прокрутку,
- *  и обе секции оказывались выше пальца.
- *
- *  С разгоном край зоны означает «подкрути чуть-чуть», а самый край — «гони»;
- *  между ними человек находит скорость сам, не думая о ней. */
-function autoScrollStep(y: number, r: DOMRect): number {
-  const ramp = (depth: number) =>
-    Math.ceil((Math.min(depth, SCROLL_EDGE) / SCROLL_EDGE) * SCROLL_MAX_STEP);
-  if (y < r.top + SCROLL_EDGE) return -ramp(r.top + SCROLL_EDGE - y);
-  if (y > r.bottom - SCROLL_EDGE) return ramp(y - (r.bottom - SCROLL_EDGE));
-  return 0;
-}
+// Пока палец не отошёл от точки старта дальше этого порога, жест ещё не начат
+// по факту. Без него tick — он крутится каждый кадр сам по себе, независимо от
+// событий движения — успевал прокрутить список и переоценить drop-зону раньше,
+// чем человек вообще пошевелил пальцем: положил задачу на секцию у нижнего
+// края экрана — и список уже едет, а idx уже посчитан по чужой точке.
+const DRAG_START_THRESHOLD = 4;
 
 // Переупорядочивание проектов: удержание заголовка → drag.
 const LONG_PRESS_MS = 400; // удержание без движения → старт drag
@@ -98,6 +81,21 @@ function getScrollParent(node: HTMLElement | null): HTMLElement | null {
     el = el.parentElement;
   }
   return null;
+}
+
+/** Выкидывает из реестра секций узлы, вынутые из DOM. registerSection — ref-
+ *  колбэк, и на detach (React вызывает его с el=null) он намеренно ничего не
+ *  чистит: при перемонтировании новый узел с тем же ключом придёт раньше, чем
+ *  успеет понадобиться старый, и ранняя чистка стирала бы его зря. Но если
+ *  секцию снесли насовсем (проект удалили/свернули иерархию), запись в Map
+ *  остаётся навсегда — а если она окажется ПЕРВОЙ, getScrollParent получит
+ *  detached-узел, отдаст null, и авто-скролл не будет работать до перезагрузки
+ *  страницы. Прогонять на каждый чих незачем: старт нового жеста — то самое
+ *  место, где актуальность реестра важна, и где чистка обходится дёшево. */
+function pruneDetachedSections(nodes: Map<string, HTMLElement>) {
+  for (const [key, el] of nodes) {
+    if (!el.isConnected) nodes.delete(key);
+  }
 }
 
 /** Иконка папки проекта: стандартная 📁 заменяется папкой в цвете проекта —
@@ -652,40 +650,60 @@ export function TasksPage() {
   useEffect(() => {
     if (!draggingTask) return;
     const task = draggingTask; // фикс ссылки для замыкания finish
+    // Точка, откуда стартовал жест — от неё меряем, началось ли реальное
+    // движение (см. moved ниже). Копия, а не сам pointerRef: тот перезаписывается
+    // в каждом move.
+    const startPoint = { ...pointerRef.current };
+    // Палец лёг и ещё НЕ двигался — а tick крутится каждый кадр сам по себе и
+    // без этого флага уже прокручивал бы список и пересчитывал drop-зону, если
+    // точка нажатия попала в краевую зону. Позиция задачи менялась бы без
+    // единого движения пальцем. true выставляется в move при сдвиге > порога.
+    let moved = false;
 
+    // Реестр секций мог накопить detached-узлы (см. pruneDetachedSections) —
+    // без чистки первым в Map мог оказаться именно такой, и getScrollParent
+    // получил бы null.
+    pruneDetachedSections(sectionNodes.current);
     // Прокручиваемый контейнер берём от любой секции (все внутри одного скролла).
     const anySection = sectionNodes.current.values().next().value ?? null;
     const scroller = getScrollParent(anySection);
 
     // Подсветка drop-зоны по Y пальца, без лишних setState на каждый кадр.
     const refreshDrop = (y: number) => {
-      // Промах в пустоту НЕ обнуляет цель: остаётся последняя, над которой
-      // палец был. Раньше между секциями, ниже последнего проекта и в момент,
-      // когда авто-скролл увозил список, hitTest давал null — и отпускание
-      // становилось молчаливым «ничего не произошло»: ни переноса, ни тоста,
-      // ни объяснения. Теперь задача падает туда, где человек последний раз
-      // видел подсветку, то есть туда, куда целился. Отмена жеста никуда не
-      // делась: старт ставит целью текущий проект задачи, так что отпустить
-      // над своей же секцией — значит оставить всё как было.
-      const key = hitTest(y) ?? dropKeyRef.current;
-      if (key !== dropKeyRef.current) {
-        dropKeyRef.current = key;
-        setDropKey(key);
+      // Промах в пустоту раньше подменялся на dropKeyRef.current и шёл ДАЛЬШЕ
+      // по коду — ключ замораживался, а idx всё равно пересчитывался по этому
+      // старому ключу от актуального y, то есть от пустоты ниже секции: idx
+      // получался равным длине списка, и задача уезжала в конец без спроса.
+      // Теперь при промахе не трогаем вообще ничего — ни ключ, ни зазор,
+      // остаётся последнее реальное наведение, там, где человек видел
+      // подсветку. Отмена жеста не потеряна: старт ставит целью текущий
+      // проект задачи, так что отпустить над своей же секцией — оставить как было.
+      const hit = hitTest(y);
+      if (!hit) return;
+      if (hit !== dropKeyRef.current) {
+        dropKeyRef.current = hit;
+        setDropKey(hit);
       }
       // Зазор вставки среди отображаемых активных задач проекта-цели.
       let idx = 0;
-      if (key) {
-        const sec = sectionNodes.current.get(key);
-        const list = activeByProjectRef.current.get(key) ?? [];
-        if (sec) {
-          for (const at of list) {
-            const el = sec.querySelector(`[data-task-id="${at.id}"]`);
-            if (!el) continue;
-            const r = el.getBoundingClientRect();
-            if (y > r.top + r.height / 2) idx++;
-          }
+      let seen = 0;
+      const sec = sectionNodes.current.get(hit);
+      const list = activeByProjectRef.current.get(hit) ?? [];
+      if (sec) {
+        for (const at of list) {
+          const el = sec.querySelector(`[data-task-id="${at.id}"]`);
+          if (!el) continue;
+          seen++;
+          const r = el.getBoundingClientRect();
+          if (y > r.top + r.height / 2) idx++;
         }
       }
+      // Свёрнутая секция-цель: узел с data-drop-key жив, но задачи не
+      // отрисованы ({!collapsed && children}) — querySelector никого не
+      // находит, idx остался бы 0, и задача падала бы в начало списка
+      // невидимо для человека. «В конец» читается как «добавил в проект» —
+      // предсказуемый результат, а не угадывание места среди того, чего не видно.
+      if (seen === 0 && list.length > 0) idx = list.length;
       if (idx !== taskDropIndexRef.current) {
         taskDropIndexRef.current = idx;
         setTaskDropIndex(idx);
@@ -696,31 +714,80 @@ export function TasksPage() {
       e.preventDefault(); // блокируем скролл, пока тащим
       pointerRef.current = { x: e.clientX, y: e.clientY };
       setPointer({ x: e.clientX, y: e.clientY });
+      if (!moved && Math.hypot(e.clientX - startPoint.x, e.clientY - startPoint.y) > DRAG_START_THRESHOLD) {
+        moved = true;
+      }
       refreshDrop(e.clientY);
     };
 
     // Авто-скролл, пока палец у края: крутим контейнер и переоцениваем drop-зону
     // даже когда палец стоит на месте (move-события при этом не приходят).
     let raf = 0;
-    const tick = () => {
-      const y = pointerRef.current.y;
-      if (scroller) {
-        const step = autoScrollStep(y, scroller.getBoundingClientRect());
-        const max = scroller.scrollHeight - scroller.clientHeight;
-        const next = Math.max(0, Math.min(max, scroller.scrollTop + step));
-        if (next !== scroller.scrollTop) scroller.scrollTop = next;
+    let last = 0; // timestamp предыдущего кадра — для шага, зависящего от времени
+    const tick = (now: number) => {
+      // На первом кадре last ещё не установлен — считаем dt нулевым, иначе
+      // между стартом raf-цикла и первым вызовом получился бы случайный
+      // скачок. last выставляется каждый кадр независимо от moved: пока
+      // жест стоит на месте, время всё равно идёт, и как только палец
+      // сдвинется, dt не должен внезапно оказаться огромным.
+      const dt = last ? Math.min(now - last, 50) : 0;
+      last = now;
+      if (moved) {
+        const y = pointerRef.current.y;
+        if (scroller) {
+          const r = scroller.getBoundingClientRect();
+          // Верхние SCROLL_EDGE px геометрически лежат под липкой шапкой
+          // экрана (см. Screen.tsx) — палец туда физически не попадает, и
+          // без поправки разгон вверх никогда не включался бы. Меряем шапку
+          // каждый кадр: дешевле, чем следить за её изменениями отдельно, а
+          // устареть за один тик она не успевает.
+          const header = document.querySelector('header');
+          const top = Math.max(r.top, header?.getBoundingClientRect().bottom ?? r.top);
+          // Шаг «за кадр» был жёстко зашит в 11px — на дисплеях с другой
+          // частотой обновления (90/120Гц) авто-скролл ехал бы в 1.5-2 раза
+          // быстрее того же самого замера на 60Гц. Масштабируем шаг от
+          // прошедшего времени, а не от факта кадра.
+          const rawStep = autoScrollStep(y, top, r.bottom);
+          const step = Math.round((rawStep * dt) / (1000 / 60));
+          const max = scroller.scrollHeight - scroller.clientHeight;
+          const next = Math.max(0, Math.min(max, scroller.scrollTop + step));
+          if (next !== scroller.scrollTop) scroller.scrollTop = next;
+        }
+        refreshDrop(y);
       }
-      refreshDrop(y);
       raf = requestAnimationFrame(tick);
+    };
+
+    const resetDragState = () => {
+      dropKeyRef.current = null;
+      taskDropIndexRef.current = null;
+      setDraggingTask(null);
+      setDropKey(null);
+      setTaskDropIndex(null);
     };
 
     const finish = () => {
       const target = dropKeyRef.current;
-      const idx = taskDropIndexRef.current ?? 0;
-      if (target) {
+      const idx = taskDropIndexRef.current;
+      // Позиция ни разу не вычислялась — значит, палец так и не сдвинулся
+      // (tick заперт флагом moved) либо ни разу не оказался над секцией.
+      // Раньше сюда подставлялся 0 «на всякий случай» — и неподвижное
+      // удержание с отпусканием кидало задачу на ПЕРВУЮ позицию своего же
+      // проекта. Жест без вычисленной позиции ничего не означает — выходим.
+      if (idx === null) {
+        resetDragState();
+        return;
+      }
+      // Синк каждые 60с пишет в Dexie напрямую и мог за время жеста удалить
+      // проект-цель — тогда target указывает на мёртвую запись, и без проверки
+      // задача получила бы projectId, которого больше нет, и пропала бы с
+      // экрана. NONE — не ссылка на проект, а «без проекта», всегда жива.
+      const targetAlive = target === NONE || (target !== null && projectNamesRef.current.has(target));
+      if (target && targetAlive) {
         const nextProjectId = target === NONE ? null : target;
         // Новый порядок активных задач проекта-цели с задачей на позиции idx.
-        const current = (activeByProjectRef.current.get(target) ?? []).map((t) => t.id);
+        const targetTasks = activeByProjectRef.current.get(target) ?? [];
+        const current = targetTasks.map((t) => t.id);
         const from = current.indexOf(task.id);
         let order: string[];
         if (from === -1) {
@@ -730,22 +797,39 @@ export function TasksPage() {
           order = current.filter((id) => id !== task.id);
           order.splice(idx > from ? idx - 1 : idx, 0, task.id);
         }
-        order.forEach((id, i) => {
-          const sortOrder = (i + 1) * 1000;
-          if (id === task.id) void update(db.tasks, id, { projectId: nextProjectId, sortOrder });
-          else void update(db.tasks, id, { sortOrder });
-        });
-        if (nextProjectId !== task.projectId) {
-          const name =
-            nextProjectId === null ? 'Без проекта' : (projectNamesRef.current.get(target) ?? 'проект');
-          toast(`Перенесено в ${name}`);
+        const changedProject = nextProjectId !== task.projectId;
+        const orderChanged = changedProject || order.some((id, i) => id !== current[i]);
+        // Отпустил на месте — ни проект, ни порядок не изменились. Писать в
+        // Dexie тогда нечего: лишний updatedAt расходится синком на другие
+        // устройства и выглядит как перестановка, которой не было.
+        if (orderChanged) {
+          const prevSortOrder = new Map(targetTasks.map((t) => [t.id, t.sortOrder]));
+          order.forEach((id, i) => {
+            const sortOrder = (i + 1) * 1000;
+            if (id === task.id) {
+              if (changedProject || prevSortOrder.get(id) !== sortOrder) {
+                void update(db.tasks, id, { projectId: nextProjectId, sortOrder });
+              }
+            } else if (prevSortOrder.get(id) !== sortOrder) {
+              void update(db.tasks, id, { sortOrder });
+            }
+          });
+          if (changedProject) {
+            const name =
+              nextProjectId === null ? 'Без проекта' : (projectNamesRef.current.get(target) ?? 'проект');
+            toast(`Перенесено в ${name}`);
+          }
         }
       }
-      dropKeyRef.current = null;
-      taskDropIndexRef.current = null;
-      setDraggingTask(null);
-      setDropKey(null);
-      setTaskDropIndex(null);
+      resetDragState();
+    };
+
+    // Системный обрыв жеста (входящий звонок, шторка уведомлений) — не то же
+    // самое, что отпускание пальца над целью. pointercancel сюда раньше не
+    // отличался от finish и молча коммитил перенос туда, где палец случайно
+    // оказался в момент прерывания.
+    const cancel = () => {
+      resetDragState();
     };
 
     // passive:false — иначе preventDefault на touch не сработает.
@@ -753,7 +837,7 @@ export function TasksPage() {
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('touchmove', preventScroll, { passive: false });
     window.addEventListener('pointerup', finish);
-    window.addEventListener('pointercancel', finish);
+    window.addEventListener('pointercancel', cancel);
     // На время drag глушим скролл страницы (свой авто-скролл — программный).
     const prevTouch = document.body.style.touchAction;
     document.body.style.touchAction = 'none';
@@ -762,7 +846,7 @@ export function TasksPage() {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('touchmove', preventScroll);
       window.removeEventListener('pointerup', finish);
-      window.removeEventListener('pointercancel', finish);
+      window.removeEventListener('pointercancel', cancel);
       document.body.style.touchAction = prevTouch;
       cancelAnimationFrame(raf);
     };
@@ -772,6 +856,13 @@ export function TasksPage() {
   useEffect(() => {
     if (!draggingProject) return;
     const dp = draggingProject;
+    const startPoint = { ...pointerRef.current };
+    // См. тот же флаг в эффекте переноса задач: без него tick крутил бы
+    // список и переоценивал зазор вставки ещё до того, как палец реально
+    // сдвинулся — если удержание сработало у самого края экрана.
+    let moved = false;
+
+    pruneDetachedSections(sectionNodes.current);
     const anySection = sectionNodes.current.values().next().value ?? null;
     const scroller = getScrollParent(anySection);
 
@@ -816,19 +907,40 @@ export function TasksPage() {
       e.preventDefault();
       pointerRef.current = { x: e.clientX, y: e.clientY };
       setPointer({ x: e.clientX, y: e.clientY });
+      if (!moved && Math.hypot(e.clientX - startPoint.x, e.clientY - startPoint.y) > DRAG_START_THRESHOLD) {
+        moved = true;
+      }
       refreshDrop(e.clientX, e.clientY);
     };
     let raf = 0;
-    const tick = () => {
-      const y = pointerRef.current.y;
-      if (scroller) {
-        const step = autoScrollStep(y, scroller.getBoundingClientRect());
-        const max = scroller.scrollHeight - scroller.clientHeight;
-        const next = Math.max(0, Math.min(max, scroller.scrollTop + step));
-        if (next !== scroller.scrollTop) scroller.scrollTop = next;
+    let last = 0;
+    const tick = (now: number) => {
+      const dt = last ? Math.min(now - last, 50) : 0;
+      last = now;
+      if (moved) {
+        const y = pointerRef.current.y;
+        if (scroller) {
+          const r = scroller.getBoundingClientRect();
+          // Та же поправка на липкую шапку, что и в переносе задач — иначе
+          // верхняя зона авто-скролла недостижима для пальца.
+          const header = document.querySelector('header');
+          const top = Math.max(r.top, header?.getBoundingClientRect().bottom ?? r.top);
+          const rawStep = autoScrollStep(y, top, r.bottom);
+          const step = Math.round((rawStep * dt) / (1000 / 60));
+          const max = scroller.scrollHeight - scroller.clientHeight;
+          const next = Math.max(0, Math.min(max, scroller.scrollTop + step));
+          if (next !== scroller.scrollTop) scroller.scrollTop = next;
+        }
+        refreshDrop(pointerRef.current.x, y);
       }
-      refreshDrop(pointerRef.current.x, y);
       raf = requestAnimationFrame(tick);
+    };
+    const resetDragState = () => {
+      projInsertRef.current = null;
+      dropParentRef.current = null;
+      setDraggingProject(null);
+      setProjInsertIndex(null);
+      setDropParent(null);
     };
     const finish = () => {
       const insertIndex = projInsertRef.current;
@@ -868,17 +980,18 @@ export function TasksPage() {
         }
       }
 
-      projInsertRef.current = null;
-      dropParentRef.current = null;
-      setDraggingProject(null);
-      setProjInsertIndex(null);
-      setDropParent(null);
+      resetDragState();
+    };
+    // Системный обрыв жеста не должен коммитить перенос — см. тот же разбор
+    // в эффекте переноса задач.
+    const cancel = () => {
+      resetDragState();
     };
     const preventScroll = (ev: TouchEvent) => ev.preventDefault();
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('touchmove', preventScroll, { passive: false });
     window.addEventListener('pointerup', finish);
-    window.addEventListener('pointercancel', finish);
+    window.addEventListener('pointercancel', cancel);
     const prevTouch = document.body.style.touchAction;
     document.body.style.touchAction = 'none';
     if (scroller) raf = requestAnimationFrame(tick);
@@ -886,7 +999,7 @@ export function TasksPage() {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('touchmove', preventScroll);
       window.removeEventListener('pointerup', finish);
-      window.removeEventListener('pointercancel', finish);
+      window.removeEventListener('pointercancel', cancel);
       document.body.style.touchAction = prevTouch;
       cancelAnimationFrame(raf);
     };
