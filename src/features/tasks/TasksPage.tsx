@@ -917,6 +917,10 @@ export function TasksPage() {
     () => projects.filter((p) => !p.parentId || !projectById.has(p.parentId)),
     [projects, projectById],
   );
+  // Идёт вложение, а не смена порядка: сигналы на экране должны показывать
+  // одно и то же, иначе жест до самого отпускания выглядит переупорядочиванием.
+  const nesting = Boolean(draggingProject) && dropParent !== (draggingProject?.parentId ?? null);
+
   const dropHint = useMemo(() => {
     if (!draggingProject) return '';
     const was = draggingProject.parentId ?? null;
@@ -1108,7 +1112,13 @@ export function TasksPage() {
             const subs = childrenByParent.get(p.id) ?? [];
             return (
               <Fragment key={p.id}>
-                {draggingProject && projInsertIndex === i && <DropLine />}
+                {/* Линия вставки — только когда порядок и правда меняется.
+                    При вложении finish кладёт проект в конец списка нового
+                    родителя, insertIndex не используется вовсе, — а линия всё
+                    равно рисовалась и обещала «встанет сюда». Человек видел
+                    два взаимоисключающих обещания разом: линию между папками и
+                    подпись «Внутрь «Здоровье»». */}
+                {draggingProject && !nesting && projInsertIndex === i && <DropLine />}
                 <Section
                   title={p.name}
                   icon={<ProjectFolderIcon project={p} />}
@@ -1118,7 +1128,10 @@ export function TasksPage() {
                   onEdit={() => openProject(p)}
                   dropRef={registerSection}
                   dropKey={p.id}
-                  highlight={Boolean(draggingTask) && dropKey === p.id}
+                  highlight={
+                    (Boolean(draggingTask) && dropKey === p.id) ||
+                    (nesting && dropParent === p.id)
+                  }
                   onReorderStart={(at) => onProjectReorderStart(p, at)}
                   isReorderSource={draggingProject?.id === p.id}
                 >
@@ -1190,7 +1203,7 @@ export function TasksPage() {
               </Fragment>
             );
           })}
-          {draggingProject && projInsertIndex === topProjects.length && <DropLine />}
+          {draggingProject && !nesting && projInsertIndex === topProjects.length && <DropLine />}
 
           {(noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
             <Section

@@ -1,6 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { BatteryCharging, Bell, ListTodo, MapPin, MessagesSquare, SearchX, NotebookText, Target, GraduationCap, Wallet } from 'lucide-react';
+import { Bell, MessagesSquare, SearchX } from 'lucide-react';
+// Иконки разделов берём из РЕЕСТРА, а не держим свой список.
+//
+// Экран поиска рисовал их собственным набором на lucide, а таб-бар под ним —
+// уже своими глифами. Один и тот же раздел оказывался в кадре двумя разными
+// рисунками одновременно: «Заметки» сверху блокнотом со спиралью, «Заметки»
+// внизу листом с загнутым уголком. Ровно тот шум, ради устранения которого
+// набор и рисовался, только собранный на одном экране.
+//
+// Реестр — единственный источник: сменится глиф раздела, сменится везде.
+import { SECTION_BY_ID } from '../../lib/sections';
 import {
   GSearch as Search,
 } from '../../components/ui/glyphs';
@@ -124,15 +134,15 @@ export function SearchPage() {
       .map((r) => ({ id: r.id, to: '/', title: r.text, context: '' }));
 
     return [
-      build('tasks', 'Задачи', ListTodo, taskHits),
-      build('notes', 'Заметки', NotebookText, noteHits),
-      build('goals', 'Цели', Target, goalHits),
+      build('tasks', 'Задачи', SECTION_BY_ID.get('tasks')!.icon, taskHits),
+      build('notes', 'Заметки', SECTION_BY_ID.get('notes')!.icon, noteHits),
+      build('goals', 'Цели', SECTION_BY_ID.get('goals')!.icon, goalHits),
       build('reminders', 'Напоминания', Bell, reminderHits),
       build('family', 'Семейный чат', MessagesSquare, chatHits),
-      build('places', 'Места', MapPin, placeHits),
-      build('learning', 'Обучение', GraduationCap, learningHits),
-      build('energy', 'Энергия', BatteryCharging, energyHits),
-      build('expenses', 'Финансы', Wallet, expenseHits),
+      build('places', 'Места', SECTION_BY_ID.get('places')!.icon, placeHits),
+      build('learning', 'Обучение', SECTION_BY_ID.get('learning')!.icon, learningHits),
+      build('energy', 'Энергия', SECTION_BY_ID.get('energy')!.icon, energyHits),
+      build('expenses', 'Финансы', SECTION_BY_ID.get('finance')!.icon, expenseHits),
     ].filter((s) => s.total > 0);
   }, [q, tasks, notes, goals, places, learning, energy, expenses, familyMsgs, reminders]);
 

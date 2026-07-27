@@ -119,3 +119,77 @@ test('кнопки-иконки в шапке одинаковой ширины 
   const uniq = new Set(widths.map((x) => x.w));
   expect([...uniq], `ширины разъехались: ${JSON.stringify(widths)}`).toHaveLength(1);
 });
+
+test('один раздел — один рисунок, даже когда он в кадре дважды', async ({ page }) => {
+  // Экран поиска и корзина держали СВОЙ список иконок разделов на lucide, а
+  // таб-бар под ними рисовал те же разделы уже своими глифами. Один раздел
+  // оказывался в кадре двумя разными рисунками одновременно: «Заметки» сверху
+  // блокнотом со спиралью, «Заметки» внизу листом с загнутым уголком. Ровно тот
+  // шум, ради устранения которого набор и рисовался, только собранный на одном
+  // экране вместо разных.
+  await openApp(page);
+
+  // Без данных и без запроса на этих экранах нет ни одной иконки раздела —
+  // проверять было бы нечего, и тест молча проходил бы всегда.
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    await db.tasks.put({
+      ...base('st1'), title: 'фонарь купить', notes: '', projectId: null, goalId: null,
+      priority: 0, dueDate: null, dueTime: null, duration: null, remindBefore: null,
+      completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: 0,
+    });
+    await db.notes.put({
+      ...base('sn1'), title: 'фонарь заметка', content: 'фонарь', tags: [], pinned: false,
+    });
+    // Для корзины — удалённые записи тех же разделов.
+    await db.tasks.put({ ...base('st2'), deletedAt: now, title: 'удалённая задача', notes: '',
+      projectId: null, goalId: null, priority: 0, dueDate: null, dueTime: null, duration: null,
+      remindBefore: null, completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: 0 });
+    await db.notes.put({ ...base('sn2'), deletedAt: now, title: 'удалённая заметка',
+      content: '', tags: [], pinned: false });
+  });
+
+  /** Пара «наш глиф — родная иконка lucide» для одного и того же раздела. */
+  const PAIRS: [string, string][] = [
+    ['lucide-tasks', 'lucide-list-todo'],
+    ['lucide-notes', 'lucide-notebook-text'],
+    ['lucide-places', 'lucide-map-pin'],
+    ['lucide-learning', 'lucide-graduation-cap'],
+    ['lucide-finance', 'lucide-wallet'],
+    ['lucide-energy', 'lucide-battery-charging'],
+  ];
+
+  const namesOnPage = async () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('svg.lucide')]
+        .map((s) => [...s.classList].find((c) => c.startsWith('lucide-')) ?? '')
+        .filter(Boolean),
+    );
+
+  await page.goto('/search');
+  await expect(page.locator('header h1')).toBeVisible();
+  await page.getByPlaceholder(/Искать/i).fill('фонарь');
+  await page.waitForTimeout(400);
+  let names = await namesOnPage();
+  expect(names.length, 'на поиске нет ни одной иконки — проверять нечего').toBeGreaterThan(3);
+  for (const [own, theirs] of PAIRS) {
+    expect(
+      names.includes(own) && names.includes(theirs),
+      `на /search раздел нарисован двумя иконками: ${own} и ${theirs}`,
+    ).toBe(false);
+  }
+
+  await page.goto('/more/trash');
+  await expect(page.locator('header h1')).toBeVisible();
+  await page.waitForTimeout(400);
+  names = await namesOnPage();
+  expect(names.length, 'в корзине нет ни одной иконки — проверять нечего').toBeGreaterThan(3);
+  for (const [own, theirs] of PAIRS) {
+    expect(
+      names.includes(own) && names.includes(theirs),
+      `в корзине раздел нарисован двумя иконками: ${own} и ${theirs}`,
+    ).toBe(false);
+  }
+});

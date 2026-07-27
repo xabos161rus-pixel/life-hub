@@ -172,3 +172,32 @@ test('проект, взятый за НАЗВАНИЕ, меняет поряд�
 
   expect(await parentOf(page, 'p2')).toBeNull();
 });
+
+test('при вложении линия вставки не спорит с подсказкой', async ({ page }) => {
+  // Пока проект вкладывается, порядок не применяется вовсе — finish кладёт его
+  // в конец списка нового родителя. А линия вставки рисовалась всё равно, и
+  // человек видел два взаимоисключающих обещания разом: «встанет сюда» между
+  // папками и «Внутрь «Бизнес»» на плашке. Это же и маскировало саму подмену
+  // жеста: до отпускания он выглядел переупорядочиванием.
+  await openApp(page, '/tasks');
+  await seed(page);
+
+  const health = page.getByText('Здоровье', { exact: true }).first();
+  await health.scrollIntoViewIfNeeded();
+  await health.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(650);
+
+  const box = (await health.boundingBox())!;
+  const biz = (await page.getByText('Бизнес', { exact: true }).first().boundingBox())!;
+  // Явный сдвиг вправо — режим вложения.
+  await page.mouse.move(box.x + 140, biz.y + 80, { steps: 12 });
+  await page.waitForTimeout(250);
+
+  await expect(page.getByText(/Внутрь «Бизнес»/)).toBeVisible();
+  // Линии вставки при этом быть не должно ни одной.
+  await expect(page.locator('.bg-accent.shadow-\\[0_0_12px_2px_var\\(--app-accent-fill\\)\\]')).toHaveCount(0);
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+  expect(await parentOf(page, 'p2')).toBe('p1');
+});

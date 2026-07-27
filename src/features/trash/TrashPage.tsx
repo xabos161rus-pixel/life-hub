@@ -1,6 +1,9 @@
 import { useMemo, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { BatteryCharging, FolderKanban, GraduationCap, ListTodo, MapPin, RotateCcw, NotebookText, Target, Wallet } from 'lucide-react';
+import { FolderKanban, RotateCcw } from 'lucide-react';
+// Иконки разделов — из реестра, по той же причине, что и на экране поиска:
+// свой список означал бы один раздел двумя разными рисунками в одном кадре.
+import { SECTION_BY_ID } from '../../lib/sections';
 import {
   GTrash as Trash2,
 } from '../../components/ui/glyphs';
@@ -58,14 +61,14 @@ export function TrashPage() {
     const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 
     return [
-      ...collect(db.tasks, 'tasks', ListTodo, tasks, (r) => str(r.title)),
-      ...collect(db.notes, 'notes', NotebookText, notes, (r) => str(r.title) || 'Без названия'),
-      ...collect(db.goals, 'goals', Target, goals, (r) => str(r.title)),
+      ...collect(db.tasks, 'tasks', SECTION_BY_ID.get('tasks')!.icon, tasks, (r) => str(r.title)),
+      ...collect(db.notes, 'notes', SECTION_BY_ID.get('notes')!.icon, notes, (r) => str(r.title) || 'Без названия'),
+      ...collect(db.goals, 'goals', SECTION_BY_ID.get('goals')!.icon, goals, (r) => str(r.title)),
       ...collect(db.projects, 'projects', FolderKanban, projects, (r) => str(r.name)),
-      ...collect(db.learningItems, 'learningItems', GraduationCap, learning, (r) => str(r.title)),
-      ...collect(db.expenseItems, 'expenseItems', Wallet, expenses, (r) => str(r.title)),
-      ...collect(db.energyItems, 'energyItems', BatteryCharging, energy, (r) => str(r.title)),
-      ...collect(db.placeItems, 'placeItems', MapPin, places, (r) => str(r.title)),
+      ...collect(db.learningItems, 'learningItems', SECTION_BY_ID.get('learning')!.icon, learning, (r) => str(r.title)),
+      ...collect(db.expenseItems, 'expenseItems', SECTION_BY_ID.get('finance')!.icon, expenses, (r) => str(r.title)),
+      ...collect(db.energyItems, 'energyItems', SECTION_BY_ID.get('energy')!.icon, energy, (r) => str(r.title)),
+      ...collect(db.placeItems, 'placeItems', SECTION_BY_ID.get('places')!.icon, places, (r) => str(r.title)),
     ].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
   }, [tasks, notes, goals, projects, learning, expenses, energy, places]);
 
