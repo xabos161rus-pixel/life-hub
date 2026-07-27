@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/Button';
 import { listFamilyConfigs } from '../../lib/family/familyState';
 import { FamilyOnboarding, CreateFamilySheet, JoinFamilySheet } from './FamilyOnboarding';
 import { FamilyScreen } from './FamilyScreen';
+import { CallButton } from './CallButton';
 import { ManageGroupsSheet } from './ManageGroupsSheet';
 
 const ACTIVE_KEY = 'life-hub-active-family';
@@ -62,7 +63,7 @@ export function FamilyPage() {
   const current = configs.find((c) => c.familyId === selected)!;
 
   return (
-    <Screen title={current.familyName} backTo="/home" fill>
+    <Screen title={current.familyName} backTo="/home" right={<CallButton familyId={selected} />} fill>
       <div className="flex h-full flex-col">
         <GroupSwitcher
           configs={configs}
