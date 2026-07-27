@@ -1,5 +1,8 @@
 import type { MouseEvent } from 'react';
-import { Minus, Plus } from 'lucide-react';
+import { Minus } from 'lucide-react';
+import {
+  GPlus as Plus,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { create, now, update } from '../../db/repo';
 import type { LearningItem } from '../../db/types';

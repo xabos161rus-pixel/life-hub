@@ -1,7 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { ChevronDown, Plus, Pencil, Trash2 } from 'lucide-react';
+import {
+  GChevronDown as ChevronDown,
+  GPlus as Plus,
+  GPencil as Pencil,
+  GTrash as Trash2,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, create, update, remove } from '../../db/repo';
 import type { ReminderItem, ReminderSection } from '../../db/types';

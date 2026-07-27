@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus, SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
+import {
+  GPlus as Plus,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import type { FamilyConfig } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';

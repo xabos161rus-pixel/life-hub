@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { ChevronRight, Plus } from 'lucide-react';
+import {
+  GChevronRight as ChevronRight,
+  GPlus as Plus,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import type { FamilyTask } from '../../db/types';
 import { TaskCheck } from '../../components/ui/Checkbox';

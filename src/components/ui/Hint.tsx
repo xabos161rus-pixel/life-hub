@@ -1,5 +1,8 @@
 import { useState, type ComponentType, type ReactNode } from 'react';
-import { Lightbulb, X } from 'lucide-react';
+import { Lightbulb } from 'lucide-react';
+import {
+  GClose as X,
+} from '../../components/ui/glyphs';
 import { useHint } from '../../hooks/useHint';
 import { HIT_SLOP_44 } from './Checkbox';
 import { ICON } from './icons';

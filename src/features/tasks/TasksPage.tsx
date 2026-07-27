@@ -11,7 +11,14 @@ import {
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Folder, FolderPlus, GripVertical, Hand, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
+import { ArrowLeft, ArrowRight, FolderPlus, GripVertical, Hand, ListChecks, Repeat, Snowflake, Sun } from 'lucide-react';
+import {
+  GChevronDown as ChevronDown,
+  GChevronRight as ChevronRight,
+  GFolder as Folder,
+  GPencil as Pencil,
+  GPlus as Plus,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { isTouch } from '../../lib/platform';
 import { alive, update } from '../../db/repo';

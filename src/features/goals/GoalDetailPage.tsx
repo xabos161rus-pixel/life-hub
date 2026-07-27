@@ -1,19 +1,12 @@
 import { useState, type ChangeEvent } from 'react';
 import { Link, useParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Book, FileText, FlaskConical, GraduationCap, Languages, Minus, Video, type LucideIcon } from 'lucide-react';
 import {
-  Book,
-  FileText,
-  FlaskConical,
-  GraduationCap,
-  Languages,
-  Minus,
-  Pencil,
-  Plus,
-  Video,
-  X,
-  type LucideIcon,
-} from 'lucide-react';
+  GPencil as Pencil,
+  GPlus as Plus,
+  GClose as X,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, update } from '../../db/repo';
 import type { LearningItem, LearningKind, Task } from '../../db/types';

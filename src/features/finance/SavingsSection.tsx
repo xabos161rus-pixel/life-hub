@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, PiggyBank, Plus } from 'lucide-react';
+import { PiggyBank } from 'lucide-react';
+import {
+  GCheck as Check,
+  GPlus as Plus,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, now, update } from '../../db/repo';
 import type { SavingsDeposit, SavingsGoal } from '../../db/types';

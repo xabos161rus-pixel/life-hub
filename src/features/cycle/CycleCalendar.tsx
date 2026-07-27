@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  GChevronLeft as ChevronLeft,
+  GChevronRight as ChevronRight,
+} from '../../components/ui/glyphs';
 import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import type { CycleData } from './useCycleData';

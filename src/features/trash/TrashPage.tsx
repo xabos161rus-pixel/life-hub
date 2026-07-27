@@ -1,17 +1,9 @@
 import { useMemo, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { BatteryCharging, FolderKanban, GraduationCap, ListTodo, MapPin, RotateCcw, NotebookText, Target, Wallet } from 'lucide-react';
 import {
-  BatteryCharging,
-  FolderKanban,
-  GraduationCap,
-  ListTodo,
-  MapPin,
-  RotateCcw,
-  NotebookText,
-  Target,
-  Trash2,
-  Wallet,
-} from 'lucide-react';
+  GTrash as Trash2,
+} from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
 import type { Table } from 'dexie';
 import { Screen } from '../../components/layout/Screen';

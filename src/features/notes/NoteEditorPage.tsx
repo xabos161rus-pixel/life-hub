@@ -8,7 +8,15 @@ import {
 } from 'react';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { Bold, Italic, List, ListOrdered, ListChecks, Heading, Strikethrough, Quote, Undo2, Pin, SlidersHorizontal, Trash2, Type } from 'lucide-react';
+import { Bold, Italic, Heading, Strikethrough, Pin, SlidersHorizontal, Type } from 'lucide-react';
+import {
+  GBullets as List,
+  GChecklist as ListChecks,
+  GNumbers as ListOrdered,
+  GQuote as Quote,
+  GTrash as Trash2,
+  GUndo as Undo2,
+} from '../../components/ui/glyphs';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { MicButton } from '../../components/ui/MicButton';

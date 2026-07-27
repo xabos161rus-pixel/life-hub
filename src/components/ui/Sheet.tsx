@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import {
+  GClose as X,
+} from '../../components/ui/glyphs';
 
 interface Props {
   open: boolean;

@@ -1,7 +1,12 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { Pin, Search, NotebookText, FolderPlus, ChevronLeft, Check } from 'lucide-react';
+import { Pin, NotebookText, FolderPlus } from 'lucide-react';
+import {
+  GSearch as Search,
+  GChevronLeft as ChevronLeft,
+  GCheck as Check,
+} from '../../components/ui/glyphs';
 import { useNavigate } from 'react-router';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';

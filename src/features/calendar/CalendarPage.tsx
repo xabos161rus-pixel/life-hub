@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import {
+  GChevronLeft as ChevronLeft,
+  GChevronRight as ChevronRight,
+  GPlus as Plus,
+} from '../../components/ui/glyphs';
 import {
   addMonths,
   eachDayOfInterval,

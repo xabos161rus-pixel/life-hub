@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Copy, Check, Download, AlertTriangle } from 'lucide-react';
+import { Copy, Download, AlertTriangle } from 'lucide-react';
+import {
+  GCheck as Check,
+} from '../../components/ui/glyphs';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { createFamilyInvite } from '../../lib/family/familyLifecycle';

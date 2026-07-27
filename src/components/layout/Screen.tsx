@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { ChevronLeft } from 'lucide-react';
+import {
+  GChevronLeft as ChevronLeft,
+} from '../../components/ui/glyphs';
 import { IconButton } from '../ui/IconButton';
 import { ICON, STROKE_STRONG } from '../ui/icons';
 

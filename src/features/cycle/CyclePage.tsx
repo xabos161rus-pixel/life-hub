@@ -1,5 +1,8 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Droplet, Info, Plus, SlidersHorizontal } from 'lucide-react';
+import { Droplet, Info, SlidersHorizontal } from 'lucide-react';
+import {
+  GPlus as Plus,
+} from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Button } from '../../components/ui/Button';

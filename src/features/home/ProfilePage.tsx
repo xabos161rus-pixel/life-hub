@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Camera, Trash2, User } from 'lucide-react';
+import { Camera, User } from 'lucide-react';
+import {
+  GTrash as Trash2,
+} from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';

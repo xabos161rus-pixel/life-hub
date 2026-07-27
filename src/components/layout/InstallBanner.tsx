@@ -1,5 +1,8 @@
 import { Link } from 'react-router';
-import { Share, X } from 'lucide-react';
+import { Share } from 'lucide-react';
+import {
+  GClose as X,
+} from '../../components/ui/glyphs';
 import { dismissInstallBanner, useInstallBannerVisible } from '../../hooks/useInstallBanner';
 import { HIT_SLOP_44 } from '../ui/Checkbox';
 

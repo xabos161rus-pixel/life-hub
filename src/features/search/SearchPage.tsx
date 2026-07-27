@@ -1,18 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { BatteryCharging, Bell, ListTodo, MapPin, MessagesSquare, SearchX, NotebookText, Target, GraduationCap, Wallet } from 'lucide-react';
 import {
-  BatteryCharging,
-  Bell,
-  ListTodo,
-  MapPin,
-  MessagesSquare,
-  Search,
-  SearchX,
-  NotebookText,
-  Target,
-  GraduationCap,
-  Wallet,
-} from 'lucide-react';
+  GSearch as Search,
+} from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';

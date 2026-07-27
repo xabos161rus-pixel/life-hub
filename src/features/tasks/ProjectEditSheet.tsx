@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Folder } from 'lucide-react';
+import {
+  GFolder as Folder,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, create, remove, update } from '../../db/repo';
 import type { Project } from '../../db/types';

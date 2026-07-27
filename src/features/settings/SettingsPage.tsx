@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
-import { BellRing, ChevronRight, GraduationCap, PhoneCall, SlidersHorizontal, Trash2,
-  Lightbulb,
-} from 'lucide-react';
+import { BellRing, GraduationCap, PhoneCall, SlidersHorizontal, Lightbulb } from 'lucide-react';
+import {
+  GChevronRight as ChevronRight,
+  GTrash as Trash2,
+} from '../../components/ui/glyphs';
 import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/sounds';
 import { RINGTONES, previewRingtone, type RingtoneKind } from '../../lib/family/ringtone';
 import { Screen } from '../../components/layout/Screen';

@@ -6,7 +6,11 @@ import type {
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react';
-import { ChevronDown, Search, X } from 'lucide-react';
+import {
+  GChevronDown as ChevronDown,
+  GSearch as Search,
+  GClose as X,
+} from '../../components/ui/glyphs';
 import { ICON, STROKE_STRONG } from './icons';
 
 const base =
