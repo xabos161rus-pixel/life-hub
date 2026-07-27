@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { UserPlus, LogOut, Pencil, Phone, UserMinus } from 'lucide-react';
+import { UserPlus, LogOut, UserMinus } from 'lucide-react';
+import {
+  GPencil as Pencil,
+  GPhone as Phone,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import type { FamilyMember } from '../../db/types';
 import { Button } from '../../components/ui/Button';

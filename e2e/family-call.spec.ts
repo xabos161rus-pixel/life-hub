@@ -1,0 +1,87 @@
+import { expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { openApp, test } from './fixtures';
+
+// Звонок из семейного экрана.
+//
+// Раньше трубка жила только внутри вкладки «Участники»: чтобы позвонить из
+// переписки, надо было уйти со списка сообщений, найти человека и вернуться.
+// Теперь она в шапке — то есть доступна и из чата, и из задач.
+
+/** Завести группу с заданными собеседниками (кроме себя). */
+async function seedFamily(page: Page, names: string[]) {
+  await page.evaluate(async (names) => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    const key = await generateKey();
+    await db.family.put({
+      id: 'f1',
+      familyId: 'f1',
+      familyToken: 't',
+      familyKey: key,
+      familyName: 'Наши',
+      selfMemberId: 'me',
+      lastSeq: 0,
+      lastReadSeq: 0,
+      enabled: true,
+      joinedAt: new Date().toISOString(),
+      keyEpoch: 0,
+      keyRing: { '0': key },
+    });
+    const mk = (id: string, name: string) => ({
+      id,
+      familyId: 'f1',
+      seq: 1,
+      displayName: name,
+      color: '#5b7cfa',
+      joinedAt: new Date().toISOString(),
+      leftAt: null,
+      removedAt: null,
+    });
+    await db.familyMembers.clear();
+    await db.familyMembers.bulkPut([
+      mk('me', 'Влад'),
+      ...names.map((n, i) => mk(`m${i}`, n)),
+    ]);
+  }, names);
+  await page.goto('/more/family?g=f1');
+  await expect(page.getByRole('heading', { name: 'Наши' })).toBeVisible();
+}
+
+test('в группе из двоих звонок идёт одним тапом, без выбора', async ({ page }) => {
+  // Спрашивать «кому?» там, где собеседник ровно один, — лишний экран на
+  // ровном месте. Признак прямого звонка — имя прямо в подписи кнопки.
+  await openApp(page, '/more/family');
+  await seedFamily(page, ['Отец']);
+  await expect(page.getByRole('button', { name: 'Позвонить: Отец' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Кому позвонить' })).toHaveCount(0);
+});
+
+test('в группе побольше открывается выбор со всеми участниками', async ({ page }) => {
+  await openApp(page, '/more/family');
+  await seedFamily(page, ['Отец', 'Брат', 'Партнёрша']);
+  await page.getByRole('button', { name: 'Позвонить', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Кому позвонить' })).toBeVisible();
+  for (const name of ['Отец', 'Брат', 'Партнёрша']) {
+    await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible();
+  }
+  // Себя в списке нет — позвонить самому себе нельзя.
+  await expect(page.getByRole('button', { name: /Влад/ })).toHaveCount(0);
+});
+
+test('звонок доступен ИЗ ЧАТА, а не только со списка участников', async ({ page }) => {
+  // Ради этого всё и затевалось: кнопка живёт в шапке, выше вкладок, и не
+  // исчезает при переходе на переписку.
+  await openApp(page, '/more/family');
+  await seedFamily(page, ['Отец', 'Брат']);
+  await page.getByRole('button', { name: 'Чат' }).click();
+  await expect(page.getByRole('button', { name: 'Позвонить', exact: true })).toBeVisible();
+});
+
+test('звонить некому — кнопки нет вовсе', async ({ page }) => {
+  // Показать трубку, чтобы потом сказать «в группе никого», хуже, чем не
+  // показывать её.
+  await openApp(page, '/more/family');
+  await seedFamily(page, []);
+  await expect(page.getByRole('button', { name: /Позвонить/ })).toHaveCount(0);
+});

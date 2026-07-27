@@ -1,5 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { Check } from 'lucide-react';
+import {
+  GCheck as Check,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, create, remove, update } from '../../db/repo';
 import type { Goal, GoalProgressMode, GoalStatus } from '../../db/types';

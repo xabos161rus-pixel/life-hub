@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { Link } from 'react-router';
+import {
+  GChevronLeft as ChevronLeft,
+} from '../../components/ui/glyphs';
 import { IconButton } from '../ui/IconButton';
 import { ICON, STROKE_STRONG } from '../ui/icons';
 
@@ -12,6 +15,14 @@ interface Props {
    *  собственный адрес компонент не размонтирует, состояние остаётся, и
    *  стрелка выглядит рабочей, ничего не делая. */
   onBack?: () => void;
+  /** Подпись рядом со стрелкой — КУДА она ведёт: «Заметки», имя папки.
+   *
+   *  Нужна экранам без собственного заголовка. У редактора заметки его роль
+   *  играет первая строка текста, поэтому title пустой, — и в шапке оставалась
+   *  одна голая стрелка без единого слова. В iOS на этом месте всегда стоит имя
+   *  родителя («‹ Все заметки»): оно и объясняет, куда вернёшься, и не спорит с
+   *  заголовком самой заметки, потому что набрано обычным кеглем. */
+  backLabel?: string;
   /** слот справа в шапке (кнопки) */
   right?: ReactNode;
   /** подзаголовок под title (например, дата) */
@@ -43,7 +54,51 @@ interface Props {
  *  Высоту таб-бара и safe-area сюда НЕ добавляем сознательно: таб-бар —
  *  соседний flex-элемент каркаса (App.tsx), а не наложение, свою safe-area он
  *  держит сам; контент физически заканчивается на его верхней границе. */
-export function Screen({ title, backTo, onBack, right, subtitle, fill = false, children }: Props) {
+/** Стрелка «Назад» с необязательной подписью. */
+function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void; label?: string }) {
+  if (!label) {
+    return (
+      <IconButton
+        icon={ChevronLeft}
+        label="Назад"
+        {...(onClick ? { onClick } : { to })}
+        size={ICON.accent}
+        strokeWidth={STROKE_STRONG}
+      />
+    );
+  }
+  // -ml-1 повторяет отступ IconButton: без него подписанная стрелка стояла бы
+  // на 4px правее обычной, и шапка прыгала бы при переходе между экранами.
+  const cls =
+    'relative -ml-1 flex min-h-11 shrink-0 items-center gap-0.5 pr-1 text-accent active:opacity-60';
+  const inner = (
+    <>
+      <ChevronLeft size={ICON.accent} strokeWidth={STROKE_STRONG} className="shrink-0" />
+      {/* max-w — чтобы длинное имя папки не съедало место у кнопок справа. */}
+      <span className="max-w-[7.5rem] truncate">{label}</span>
+    </>
+  );
+  return onClick ? (
+    <button type="button" aria-label={`Назад: ${label}`} onClick={onClick} className={cls}>
+      {inner}
+    </button>
+  ) : (
+    <Link to={to!} aria-label={`Назад: ${label}`} className={cls}>
+      {inner}
+    </Link>
+  );
+}
+
+export function Screen({
+  title,
+  backTo,
+  onBack,
+  backLabel,
+  right,
+  subtitle,
+  fill = false,
+  children,
+}: Props) {
   return (
     <div className={fill ? 'flex h-full flex-col' : 'min-h-full pb-[max(16px,var(--fab-space,0px))]'}>
       {/* Широкие экраны (Mac/Windows/iPad): контент — центральная колонка
@@ -54,13 +109,9 @@ export function Screen({ title, backTo, onBack, right, subtitle, fill = false, c
               у неё акцентный: обычным 1.5px шеврон рядом с жирным заголовком
               читался как случайная чёрточка. В iOS он тоже полужирный. */}
           {(backTo || onBack) && (
-            <IconButton
-              icon={ChevronLeft}
-              label="Назад"
-              {...(onBack ? { onClick: onBack } : { to: backTo })}
-              size={ICON.accent}
-              strokeWidth={STROKE_STRONG}
-            />
+            // Стрелка и подпись — одна кнопка, а не две рядом стоящие: в iOS
+            // «‹ Заметки» нажимается целиком, и палец туда и целится.
+            <BackControl to={backTo} onClick={onBack} label={backLabel} />
           )}
           <div className="min-w-0 flex-1">
             {/* Заголовок переносится на вторую строку вместо обрезки многоточием

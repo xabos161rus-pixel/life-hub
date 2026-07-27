@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Trash2 } from 'lucide-react';
+import {
+  GTrash as Trash2,
+} from '../../components/ui/glyphs';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Field, Textarea } from '../../components/ui/Input';

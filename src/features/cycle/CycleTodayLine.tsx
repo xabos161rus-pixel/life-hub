@@ -1,6 +1,8 @@
 import { Link } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronRight } from 'lucide-react';
+import {
+  GChevronRight as ChevronRight,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { todayKey } from '../../lib/dates';
 import { formatRu } from '../../lib/dates';

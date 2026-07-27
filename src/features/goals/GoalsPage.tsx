@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronDown, ChevronRight, Target } from 'lucide-react';
+import { Target } from 'lucide-react';
+import {
+  GChevronDown as ChevronDown,
+  GChevronRight as ChevronRight,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Goal } from '../../db/types';

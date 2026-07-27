@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
-import { Plus } from 'lucide-react';
+import {
+  GPlus as Plus,
+} from '../../components/ui/glyphs';
 import { usePomodoro } from '../../features/focus/pomodoro';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { useScrollDirection } from '../../hooks/useScrollDirection';

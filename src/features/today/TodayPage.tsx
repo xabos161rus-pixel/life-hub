@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { Search, Sun } from 'lucide-react';
+import { Sun } from 'lucide-react';
+import {
+  GSearch as Search,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Project, Task } from '../../db/types';

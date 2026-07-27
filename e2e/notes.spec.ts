@@ -277,6 +277,117 @@ test.describe('редактор', () => {
     await expect(page.locator('.note-editor s, .note-editor strike')).toHaveCount(1);
   });
 
+  test('кнопка списка не уносит каретку в начало строки', async ({ page }) => {
+    // execCommand пересобирает блок и ставит каретку в НАЧАЛО нового
+    // контейнера. Из-за этого «написал строку → нажал список → продолжил
+    // набор» дописывало текст ПЕРЕД уже написанным: «Покупки» + «молоко»
+    // давало «МолокоПокупки» одним пунктом.
+    await newNote(page);
+    await page.keyboard.type('Заголовок');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Покупки');
+    await page.getByRole('button', { name: 'Маркированный список' }).click();
+    await page.keyboard.type(' на неделю');
+    const item = await page.locator('.note-editor li').first().textContent();
+    expect(item).toBe('Покупки на неделю');
+  });
+
+  test('второй пункт списка начинается с заглавной буквы', async ({ page }) => {
+    // Клавиатура iOS капитализирует по пунктуации: заглавная идёт после точки.
+    // В списке точек нет — люди пишут пункты без них, — и второй пункт начинался
+    // со строчной, хотя каждый пункт это отдельное предложение.
+    await newNote(page);
+    await page.keyboard.type('Покупки');
+    await page.keyboard.press('Enter'); // заголовок остаётся заголовком
+    await page.getByRole('button', { name: 'Маркированный список' }).click();
+    await page.keyboard.type('молоко');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('хлеб');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('сыр');
+
+    const items = await page.locator('.note-editor li').allTextContents();
+    expect(items).toEqual(['Молоко', 'Хлеб', 'Сыр']);
+  });
+
+  test('регистр в СЕРЕДИНЕ строки не трогаем', async ({ page }) => {
+    // Обратная сторона: подниматься должна только первая буква строки. Иначе
+    // «и т.д.» превратилось бы в «И т.Д.», а это хуже, чем строчная в начале.
+    await newNote(page);
+    await page.keyboard.type('Заголовок');
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Маркированный список' }).click();
+    await page.keyboard.type('купить хлеб и молоко');
+    const item = await page.locator('.note-editor li').first().textContent();
+    expect(item).toBe('Купить хлеб и молоко');
+  });
+
+  test('первая строка заметки тоже с заглавной', async ({ page }) => {
+    await newNote(page);
+    await page.keyboard.type('заголовок заметки');
+    await expect(page.locator('.note-editor')).toContainText('Заголовок заметки');
+  });
+
+  test('блочная команда с начала строки не утаскивает текст в заголовок', async ({ page }) => {
+    // Самое дорогое, что нашёл предполётный аудит, и внёс это я сам, когда чинил
+    // прыжок каретки. Смещение по видимому тексту на границе строк
+    // неоднозначно: «конец строки N» и «начало строки N+1» — одно число, а
+    // восстановление разрешало ничью в пользу предыдущей строки. Предыдущая
+    // строка часто и есть заголовок: в списке заметок появлялось «Покупкихлеб».
+    await newNote(page);
+    await page.keyboard.type('Заголовок');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Покупки');
+    await page.keyboard.press('Home'); // каретка в начало строки
+    await page.getByRole('button', { name: 'Маркированный список' }).click();
+    await page.keyboard.type('хлеб');
+
+    const html = await page.locator('.note-editor').innerHTML();
+    expect(html, `заголовок испорчен: ${html}`).toContain('Заголовок<');
+    expect(html).not.toContain('Заголовокхлеб');
+    expect(html).not.toContain('ЗаголовокХлеб');
+  });
+
+  test('автозаглавную можно отменить — «iPhone» пишется как надо', async ({ page }) => {
+    // Без отмены строку НЕЛЬЗЯ начать со строчной вообще: «iPhone» → «IPhone»,
+    // почта → «Vladislaveeet@gmail.com», «sso-mil.ru» → «Sso-mil.ru». Стереть и
+    // набрать заново не помогало — поднимало снова. iOS так не делает: она
+    // запоминает отказ.
+    await newNote(page);
+    await page.keyboard.type('Товары');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('i');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('iPhone 15');
+    await expect(page.locator('.note-editor')).toContainText('iPhone 15');
+    await expect(page.locator('.note-editor')).not.toContainText('IPhone');
+  });
+
+  test('почта в начале строки не капитализируется после отмены', async ({ page }) => {
+    await newNote(page);
+    await page.keyboard.type('Контакты');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('v');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('vladislaveeet@gmail.com');
+    await expect(page.locator('.note-editor')).toContainText('vladislaveeet@gmail.com');
+  });
+
+  test('кнопка «Список задач» тоже не уносит каретку', async ({ page }) => {
+    // Правка каретки жила внутри exec(), а чек-лист вызывается своим
+    // обработчиком — и проходил мимо. Получалось, что одна кнопка списка
+    // чинена, а соседняя, самая ходовая, нет.
+    await newNote(page);
+    await page.keyboard.type('Дела');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Купить');
+    await page.getByRole('button', { name: 'Список задач' }).click();
+    await page.keyboard.type(' хлеб');
+
+    const item = await page.locator('.note-editor li').first().textContent();
+    expect(item).toBe('Купить хлеб');
+  });
+
   test('вставка из веба не приносит чужие классы', async ({ page }) => {
     // В конфиге санитайзера стоял ALLOWED_CLASSES — такой опции у DOMPurify
     // нет вовсе (она из sanitize-html), и незнакомые ключи он молча

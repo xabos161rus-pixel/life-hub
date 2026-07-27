@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { ArrowRight, Check, CheckCheck, ChevronsDown, Clock, Copy, Hand, Heart, Send, Pencil, Reply, Trash2, X, Paperclip, Mic, Play, Pause,
-  Loader2,
-} from 'lucide-react';
+import { ArrowRight, CheckCheck, ChevronsDown, Clock, Copy, Hand, Heart, Send, Reply, Paperclip, Mic, Play, Pause, Loader2 } from 'lucide-react';
+import {
+  GCheck as Check,
+  GPencil as Pencil,
+  GTrash as Trash2,
+  GClose as X,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';

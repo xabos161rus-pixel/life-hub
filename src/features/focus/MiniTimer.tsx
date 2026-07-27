@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { Pause, Play, RotateCcw, X } from 'lucide-react';
+import { Pause, Play, RotateCcw } from 'lucide-react';
+import {
+  GClose as X,
+} from '../../components/ui/glyphs';
 import { formatClock, usePomodoro } from './pomodoro';
 
 /** Полоска-таймер над таб-баром, пока идёт помодоро. Тап — открыть «Фокус». */

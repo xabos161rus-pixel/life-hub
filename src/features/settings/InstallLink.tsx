@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Check, Copy, ExternalLink } from 'lucide-react';
+import { Copy, ExternalLink } from 'lucide-react';
+import {
+  GCheck as Check,
+} from '../../components/ui/glyphs';
 import { INSTALL_URL } from '../../lib/appInstall';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 

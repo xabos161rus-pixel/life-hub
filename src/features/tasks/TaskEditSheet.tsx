@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { CircleX, Copy, ImagePlus, ListOrdered, Timer, X } from 'lucide-react';
+import { CircleX, Copy, ImagePlus, ListOrdered, Timer } from 'lucide-react';
+import {
+  GClose as X,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive, create, remove, uid, update } from '../../db/repo';
 import type { ChecklistItem, Priority, Project, Recurrence, Task } from '../../db/types';

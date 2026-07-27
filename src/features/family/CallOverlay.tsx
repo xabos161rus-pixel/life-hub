@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, Headphones, Lock } from 'lucide-react';
+import { PhoneOff, Mic, MicOff, Volume2, Headphones, Lock } from 'lucide-react';
+import {
+  GPhone as Phone,
+} from '../../components/ui/glyphs';
 import { callManager, type CallSnapshot } from '../../lib/family/familyCall';
 import { CallGuard } from './CallGuard';
 

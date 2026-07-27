@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
-import { GripVertical, LogOut, Pencil } from 'lucide-react';
+import { GripVertical, LogOut } from 'lucide-react';
+import {
+  GPencil as Pencil,
+} from '../../components/ui/glyphs';
 import type { FamilyConfig } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { reorderFamilies } from '../../lib/family/familyState';

@@ -1,4 +1,6 @@
-import { Check } from 'lucide-react';
+import {
+  GCheck as Check,
+} from '../../components/ui/glyphs';
 import { isLightColor, ON_COLOR_DARK } from '../../lib/colors';
 
 interface Props {

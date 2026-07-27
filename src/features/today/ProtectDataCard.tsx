@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { ChevronRight, ShieldCheck, X } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+import {
+  GChevronRight as ChevronRight,
+  GClose as X,
+} from '../../components/ui/glyphs';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { pushEnabled } from '../../lib/push';

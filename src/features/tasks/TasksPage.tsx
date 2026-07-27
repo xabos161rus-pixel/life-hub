@@ -11,7 +11,14 @@ import {
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Folder, FolderPlus, GripVertical, Hand, ListChecks, Pencil, Plus, Repeat, Snowflake, Sun } from 'lucide-react';
+import { ArrowLeft, ArrowRight, FolderPlus, GripVertical, Hand, ListChecks, Repeat, Snowflake, Sun } from 'lucide-react';
+import {
+  GChevronDown as ChevronDown,
+  GChevronRight as ChevronRight,
+  GFolder as Folder,
+  GPencil as Pencil,
+  GPlus as Plus,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { isTouch } from '../../lib/platform';
 import { alive, update } from '../../db/repo';
@@ -32,6 +39,7 @@ import { QuickAddBar } from './QuickAddBar';
 import { TaskEditSheet } from './TaskEditSheet';
 import { TaskItem } from './TaskItem';
 import { FreezeSheet } from './FreezeSheet';
+import { GoalsProgress } from './GoalsProgress';
 import { unfreezeAll, unfreezeTask } from './taskActions';
 import { STROKE, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
@@ -45,6 +53,19 @@ const SCROLL_STEP = 11; // px за кадр
 
 // Переупорядочивание проектов: удержание заголовка → drag.
 const LONG_PRESS_MS = 400; // удержание без движения → старт drag
+// Смена уровня при переносе проекта — по СДВИГУ пальца от точки нажатия, а не
+// по абсолютной координате.
+//
+// Абсолютный порог (было 64px от края) выглядел разумно ровно до замеров.
+// Название проекта начинается примерно с 68px — значит взявший папку за имя,
+// самую очевидную цель, уже стоял правее порога, и обычное переупорядочивание
+// молча превращалось во вложение. А шеврон и папка ПОДпроекта лежат левее —
+// и удержание за них с отпусканием НА МЕСТЕ выкидывало подпроект на верхний
+// уровень, хотя человек ничего не тянул.
+//
+// Сдвиг от точки нажатия не зависит ни от ширины экрана, ни от того, за какое
+// место схватились: не двинул по горизонтали — уровень не меняется вовсе.
+const NEST_DX = 40;
 const DRAG_CANCEL_MOVE = 8; // сдвиг до старта = скролл, а не drag — отменяем
 
 /** Ближайший прокручиваемый предок (overflow-y auto/scroll с переполнением). */
@@ -77,6 +98,95 @@ function ProjectFolderIcon({ project, size = 18 }: { project: Project; size?: nu
 /** Вложенная секция подпроекта внутри секции родителя: свой заголовок с цветной
  *  папкой, счётчиком и карандашом, свои задачи и «+ Задача». Тоже drop-зона —
  *  задачу можно перетащить прямо в подпроект. */
+/** Удержание заголовка → перетаскивание секции.
+ *
+ *  Общая машинка для проектов и подпроектов: раньше она жила только внутри
+ *  Section, из-за чего подпроект нельзя было сдвинуть вовсе. Тонкостей тут
+ *  больше, чем кажется, и дублировать их вторым экземпляром — верный способ
+ *  получить два разных поведения: блокировка нативного скролла ровно на время
+ *  жеста, захват указателя (иначе вертикальный перенос заберёт себе iOS),
+ *  отмена по сдвигу пальца (это скролл, а не удержание) и подавление клика
+ *  после удачного удержания (иначе секция ещё и свернётся). */
+function useHoldToReorder(
+  onReorderStart: ((at: { x: number; y: number }) => void) | undefined,
+  onToggle: () => void,
+) {
+  const pressTimer = useRef<number | null>(null);
+  const longFired = useRef(false);
+  const startPt = useRef({ x: 0, y: 0 });
+  const headerRef = useRef<HTMLButtonElement>(null);
+  const pointerIdRef = useRef(0);
+  const reorderable = Boolean(onReorderStart);
+
+  const cancelPress = () => {
+    if (pressTimer.current != null) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+  const endHeaderDrag = () => {
+    const el = headerRef.current;
+    if (!el) return;
+    el.style.touchAction = '';
+    try {
+      el.releasePointerCapture(pointerIdRef.current);
+    } catch {
+      /* указатель уже отпущен */
+    }
+  };
+
+  const headerProps = {
+    ref: headerRef,
+    onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!reorderable) return;
+      longFired.current = false;
+      startPt.current = { x: e.clientX, y: e.clientY };
+      pointerIdRef.current = e.pointerId;
+      cancelPress();
+      pressTimer.current = window.setTimeout(() => {
+        pressTimer.current = null;
+        longFired.current = true;
+        const el = headerRef.current;
+        if (el) {
+          el.style.touchAction = 'none';
+          try {
+            el.setPointerCapture(pointerIdRef.current);
+          } catch {
+            /* указатель уже неактивен */
+          }
+        }
+        onReorderStart?.(startPt.current);
+      }, LONG_PRESS_MS);
+    },
+    onPointerMove: (e: ReactPointerEvent<HTMLButtonElement>) => {
+      if (pressTimer.current == null) return;
+      if (
+        Math.abs(e.clientX - startPt.current.x) > DRAG_CANCEL_MOVE ||
+        Math.abs(e.clientY - startPt.current.y) > DRAG_CANCEL_MOVE
+      ) {
+        cancelPress();
+      }
+    },
+    onPointerUp: () => {
+      cancelPress();
+      endHeaderDrag();
+    },
+    onPointerCancel: () => {
+      cancelPress();
+      endHeaderDrag();
+    },
+    onClick: (e: ReactMouseEvent<HTMLButtonElement>) => {
+      if (longFired.current) {
+        e.preventDefault();
+        longFired.current = false;
+        return;
+      }
+      onToggle();
+    },
+  };
+  return { reorderable, headerProps };
+}
+
 function SubSection({
   project,
   count,
@@ -85,6 +195,8 @@ function SubSection({
   onEdit,
   dropRef,
   highlight = false,
+  onReorderStart,
+  isReorderSource = false,
   children,
 }: {
   project: Project;
@@ -94,18 +206,28 @@ function SubSection({
   onEdit: () => void;
   dropRef: (el: HTMLElement | null) => void;
   highlight?: boolean;
+  /** Удержание заголовка — перенести подпроект. */
+  onReorderStart?: (at: { x: number; y: number }) => void;
+  isReorderSource?: boolean;
   children: ReactNode;
 }) {
+  const { reorderable, headerProps } = useHoldToReorder(onReorderStart, onToggle);
   return (
     <div
       ref={dropRef}
       data-drop-key={project.id}
-      className={`mt-3 ml-1.5 rounded-2xl border-l-2 border-hairline pl-3 transition-[background-color] ${
+      data-sub-of={project.parentId ?? ''}
+      className={`mt-3 ml-1.5 rounded-2xl border-l-2 border-hairline pl-3 transition-[background-color,opacity] ${
         highlight ? 'border-accent bg-accent/10 ring-2 ring-accent' : ''
-      }`}
+      } ${isReorderSource ? 'opacity-40' : ''}`}
     >
       <div className="mb-1.5 flex items-center gap-1 pr-1">
-        <button onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+        <button
+          {...headerProps}
+          className={`flex min-w-0 flex-1 items-center gap-1.5 text-left ${
+            reorderable ? 'select-none [-webkit-touch-callout:none] [-webkit-user-select:none]' : ''
+          }`}
+        >
           <ChevronDown
             size={16}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
@@ -162,73 +284,7 @@ function Section({
   isReorderSource?: boolean;
   children: ReactNode;
 }) {
-  const reorderable = Boolean(onReorderStart);
-  const pressTimer = useRef<number | null>(null);
-  const longFired = useRef(false);
-  const startPt = useRef({ x: 0, y: 0 });
-  const headerRef = useRef<HTMLButtonElement>(null);
-  const pointerIdRef = useRef(0);
-
-  const cancelPress = () => {
-    if (pressTimer.current != null) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
-  };
-  const endHeaderDrag = () => {
-    const el = headerRef.current;
-    if (!el) return;
-    el.style.touchAction = '';
-    try {
-      el.releasePointerCapture(pointerIdRef.current);
-    } catch {
-      /* указатель уже отпущен */
-    }
-  };
-  const headerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!reorderable) return;
-    longFired.current = false;
-    startPt.current = { x: e.clientX, y: e.clientY };
-    pointerIdRef.current = e.pointerId;
-    cancelPress();
-    pressTimer.current = window.setTimeout(() => {
-      pressTimer.current = null;
-      longFired.current = true;
-      // Палец неподвижен — блокируем нативный скролл для этого касания и
-      // держим события на заголовке (иначе вертикальный перенос iOS заберёт).
-      const el = headerRef.current;
-      if (el) {
-        el.style.touchAction = 'none';
-        try {
-          el.setPointerCapture(pointerIdRef.current);
-        } catch {
-          /* указатель уже неактивен */
-        }
-      }
-      onReorderStart?.(startPt.current);
-    }, LONG_PRESS_MS);
-  };
-  const headerMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (pressTimer.current == null) return;
-    if (
-      Math.abs(e.clientX - startPt.current.x) > DRAG_CANCEL_MOVE ||
-      Math.abs(e.clientY - startPt.current.y) > DRAG_CANCEL_MOVE
-    ) {
-      cancelPress(); // палец поехал — это скролл, а не удержание
-    }
-  };
-  const onHeaderUp = () => {
-    cancelPress();
-    endHeaderDrag();
-  };
-  const headerClick = (e: ReactMouseEvent<HTMLButtonElement>) => {
-    if (longFired.current) {
-      e.preventDefault(); // был long-press — не сворачиваем секцию
-      longFired.current = false;
-      return;
-    }
-    onToggle();
-  };
+  const { reorderable, headerProps } = useHoldToReorder(onReorderStart, onToggle);
 
   return (
     <section
@@ -243,12 +299,7 @@ function Section({
           промах открывал бы редактирование проекта вместо сворачивания секции. */}
       <div className="mb-2 flex items-center gap-2 px-1">
         <button
-          ref={headerRef}
-          onClick={headerClick}
-          onPointerDown={headerDown}
-          onPointerMove={headerMove}
-          onPointerUp={onHeaderUp}
-          onPointerCancel={onHeaderUp}
+          {...headerProps}
           className={`flex flex-1 items-center gap-1.5 text-left ${
             reorderable ? 'select-none [-webkit-touch-callout:none] [-webkit-user-select:none]' : ''
           }`}
@@ -517,15 +568,28 @@ export function TasksPage() {
   // projInsertIndex — «зазор» (0..N), куда встанет проект; рисуем там линию.
   const [draggingProject, setDraggingProject] = useState<Project | null>(null);
   const [projInsertIndex, setProjInsertIndex] = useState<number | null>(null);
+  // Куда упадёт перетаскиваемый проект: id родителя или null — верхний уровень.
+  // Уровень задаётся ГОРИЗОНТАЛЬЮ пальца, как отступ в списке файлов: тянешь
+  // влево — становится отдельным проектом, вправо — вкладывается. Определять
+  // уровень по вертикали было бы гаданием: между «после проекта Бизнес» и
+  // «первым подпроектом внутри Бизнеса» одна и та же точка на экране.
+  const [dropParent, setDropParent] = useState<string | null>(null);
+  const dropParentRef = useRef<string | null>(null);
   const projInsertRef = useRef<number | null>(null);
   const projectsRef = useRef<Project[]>([]);
+  const childrenRef = useRef<Map<string, Project[]>>(new Map());
+  const startXRef = useRef(0);
 
   const onProjectReorderStart = useCallback((p: Project, at: { x: number; y: number }) => {
     pointerRef.current = at; // стартовая позиция пальца — «призрак» из неё, не из угла
+    startXRef.current = at.x; // от неё же считается сдвиг, решающий уровень
     setPointer(at);
     const idx = projectsRef.current.findIndex((x) => x.id === p.id);
     projInsertRef.current = idx;
     setProjInsertIndex(idx);
+    const parent = p.parentId ?? null;
+    dropParentRef.current = parent;
+    setDropParent(parent);
     setDraggingProject(p);
   }, []);
 
@@ -685,25 +749,48 @@ export function TasksPage() {
     const anySection = sectionNodes.current.values().next().value ?? null;
     const scroller = getScrollParent(anySection);
 
-    const refreshDrop = (y: number) => {
-      // Зазор вставки = сколько проектов своей серединой выше пальца.
+    // У проекта, внутри которого уже лежат подпроекты, вкладывать некуда:
+    // уровней ровно два, и третий превратил бы список в дерево, по которому на
+    // телефоне не попасть пальцем.
+    const canNest = (childrenRef.current.get(dp.id) ?? []).length === 0;
+
+    const refreshDrop = (x: number, y: number) => {
+      // Зазор вставки = сколько проектов верхнего уровня своей серединой выше
+      // пальца. Считаем по ним даже при переносе подпроекта: подпроект едет
+      // «между проектами», а внутрь какого именно — решает горизонталь.
       let idx = 0;
+      let hovered: string | null = null;
       for (const proj of projectsRef.current) {
         const el = sectionNodes.current.get(proj.id);
         if (!el || !el.isConnected) continue;
         const r = el.getBoundingClientRect();
         if (y > r.top + r.height / 2) idx++;
+        if (proj.id !== dp.id && y >= r.top && y <= r.bottom) hovered = proj.id;
       }
+      // Уровень меняется только при осознанном сдвиге вбок. Вправо — внутрь
+      // того, над кем стоим; влево — наружу. Между порогами уровень остаётся
+      // прежним: человек просто двигает по вертикали.
+      const dx = x - startXRef.current;
+      const parent =
+        dx > NEST_DX && canNest && hovered
+          ? hovered
+          : dx < -NEST_DX
+            ? null
+            : (dp.parentId ?? null);
       if (idx !== projInsertRef.current) {
         projInsertRef.current = idx;
         setProjInsertIndex(idx);
+      }
+      if (parent !== dropParentRef.current) {
+        dropParentRef.current = parent;
+        setDropParent(parent);
       }
     };
     const move = (e: PointerEvent) => {
       e.preventDefault();
       pointerRef.current = { x: e.clientX, y: e.clientY };
       setPointer({ x: e.clientX, y: e.clientY });
-      refreshDrop(e.clientY);
+      refreshDrop(e.clientX, e.clientY);
     };
     let raf = 0;
     const tick = () => {
@@ -714,30 +801,52 @@ export function TasksPage() {
         if (y < r.top + SCROLL_EDGE && scroller.scrollTop > 0) scroller.scrollTop -= SCROLL_STEP;
         else if (y > r.bottom - SCROLL_EDGE && scroller.scrollTop < max) scroller.scrollTop += SCROLL_STEP;
       }
-      refreshDrop(y);
+      refreshDrop(pointerRef.current.x, y);
       raf = requestAnimationFrame(tick);
     };
     const finish = () => {
       const insertIndex = projInsertRef.current;
-      const ids = projectsRef.current.map((p) => p.id);
-      const from = ids.indexOf(dp.id);
-      if (from !== -1 && insertIndex != null) {
-        const next = ids.filter((id) => id !== dp.id);
-        const insertAt = insertIndex > from ? insertIndex - 1 : insertIndex;
-        next.splice(insertAt, 0, dp.id);
-        const changed = next.some((id, i) => ids[i] !== id);
-        if (changed) {
-          next.forEach((id, i) => {
-            const cur = projectsRef.current.find((p) => p.id === id);
-            const order = (i + 1) * 1000;
-            if (cur && cur.sortOrder !== order) void update(db.projects, id, { sortOrder: order });
-          });
-          toast('Порядок проектов обновлён');
+      const parent = dropParentRef.current;
+      const was = dp.parentId ?? null;
+
+      if (parent !== was) {
+        // Смена уровня. Порядок внутри нового дома считаем от конца: втискивать
+        // подпроект в середину чужого списка по вертикальной позиции нельзя —
+        // она мерилась по проектам ВЕРХНЕГО уровня, а не по его будущим
+        // соседям, и получилось бы наугад.
+        const siblings = parent
+          ? (childrenRef.current.get(parent) ?? [])
+          : projectsRef.current;
+        const last = siblings.reduce((m, x) => Math.max(m, x.sortOrder), 0);
+        void update(db.projects, dp.id, { parentId: parent, sortOrder: last + 1000 });
+        const name = parent
+          ? projectsRef.current.find((x) => x.id === parent)?.name
+          : null;
+        toast(name ? `«${dp.name}» теперь внутри «${name}»` : `«${dp.name}» стал отдельным проектом`);
+      } else if (!was) {
+        // Уровень тот же и он верхний — обычное переупорядочивание.
+        const ids = projectsRef.current.map((p) => p.id);
+        const from = ids.indexOf(dp.id);
+        if (from !== -1 && insertIndex != null) {
+          const next = ids.filter((id) => id !== dp.id);
+          const insertAt = insertIndex > from ? insertIndex - 1 : insertIndex;
+          next.splice(insertAt, 0, dp.id);
+          if (next.some((id, i) => ids[i] !== id)) {
+            next.forEach((id, i) => {
+              const cur = projectsRef.current.find((p) => p.id === id);
+              const order = (i + 1) * 1000;
+              if (cur && cur.sortOrder !== order) void update(db.projects, id, { sortOrder: order });
+            });
+            toast('Порядок проектов обновлён');
+          }
         }
       }
+
       projInsertRef.current = null;
+      dropParentRef.current = null;
       setDraggingProject(null);
       setProjInsertIndex(null);
+      setDropParent(null);
     };
     const preventScroll = (ev: TouchEvent) => ev.preventDefault();
     window.addEventListener('pointermove', move, { passive: false });
@@ -808,6 +917,15 @@ export function TasksPage() {
     () => projects.filter((p) => !p.parentId || !projectById.has(p.parentId)),
     [projects, projectById],
   );
+  const dropHint = useMemo(() => {
+    if (!draggingProject) return '';
+    const was = draggingProject.parentId ?? null;
+    if (dropParent === was) return was ? 'Останется здесь' : 'Поменяет порядок';
+    if (!dropParent) return 'Станет отдельным проектом';
+    const name = projects.find((x) => x.id === dropParent)?.name ?? '';
+    return `Внутрь «${name}»`;
+  }, [draggingProject, dropParent, projects]);
+
   const childrenByParent = useMemo(() => {
     const map = new Map<string, Project[]>();
     for (const p of projects) {
@@ -819,12 +937,18 @@ export function TasksPage() {
     return map;
   }, [projects, projectById]);
 
-  // Синк имён проектов в ref для тоста переноса (читается в pointerup-обработчике).
+  // Синк в ref для обработчиков перетаскивания: они висят на window и читают
+  // состояние в момент отпускания пальца, а не в момент подписки.
   useEffect(() => {
     projectNamesRef.current = new Map(projects.map((p) => [p.id, p.name]));
-    // Переупорядочивание перетаскиванием — только для секций верхнего уровня.
+    // Вертикальный порядок считается по секциям верхнего уровня даже при
+    // переносе подпроекта: он едет «между проектами», а внутрь какого именно —
+    // решает горизонталь пальца.
     projectsRef.current = topProjects;
-  }, [projects, topProjects]);
+    // Дети нужны, чтобы знать, куда класть по порядку в новом родителе и
+    // можно ли вкладывать вообще (у проекта с детьми — нельзя, уровней два).
+    childrenRef.current = childrenByParent;
+  }, [projects, topProjects, childrenByParent]);
   // «Пока нет задач» до ответа Dexie — самая заметная ложь в приложении:
   // человек с сотней задач видит её при каждом заходе. Проекты в том же
   // условии: без них список отрисовался бы без разбивки по секциям.
@@ -925,6 +1049,10 @@ export function TasksPage() {
     >
       <QuickAddBar />
 
+      {/* Приближение к целям — сразу под строкой добавления. Выше неё нельзя:
+          первое, зачем открывают экран задач, — записать задачу. */}
+      <GoalsProgress />
+
       {tagOptions.length > 0 && (
         <div className="mb-4">
           <ChipRow>
@@ -963,13 +1091,13 @@ export function TasksPage() {
                       { icon: ArrowRight, text: <>Свайп по задаче вправо — выполнить</> },
                       { icon: ArrowLeft, text: <>Свайп влево — «Завтра» или «Удалить»</> },
                       { icon: Hand, text: <>Удержание задачи — перенести в другую папку</> },
-                      { icon: GripVertical, text: <>Удержание заголовка папки — поменять порядок</> },
+                      { icon: GripVertical, text: <>Удержание заголовка папки — перенести её; влево — вынести наружу</> },
                     ]
                   : [
                       { icon: ArrowRight, text: <>Потяните задачу мышью вправо — выполнить</> },
                       { icon: ArrowLeft, text: <>Влево — «Завтра» или «Удалить»</> },
                       { icon: Hand, text: <>Зажмите задачу — перенести в другую папку</> },
-                      { icon: GripVertical, text: <>Зажмите заголовок папки — поменять порядок</> },
+                      { icon: GripVertical, text: <>Зажмите заголовок папки — перенести; влево — вынести наружу</> },
                     ]
               }
             />
@@ -1030,6 +1158,8 @@ export function TasksPage() {
                         onEdit={() => openProject(sub)}
                         dropRef={registerSection}
                         highlight={Boolean(draggingTask) && dropKey === sub.id}
+                        onReorderStart={(at) => onProjectReorderStart(sub, at)}
+                        isReorderSource={draggingProject?.id === sub.id}
                       >
                         {subDone.length > 0 && (
                           <CompletedSubsection
@@ -1146,10 +1276,21 @@ export function TasksPage() {
       )}
       {draggingProject && (
         <div
-          className="pointer-events-none fixed z-[70] max-w-[70vw] -translate-y-1/2 translate-x-3 truncate rounded-xl border border-accent bg-elevated px-3 py-2 text-sm font-semibold shadow-lg shadow-black/30 opacity-95"
+          className="pointer-events-none fixed z-[70] max-w-[78vw] -translate-y-1/2 translate-x-3 rounded-xl border border-accent bg-elevated px-3 py-2 shadow-lg shadow-black/30 opacity-95"
           style={{ left: pointer.x, top: pointer.y }}
         >
-          {draggingProject.emoji} {draggingProject.name}
+          <span className="block truncate text-sm font-semibold">
+            {draggingProject.emoji} {draggingProject.name}
+          </span>
+          {/* Что произойдёт при отпускании — словами, на самой плашке.
+              Уровень задаётся горизонталью пальца, а горизонталь — вещь
+              неочевидная: без подписи человек отпускает и узнаёт результат
+              постфактум. Строка есть всегда, даже когда ничего не меняется, —
+              «останется на месте» тоже ответ, и молчание вместо него читалось
+              бы как «подсказка сломалась». */}
+          <span className="block truncate text-xs font-medium text-accent">
+            {dropHint}
+          </span>
         </div>
       )}
     </Screen>

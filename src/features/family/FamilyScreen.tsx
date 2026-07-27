@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { BellRing, X } from 'lucide-react';
+import { BellRing } from 'lucide-react';
+import {
+  GClose as X,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { connectionState, subscribeConnection, subscribePresence, registerAllFamilyPush } from '../../lib/family/familyChat';

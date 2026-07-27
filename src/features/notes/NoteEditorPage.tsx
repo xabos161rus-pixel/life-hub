@@ -8,13 +8,28 @@ import {
 } from 'react';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { Bold, Italic, List, ListOrdered, ListChecks, Heading, Strikethrough, Quote, Undo2, Pin, SlidersHorizontal, Trash2, Type } from 'lucide-react';
+import { Bold, Italic, Heading, Strikethrough, Pin, SlidersHorizontal, Type } from 'lucide-react';
+import {
+  GBullets as List,
+  GChecklist as ListChecks,
+  GNumbers as ListOrdered,
+  GQuote as Quote,
+  GTrash as Trash2,
+  GUndo as Undo2,
+} from '../../components/ui/glyphs';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
 import { MicButton } from '../../components/ui/MicButton';
 import { Hint } from '../../components/ui/Hint';
 import { db } from '../../db/db';
-import { normalizeEditor } from './editorDom';
+import {
+  caretAtLineStart,
+  caretLineHasText,
+  caretOffset,
+  normalizeEditor,
+  setCaretAtOffset,
+} from './editorDom';
+import { isRefused, shouldCapitalize, type CapitalizeMemo } from './autocapitalize';
 import {
   CHECKLIST_CLASS,
   closestChecklistItem,
@@ -27,6 +42,9 @@ import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
 
 const AUTOSAVE_MS = 600;
+
+/** Команды, которые пересобирают блок вокруг каретки, а не красят выделение. */
+const BLOCK_COMMANDS = new Set(['insertUnorderedList', 'insertOrderedList', 'formatBlock']);
 
 // Содержимое — это HTML из contentEditable. Чистим перед записью: заметки
 // свои, не импортированные, но санитайз защищает от вставленного из буфера.
@@ -113,6 +131,8 @@ export function NoteEditorPage() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pinnedRef = useRef(false);
   const savingRef = useRef(false);
+  // Последняя автозаглавная — чтобы человек мог её отменить (см. autocapitalize.ts).
+  const capMemo = useRef<CapitalizeMemo | null>(null);
 
   const [pinned, setPinned] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -155,6 +175,39 @@ export function NoteEditorPage() {
     document.addEventListener('selectionchange', syncActive);
     return () => document.removeEventListener('selectionchange', syncActive);
   }, [syncActive]);
+
+  // Заглавная буква в начале строки и пункта списка. Вешаем НАТИВНЫЙ
+  // beforeinput: у React-обёртки над этим событием нет inputType, без которого
+  // не отличить набор с клавиатуры от вставки, автозамены или диктовки —
+  // поднимать регистр надо только в первом случае.
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    const onBeforeInput = (e: Event) => {
+      const ev = e as InputEvent;
+      // Человек стёр символ — возможно, ровно нашу подстановку. Помечаем и
+      // ждём: если следом придёт та же буква в то же место, значит он с нами
+      // не согласен и настаивает на строчной.
+      if (ev.inputType.startsWith('deleteContent')) {
+        if (capMemo.current) capMemo.current.undone = true;
+        return;
+      }
+      if (ev.inputType !== 'insertText') return;
+      const here = caretOffset(el) ?? -1;
+      if (isRefused(capMemo.current, ev.data ?? '', here)) {
+        capMemo.current = null; // уважили отказ — дальше эта позиция обычная
+        return;
+      }
+      if (!shouldCapitalize(el, document.getSelection(), ev.data)) return;
+      ev.preventDefault();
+      // execCommand, а не ручная правка DOM: он сам двигает каретку и, главное,
+      // пишется в стек отмены — иначе «отменить» перепрыгивало бы через букву.
+      document.execCommand('insertText', false, ev.data!.toUpperCase());
+      capMemo.current = { char: ev.data!, offset: caretOffset(el) ?? -1, undone: false };
+    };
+    el.addEventListener('beforeinput', onBeforeInput);
+    return () => el.removeEventListener('beforeinput', onBeforeInput);
+  }, []);
 
   useEffect(() => {
     pinnedRef.current = pinned;
@@ -351,7 +404,57 @@ export function NoteEditorPage() {
     [touch],
   );
 
+  /** Выполнить блочную операцию, сохранив позицию каретки.
+   *
+   *  Обёртка, а не копипаста внутрь exec(): чек-лист — не execCommand-команда,
+   *  у него свой toggleChecklist, и он проходил МИМО починки каретки. Получалось,
+   *  что «Маркированный список» ведёт себя правильно, а «Список задач» рядом —
+   *  по-старому, хотя это самая ходовая кнопка в редакторе. */
+  const withCaret = (run: () => void) => {
+    const el = editorRef.current;
+    const sel0 = document.getSelection();
+    const safeToRestore =
+      Boolean(el) &&
+      Boolean(sel0?.isCollapsed) &&
+      caretLineHasText(el!) &&
+      !caretAtLineStart(el!);
+    const before = safeToRestore ? caretOffset(el!) : null;
+    run();
+    if (el) {
+      el.focus();
+      if (before !== null) setCaretAtOffset(el, before);
+    }
+    syncActive();
+    touch();
+  };
+
   const exec = (command: string, value?: string) => {
+    const el = editorRef.current;
+    // Куда смотрела каретка ДО команды. Нужно, потому что дальше идёт focus(),
+    // а фокус на контейнере, потерявшем выделение, ставит каретку в САМОЕ
+    // НАЧАЛО. Из-за этого «написал заголовок → нажал список» превращало
+    // следующий набор в ввод перед существующим текстом: «Покупки» + «молоко»
+    // давало «МолокоПокупки» одним пунктом.
+    // Смещение запоминаем только когда возвращать его действительно надо и
+    // безопасно. Три условия, и каждое стоило отдельного дефекта:
+    //
+    //  · строка непустая — на пустой смещение неотличимо от конца предыдущей;
+    //  · каретка НЕ в начале строки — там та же ничья: «конец строки N» и
+    //    «начало строки N+1» дают одно число, а setCaretAtOffset разрешает её
+    //    в пользу предыдущего узла. Из-за этого набор после кнопки списка
+    //    падал в конец прошлой строки, а прошлая строка — часто заголовок
+    //    заметки: в списке появлялось «Покупкихлеб»;
+    //  · выделение схлопнуто — иначе восстановление убивает само выделение, и
+    //    повторное нажатие (которым здесь снимают формат) применяло его к
+    //    заголовку вместо снятия с выделенных строк.
+    const sel0 = document.getSelection();
+    const safeToRestore =
+      Boolean(el) &&
+      Boolean(sel0?.isCollapsed) &&
+      caretLineHasText(el!) &&
+      !caretAtLineStart(el!);
+    const before = safeToRestore ? caretOffset(el!) : null;
+
     // тег-based разметка (<b>/<i>), иначе на Gecko execCommand даёт
     // <span style> и наш санитайзер срезал бы форматирование
     document.execCommand('styleWithCSS', false, 'false');
@@ -365,7 +468,19 @@ export function NoteEditorPage() {
     } else {
       document.execCommand(command);
     }
-    editorRef.current?.focus();
+
+    if (el) {
+      el.focus();
+      // Возвращаем каретку после команд, ПЕРЕСОБИРАЮЩИХ блок. Они уносят её в
+      // начало нового контейнера — формально каретка не потеряна, но стоит не
+      // там, где человек её оставил. Смещение считается по видимому тексту,
+      // поэтому переживает смену обёрток <div> → <li>.
+      //
+      // Инлайновые команды (жирный, курсив, зачёркивание) сюда не входят
+      // намеренно: они работают с выделением, и навязывать им схлопнутую
+      // каретку значило бы снимать выделение после каждого нажатия.
+      if (BLOCK_COMMANDS.has(command) && before !== null) setCaretAtOffset(el, before);
+    }
     syncActive();
     touch();
   };
@@ -394,6 +509,7 @@ export function NoteEditorPage() {
     <Screen
       title=""
       backTo="/notes"
+      backLabel="Заметки"
       right={
         <div className="flex items-center gap-1">
           <MicButton onText={appendVoice} />
@@ -430,6 +546,9 @@ export function NoteEditorPage() {
         className="note-editor"
         contentEditable
         suppressContentEditableWarning
+        autoCapitalize="sentences"
+        autoCorrect="on"
+        spellCheck
         data-placeholder="Заголовок"
         onPaste={(e) => {
           // Чистим вставку ДО попадания в DOM: иначе <img onerror>/скрипт из
@@ -475,13 +594,15 @@ export function NoteEditorPage() {
       >
         <div className="mx-auto flex w-full max-w-lg items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ToolBtn
-          onClick={() => {
-            const el = editorRef.current;
-            if (!el) return;
-            el.focus();
-            toggleChecklist(el);
-            touch();
-          }}
+          onClick={() =>
+            withCaret(() => {
+              const el = editorRef.current;
+              if (el) {
+                el.focus();
+                toggleChecklist(el);
+              }
+            })
+          }
           label="Список задач"
           active={active.checklist}
         >

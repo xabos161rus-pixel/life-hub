@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check } from 'lucide-react';
+import {
+  GCheck as Check,
+} from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';

@@ -1,5 +1,8 @@
 import { useRef, useState, type ChangeEvent } from 'react';
-import { ImagePlus, X } from 'lucide-react';
+import { ImagePlus } from 'lucide-react';
+import {
+  GClose as X,
+} from '../../components/ui/glyphs';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';

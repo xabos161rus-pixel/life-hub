@@ -1,7 +1,12 @@
 import { useMemo, useRef, useState, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { Pin, Search, NotebookText, FolderPlus, ChevronLeft, Check } from 'lucide-react';
+import { Pin, NotebookText, FolderPlus } from 'lucide-react';
+import {
+  GSearch as Search,
+  GChevronLeft as ChevronLeft,
+  GCheck as Check,
+} from '../../components/ui/glyphs';
 import { useNavigate } from 'react-router';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
@@ -115,7 +120,13 @@ function NoteRow({
         </button>
       )}
       <div
-        className="card relative flex touch-pan-y items-start gap-2 p-4"
+        // Выделение текста здесь запрещено намеренно. Строка списка — кнопка,
+        // а не текст для копирования: удержание на ней открывает выбор папки,
+        // и по дороге iOS успевала выделить заголовок синим и показать своё
+        // меню «Скопировать / Найти». Два действия на один жест, и оба видны
+        // одновременно. [-webkit-touch-callout:none] убирает системное меню,
+        // select-none — саму подсветку.
+        className="card relative flex touch-pan-y items-start gap-2 p-4 select-none [-webkit-touch-callout:none] [-webkit-user-select:none]"
         style={{
           // transform только во время свайпа: translateX(0px) в покое сам по
           // себе ломал обрезку по скруглению на WebKit.

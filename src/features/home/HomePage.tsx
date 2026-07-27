@@ -1,5 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronRight, Cloud, CloudOff, Settings as SettingsIcon, User } from 'lucide-react';
+import { User } from 'lucide-react';
+import {
+  GChevronRight as ChevronRight,
+  GCloud as Cloud,
+  GCloudOff as CloudOff,
+  GSettings as SettingsIcon,
+} from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Screen } from '../../components/layout/Screen';

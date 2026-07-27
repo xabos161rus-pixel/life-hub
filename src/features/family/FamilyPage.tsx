@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus, SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
+import {
+  GPlus as Plus,
+} from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import type { FamilyConfig } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
@@ -10,6 +13,7 @@ import { Button } from '../../components/ui/Button';
 import { listFamilyConfigs } from '../../lib/family/familyState';
 import { FamilyOnboarding, CreateFamilySheet, JoinFamilySheet } from './FamilyOnboarding';
 import { FamilyScreen } from './FamilyScreen';
+import { CallButton } from './CallButton';
 import { ManageGroupsSheet } from './ManageGroupsSheet';
 
 const ACTIVE_KEY = 'life-hub-active-family';
@@ -59,7 +63,7 @@ export function FamilyPage() {
   const current = configs.find((c) => c.familyId === selected)!;
 
   return (
-    <Screen title={current.familyName} backTo="/home" fill>
+    <Screen title={current.familyName} backTo="/home" right={<CallButton familyId={selected} />} fill>
       <div className="flex h-full flex-col">
         <GroupSwitcher
           configs={configs}

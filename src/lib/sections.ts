@@ -1,23 +1,26 @@
+import type { LucideIcon } from 'lucide-react';
+// Глифы собственные (см. components/ui/glyphs.tsx): реестр разделов кормит
+// иконками и таб-бар, и плитки «Главной» — то есть ровно те два места, где
+// набор виден постоянно и любая лишняя деталь читается как шум.
 import {
-  Sun,
-  ListTodo,
-  NotebookText,
-  Users,
-  House,
-  CalendarDays,
-  Sparkles,
-  Timer,
-  CalendarCheck,
-  Target,
-  GraduationCap,
-  Wallet,
-  BatteryCharging,
-  MapPin,
-  ChartColumnBig,
-  Droplet,
-  Settings as SettingsIcon,
-  type LucideIcon,
-} from 'lucide-react';
+  GSun as Sun,
+  GTasks as ListTodo,
+  GNotes as NotebookText,
+  GFamily as Users,
+  GHome as House,
+  GCalendar as CalendarDays,
+  GSparkle as Sparkles,
+  GTimer as Timer,
+  GHabits as CalendarCheck,
+  GTarget as Target,
+  GLearning as GraduationCap,
+  GFinance as Wallet,
+  GEnergy as BatteryCharging,
+  GPlaces as MapPin,
+  GStats as ChartColumnBig,
+  GDrop as Droplet,
+  GSettings as SettingsIcon,
+} from '../components/ui/glyphs';
 
 // Единый реестр разделов навигации. Раньше данные были разбросаны между TabBar
 // и MorePage; теперь один источник, из которого собираются и нижняя панель, и

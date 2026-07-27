@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { Plus, ScanLine, ImageUp } from 'lucide-react';
+import { ScanLine, ImageUp } from 'lucide-react';
+import {
+  GPlus as Plus,
+} from '../../components/ui/glyphs';
 import { Sheet } from '../../components/ui/Sheet';
 import { Field, Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
