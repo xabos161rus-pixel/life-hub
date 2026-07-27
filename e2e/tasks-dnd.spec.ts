@@ -51,14 +51,14 @@ async function projectOf(page: Page, id: string) {
   }, id);
 }
 
-// ЗНАЕМ, ЧТО НЕ ПРОХОДИТ, и это не регрессия: тот же тест падает на origin/main,
-// то есть до всех правок этой порции. Под управлением Playwright перенос
-// доходит до конца визуально — плашка едет за курсором, секция-цель
-// подсвечивается, — но запись в базу не происходит. Отличить «сломано в
-// приложении» от «синтетические pointer-события ведут себя иначе, чем палец»
-// отсюда нельзя: на настоящем тач-устройстве этот путь ни разу не проверялся.
-// Оставлен как fixme, а не удалён: удалить — значит забыть.
-test.fixme('задачу можно перетащить в другой проект', async ({ page }) => {
+// Этот тест долго лежал как fixme с пометкой «может, дело в синтетических
+// событиях». Дело было не в них. Замер показал: пока палец идёт к проекту
+// ниже, он задевает нижние 72px, включается авто-скролл на 11px за кадр
+// (≈660px/с) — и список уходит на все доступные 368px за доли секунды. Цель
+// уезжает выше пальца, под пальцем пустота, hitTest даёт null, а null в
+// finish означал «не делать ничего». Молча. Чинилось двумя правками: разгон
+// скорости от края зоны и запрет обнулять цель промахом.
+test('задачу можно перетащить в другой проект', async ({ page }) => {
   await openApp(page, '/tasks');
   await seed(page);
   expect(await projectOf(page, 't1')).toBe('p1');
@@ -118,4 +118,96 @@ test('после переноса заголовок не сворачивает
   // Задача осталась видна: секция «Бизнес» не свернулась от клика, которого
   // человек не делал.
   await expect(page.getByText('Позвонить поставщику')).toBeVisible();
+});
+
+/** Геометрия прокручиваемого контейнера списка — в нём и живёт авто-скролл. */
+async function scrollerBox(page: Page) {
+  return page.evaluate(() => {
+    const sec = document.querySelector('[data-drop-key]');
+    let el = sec?.parentElement ?? null;
+    while (el) {
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) {
+        const r = el.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, scrollTop: el.scrollTop, max: el.scrollHeight - el.clientHeight };
+      }
+      el = el.parentElement;
+    }
+    return null;
+  });
+}
+
+/** Много задач — чтобы списку было куда прокручиваться. */
+async function seedMany(page: Page, n: number) {
+  await page.evaluate(async (n) => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    await db.projects.clear();
+    await db.tasks.clear();
+    await db.projects.bulkPut([
+      { id: 'p1', createdAt: now, updatedAt: now, deletedAt: null, name: 'Бизнес', color: '#5b7cfa', emoji: '💼', sortOrder: 1000, archivedAt: null },
+      { id: 'p2', createdAt: now, updatedAt: now, deletedAt: null, name: 'Здоровье', color: '#3aa35e', emoji: '🏃', sortOrder: 2000, archivedAt: null },
+    ]);
+    await db.tasks.bulkPut(
+      Array.from({ length: n }, (_, i) => ({
+        id: `t${i}`, createdAt: now, updatedAt: now, deletedAt: null,
+        title: `Задача ${i}`, notes: '', projectId: 'p1', goalId: null, priority: 0,
+        dueDate: null, dueTime: null, duration: null, remindBefore: null,
+        completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: (i + 1) * 1000,
+      })),
+    );
+  }, n);
+  await page.goto('/tasks');
+  await expect(page.getByRole('heading', { name: 'Задачи' })).toBeVisible();
+}
+
+test('авто-скролл у края не уносит список из-под пальца', async ({ page }) => {
+  // Было: 11px за кадр — ≈660px/с, весь экран задач за полсекунды. Человек вёл
+  // задачу к проекту ниже, задевал краевую зону, и цель уезжала выше пальца
+  // раньше, чем он до неё доходил. Теперь скорость растёт от нуля на границе
+  // зоны: чуть зашёл — чуть подкрутилось.
+  await openApp(page, '/tasks');
+  await seedMany(page, 40);
+
+  await hold(page, 'Задача 0');
+  const box = (await scrollerBox(page))!;
+  expect(box.max, 'списку некуда прокручиваться — мерить нечего').toBeGreaterThan(300);
+
+  // На 2px внутрь краевой зоны: это «едва задел», а не «прижал к краю».
+  await page.mouse.move(200, box.bottom - 70, { steps: 6 });
+  await page.waitForTimeout(600);
+  const after = (await scrollerBox(page))!;
+  await page.mouse.up();
+
+  const moved = after.scrollTop - box.scrollTop;
+  expect(moved, 'у границы зоны скролл обязан идти, иначе до цели не добраться').toBeGreaterThan(0);
+  // 600мс × 60Гц ≈ 36 кадров. Со старой постоянной скоростью — под 400px, то
+  // есть весь запас; с разгоном у границы — десятки.
+  expect(moved, `за 600мс уехало ${moved}px — снова уносит`).toBeLessThan(150);
+});
+
+test('промах в пустоту не теряет цель, на которую наводились', async ({ page }) => {
+  // Ниже последней секции нет ни одной drop-зоны, и hitTest там даёт null.
+  // Раньше null стирал цель, а finish на пустой цели молчал: ни переноса, ни
+  // тоста, ни объяснения — жест просто исчезал.
+  await openApp(page, '/tasks');
+  await seed(page);
+
+  await hold(page, 'Позвонить поставщику');
+  const health = (await page.getByText('Здоровье', { exact: true }).first().boundingBox())!;
+  await page.mouse.move(health.x + 40, health.y + 30, { steps: 10 });
+  await page.waitForTimeout(150);
+  await expect(page.locator('[data-drop-key="p2"]')).toHaveClass(/ring-accent/);
+
+  // Уводим в пустоту заведомо ниже всех секций и отпускаем там.
+  const empty = await page.evaluate(() => {
+    const rects = [...document.querySelectorAll('[data-drop-key]')].map((n) => n.getBoundingClientRect());
+    return Math.max(...rects.map((r) => r.bottom)) + 24;
+  });
+  await page.mouse.move(200, empty, { steps: 4 });
+  await page.waitForTimeout(150);
+  await page.mouse.up();
+  await page.waitForTimeout(400);
+
+  expect(await projectOf(page, 't1')).toBe('p2');
 });

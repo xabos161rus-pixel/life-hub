@@ -49,7 +49,28 @@ const FROZEN = '__frozen__'; // ключ свёрнутости секции «�
 
 // Авто-скролл во время drag: зона у краёв скролл-контейнера и шаг за кадр.
 const SCROLL_EDGE = 72; // px от верх/низ края, где включается авто-скролл
-const SCROLL_STEP = 11; // px за кадр
+const SCROLL_MAX_STEP = 10; // px за кадр У САМОГО КРАЯ; на границе зоны — 0
+
+/** Сколько прокрутить за кадр: знак — направление, ноль — стоять.
+ *
+ *  Скорость нарастает от нуля на границе зоны до максимума у самого края.
+ *  Постоянные 11px/кадр (≈660px/с при 60Гц) уносили список из-под пальца почти
+ *  мгновенно: экран задач прокручивается целиком за полсекунды. Человек вёл
+ *  задачу к проекту ниже, неизбежно задевал нижние 72px — и проект, к которому
+ *  он целился, уезжал вверх быстрее, чем палец до него доходил. Под пальцем
+ *  оставалась пустота, а пустота в hitTest — это null, то есть жест впустую.
+ *  Замер: за один перенос список уходил на 368px, всю доступную прокрутку,
+ *  и обе секции оказывались выше пальца.
+ *
+ *  С разгоном край зоны означает «подкрути чуть-чуть», а самый край — «гони»;
+ *  между ними человек находит скорость сам, не думая о ней. */
+function autoScrollStep(y: number, r: DOMRect): number {
+  const ramp = (depth: number) =>
+    Math.ceil((Math.min(depth, SCROLL_EDGE) / SCROLL_EDGE) * SCROLL_MAX_STEP);
+  if (y < r.top + SCROLL_EDGE) return -ramp(r.top + SCROLL_EDGE - y);
+  if (y > r.bottom - SCROLL_EDGE) return ramp(y - (r.bottom - SCROLL_EDGE));
+  return 0;
+}
 
 // Переупорядочивание проектов: удержание заголовка → drag.
 const LONG_PRESS_MS = 400; // удержание без движения → старт drag
@@ -638,7 +659,15 @@ export function TasksPage() {
 
     // Подсветка drop-зоны по Y пальца, без лишних setState на каждый кадр.
     const refreshDrop = (y: number) => {
-      const key = hitTest(y);
+      // Промах в пустоту НЕ обнуляет цель: остаётся последняя, над которой
+      // палец был. Раньше между секциями, ниже последнего проекта и в момент,
+      // когда авто-скролл увозил список, hitTest давал null — и отпускание
+      // становилось молчаливым «ничего не произошло»: ни переноса, ни тоста,
+      // ни объяснения. Теперь задача падает туда, где человек последний раз
+      // видел подсветку, то есть туда, куда целился. Отмена жеста никуда не
+      // делась: старт ставит целью текущий проект задачи, так что отпустить
+      // над своей же секцией — значит оставить всё как было.
+      const key = hitTest(y) ?? dropKeyRef.current;
       if (key !== dropKeyRef.current) {
         dropKeyRef.current = key;
         setDropKey(key);
@@ -676,13 +705,10 @@ export function TasksPage() {
     const tick = () => {
       const y = pointerRef.current.y;
       if (scroller) {
-        const r = scroller.getBoundingClientRect();
+        const step = autoScrollStep(y, scroller.getBoundingClientRect());
         const max = scroller.scrollHeight - scroller.clientHeight;
-        if (y < r.top + SCROLL_EDGE && scroller.scrollTop > 0) {
-          scroller.scrollTop -= SCROLL_STEP;
-        } else if (y > r.bottom - SCROLL_EDGE && scroller.scrollTop < max) {
-          scroller.scrollTop += SCROLL_STEP;
-        }
+        const next = Math.max(0, Math.min(max, scroller.scrollTop + step));
+        if (next !== scroller.scrollTop) scroller.scrollTop = next;
       }
       refreshDrop(y);
       raf = requestAnimationFrame(tick);
@@ -796,10 +822,10 @@ export function TasksPage() {
     const tick = () => {
       const y = pointerRef.current.y;
       if (scroller) {
-        const r = scroller.getBoundingClientRect();
+        const step = autoScrollStep(y, scroller.getBoundingClientRect());
         const max = scroller.scrollHeight - scroller.clientHeight;
-        if (y < r.top + SCROLL_EDGE && scroller.scrollTop > 0) scroller.scrollTop -= SCROLL_STEP;
-        else if (y > r.bottom - SCROLL_EDGE && scroller.scrollTop < max) scroller.scrollTop += SCROLL_STEP;
+        const next = Math.max(0, Math.min(max, scroller.scrollTop + step));
+        if (next !== scroller.scrollTop) scroller.scrollTop = next;
       }
       refreshDrop(pointerRef.current.x, y);
       raf = requestAnimationFrame(tick);
