@@ -51,7 +51,14 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
     const byProject = new Map<string, Task[]>();
     for (const t of tasks) {
       if (t.completedAt || t.frozenAt) continue;
-      const key = t.projectId && projectIds.has(t.projectId) ? t.projectId : '';
+      // Проект задачи архивирован (или удалён) — задачу исключаем совсем, а не
+      // сваливаем в «Без проекта». На главном экране секции строятся только по
+      // живым неархивным проектам, так что такая задача там уже не видна —
+      // архивация проекта уже поставила на паузу все его задачи разом. Шит
+      // обязан быть консистентен с главным экраном; «Без проекта» — только для
+      // настоящего projectId === null.
+      if (t.projectId && !projectIds.has(t.projectId)) continue;
+      const key = t.projectId ?? '';
       const arr = byProject.get(key);
       if (arr) arr.push(t);
       else byProject.set(key, [t]);
@@ -164,8 +171,17 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
         {candidateIds.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted">Нет активных задач для заморозки.</p>
         ) : (
-          <div className="max-h-[50dvh] divide-y divide-hairline overflow-y-auto card">
-            {rows.map(renderRow)}
+          // Скролл — на СВОЁМ узле, отдельном от .card. У .card overflow:hidden
+          // задан в index.css вне @layer (клип содержимого ради скруглений), а
+          // такое правило по каскаду слоёв перебивает любую Tailwind-утилиту
+          // (в т.ч. overflow-y-auto) независимо от порядка классов. На одном
+          // узле с overflow-y-auto итоговый computed overflow-y всё равно
+          // hidden — scrollHeight больше clientHeight, а scrollTop не
+          // двигается: список молча не прокручивается дальше первого экрана.
+          <div className="card">
+            <div className="max-h-[50dvh] divide-y divide-hairline overflow-y-auto">
+              {rows.map(renderRow)}
+            </div>
           </div>
         )}
         <Button
