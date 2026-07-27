@@ -57,6 +57,29 @@ export function setCaretAtOffset(root: HTMLElement, offset: number): void {
   sel.addRange(range);
 }
 
+/** Есть ли текст в строке, где стоит каретка.
+ *
+ *  Нужно перед блочными командами: возвращать каретку по смещению можно
+ *  только на НЕПУСТОЙ строке. На пустой смещение обманывает — «конец
+ *  заголовка» и «начало пустого пункта сразу под ним» дают одно и то же число
+ *  символов, и восстановление утаскивало каретку обратно в заголовок вместо
+ *  только что созданного пункта.
+ *
+ *  Каретка прямо в корне редактора (anchorNode === root) — это положение
+ *  «между блоками», которое iOS даёт после Enter. Строки там нет, значит и
+ *  текста нет. */
+export function caretLineHasText(root: HTMLElement): boolean {
+  const sel = document.getSelection();
+  const anchor = sel?.anchorNode;
+  if (!anchor || !root.contains(anchor)) return false;
+  if (anchor === root) return false;
+  const host = anchor instanceof Element ? anchor : anchor.parentElement;
+  const block = host?.closest('li, p, div, h1, h2, blockquote');
+  // Блока нет — значит это голый текст в корне, то есть заголовок заметки.
+  if (!block) return (anchor.textContent ?? '').trim() !== '';
+  return (block.textContent ?? '').trim() !== '';
+}
+
 /** Развернуть ведущий блок, чтобы первая строка снова стала заголовком.
  *
  *  Возвращает true, если структура изменилась — вызывающему это нужно, чтобы

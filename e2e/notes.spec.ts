@@ -277,6 +277,57 @@ test.describe('редактор', () => {
     await expect(page.locator('.note-editor s, .note-editor strike')).toHaveCount(1);
   });
 
+  test('кнопка списка не уносит каретку в начало строки', async ({ page }) => {
+    // execCommand пересобирает блок и ставит каретку в НАЧАЛО нового
+    // контейнера. Из-за этого «написал строку → нажал список → продолжил
+    // набор» дописывало текст ПЕРЕД уже написанным: «Покупки» + «молоко»
+    // давало «МолокоПокупки» одним пунктом.
+    await newNote(page);
+    await page.keyboard.type('Заголовок');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Покупки');
+    await page.getByRole('button', { name: 'Маркированный список' }).click();
+    await page.keyboard.type(' на неделю');
+    const item = await page.locator('.note-editor li').first().textContent();
+    expect(item).toBe('Покупки на неделю');
+  });
+
+  test('второй пункт списка начинается с заглавной буквы', async ({ page }) => {
+    // Клавиатура iOS капитализирует по пунктуации: заглавная идёт после точки.
+    // В списке точек нет — люди пишут пункты без них, — и второй пункт начинался
+    // со строчной, хотя каждый пункт это отдельное предложение.
+    await newNote(page);
+    await page.keyboard.type('Покупки');
+    await page.keyboard.press('Enter'); // заголовок остаётся заголовком
+    await page.getByRole('button', { name: 'Маркированный список' }).click();
+    await page.keyboard.type('молоко');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('хлеб');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('сыр');
+
+    const items = await page.locator('.note-editor li').allTextContents();
+    expect(items).toEqual(['Молоко', 'Хлеб', 'Сыр']);
+  });
+
+  test('регистр в СЕРЕДИНЕ строки не трогаем', async ({ page }) => {
+    // Обратная сторона: подниматься должна только первая буква строки. Иначе
+    // «и т.д.» превратилось бы в «И т.Д.», а это хуже, чем строчная в начале.
+    await newNote(page);
+    await page.keyboard.type('Заголовок');
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Маркированный список' }).click();
+    await page.keyboard.type('купить хлеб и молоко');
+    const item = await page.locator('.note-editor li').first().textContent();
+    expect(item).toBe('Купить хлеб и молоко');
+  });
+
+  test('первая строка заметки тоже с заглавной', async ({ page }) => {
+    await newNote(page);
+    await page.keyboard.type('заголовок заметки');
+    await expect(page.locator('.note-editor')).toContainText('Заголовок заметки');
+  });
+
   test('вставка из веба не приносит чужие классы', async ({ page }) => {
     // В конфиге санитайзера стоял ALLOWED_CLASSES — такой опции у DOMPurify
     // нет вовсе (она из sanitize-html), и незнакомые ключи он молча

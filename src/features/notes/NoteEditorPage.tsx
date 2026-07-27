@@ -14,7 +14,13 @@ import { Screen } from '../../components/layout/Screen';
 import { MicButton } from '../../components/ui/MicButton';
 import { Hint } from '../../components/ui/Hint';
 import { db } from '../../db/db';
-import { normalizeEditor } from './editorDom';
+import {
+  caretLineHasText,
+  caretOffset,
+  normalizeEditor,
+  setCaretAtOffset,
+} from './editorDom';
+import { shouldCapitalize } from './autocapitalize';
 import {
   CHECKLIST_CLASS,
   closestChecklistItem,
@@ -27,6 +33,9 @@ import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
 
 const AUTOSAVE_MS = 600;
+
+/** Команды, которые пересобирают блок вокруг каретки, а не красят выделение. */
+const BLOCK_COMMANDS = new Set(['insertUnorderedList', 'insertOrderedList', 'formatBlock']);
 
 // Содержимое — это HTML из contentEditable. Чистим перед записью: заметки
 // свои, не импортированные, но санитайз защищает от вставленного из буфера.
@@ -155,6 +164,26 @@ export function NoteEditorPage() {
     document.addEventListener('selectionchange', syncActive);
     return () => document.removeEventListener('selectionchange', syncActive);
   }, [syncActive]);
+
+  // Заглавная буква в начале строки и пункта списка. Вешаем НАТИВНЫЙ
+  // beforeinput: у React-обёртки над этим событием нет inputType, без которого
+  // не отличить набор с клавиатуры от вставки, автозамены или диктовки —
+  // поднимать регистр надо только в первом случае.
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    const onBeforeInput = (e: Event) => {
+      const ev = e as InputEvent;
+      if (ev.inputType !== 'insertText') return;
+      if (!shouldCapitalize(el, document.getSelection(), ev.data)) return;
+      ev.preventDefault();
+      // execCommand, а не ручная правка DOM: он сам двигает каретку и, главное,
+      // пишется в стек отмены — иначе «отменить» перепрыгивало бы через букву.
+      document.execCommand('insertText', false, ev.data!.toUpperCase());
+    };
+    el.addEventListener('beforeinput', onBeforeInput);
+    return () => el.removeEventListener('beforeinput', onBeforeInput);
+  }, []);
 
   useEffect(() => {
     pinnedRef.current = pinned;
@@ -352,6 +381,16 @@ export function NoteEditorPage() {
   );
 
   const exec = (command: string, value?: string) => {
+    const el = editorRef.current;
+    // Куда смотрела каретка ДО команды. Нужно, потому что дальше идёт focus(),
+    // а фокус на контейнере, потерявшем выделение, ставит каретку в САМОЕ
+    // НАЧАЛО. Из-за этого «написал заголовок → нажал список» превращало
+    // следующий набор в ввод перед существующим текстом: «Покупки» + «молоко»
+    // давало «МолокоПокупки» одним пунктом.
+    // Только с непустой строки: на пустой смещение неотличимо от конца
+    // предыдущей, и восстановление утащило бы каретку туда.
+    const before = el && caretLineHasText(el) ? caretOffset(el) : null;
+
     // тег-based разметка (<b>/<i>), иначе на Gecko execCommand даёт
     // <span style> и наш санитайзер срезал бы форматирование
     document.execCommand('styleWithCSS', false, 'false');
@@ -365,7 +404,19 @@ export function NoteEditorPage() {
     } else {
       document.execCommand(command);
     }
-    editorRef.current?.focus();
+
+    if (el) {
+      el.focus();
+      // Возвращаем каретку после команд, ПЕРЕСОБИРАЮЩИХ блок. Они уносят её в
+      // начало нового контейнера — формально каретка не потеряна, но стоит не
+      // там, где человек её оставил. Смещение считается по видимому тексту,
+      // поэтому переживает смену обёрток <div> → <li>.
+      //
+      // Инлайновые команды (жирный, курсив, зачёркивание) сюда не входят
+      // намеренно: они работают с выделением, и навязывать им схлопнутую
+      // каретку значило бы снимать выделение после каждого нажатия.
+      if (BLOCK_COMMANDS.has(command) && before !== null) setCaretAtOffset(el, before);
+    }
     syncActive();
     touch();
   };
@@ -394,6 +445,7 @@ export function NoteEditorPage() {
     <Screen
       title=""
       backTo="/notes"
+      backLabel="Заметки"
       right={
         <div className="flex items-center gap-1">
           <MicButton onText={appendVoice} />
@@ -430,6 +482,9 @@ export function NoteEditorPage() {
         className="note-editor"
         contentEditable
         suppressContentEditableWarning
+        autoCapitalize="sentences"
+        autoCorrect="on"
+        spellCheck
         data-placeholder="Заголовок"
         onPaste={(e) => {
           // Чистим вставку ДО попадания в DOM: иначе <img onerror>/скрипт из
