@@ -24,6 +24,8 @@ const ROUTES = [
   ['/more/places', 'Места'],
   ['/more/family', 'Семья'],
   ['/more/cycle', 'Женские дни'],
+  ['/more/cycle/year', 'Год'],
+  ['/more/cycle/report', 'Отчёт для врача'],
 ] as const;
 
 for (const [path, title] of ROUTES) {

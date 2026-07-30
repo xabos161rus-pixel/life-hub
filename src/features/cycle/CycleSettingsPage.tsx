@@ -1,7 +1,10 @@
 import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Link } from 'react-router';
+import { FileText } from 'lucide-react';
 import {
   GCheck as Check,
+  GChevronRight as ChevronRight,
 } from '../../components/ui/glyphs';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
@@ -334,6 +337,22 @@ export function CycleSettingsPage() {
         </section>
 
         <PinSection settings={s} />
+
+        <section>
+          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Врач</h2>
+          <div className="card">
+            <Link to="/more/cycle/report" className="flex items-center gap-3 p-4">
+              <FileText size={20} className="shrink-0 text-muted" />
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">Отчёт для врача</span>
+                <span className="mt-0.5 block text-sm leading-snug text-muted">
+                  Сводка по циклам за период — для показа или печати на приёме.
+                </span>
+              </span>
+              <ChevronRight size={20} className="shrink-0 text-muted" />
+            </Link>
+          </div>
+        </section>
 
         <section>
           <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Данные</h2>

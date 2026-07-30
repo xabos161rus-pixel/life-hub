@@ -459,3 +459,36 @@ select {
     scroll-behavior: auto !important;
   }
 }
+
+/* Печать («Отчёт для врача», CycleReportPage.tsx). Общее правило, а не
+   класс на конкретном экране: window.print() печатает весь текущий DOM,
+   включая шапку Screen (<header>) и нижний таб-бар (<nav>) — их нигде в
+   приложении печатать не нужно, поэтому правило глобальное. Сам отчёт
+   помечает то, что скрыть внутри себя (переключатель окна, кнопку, предупреждение
+   про замок), Tailwind-модификатором print:hidden — им уже переопределять
+   ничего не нужно, они наружу не протекают. Чёрным по белому независимо от
+   темы: .card в тёмной теме — тёмная поверхность, а лист принтера белый
+   всегда. */
+@media print {
+  header,
+  nav {
+    display: none !important;
+  }
+  body,
+  #root {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .card {
+    background: #fff !important;
+    color: #000 !important;
+    border-color: #000 !important;
+    box-shadow: none !important;
+  }
+  .divide-hairline > * + * {
+    border-color: #000 !important;
+  }
+  .text-muted {
+    color: #333 !important;
+  }
+}
