@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { Link } from 'react-router';
 import { Droplet, Info, SlidersHorizontal } from 'lucide-react';
 import {
   GPlus as Plus,
@@ -222,6 +223,42 @@ export function CyclePage() {
                     />
                   )}
                 </div>
+
+                {/* Систематический сдвиг — отдельно от MAE: он говорит не
+                    «насколько промахивается», а «в какую сторону», и это
+                    лечится иначе (сдвигом константы, а не переписыванием
+                    формулы). Знак bias — daysBetween(predicted, actual):
+                    положительный, когда факт наступил ПОЗЖЕ прогноза, то
+                    есть прогноз оказался раньше факта. */}
+                {data.accuracy.n >= 3 &&
+                  data.accuracy.bias !== undefined &&
+                  Math.abs(data.accuracy.bias) >= 1 && (
+                    <p className="mt-2 px-1 text-xs leading-snug text-muted">
+                      Прогноз в среднем на {formatDays(Math.abs(data.accuracy.bias))}{' '}
+                      {data.accuracy.bias > 0 ? 'раньше' : 'позже'} факта.
+                    </p>
+                  )}
+
+                {/* Оговорка про биологическую природу разброса — рядом с
+                    самой точностью, а не в настройках: цифра может быть
+                    неприятной, и смягчать её нельзя, можно только объяснить. */}
+                {data.accuracy.n >= 3 && (
+                  <p className="mt-1 px-1 text-xs leading-snug text-muted">
+                    Точность прогноза считается по вашим циклам: обещанный диапазон против
+                    факта. Разброс — биологический, а не ошибка программы.
+                  </p>
+                )}
+
+                {/* stats.n > 0 гарантирован секцией выше: отдельная проверка
+                    здесь не нужна, но ссылка обязана появляться только внутри
+                    неё — статистики без данных не бывает, а обзор года без
+                    единого цикла показывать нечего. */}
+                <Link
+                  to="/more/cycle/year"
+                  className="mt-3 inline-block px-1 text-sm font-medium text-accent"
+                >
+                  Обзор за год →
+                </Link>
               </section>
             )}
           </>
