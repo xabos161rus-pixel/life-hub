@@ -5,7 +5,7 @@ import { alive } from '../../db/repo';
 import { TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 import { todayKey } from '../../lib/dates';
-import { isLogDone, isPlannedOn } from './habitStreak';
+import { isLogDone, isPlannedOn } from '../../lib/habits';
 import { toggleHabitDone } from './habitRepo';
 import { HabitLogSheet } from './HabitLogSheet';
 import type { Habit, HabitLog } from '../../db/types';

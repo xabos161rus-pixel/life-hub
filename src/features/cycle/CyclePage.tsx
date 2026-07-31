@@ -11,6 +11,7 @@ import { ensureCycleSetup } from '../../lib/cycle/cycleRepo';
 import { formatRu, todayKey } from '../../lib/dates';
 import { plural } from '../../lib/plural';
 import { CycleCalendar } from './CycleCalendar';
+import { CycleHabitsCard } from './CycleHabitsCard';
 import { DayLogSheet } from './DayLogSheet';
 import { useCycleData } from './useCycleData';
 import { CycleLock } from './CycleLock';
@@ -260,6 +261,13 @@ export function CyclePage() {
                   Обзор за год →
                 </Link>
               </section>
+            )}
+
+            {/* Монтируем только при включённом тумблере: у того, кто связку не
+                просил, не должно быть даже запроса к таблицам привычек из
+                этого раздела. */}
+            {settings.integrations.habitsCorrelation && (
+              <CycleHabitsCard cycles={data.cycles} />
             )}
           </>
         )}

@@ -12,7 +12,7 @@ import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Habit, HabitLog } from '../../db/types';
 import { todayKey } from '../../lib/dates';
-import { doneDates, habitStats, scheduleLabel } from './habitStreak';
+import { doneDates, habitStats, scheduleLabel } from '../../lib/habits';
 import { toggleHabitDone } from './habitRepo';
 import { HabitSheet } from './HabitSheet';
 import { HabitLogSheet } from './HabitLogSheet';

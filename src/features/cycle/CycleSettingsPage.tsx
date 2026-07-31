@@ -307,11 +307,16 @@ export function CycleSettingsPage() {
               checked={s.integrations.calendarMarks}
               onChange={(v) => setIntegration('calendarMarks', v)}
             />
+            {/* Тумблер «Сравнение с энергией» здесь стоял с обещанием, которое
+                нечем выполнить: дневных отметок энергии в приложении нет —
+                раздел «Энергия» хранит способы восстановления, а не уровень по
+                дням. Флаг energyCorrelation остаётся в схеме на случай, если
+                дневник энергии появится; из интерфейса обещание убрано. */}
             <ToggleRow
-              label="Сравнение с энергией"
-              hint="Показывает, как отметки энергии распределяются по дням цикла. Только ваши числа, без выводов и советов."
-              checked={s.integrations.energyCorrelation}
-              onChange={(v) => setIntegration('energyCorrelation', v)}
+              label="Привычки по дням цикла"
+              hint="Доля выполненных привычек в дни менструации, перед ней и в остальные дни. Только ваши числа, без выводов и советов."
+              checked={s.integrations.habitsCorrelation}
+              onChange={(v) => setIntegration('habitsCorrelation', v)}
             />
           </div>
           {/* Прямая оговорка про то, чего раздел делать не будет. Стоит рядом с

@@ -1,5 +1,5 @@
-import type { Habit, HabitLog, HabitSchedule } from '../../db/types';
-import { addDaysKey, isoWeekday, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
+import type { Habit, HabitLog, HabitSchedule } from '../db/types';
+import { addDaysKey, isoWeekday, todayKey, WEEKDAY_LABELS } from './dates';
 
 // Логика привычек — чистые функции над множеством дат-отметок (ключи 'YYYY-MM-DD').
 // Даты-строки сравниваются лексикографически = хронологически (нулевые паддинги).
