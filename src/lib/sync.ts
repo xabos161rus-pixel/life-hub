@@ -290,12 +290,17 @@ let lastError: string | null = null;
 export async function runSync(opts?: {
   reset?: boolean;
 }): Promise<{ pulled: number; pushed: number; skipped: number } | null> {
+  // Флаг — СРАЗУ после синхронной проверки, до первого await: если между
+  // проверкой и установкой оказывается await-разрыв (раньше здесь стоял
+  // getSyncConfig), второй конкурентный вызов успевает пройти проверку, и два
+  // цикла гоняют курсоры lastPullAt/lastPushAt наперегонки. Ровно этот дефект
+  // ревью нашло в ai-platform (engine.ts) — здесь он жил с рождения синка.
   if (running) return null;
-  let c = await getSyncConfig();
-  if (!c || !c.enabled) return null;
   running = true;
   lastError = null;
   try {
+    let c = await getSyncConfig();
+    if (!c || !c.enabled) return null;
     if (opts?.reset) {
       await patchSyncConfig({ lastPullAt: '', lastPushAt: '' });
       const reloaded = await getSyncConfig();
