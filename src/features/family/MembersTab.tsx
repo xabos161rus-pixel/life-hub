@@ -4,6 +4,7 @@ import { UserPlus, LogOut, UserMinus } from 'lucide-react';
 import {
   GPencil as Pencil,
   GPhone as Phone,
+  GPlus as Plus,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import type { FamilyMember } from '../../db/types';
@@ -24,7 +25,7 @@ import {
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
 
-export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () => void }) {
+export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
   const members = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]) ?? [];
   const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
   const selfId = config?.selfMemberId;
@@ -160,6 +161,20 @@ export function MembersTab({ familyId, onLeft }: { familyId: string; onLeft: () 
             {claiming ? 'Забираем…' : 'Стать владельцем'}
           </Button>
         </div>
+      )}
+
+      {/* Вход в создание/подключение второй группы. Раньше жил в свитчере
+          групп над чатом, но при единственной группе свитчер скрыт (он лишь
+          дублировал заголовок) — а возможность завести вторую группу обязана
+          оставаться находимой. */}
+      {onAddGroup && (
+        <button
+          onClick={onAddGroup}
+          className="flex w-full items-center justify-center gap-2 card px-4 py-3 text-sm font-medium active:opacity-80"
+        >
+          <Plus size={16} className="shrink-0 text-muted" />
+          Добавить группу
+        </button>
       )}
 
       <button onClick={() => void leave()} className="flex w-full items-center justify-center gap-2 pt-2 text-sm text-danger active:opacity-60">

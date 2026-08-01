@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { BellRing } from 'lucide-react';
 import {
   GClose as X,
 } from '../../components/ui/glyphs';
-import { db } from '../../db/db';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
-import { connectionState, subscribeConnection, subscribePresence, registerAllFamilyPush } from '../../lib/family/familyChat';
+import { connectionState, subscribeConnection, registerAllFamilyPush } from '../../lib/family/familyChat';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import { pushEnabled, pushSupported, isStandalone, enablePush } from '../../lib/push';
 import { MembersTab } from './MembersTab';
@@ -29,23 +28,20 @@ function useConnection(familyId: string) {
 
 const CONN_LABEL: Record<string, string> = { offline: 'не в сети', connecting: 'подключение…', online: 'на связи' };
 
-function usePresence(familyId: string) {
-  const [ids, setIds] = useState<string[]>([]);
-  useEffect(() => subscribePresence(familyId, setIds), [familyId]);
-  return ids;
+/** Статус соединения для подзаголовка шапки: «на связи» / «подключение…» /
+ *  «не в сети». Живёт здесь, а рендерится в FamilyPage: раньше статус занимал
+ *  собственную строку в теле экрана, и вместе со свитчером групп и баннерами
+ *  лента чата не влезала в экран вовсе. Только соединение, без счётчиков:
+ *  присутствие СОБЕСЕДНИКОВ (кто онлайн, «был(а) в сети…», «печатает») — зона
+ *  ответственности строки внутри ChatTab, второй счётчик был бы дублем. */
+export function useFamilyStatusLine(familyId: string): string {
+  const conn = useConnection(familyId);
+  return CONN_LABEL[conn];
 }
 
-export function FamilyScreen({ familyId, onLeft }: { familyId: string; onLeft: () => void }) {
+export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
   const [tab, setTab] = useState<Tab>('chat');
-  const conn = useConnection(familyId);
-  const online = usePresence(familyId);
   const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
-  const membersRaw = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]);
-  // Онлайн «других» — пересечение presence с живыми участниками минус я сам.
-  const onlineOthers = useMemo(() => {
-    const alive = new Set((membersRaw ?? []).filter((m) => !m.leftAt).map((m) => m.id));
-    return online.filter((id) => id !== config?.selfMemberId && alive.has(id)).length;
-  }, [online, membersRaw, config]);
   const toast = useToast();
   const [pushOn, setPushOn] = useState(pushEnabled());
   const [pushHidden, setPushHidden] = useState(false);
@@ -79,17 +75,16 @@ export function FamilyScreen({ familyId, onLeft }: { familyId: string; onLeft: (
             Вас исключили из этой группы. Переписка на этом устройстве осталась, но новые
             сообщения приходить не будут.
           </div>
-        ) : (
-          <div className="flex items-center gap-1.5 px-0.5 text-xs text-muted">
-            <span className={`size-2 rounded-full ${conn === 'online' ? 'bg-success' : conn === 'connecting' ? 'bg-warning' : 'bg-muted'}`} />
-            <span>{CONN_LABEL[conn]}</span>
-            {onlineOthers > 0 && <span>· {onlineOthers} в сети</span>}
-          </div>
-        )}
+        ) : null}
+        {/* Статус соединения здесь больше не рендерится — он ушёл в подзаголовок
+            шапки (useFamilyStatusLine): каждая служебная строка над чатом — это
+            минус строка переписки на экране. */}
         {!pushOn && !pushHidden && (
-          <div className="flex items-center gap-2 rounded-xl bg-accent/10 p-3 text-sm">
-            <BellRing size={18} className="shrink-0 text-accent" />
-            <span className="flex-1">Включите уведомления, чтобы знать о новых сообщениях</span>
+          <div className="flex items-center gap-2 rounded-xl bg-accent/10 px-3 py-2 text-sm">
+            <BellRing size={16} className="shrink-0 text-accent" />
+            {/* Короткая формулировка намеренно: длинная растягивала баннер на
+                три строки и вместе с остальной шапкой выталкивала чат за экран. */}
+            <span className="min-w-0 flex-1">Уведомления</span>
             <button onClick={() => void enableFamilyPush()} className="shrink-0 font-semibold text-accent active:opacity-60">
               Включить
             </button>
@@ -108,7 +103,7 @@ export function FamilyScreen({ familyId, onLeft }: { familyId: string; onLeft: (
         ) : tab === 'tasks' ? (
           <FamilyTasksTab familyId={familyId} />
         ) : (
-          <MembersTab familyId={familyId} onLeft={onLeft} />
+          <MembersTab familyId={familyId} onLeft={onLeft} onAddGroup={onAddGroup} />
         )}
       </div>
     </div>

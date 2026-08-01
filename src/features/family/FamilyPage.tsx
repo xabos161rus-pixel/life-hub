@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { SlidersHorizontal } from 'lucide-react';
@@ -12,7 +12,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { listFamilyConfigs } from '../../lib/family/familyState';
 import { FamilyOnboarding, CreateFamilySheet, JoinFamilySheet } from './FamilyOnboarding';
-import { FamilyScreen } from './FamilyScreen';
+import { FamilyScreen, useFamilyStatusLine } from './FamilyScreen';
 import { CallButton } from './CallButton';
 import { ManageGroupsSheet } from './ManageGroupsSheet';
 
@@ -63,21 +63,28 @@ export function FamilyPage() {
   const current = configs.find((c) => c.familyId === selected)!;
 
   return (
-    <Screen title={current.familyName} backTo="/home" right={<CallButton familyId={selected} />} fill>
+    <ScreenWithStatus current={current} selected={selected}>
       <div className="flex h-full flex-col">
-        <GroupSwitcher
-          configs={configs}
-          selected={selected}
-          onSelect={select}
-          onAdd={() => setAddMode('choose')}
-          onManage={() => setManageOpen(true)}
-        />
+        {/* Свитчер групп — только когда групп больше одной: при единственной
+            группе пилюля с её именем дублировала заголовок экрана строкой ниже
+            и вместе с остальной шапкой выталкивала ленту чата за экран.
+            «Добавить группу» при этом живёт во вкладке «Участники». */}
+        {configs.length > 1 && (
+          <GroupSwitcher
+            configs={configs}
+            selected={selected}
+            onSelect={select}
+            onAdd={() => setAddMode('choose')}
+            onManage={() => setManageOpen(true)}
+          />
+        )}
         <div className="min-h-0 flex-1">
           {/* key=selected: смена группы полностью перемонтирует экран (чистый
               сброс вкладки/подписок), без ручного разбора переходов. */}
           <FamilyScreen
             key={selected}
             familyId={selected}
+            onAddGroup={() => setAddMode('choose')}
             onLeft={() => {
               const sib = ids.find((i) => i !== selected);
               if (sib) {
@@ -122,6 +129,32 @@ export function FamilyPage() {
         }}
       />
       <ManageGroupsSheet open={manageOpen} onClose={() => setManageOpen(false)} configs={configs} />
+    </ScreenWithStatus>
+  );
+}
+
+/** Обёртка шапки: имя группы + статус соединения подзаголовком. Статус раньше
+ *  занимал собственную строку в теле экрана (и ещё одну — счётчик «в сети»);
+ *  подзаголовок сообщает то же самое, не отнимая у переписки ни пикселя. */
+function ScreenWithStatus({
+  current,
+  selected,
+  children,
+}: {
+  current: FamilyConfig;
+  selected: string;
+  children: ReactNode;
+}) {
+  const status = useFamilyStatusLine(selected);
+  return (
+    <Screen
+      title={current.familyName}
+      subtitle={current.removedAt ? undefined : status}
+      backTo="/home"
+      right={<CallButton familyId={selected} />}
+      fill
+    >
+      {children}
     </Screen>
   );
 }

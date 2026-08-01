@@ -26,32 +26,32 @@ const JOIN_TABS = [
  *  По нажатию — выбор «Создать группу / Войти по приглашению».
  *  onReady получает familyId созданной/выбранной группы — чтобы её сразу открыть. */
 export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => void }) {
-  const [mode, setMode] = useState<null | 'choose' | 'create' | 'join'>(null);
+  const [mode, setMode] = useState<null | 'create' | 'join'>(null);
 
+  // Кнопки действий — прямо на экране, а не за иконкой-плюсом: раньше первый
+  // тап открывал шит с теми же двумя кнопками, то есть человек делал два шага
+  // там, где хватает одного, а сама иконка не читалась как кнопка. Плюс
+  // остаётся декорацией, действия — действиями.
   return (
-    <div className="flex flex-col items-center justify-center gap-5 py-20 text-center">
-      <button
-        onClick={() => setMode('choose')}
-        aria-label="Создать группу или войти по приглашению"
-        className="flex size-20 items-center justify-center rounded-3xl bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent active:scale-95"
+    <div className="flex h-full flex-col items-center justify-center gap-5 py-10 text-center">
+      <div
+        aria-hidden
+        className="flex size-20 items-center justify-center rounded-3xl bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent"
       >
         <Plus size={40} strokeWidth={STROKE_HEAVY} />
-      </button>
+      </div>
       <div className="space-y-1.5">
-        <p className="text-lg font-semibold">Создать или войти по приглашению</p>
+        <p className="text-lg font-semibold">Семейная группа</p>
         <p className="px-6 text-sm text-muted">Общий чат и задачи с близкими. Содержимое шифруется на устройстве.</p>
       </div>
-
-      <Sheet open={mode === 'choose'} onClose={() => setMode(null)} title="Семейная группа">
-        <div className="space-y-3 pb-2">
-          <Button className="w-full" onClick={() => setMode('create')}>
-            Создать группу
-          </Button>
-          <Button variant="secondary" className="w-full" onClick={() => setMode('join')}>
-            Войти по приглашению
-          </Button>
-        </div>
-      </Sheet>
+      <div className="w-full max-w-sm space-y-3 px-6 pt-2">
+        <Button className="w-full" onClick={() => setMode('create')}>
+          Создать группу
+        </Button>
+        <Button variant="secondary" className="w-full" onClick={() => setMode('join')}>
+          Войти по приглашению
+        </Button>
+      </div>
       <CreateFamilySheet
         open={mode === 'create'}
         onClose={() => setMode(null)}

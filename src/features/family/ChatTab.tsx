@@ -643,7 +643,14 @@ export function ChatTab({ familyId }: { familyId: string }) {
     // Полная высота под чат от каркаса (Screen fill): лента растёт и скроллится,
     // композер прибит к низу. Без magic-number — высоту даёт родитель.
     <div className="flex h-full min-h-0 flex-col">
-      {others.length > 0 && (
+      {/* Для группы из нескольких собеседников строка «0 в сети» не сообщает
+          ничего, чего человек уже не предполагает, — прячем её, пока никто не
+          появился и не печатает. Для одного собеседника показываем всегда:
+          «был(а) в сети 2 ч назад» — это ценность, а не шум. */}
+      {others.length > 0 &&
+        (others.length === 1 ||
+          typers.length > 0 ||
+          others.some((o) => onlineSet.has(o.id))) && (
         <div className="flex shrink-0 items-center gap-1.5 px-1 pb-1.5 text-xs">
           {others.length === 1 ? (
             <>
