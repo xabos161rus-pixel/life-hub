@@ -6,13 +6,20 @@ import { TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 import { todayKey } from '../../lib/dates';
 import { isLogDone, isPlannedOn } from '../../lib/habits';
+import { useNavLayout } from '../../hooks/useNavLayout';
 import { toggleHabitDone } from './habitRepo';
 import { HabitLogSheet } from './HabitLogSheet';
 import type { Habit, HabitLog } from '../../db/types';
 
 /** Блок на «Сегодня»: запланированные на сегодня привычки с быстрой отметкой.
- *  Если на сегодня привычек нет — блок скрывается целиком (return null). */
+ *  Если на сегодня привычек нет — блок скрывается целиком (return null).
+ *
+ *  Скрытый раздел молчит: человек, выключивший «Привычки» в настройке
+ *  разделов (выгорание, отпуск, «отстаньте все»), не должен каждый день
+ *  видеть чек-лист на «Сегодня». Пропущенные за паузу дни — «нет данных»,
+ *  серии при этом рвутся честно, без заморозок. */
 export function HabitsToday() {
+  const { hidden } = useNavLayout();
   const today = todayKey();
   const [logHabit, setLogHabit] = useState<Habit | null>(null);
   const habits = alive(useLiveQuery(() => db.habits.toArray(), []) ?? []).filter(
@@ -30,6 +37,8 @@ export function HabitsToday() {
     .filter((h) => isPlannedOn(h.schedule, today))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
+  // После хуков, не раньше: порядок хуков в React не может зависеть от условия.
+  if (hidden.includes('habits')) return null;
   if (planned.length === 0) return null;
 
   const isDone = (h: Habit) => {
