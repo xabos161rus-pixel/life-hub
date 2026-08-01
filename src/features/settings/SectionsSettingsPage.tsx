@@ -11,7 +11,7 @@ import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { Screen } from '../../components/layout/Screen';
 import {
-  SECTIONS,
+  sectionsFor,
   SECTION_BY_ID,
   MAX_BOTTOM,
   DEFAULT_BOTTOM,
@@ -41,7 +41,9 @@ export function SectionsSettingsPage() {
   useEffect(() => {
     if (inited.current || !settingsRow) return;
     inited.current = true;
-    const l = computeNavLayout(SECTIONS, settingsRow.navConfig, LAYOUT_OPTS);
+    // Реестр с учётом пола: в мужском профиле «Женские дни» не существуют и
+    // на этом экране — ни в зонах, ни среди спрятанных.
+    const l = computeNavLayout(sectionsFor(settingsRow.gender), settingsRow.navConfig, LAYOUT_OPTS);
     setOrder({ bottom: l.bottom.filter((id) => id !== ANCHOR_ID), more: l.more, hidden: l.hidden });
   }, [settingsRow]);
 
@@ -166,15 +168,15 @@ export function SectionsSettingsPage() {
   };
 
   const reset = () => {
-    const l = computeNavLayout(SECTIONS, undefined, LAYOUT_OPTS);
+    const l = computeNavLayout(sectionsFor(settingsRow?.gender), undefined, LAYOUT_OPTS);
     setOrder({ bottom: l.bottom.filter((id) => id !== ANCHOR_ID), more: l.more, hidden: l.hidden });
   };
 
   const previewBottom = useMemo(() => {
     if (!order) return [];
-    const l = computeNavLayout(SECTIONS, { bottom: order.bottom, hidden: order.hidden }, LAYOUT_OPTS);
+    const l = computeNavLayout(sectionsFor(settingsRow?.gender), { bottom: order.bottom, hidden: order.hidden }, LAYOUT_OPTS);
     return l.bottom.map((id) => SECTION_BY_ID.get(id)).filter((s) => Boolean(s));
-  }, [order]);
+  }, [order, settingsRow?.gender]);
 
   if (!order) {
     return (

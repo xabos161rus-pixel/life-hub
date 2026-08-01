@@ -142,6 +142,21 @@ export const SECTIONS: Section[] = [
 
 export const SECTION_BY_ID = new Map<string, Section>(SECTIONS.map((s) => [s.id, s]));
 
+/** Доступен ли раздел «Женские дни» при этом поле. Пол не выбран — недоступен:
+ *  гейт первого запуска всё равно не пустит дальше без выбора, а до его ответа
+ *  раздел не должен мелькать нигде. */
+export function cycleAllowed(gender: 'female' | 'male' | undefined): boolean {
+  return gender === 'female';
+}
+
+/** Реестр разделов с учётом пола. Единственная точка, где раздел «Женские
+ *  дни» исключается целиком: навигация, настройка разделов и всё, что строится
+ *  из реестра, обязаны идти через эту функцию, а не через SECTIONS напрямую —
+ *  иначе раздел «протечёт» в какой-нибудь список у мужского профиля. */
+export function sectionsFor(gender: 'female' | 'male' | undefined): Section[] {
+  return cycleAllowed(gender) ? SECTIONS : SECTIONS.filter((s) => s.id !== 'cycle');
+}
+
 /** Сколько пользовательских разделов помещается в панель слева от «Главной». */
 export const MAX_BOTTOM = 4;
 

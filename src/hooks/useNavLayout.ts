@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useSettings } from './useSettings';
 import {
-  SECTIONS,
+  sectionsFor,
   SECTION_BY_ID,
   MAX_BOTTOM,
   DEFAULT_BOTTOM,
@@ -21,8 +21,11 @@ export interface ResolvedNavLayout {
 export function useNavLayout(): ResolvedNavLayout {
   const settings = useSettings();
   const navConfig = settings.navConfig;
+  const gender = settings.gender;
   return useMemo(() => {
-    const layout = computeNavLayout(SECTIONS, navConfig, {
+    // Реестр берётся с учётом пола: у мужского профиля раздела «Женские дни»
+    // не существует ни в панели, ни в списке «Главной», ни среди спрятанных.
+    const layout = computeNavLayout(sectionsFor(gender), navConfig, {
       maxBottom: MAX_BOTTOM,
       defaultBottom: DEFAULT_BOTTOM,
       anchorId: ANCHOR_ID,
@@ -30,5 +33,5 @@ export function useNavLayout(): ResolvedNavLayout {
     const resolve = (ids: string[]) =>
       ids.map((id) => SECTION_BY_ID.get(id)).filter((s): s is Section => Boolean(s));
     return { bottom: resolve(layout.bottom), more: resolve(layout.more), hidden: layout.hidden };
-  }, [navConfig]);
+  }, [navConfig, gender]);
 }

@@ -43,13 +43,22 @@ export async function openApp(page: Page, path = '', extraSettings: SeedSettings
         onboardingDone: new Date().toISOString(),
         reinstallNoticeSeen: versions.reinstall,
         lastSeenVersion: versions.app,
+        // Женский профиль по умолчанию: без пола приложение закрыто гейтом
+        // первого запуска, а раздел «Женские дни» (его проверяет добрая часть
+        // тестов) существует только в женском. Тесты мужского профиля и самого
+        // гейта переопределяют это через extraSettings / чистый заход.
+        gender: 'female',
         ...extra,
       });
     },
     { versions, extra: extraSettings },
   );
 
-  await page.reload();
+  // Именно goto(path), а не reload(): первый заход случается ДО сидинга, и
+  // маршруты, закрытые по полу (RequireFemale), успевают редиректнуть на
+  // «Главную» — reload перезагрузил бы уже подменённый адрес, и тест молча
+  // оказался бы не на том экране.
+  await page.goto(path);
   await expect(page.locator('#root')).not.toBeEmpty();
   // Ленивые чанки разделов подгружаются после первого кадра.
   await page.waitForLoadState('networkidle').catch(() => {});

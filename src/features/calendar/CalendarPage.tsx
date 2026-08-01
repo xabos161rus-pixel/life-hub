@@ -22,6 +22,7 @@ import type { Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { formatRu, todayKey, toKey, WEEKDAY_LABELS } from '../../lib/dates';
+import { cycleAllowed } from '../../lib/sections';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 
@@ -29,8 +30,11 @@ import { TaskEditSheet } from '../tasks/TaskEditSheet';
  *  отметки в настройках раздела. Отдельный хук, чтобы запрос к таблицам цикла
  *  вообще не выполнялся у тех, кто раздел не включал. */
 function useCycleMarks(): Set<string> {
+  const appSettings = useLiveQuery(() => db.settings.get('app'), []);
   const settings = useLiveQuery(() => db.cycleSettings.get('app'), []);
-  const on = Boolean(settings?.integrations.calendarMarks);
+  // Пол сильнее тумблера: включённые в женском профиле отметки не должны
+  // пережить смену пола на мужской.
+  const on = cycleAllowed(appSettings?.gender) && Boolean(settings?.integrations.calendarMarks);
   const days = useLiveQuery(
     async () => (on ? await db.cycleDays.where('isBleedingDay').equals(1).toArray() : []),
     [on],

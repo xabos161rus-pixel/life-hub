@@ -7,6 +7,7 @@ import {
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
@@ -182,6 +183,26 @@ export function ProfilePage() {
               </Field>
             </div>
           </div>
+        </div>
+
+        {/* Пол сохраняется сразу, мимо формы с кнопкой: от него зависит состав
+            приложения (раздел «Женские дни» существует только в женском
+            профиле), и отложенное «Сохранить» здесь только запутывало бы. */}
+        <div className="card space-y-2 p-4">
+          <Field label="Пол">
+            <SegmentedControl<'female' | 'male'>
+              options={[
+                { value: 'female', label: 'Женский' },
+                { value: 'male', label: 'Мужской' },
+              ]}
+              value={settings?.gender ?? 'female'}
+              onChange={(v) => void updateSettings({ gender: v })}
+            />
+          </Field>
+          <p className="text-xs leading-snug text-muted">
+            Определяет набор разделов: «Женские дни» есть только в женском профиле. При смене
+            пола записи раздела не удаляются — он просто скрывается.
+          </p>
         </div>
 
         <Button className="w-full" disabled={busy || draft === null} onClick={() => void save()}>

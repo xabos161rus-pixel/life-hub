@@ -8,6 +8,7 @@ import { todayKey } from '../../lib/dates';
 import { formatRu } from '../../lib/dates';
 import { cycleDayFor } from '../../lib/cycle/derive';
 import { predictNextPeriod } from '../../lib/cycle/predict';
+import { cycleAllowed } from '../../lib/sections';
 
 /** Строка раздела на экране «Сегодня».
  *
@@ -21,10 +22,14 @@ import { predictNextPeriod } from '../../lib/cycle/predict';
  *  статистики, а здесь хватает циклов и эпизодов — на экране «Сегодня» лишний
  *  запрос ко всей истории ни к чему. */
 export function CycleTodayLine() {
+  const appSettings = useLiveQuery(() => db.settings.get('app'), []);
   const settings = useLiveQuery(() => db.cycleSettings.get('app'), []);
   const cycles = useLiveQuery(() => db.cycles.orderBy('startDate').toArray(), []);
   const episodes = useLiveQuery(() => db.cycleEpisodes.toArray(), []);
 
+  // Пол сильнее тумблера: тумблер могли включить в женском профиле, а потом
+  // пол сменить — строка обязана исчезнуть вместе с разделом.
+  if (!cycleAllowed(appSettings?.gender)) return null;
   if (!settings?.integrations.todayCard) return null;
   if (cycles === undefined || episodes === undefined || cycles.length === 0) return null;
 

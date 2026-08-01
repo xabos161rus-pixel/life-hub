@@ -1,6 +1,9 @@
 import { Component, useEffect, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { LucideProvider } from 'lucide-react';
+import { db } from './db/db';
+import { cycleAllowed } from './lib/sections';
 import { STROKE } from './components/ui/icons';
 import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
@@ -41,9 +44,22 @@ import { FocusPage } from './features/focus/FocusPage';
 import { FamilyPage } from './features/family/FamilyPage';
 import { PomodoroProvider } from './features/focus/PomodoroProvider';
 import { MiniTimer } from './features/focus/MiniTimer';
+import { GenderGate } from './features/onboarding/GenderGate';
 import { OnboardingOverlay } from './features/onboarding/OnboardingOverlay';
 import { ReinstallNotice } from './features/onboarding/ReinstallNotice';
 import { WhatsNew } from './features/onboarding/WhatsNew';
+
+/** Маршруты раздела «Женские дни» существуют только в женском профиле. Прямой
+ *  адрес (закладка, история браузера, ссылка из уведомления) у мужского — не
+ *  ошибка 404, а тихий уход на «Главную»: сам факт «здесь что-то было» —
+ *  информация, которую не надо показывать. Пока настройки не загружены, не
+ *  рендерим ничего — иначе страница мигнёт до ответа Dexie. */
+function RequireFemale({ children }: { children: ReactNode }) {
+  const settings = useLiveQuery(() => db.settings.get('app'), []);
+  if (settings === undefined) return null;
+  if (!cycleAllowed(settings?.gender)) return <Navigate to="/home" replace />;
+  return children;
+}
 
 /** Сбрасывает прокрутку контейнера наверх при смене маршрута — иначе открытая
  *  после прокрутки страница (например «Главная») показывалась не с начала. */
@@ -164,10 +180,10 @@ export default function App() {
                 <Route path="/more/finance" element={<FinancePage />} />
                 <Route path="/more/energy" element={<EnergyPage />} />
                 <Route path="/more/habits" element={<HabitsPage />} />
-                <Route path="/more/cycle" element={<CyclePage />} />
-                <Route path="/more/cycle/settings" element={<CycleSettingsPage />} />
-                <Route path="/more/cycle/year" element={<CycleYearPage />} />
-                <Route path="/more/cycle/report" element={<CycleReportPage />} />
+                <Route path="/more/cycle" element={<RequireFemale><CyclePage /></RequireFemale>} />
+                <Route path="/more/cycle/settings" element={<RequireFemale><CycleSettingsPage /></RequireFemale>} />
+                <Route path="/more/cycle/year" element={<RequireFemale><CycleYearPage /></RequireFemale>} />
+                <Route path="/more/cycle/report" element={<RequireFemale><CycleReportPage /></RequireFemale>} />
                 <Route path="/more/places" element={<PlacesPage />} />
                 <Route path="/more/settings" element={<SettingsPage />} />
                 <Route path="/more/settings/install" element={<InstallInstructionsPage />} />
@@ -178,6 +194,11 @@ export default function App() {
             <MiniTimer />
             <TabBar />
           </div>
+          {/* Обязательный выбор пола — первым делом, раньше тура и остальных
+              окон: он стоит в DOM ПОСЛЕ них и тем же z-[80] перекрывает всё,
+              пока выбор не сделан. Порядок именно такой, а не условный рендер
+              соседей: тур и «что нового» должны показаться сразу после выбора,
+              не дожидаясь перезагрузки. */}
           {/* Вводный тур для нового пользователя — поверх всего, пока не пройден. */}
           <OnboardingOverlay />
           {/* Одноразовое окно о смене имени/значка — только «старым» пользователям. */}
@@ -185,6 +206,7 @@ export default function App() {
           {/* Что изменилось в этом обновлении. Обновление ставится тихо, и без
               этого окна человек не узнаёт ни что версия сменилась, ни чем. */}
           <WhatsNew />
+          <GenderGate />
         </ErrorBoundary>
         </PomodoroProvider>
       </ToastProvider>
