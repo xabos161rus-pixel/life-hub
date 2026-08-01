@@ -6,7 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { GripVertical, Lock, RotateCcw } from 'lucide-react';
+import { Lock, RotateCcw } from 'lucide-react';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { Screen } from '../../components/layout/Screen';
@@ -19,22 +19,30 @@ import {
 } from '../../lib/sections';
 import { computeNavLayout } from '../../lib/navLayout';
 
-type Zone = 'bottom' | 'more' | 'hidden';
-interface Order {
-  bottom: string[];
-  more: string[];
-  hidden: string[];
-}
-const ZONES: Zone[] = ['bottom', 'more', 'hidden'];
 const LAYOUT_OPTS = { maxBottom: MAX_BOTTOM, defaultBottom: DEFAULT_BOTTOM, anchorId: ANCHOR_ID };
 
-/** Экран «Настроить разделы»: пользователь перекладывает разделы между нижней
- *  панелью и «Главной» удержанием за ручку и прячет ненужные тумблером. Раскладка
- *  автосохраняется в settings.navConfig (device-local). «Главная» — жёсткий якорь
- *  панели, «Сегодня»/«Настройки» нельзя спрятать. */
+/** Разделы, которые пользователь ВКЛЮЧИЛ, одним списком по порядку: первые
+ *  MAX_BOTTOM — нижняя панель, остальные — экран «Главная». Один порядок
+ *  вместо двух зон — «Главная» просто читает свой кусок того же списка,
+ *  никакой отдельной модели для нижней панели не нужно. */
+interface State {
+  enabled: string[]; // без якоря «Главная» — он не двигается и не хранится
+  hidden: string[];
+}
+
+const PRESS_MS = 300; // удержание без движения → старт переноса
+const CANCEL_MOVE = 8; // сдвиг пальца до этого порога — скролл, а не перенос; отменяем как в TasksPage
+
+/** Экран «Настроить разделы»: единый вертикальный список вместо трёх зон.
+ *  Тумблер — включает/выключает разДел нажатием. Порядок и переход через
+ *  черту в нижнюю панель — удержанием строки (жест как в переносе задач:
+ *  порог удержания, отмена по pointercancel, отмена при уходе пальца до
+ *  старта — но без авто-скролла, список короткий). Раскладка автосохраняется
+ *  в settings.navConfig (device-local). «Главная» — жёсткий якорь панели,
+ *  «Сегодня»/«Настройки» нельзя выключить. */
 export function SectionsSettingsPage() {
   const settingsRow = useLiveQuery(() => db.settings.get('app'), []);
-  const [order, setOrder] = useState<Order | null>(null);
+  const [state, setState] = useState<State | null>(null);
   const inited = useRef(false);
 
   // Инициализация из сохранённой раскладки — один раз, когда settings загрузились.
@@ -42,143 +50,177 @@ export function SectionsSettingsPage() {
     if (inited.current || !settingsRow) return;
     inited.current = true;
     // Реестр с учётом пола: в мужском профиле «Женские дни» не существуют и
-    // на этом экране — ни в зонах, ни среди спрятанных.
+    // на этом экране — ни в списке, ни среди выключенных.
     const l = computeNavLayout(sectionsFor(settingsRow.gender), settingsRow.navConfig, LAYOUT_OPTS);
-    setOrder({ bottom: l.bottom.filter((id) => id !== ANCHOR_ID), more: l.more, hidden: l.hidden });
+    setState({ enabled: [...l.bottom.filter((id) => id !== ANCHOR_ID), ...l.more], hidden: l.hidden });
   }, [settingsRow]);
 
-  // Автосохранение при каждом изменении раскладки — панель и «Главная» обновляются
-  // сразу. Сохраняем и порядок внутри «Главной» (more), чтобы он тоже пережил перезапуск.
+  // Автосохранение при каждом изменении: первые MAX_BOTTOM включённых — в
+  // панель, остальные — в «Главную». Порядок внутри «Главной» тоже сохраняем,
+  // чтобы он пережил перезапуск.
   useEffect(() => {
-    if (!order) return;
+    if (!state) return;
     void updateSettings({
-      navConfig: { bottom: order.bottom, hidden: order.hidden, more: order.more },
+      navConfig: {
+        bottom: state.enabled.slice(0, MAX_BOTTOM),
+        more: state.enabled.slice(MAX_BOTTOM),
+        hidden: state.hidden,
+      },
     });
-  }, [order]);
+  }, [state]);
 
-  // --- перетаскивание ---
+  // --- перетаскивание: удержание строки → перенос по единому списку enabled ---
   const [dragId, setDragId] = useState<string | null>(null);
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
-  const [drop, setDrop] = useState<{ zone: Zone; index: number } | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
   const dragIdRef = useRef<string | null>(null);
-  const dropRef = useRef<{ zone: Zone; index: number } | null>(null);
+  const dropIndexRef = useRef<number | null>(null);
+  const pressTimerRef = useRef<number | null>(null);
+  const pressStartRef = useRef({ x: 0, y: 0 });
+  const pressRowRef = useRef<HTMLElement | null>(null);
+  const pressPointerIdRef = useRef(0);
 
-  const applyMove = (id: string, toZone: Zone, toIndex: number) => {
-    setOrder((prev) => {
+  const applyMove = (id: string, toIndex: number) => {
+    setState((prev) => {
       if (!prev) return prev;
-      const sec = SECTION_BY_ID.get(id);
-      if (toZone === 'hidden' && sec?.nonHideable) return prev; // нельзя спрятать
-      const next: Order = { bottom: [...prev.bottom], more: [...prev.more], hidden: [...prev.hidden] };
-      const withoutDrag = next.bottom.filter((x) => x !== id);
-      if (toZone === 'bottom' && withoutDrag.length >= MAX_BOTTOM) return prev; // панель заполнена
-      for (const z of ZONES) {
-        const i = next[z].indexOf(id);
-        if (i !== -1) next[z].splice(i, 1);
-      }
-      const clamped = Math.max(0, Math.min(toIndex, next[toZone].length));
-      next[toZone].splice(clamped, 0, id);
-      return next;
+      const rest = prev.enabled.filter((x) => x !== id);
+      const clamped = Math.max(0, Math.min(toIndex, rest.length));
+      rest.splice(clamped, 0, id);
+      // Никакого отдельного «вытеснения» из панели не нужно: панель — это
+      // просто первые MAX_BOTTOM элементов этого списка (см. save-эффект),
+      // так что вставка выше черты автоматически сдвигает четвёртый вниз.
+      return { ...prev, enabled: rest };
     });
   };
 
-  const startDrag = (id: string, e: ReactPointerEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    e.preventDefault();
-    dragIdRef.current = id;
-    dropRef.current = null;
-    setPointer({ x: e.clientX, y: e.clientY });
-    setDrag(id);
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      /* указатель уже неактивен */
+  const clearPressTimer = () => {
+    if (pressTimerRef.current != null) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
     }
   };
-  const setDrag = (id: string | null) => {
-    dragIdRef.current = id;
-    setDragId(id);
+
+  // Пока таймер тикает — жест ещё не начался по факту. Сдвиг пальца дальше
+  // CANCEL_MOVE до его срабатывания читается как обычный скролл списка.
+  const beginPress = (id: string, e: ReactPointerEvent<HTMLDivElement>) => {
+    pressStartRef.current = { x: e.clientX, y: e.clientY };
+    pressRowRef.current = e.currentTarget;
+    pressPointerIdRef.current = e.pointerId;
+    clearPressTimer();
+    pressTimerRef.current = window.setTimeout(() => {
+      pressTimerRef.current = null;
+      dragIdRef.current = id;
+      dropIndexRef.current = null;
+      setPointer({ x: pressStartRef.current.x, y: pressStartRef.current.y });
+      setDragId(id);
+      setDropIndex(null);
+      const el = pressRowRef.current;
+      if (el) {
+        el.style.touchAction = 'none';
+        try {
+          el.setPointerCapture(pressPointerIdRef.current);
+        } catch {
+          /* указатель уже неактивен */
+        }
+      }
+    }, PRESS_MS);
   };
+
+  const handlePressMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (pressTimerRef.current == null) return; // жест уже стартовал или не начинался вовсе
+    const dx = e.clientX - pressStartRef.current.x;
+    const dy = e.clientY - pressStartRef.current.y;
+    if (Math.abs(dx) > CANCEL_MOVE || Math.abs(dy) > CANCEL_MOVE) clearPressTimer();
+  };
+
+  const endPress = () => clearPressTimer();
 
   useEffect(() => {
     if (!dragId) return;
-    const hitTest = (y: number): { zone: Zone; index: number } | null => {
-      for (const zone of ZONES) {
-        const zoneEl = document.querySelector(`[data-zone="${zone}"]`);
-        if (!zoneEl) continue;
-        const r = zoneEl.getBoundingClientRect();
-        if (y < r.top - 4 || y > r.bottom + 4) continue;
-        const cards = [...zoneEl.querySelectorAll('[data-sid]')];
-        let idx = 0;
-        for (const c of cards) {
-          if (c.getAttribute('data-sid') === dragId) continue; // себя не считаем
-          const cr = c.getBoundingClientRect();
-          if (y > cr.top + cr.height / 2) idx++;
-        }
-        return { zone, index: idx };
+    const hitTest = (y: number): number => {
+      const zoneEl = document.querySelector('[data-zone="enabled"]');
+      if (!zoneEl) return 0;
+      const cards = [...zoneEl.querySelectorAll('[data-sid]')];
+      let idx = 0;
+      for (const c of cards) {
+        if (c.getAttribute('data-sid') === dragId) continue; // себя не считаем
+        const cr = c.getBoundingClientRect();
+        if (y > cr.top + cr.height / 2) idx++;
       }
-      return null;
+      return idx;
+    };
+    const resetDragState = () => {
+      dragIdRef.current = null;
+      dropIndexRef.current = null;
+      setDragId(null);
+      setDropIndex(null);
+      const el = pressRowRef.current;
+      if (el) {
+        el.style.touchAction = '';
+        try {
+          el.releasePointerCapture(pressPointerIdRef.current);
+        } catch {
+          /* указатель уже отпущен */
+        }
+      }
     };
     const move = (e: PointerEvent) => {
       e.preventDefault();
       setPointer({ x: e.clientX, y: e.clientY });
-      const t = hitTest(e.clientY);
-      dropRef.current = t;
-      setDrop(t);
+      const idx = hitTest(e.clientY);
+      dropIndexRef.current = idx;
+      setDropIndex(idx);
     };
     const finish = () => {
       const id = dragIdRef.current;
-      const t = dropRef.current;
-      if (id && t) applyMove(id, t.zone, t.index);
-      dragIdRef.current = null;
-      dropRef.current = null;
-      setDragId(null);
-      setDrop(null);
+      const idx = dropIndexRef.current;
+      if (id && idx != null) applyMove(id, idx);
+      resetDragState();
     };
+    // Системный обрыв жеста (звонок, шторка уведомлений) — не то же самое,
+    // что отпускание пальца над целью: перенос не коммитим (как в TasksPage),
+    // раздел остаётся там, где был до начала переноса.
+    const cancel = () => resetDragState();
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', finish);
-    window.addEventListener('pointercancel', finish);
+    window.addEventListener('pointercancel', cancel);
     const prevTouch = document.body.style.touchAction;
     document.body.style.touchAction = 'none';
     return () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', finish);
-      window.removeEventListener('pointercancel', finish);
+      window.removeEventListener('pointercancel', cancel);
       document.body.style.touchAction = prevTouch;
     };
   }, [dragId]);
 
-  const toggleHide = (id: string) => {
-    setOrder((prev) => {
+  const toggle = (id: string) => {
+    setState((prev) => {
       if (!prev) return prev;
       if (SECTION_BY_ID.get(id)?.nonHideable) return prev;
-      const next: Order = { bottom: [...prev.bottom], more: [...prev.more], hidden: [...prev.hidden] };
-      const inHidden = next.hidden.indexOf(id);
-      if (inHidden !== -1) {
-        next.hidden.splice(inHidden, 1);
-        next.more.push(id); // показать → в «Главную»
-      } else {
-        for (const z of ['bottom', 'more'] as Zone[]) {
-          const i = next[z].indexOf(id);
-          if (i !== -1) next[z].splice(i, 1);
-        }
-        next.hidden.push(id);
+      if (prev.hidden.includes(id)) {
+        return { enabled: [...prev.enabled, id], hidden: prev.hidden.filter((x) => x !== id) };
       }
-      return next;
+      return { enabled: prev.enabled.filter((x) => x !== id), hidden: [...prev.hidden, id] };
     });
   };
 
   const reset = () => {
     const l = computeNavLayout(sectionsFor(settingsRow?.gender), undefined, LAYOUT_OPTS);
-    setOrder({ bottom: l.bottom.filter((id) => id !== ANCHOR_ID), more: l.more, hidden: l.hidden });
+    setState({ enabled: [...l.bottom.filter((id) => id !== ANCHOR_ID), ...l.more], hidden: l.hidden });
   };
 
   const previewBottom = useMemo(() => {
-    if (!order) return [];
-    const l = computeNavLayout(sectionsFor(settingsRow?.gender), { bottom: order.bottom, hidden: order.hidden }, LAYOUT_OPTS);
+    if (!state) return [];
+    const l = computeNavLayout(
+      sectionsFor(settingsRow?.gender),
+      { bottom: state.enabled.slice(0, MAX_BOTTOM), hidden: state.hidden },
+      LAYOUT_OPTS,
+    );
     return l.bottom.map((id) => SECTION_BY_ID.get(id)).filter((s) => Boolean(s));
-  }, [order, settingsRow?.gender]);
+  }, [state, settingsRow?.gender]);
 
-  if (!order) {
+  if (!state) {
     return (
       <Screen title="Настроить разделы" backTo="/more/settings">
         <div className="py-10 text-center text-sm text-muted">Загрузка…</div>
@@ -186,24 +228,29 @@ export function SectionsSettingsPage() {
     );
   }
 
-  const dropLine = (zone: Zone, index: number) =>
-    drop && drop.zone === zone && drop.index === index ? (
+  const dropLine = (index: number) =>
+    dropIndex === index ? (
       <div
         className="my-1 h-1 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent-fill)]"
         aria-hidden
       />
     ) : null;
 
-  const row = (id: string, zone: Zone) => {
+  const row = (id: string, opts: { hidden?: boolean } = {}) => {
     const sec = SECTION_BY_ID.get(id);
     if (!sec) return null;
     const Icon = sec.icon;
-    const hidden = zone === 'hidden';
+    const hidden = Boolean(opts.hidden);
+    const draggable = !hidden; // выключенные не двигаются — за это отвечает тумблер
     const locked = Boolean(sec.nonHideable);
     return (
       <div
         key={id}
-        data-sid={id}
+        data-sid={draggable ? id : undefined}
+        onPointerDown={draggable ? (e) => beginPress(id, e) : undefined}
+        onPointerMove={draggable ? handlePressMove : undefined}
+        onPointerUp={draggable ? endPress : undefined}
+        onPointerCancel={draggable ? endPress : undefined}
         // Ниже 375px строка режет собственные зазоры, а не текст: на 320px под
         // содержимое остаётся 258.5px, а строке «Настройки» с бейджем «всегда»
         // нужно 295px. px-2 вместо px-3 даёт 8.5px, gap-2 вместо gap-3 — ещё
@@ -211,7 +258,9 @@ export function SectionsSettingsPage() {
         // название влезало целиком (см. комментарии у бейджа).
         className={`flex items-center gap-3 card p-3 transition-opacity max-[375px]:gap-2 max-[375px]:px-2 ${
           hidden ? 'opacity-45' : ''
-        } ${dragId === id ? 'opacity-30' : ''}`}
+        } ${dragId === id ? 'opacity-30' : ''} ${
+          draggable ? 'touch-pan-y cursor-grab select-none [-webkit-touch-callout:none] [-webkit-user-select:none] active:cursor-grabbing' : ''
+        }`}
       >
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
           <Icon size={20} />
@@ -219,9 +268,12 @@ export function SectionsSettingsPage() {
         {/* Обычный shrink (был shrink-[0.05]): при сумме flex-факторов меньше 1
             браузер раздаёт только эту долю нехватки, поэтому строка не ужималась,
             а вылезала за свой content-box — у «Статистики» на 7.53px в правый
-            паддинг, к ручке перетаскивания. Теперь недостачу целиком берёт на
-            себя название (min-w-0 + truncate), а бейдж остаётся целым. */}
-        <span className="min-w-0 grow basis-auto truncate font-semibold">{sec.label}</span>
+            паддинг, к тумблеру. Теперь недостачу целиком берёт на себя название
+            (min-w-0 + truncate), а бейдж остаётся целым. */}
+        <div className="min-w-0 grow basis-auto">
+          <p className="truncate font-semibold">{sec.label}</p>
+          {sec.subtitle && <p className="truncate text-xs text-muted">{sec.subtitle}</p>}
+        </div>
         {locked ? (
           // shrink-0: бейдж короткий и осмысленный только целиком — «вс…» и тем
           // более одно «…» не значат ничего. Ниже 375px он отдаёт названию свои
@@ -234,8 +286,11 @@ export function SectionsSettingsPage() {
         ) : (
           <button
             type="button"
-            onClick={() => toggleHide(id)}
-            aria-label={hidden ? `Показать раздел ${sec.label}` : `Скрыть раздел ${sec.label}`}
+            // Тумблер — своё отдельное действие по нажатию: гасим всплытие,
+            // иначе pointerdown по нему же запускал бы таймер переноса строки.
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => toggle(id)}
+            aria-label={hidden ? `Включить раздел ${sec.label}` : `Выключить раздел ${sec.label}`}
             className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${
               hidden ? 'border-border bg-surface-2' : 'border-transparent bg-accent'
             }`}
@@ -247,86 +302,77 @@ export function SectionsSettingsPage() {
             />
           </button>
         )}
-        <button
-          type="button"
-          aria-label={`Перетащить раздел ${sec.label}`}
-          onPointerDown={(e) => startDrag(id, e)}
-          className="shrink-0 cursor-grab touch-none p-1 text-muted/50 active:text-accent"
-        >
-          <GripVertical size={20} />
-        </button>
       </div>
     );
   };
 
   const anchor = SECTION_BY_ID.get(ANCHOR_ID);
+  // Якорь панели: показывается как последний слот панели, всегда над чертой,
+  // без тумблера и без переноса. Раскладка и поведение при нехватке ширины —
+  // как у обычной строки (см. row): те же зазоры, тот же неусыхаемый бейдж.
+  const anchorRow = anchor && (
+    <div className="flex items-center gap-3 card p-3 max-[375px]:gap-2 max-[375px]:px-2">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+        <anchor.icon size={20} />
+      </div>
+      <span className="min-w-0 grow basis-auto truncate font-semibold">{anchor.label}</span>
+      <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
+        <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
+      </span>
+    </div>
+  );
+
+  // Черта: первые MAX_BOTTOM включённых разделов — над ней, они в нижней
+  // панели; остальные — под ней, они в списке «Главной». Если включённых
+  // меньше MAX_BOTTOM, черта просто едет к концу списка.
+  const dividerAt = Math.min(state.enabled.length, MAX_BOTTOM);
+  const divider = (
+    <div className="my-1 flex items-center gap-2 px-1" aria-hidden={false}>
+      <span className="h-px flex-1 bg-border" />
+      <span className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted">
+        выше — панель · ниже — «Главная»
+      </span>
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
 
   return (
     <Screen title="Настроить разделы" backTo="/more/settings">
       <p className="mb-4 px-1 text-sm leading-relaxed text-muted">
-        Перетащите раздел за ручку, чтобы поменять порядок или перенести между нижней панелью и
-        «Главной». Тумблер показывает или скрывает раздел.
+        Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел
+        через черту в нижнюю панель (до {MAX_BOTTOM} мест, не считая «Главной») — задержите строку
+        пальцем и перетащите.
       </p>
 
-      {/* Нижняя панель */}
-      <div className="mb-1.5 flex items-center gap-2 px-1 text-xs font-bold uppercase tracking-wide text-muted">
-        Нижняя панель
-        <span className="min-w-0 font-semibold normal-case tracking-normal opacity-80">
-          · до {MAX_BOTTOM} + «Главная»
-        </span>
-      </div>
-      <div data-zone="bottom" className="mb-6 space-y-2">
-        {order.bottom.map((id, i) => (
+      <div data-zone="enabled" className="mb-6 space-y-2">
+        {state.enabled.map((id, i) => (
           <div key={id}>
-            {dropLine('bottom', i)}
-            {row(id, 'bottom')}
+            {i === dividerAt && (
+              <>
+                {anchorRow}
+                {divider}
+              </>
+            )}
+            {dropLine(i)}
+            {row(id)}
           </div>
         ))}
-        {dropLine('bottom', order.bottom.length)}
-        {/* якорь «Главная» — всегда последний, без тумблера и ручки */}
-        {anchor && (
-          // Раскладка и поведение при нехватке ширины — как у обычной строки
-          // (см. row): те же зазоры, тот же неусыхаемый бейдж.
-          <div className="flex items-center gap-3 card p-3 max-[375px]:gap-2 max-[375px]:px-2">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-              <anchor.icon size={20} />
-            </div>
-            <span className="min-w-0 grow basis-auto truncate font-semibold">{anchor.label}</span>
-            <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
-              <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
-            </span>
-          </div>
+        {dividerAt === state.enabled.length && (
+          <>
+            {anchorRow}
+            {divider}
+          </>
         )}
+        {dropLine(state.enabled.length)}
       </div>
 
-      {/* В «Главной» */}
-      <div className="mb-1.5 px-1 text-xs font-bold uppercase tracking-wide text-muted">
-        В разделе «Главная»
-      </div>
-      <div data-zone="more" className="mb-6 min-h-[8px] space-y-2">
-        {order.more.map((id, i) => (
-          <div key={id}>
-            {dropLine('more', i)}
-            {row(id, 'more')}
-          </div>
-        ))}
-        {dropLine('more', order.more.length)}
-      </div>
-
-      {/* Скрытые */}
-      {order.hidden.length > 0 && (
+      {state.hidden.length > 0 && (
         <>
           <div className="mb-1.5 px-1 text-xs font-bold uppercase tracking-wide text-muted">
-            Скрытые
+            Выключено
           </div>
           <div data-zone="hidden" className="mb-6 space-y-2">
-            {order.hidden.map((id, i) => (
-              <div key={id}>
-                {dropLine('hidden', i)}
-                {row(id, 'hidden')}
-              </div>
-            ))}
-            {dropLine('hidden', order.hidden.length)}
+            {state.hidden.map((id) => row(id, { hidden: true }))}
           </div>
         </>
       )}
