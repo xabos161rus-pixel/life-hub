@@ -100,6 +100,11 @@ export interface Habit extends BaseEntity {
   goalId: string | null;
   archivedAt: string | null;
   sortOrder: number;
+  /** Интервалы заморозки, по возрастанию from. to отсутствует — заморозка идёт сейчас.
+   *  origin: 'manual' — человек заморозил сам из шита; 'section' — выключение
+   *  раздела «Привычки» заморозило все привычки разом (при включении раздела
+   *  снимаются только эти, ручные остаются). */
+  frozenRanges?: Array<{ from: string; to?: string; origin: 'manual' | 'section' }>;
 }
 
 export interface HabitLog extends BaseEntity {

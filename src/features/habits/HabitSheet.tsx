@@ -7,6 +7,8 @@ import { db } from '../../db/db';
 import { create, now, remove, update } from '../../db/repo';
 import { PRESET_COLORS } from '../../lib/colors';
 import { WEEKDAY_LABELS } from '../../lib/dates';
+import { isFrozenNow } from '../../lib/habits';
+import { freezeHabit, unfreezeHabit } from './habitRepo';
 import type { Habit, HabitSchedule } from '../../db/types';
 
 type SchedType = 'daily' | 'weekdays';
@@ -88,6 +90,18 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
   const handleArchive = async () => {
     if (!item) return;
     await update(db.habits, item.id, { archivedAt: item.archivedAt ? null : now() });
+    onClose();
+  };
+
+  // Заморозка — «осознанно отложить без чувства вины», тот же концепт, что и
+  // у задач: серия перестаёт планироваться на эти дни и потому не рвётся.
+  // Никаких дат-пикеров: интервал открывается сегодняшним днём и закрывается
+  // при следующей разморозке — минимализм важнее гибкости здесь.
+  const frozen = item ? isFrozenNow(item) : false;
+  const handleFreeze = async () => {
+    if (!item) return;
+    if (frozen) await unfreezeHabit(item.id);
+    else await freezeHabit(item.id, 'manual');
     onClose();
   };
 
@@ -200,9 +214,14 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
       </div>
 
       {item && (
-        <Button variant="secondary" className="w-full" onClick={() => void handleArchive()}>
-          {item.archivedAt ? 'Вернуть из архива' : 'В архив'}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" className="flex-1" onClick={() => void handleFreeze()}>
+            {frozen ? 'Разморозить' : 'Заморозить'}
+          </Button>
+          <Button variant="secondary" className="flex-1" onClick={() => void handleArchive()}>
+            {item.archivedAt ? 'Вернуть из архива' : 'В архив'}
+          </Button>
+        </div>
       )}
 
       <div className="flex gap-2">

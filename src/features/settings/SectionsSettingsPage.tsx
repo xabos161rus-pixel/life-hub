@@ -18,6 +18,7 @@ import {
   ANCHOR_ID,
 } from '../../lib/sections';
 import { computeNavLayout } from '../../lib/navLayout';
+import { freezeAllForSection, unfreezeSectionFrozen } from '../habits/habitRepo';
 
 const LAYOUT_OPTS = { maxBottom: MAX_BOTTOM, defaultBottom: DEFAULT_BOTTOM, anchorId: ANCHOR_ID };
 
@@ -44,6 +45,9 @@ export function SectionsSettingsPage() {
   const settingsRow = useLiveQuery(() => db.settings.get('app'), []);
   const [state, setState] = useState<State | null>(null);
   const inited = useRef(false);
+  // Прошлое сохранённое состояние «скрыт ли раздел „Привычки“» — по нему
+  // ловим именно ПЕРЕХОД тумблера (см. эффект ниже), а не факт скрытости.
+  const habitsHiddenRef = useRef(false);
 
   // Инициализация из сохранённой раскладки — один раз, когда settings загрузились.
   useEffect(() => {
@@ -53,7 +57,25 @@ export function SectionsSettingsPage() {
     // на этом экране — ни в списке, ни среди выключенных.
     const l = computeNavLayout(sectionsFor(settingsRow.gender), settingsRow.navConfig, LAYOUT_OPTS);
     setState({ enabled: [...l.bottom.filter((id) => id !== ANCHOR_ID), ...l.more], hidden: l.hidden });
+    // Только фиксируем стартовое состояние — переход «выключен⇄включён» ниже
+    // должен реагировать на нажатия тумблера, а не на саму загрузку экрана.
+    habitsHiddenRef.current = l.hidden.includes('habits');
   }, [settingsRow]);
+
+  // Выключение раздела «Привычки» — это «выгорел, всё замолчи»: замораживаем
+  // разом все привычки, чтобы серии не сгорали за отдых (см. freezeAllForSection
+  // в habitRepo). Включение обратно снимает только эти, section-заморозки —
+  // ручные, поставленные человеком из шита, остаются как были. Сравниваем с
+  // РЕФОМ прошлого сохранённого состояния, а не с константой: на самой
+  // инициализации (эффект выше) переход не должен засчитываться.
+  useEffect(() => {
+    if (!state) return;
+    const nowHidden = state.hidden.includes('habits');
+    if (habitsHiddenRef.current === nowHidden) return;
+    habitsHiddenRef.current = nowHidden;
+    if (nowHidden) void freezeAllForSection();
+    else void unfreezeSectionFrozen();
+  }, [state]);
 
   // Автосохранение при каждом изменении: первые MAX_BOTTOM включённых — в
   // панель, остальные — в «Главную». Порядок внутри «Главной» тоже сохраняем,

@@ -14,7 +14,7 @@
 
 import type { Cycle, LocalDate } from '../../db/cycleTypes';
 import type { Habit, HabitLog } from '../../db/types';
-import { isLogDone, isPlannedOn } from '../habits';
+import { isActiveOn, isLogDone } from '../habits';
 import { addDaysKey } from '../dates';
 
 export type HabitsCycleWindow = 'period' | 'preMenstrual' | 'other';
@@ -102,7 +102,10 @@ export function buildHabitsByCycle(
 
       for (const habit of activeHabits) {
         if (date < habit.createdAt.slice(0, 10)) continue;
-        if (!isPlannedOn(habit.schedule, date)) continue;
+        // Замороженные дни честно выпадают из «запланировано» — заморозка это
+        // не подкрашивание, а та же логика расписаний, что и обычный
+        // непланируемый день.
+        if (!isActiveOn(habit, date)) continue;
         totals[window].planned += 1;
         if (doneByHabit.get(habit.id)!.has(date)) totals[window].done += 1;
       }

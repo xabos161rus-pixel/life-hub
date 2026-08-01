@@ -11,8 +11,9 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Habit, HabitLog } from '../../db/types';
-import { todayKey } from '../../lib/dates';
-import { doneDates, habitStats, scheduleLabel } from '../../lib/habits';
+import { formatRu, todayKey } from '../../lib/dates';
+import { doneDates, habitStats, isFrozenNow, scheduleLabel } from '../../lib/habits';
+import { plur } from '../../lib/plural';
 import { toggleHabitDone } from './habitRepo';
 import { HabitSheet } from './HabitSheet';
 import { HabitLogSheet } from './HabitLogSheet';
@@ -55,7 +56,7 @@ export function HabitsPage() {
 
   const rows = list.map((habit) => {
     const hlogs = logsByHabit.get(habit.id) ?? [];
-    const stats = habitStats(habit.schedule, doneDates(habit, hlogs), today);
+    const stats = habitStats(habit, doneDates(habit, hlogs), today);
     const todayValue = hlogs.find((l) => l.date === today)?.value ?? 0;
     return { habit, ...stats, todayValue };
   });
@@ -105,16 +106,24 @@ export function HabitsPage() {
             }
           />
         ) : (
-          rows.map(({ habit, current, best, doneToday, plannedToday, todayValue }) => {
+          rows.map(({ habit, current, best, doneToday, plannedToday, todayValue, frozenInCurrent }) => {
             const counted = habit.target != null;
             const target = habit.target ?? 0;
             const pct = counted && target > 0 ? Math.min(100, (todayValue / target) * 100) : 0;
+            // Заморожена «сейчас» (открытый интервал) — приглушаем карточку тем
+            // же opacity, что и выключенные разделы в настройках, и прячем
+            // статистику серии за честной строкой «Заморожена с …»: отметка
+            // выполненности на замороженный день недоступна.
+            const frozen = isFrozenNow(habit);
+            const frozenSince = frozen
+              ? habit.frozenRanges!.find((r) => r.to === undefined)!.from
+              : null;
             return (
               <div
                 key={habit.id}
                 onClick={() => openEdit(habit)}
                 className={`card flex items-center gap-3 p-4 active:opacity-90 ${
-                  habit.archivedAt ? 'opacity-60' : ''
+                  habit.archivedAt || frozen ? 'opacity-45' : ''
                 }`}
               >
                 <span className="text-2xl leading-none" aria-hidden>
@@ -122,14 +131,25 @@ export function HabitsPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{habit.name}</p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    {scheduleLabel(habit.schedule)}
-                    {counted && ` · ${target}${habit.unit ? ' ' + habit.unit : ''}`}
-                    {current > 0 && ` · 🔥 ${current}`}
-                    {best > 1 && ` · рекорд ${best}`}
-                  </p>
+                  {frozen ? (
+                    <p className="mt-0.5 text-xs text-muted">Заморожена с {formatRu(frozenSince!)}</p>
+                  ) : (
+                    <>
+                      <p className="mt-0.5 text-xs text-muted">
+                        {scheduleLabel(habit.schedule)}
+                        {counted && ` · ${target}${habit.unit ? ' ' + habit.unit : ''}`}
+                        {current > 0 && ` · 🔥 ${current}`}
+                        {best > 1 && ` · рекорд ${best}`}
+                      </p>
+                      {frozenInCurrent > 0 && (
+                        <p className="text-xs text-muted">
+                          в серии заморозка {plur(frozenInCurrent, ['день', 'дня', 'дней'])}
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
-                {habit.archivedAt ? null : !plannedToday ? (
+                {habit.archivedAt || frozen ? null : !plannedToday ? (
                   <span className="shrink-0 text-2xs text-muted">не сегодня</span>
                 ) : counted ? (
                   <button

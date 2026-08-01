@@ -122,6 +122,22 @@ describe('buildHabitsByCycle', () => {
     expect(buildHabitsByCycle([h], logs, twoCycles)).toBeUndefined();
   });
 
+  it('замороженный период не даёт planned-дней: окно выпадает как честно пустое', () => {
+    // Заморожены ровно дни менструации обоих циклов — как непланируемые дни,
+    // они не попадают в «запланировано», окно period проваливается под порог
+    // и не показывается, а соседние окна (не заморожены) считаются как обычно.
+    const h = habit({
+      frozenRanges: [
+        { from: '2026-03-01', to: '2026-03-05', origin: 'manual' },
+        { from: '2026-03-29', to: '2026-04-02', origin: 'manual' },
+      ],
+    });
+    const result = buildHabitsByCycle([h], [], twoCycles)!;
+    expect(result.rows.find((r) => r.window === 'period')).toBeUndefined();
+    expect(result.rows.find((r) => r.window === 'preMenstrual')!.planned).toBe(10);
+    expect(result.rows.find((r) => r.window === 'other')!.planned).toBe(36);
+  });
+
   it('привычка не отвечает за дни до своего создания', () => {
     // Создана после менструации первого цикла: та не должна дать ей плана, и
     // окно менструации (5 дней второго цикла — меньше порога) выпадает.

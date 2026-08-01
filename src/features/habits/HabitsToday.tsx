@@ -5,7 +5,7 @@ import { alive } from '../../db/repo';
 import { TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 import { todayKey } from '../../lib/dates';
-import { isLogDone, isPlannedOn } from '../../lib/habits';
+import { isActiveOn, isLogDone } from '../../lib/habits';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import { toggleHabitDone } from './habitRepo';
 import { HabitLogSheet } from './HabitLogSheet';
@@ -16,8 +16,10 @@ import type { Habit, HabitLog } from '../../db/types';
  *
  *  Скрытый раздел молчит: человек, выключивший «Привычки» в настройке
  *  разделов (выгорание, отпуск, «отстаньте все»), не должен каждый день
- *  видеть чек-лист на «Сегодня». Пропущенные за паузу дни — «нет данных»,
- *  серии при этом рвутся честно, без заморозок. */
+ *  видеть чек-лист на «Сегодня». Выключение раздела заодно замораживает все
+ *  привычки разом (см. freezeAllForSection в habitRepo) — за паузу серии не
+ *  сгорают, а isActiveOn ниже дополнительно прячет с «Сегодня» и привычки,
+ *  замороженные вручную из шита. */
 export function HabitsToday() {
   const { hidden } = useNavLayout();
   const today = todayKey();
@@ -34,7 +36,7 @@ export function HabitsToday() {
   }, [logs, today]);
 
   const planned = habits
-    .filter((h) => isPlannedOn(h.schedule, today))
+    .filter((h) => isActiveOn(h, today))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   // После хуков, не раньше: порядок хуков в React не может зависеть от условия.
