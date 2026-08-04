@@ -1,7 +1,27 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { ArrowRight, CheckCheck, ChevronsDown, Clock, Copy, Hand, Heart, Send, Reply, Paperclip, Mic, Play, Pause, Loader2 } from 'lucide-react';
+import {
+  ArrowRight,
+  CheckCheck,
+  ChevronsDown,
+  Clock,
+  Copy,
+  Hand,
+  Heart,
+  Send,
+  Reply,
+  Paperclip,
+  Mic,
+  Play,
+  Pause,
+  Loader2,
+  Image as ImageIcon,
+  File as FileIcon,
+  FileText,
+  FileArchive,
+  FileSpreadsheet,
+} from 'lucide-react';
 import {
   GCheck as Check,
   GPencil as Pencil,
@@ -19,12 +39,14 @@ import {
   ImageTooLargeError,
   MAX_INPUT_BYTES,
 } from '../../lib/image';
+import { fileKindLabel, formatFileSize, MAX_FILE_BYTES } from '../../lib/family/fileTransfer';
 import { isTouch } from '../../lib/platform';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import {
   sendMessage,
   sendImage,
   sendAudio,
+  sendFile,
   sendReaction,
   sendTyping,
   subscribeTyping,
@@ -87,15 +109,57 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
   );
 }
 
+/** Иконка по короткой подписи из fileKindLabel — 4 значка на 5 подписей
+ *  («Документ PDF» и «Текст» делят FileText), остальное — общий File. */
+function fileIconFor(kindLabel: string) {
+  if (kindLabel === 'Архив') return FileArchive;
+  if (kindLabel === 'Таблица') return FileSpreadsheet;
+  if (kindLabel === 'Документ PDF' || kindLabel === 'Текст') return FileText;
+  return FileIcon;
+}
+
+/** Карточка файла-манифеста: иконка типа, имя, подпись — тип+размер, когда
+ *  файл на руках; прогресс сборки или «недоступен», пока нет. */
+function FileBubble({ m, own, received }: { m: FamilyMessage; own: boolean; received: number }) {
+  const info = m.file!;
+  const Icon = fileIconFor(fileKindLabel(info.mime, info.name));
+  const available = Boolean(m.fileData);
+  // received===0 и своего fileData нет — либо чанки ещё даже не начали
+  // приходить (маловероятно долго), либо это старая история и ретеншн
+  // сервера (последние 5000 сообщений) их уже вытеснил. Не гадаем откуда —
+  // просто честно говорим «недоступен», как и просили в задаче.
+  const unavailable = !available && received === 0;
+  const subtitle = available
+    ? `${fileKindLabel(info.mime, info.name)} · ${formatFileSize(info.size)}`
+    : unavailable
+      ? 'Файл недоступен'
+      : `Получение ${received} из ${info.chunksTotal}`;
+  return (
+    <div className="flex min-w-[190px] max-w-[240px] items-center gap-2.5 py-0.5">
+      <div
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'}`}
+      >
+        <Icon size={18} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{info.name}</p>
+        <p className={`truncate text-2xs ${unavailable ? 'opacity-60' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
+          {subtitle}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // Единый порядок сообщений: подтверждённые по seq, неотправленные — в конец
-// по времени. Реакции — служебные записи, в ленте не показываются.
+// по времени. Реакции и чанки файлов — служебные записи, в ленте не показываются.
 function msgOrder(a: FamilyMessage, b: FamilyMessage): number {
   if (a.seq != null && b.seq != null) return a.seq - b.seq;
   if (a.seq == null && b.seq == null) return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0;
   return a.seq == null ? 1 : -1;
 }
 function ordered(msgs: FamilyMessage[]): FamilyMessage[] {
-  return [...msgs].filter((m) => !m.deletedAt && !m.reaction).sort(msgOrder);
+  return [...msgs].filter((m) => !m.deletedAt && !m.reaction && !m.fileChunk).sort(msgOrder);
 }
 
 function timeLabel(iso: string): string {
@@ -138,6 +202,7 @@ function snippetOf(m: FamilyMessage): string {
   if (m.text) return m.text.slice(0, 120);
   if (m.image) return 'Фото';
   if (m.audio) return 'Голосовое сообщение';
+  if (m.file) return 'Файл';
   return 'Сообщение';
 }
 
@@ -158,10 +223,12 @@ function MessageRow({
   highlight,
   chips,
   maxOtherRead,
+  fileReceived,
   onMenu,
   onReply,
   onHeart,
   onOpenImage,
+  onDownloadFile,
   onJumpTo,
   onToggleChip,
 }: {
@@ -172,10 +239,12 @@ function MessageRow({
   highlight: boolean;
   chips: { emoji: string; count: number; mine: boolean }[] | undefined;
   maxOtherRead: number;
+  fileReceived: number;
   onMenu: (m: FamilyMessage) => void;
   onReply: (m: FamilyMessage) => void;
   onHeart: (m: FamilyMessage) => void;
   onOpenImage: (src: string) => void;
+  onDownloadFile: (m: FamilyMessage) => void;
   onJumpTo: (id: string) => void;
   onToggleChip: (m: FamilyMessage, emoji: string) => void;
 }) {
@@ -270,10 +339,12 @@ function MessageRow({
     }
     s.lastTapAt = nowTs;
     const openImage = s.onImage && m.image;
+    const isFile = Boolean(m.file); // весь пузырь файла — одна кликабельная карточка
     const msg = m;
     s.tapTimer = setTimeout(() => {
       s.tapTimer = null;
       if (openImage) onOpenImage(msg.image!);
+      else if (isFile) onDownloadFile(msg);
       else onMenu(msg);
     }, DOUBLE_TAP_MS);
   }
@@ -340,6 +411,7 @@ function MessageRow({
               </button>
             )}
             {m.audio && <AudioBubble src={m.audio} duration={m.audioDur ?? 0} own={own} />}
+            {m.file && <FileBubble m={m} own={own} received={fileReceived} />}
             {m.image && (
               <img src={m.image} alt="Фото" loading="lazy" className="block max-h-80 max-w-full rounded-xl" draggable={false} />
             )}
@@ -427,14 +499,34 @@ export function ChatTab({ familyId }: { familyId: string }) {
     return { reactionChips: chips, myReactions: mine };
   }, [messagesRaw, selfId]);
 
+  // Сколько РАЗНЫХ по idx чанков файла уже долетело до этого устройства —
+  // для прогресса «Получение X из N» в карточке ещё не собранного файла.
+  const fileChunkCounts = useMemo(() => {
+    const byFileId = new Map<string, Set<number>>();
+    for (const m of messagesRaw ?? []) {
+      if (!m.fileChunk) continue;
+      let idxs = byFileId.get(m.fileChunk.fileId);
+      if (!idxs) {
+        idxs = new Set();
+        byFileId.set(m.fileChunk.fileId, idxs);
+      }
+      idxs.add(m.fileChunk.idx);
+    }
+    return byFileId;
+  }, [messagesRaw]);
+
   // Presence в шапке чата: онлайн-статус собеседника(ов) + «был(а) в сети …».
   const others = useMemo(
     () => (membersRaw ?? []).filter((m) => !m.leftAt && m.id !== selfId),
     [membersRaw, selfId],
   );
-  // Пока фото сжимается и шифруется, кнопка занята: на большом снимке это
-  // заметная пауза, и без индикации человек жмёт второй раз.
+  // Пока фото сжимается и шифруется (или файл режется на чанки), кнопка
+  // занята: на большом вложении это заметная пауза, и без индикации человек
+  // жмёт второй раз.
   const [sendingImage, setSendingImage] = useState(false);
+  const [sendingFile, setSendingFile] = useState(false);
+  const [attachSheetOpen, setAttachSheetOpen] = useState(false);
+  const sendingAttachment = sendingImage || sendingFile;
   const [online, setOnline] = useState<string[]>([]);
   const [lastSeen, setLastSeen] = useState<Record<string, string>>({});
   const [now, setNow] = useState(0);
@@ -492,7 +584,8 @@ export function ChatTab({ familyId }: { familyId: string }) {
   );
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const imageRef = useRef<HTMLInputElement>(null);
+  const docRef = useRef<HTMLInputElement>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Отмечаем прочитанным до последнего seq, когда чат открыт и виден.
@@ -617,6 +710,43 @@ export function ChatTab({ familyId }: { familyId: string }) {
     } finally {
       setSendingImage(false);
     }
+  }
+
+  /** Читает файл целиком в dataURL и режет на чанки — sendFile сам решает,
+   *  как их отправить (см. familyChat.ts). Ограничение размера — здесь, а не
+   *  внутри sendFile: сообщить человеку до траты времени на FileReader. */
+  async function handlePickFile(file: File) {
+    if (file.size > MAX_FILE_BYTES) {
+      toast('Файл больше 8 МБ — такой не пройдёт через чат');
+      return;
+    }
+    setSendingFile(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result as string);
+        fr.onerror = () => reject(new Error('read'));
+        fr.readAsDataURL(file);
+      });
+      await sendFile(familyId, { name: file.name, mime: file.type || 'application/octet-stream', size: file.size, dataUrl });
+    } catch {
+      toast('Не удалось отправить файл. Проверьте связь');
+    } finally {
+      setSendingFile(false);
+    }
+  }
+
+  /** Скачивание готового файла: тап по карточке. Программный <a download> —
+   *  сама карточка не может быть настоящей ссылкой без конфликта с жестами
+   *  пузыря (свайп-ответ, долгое нажатие — меню). */
+  function downloadFile(m: FamilyMessage) {
+    if (!m.file || !m.fileData) return;
+    const a = document.createElement('a');
+    a.href = m.fileData;
+    a.download = m.file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   const rec = useVoiceRecorder((dataUrl, dur) => {
@@ -744,10 +874,12 @@ export function ChatTab({ familyId }: { familyId: string }) {
                         highlight={highlightId === m.clientMsgId}
                         chips={chips}
                         maxOtherRead={maxOtherRead}
+                        fileReceived={m.file ? (fileChunkCounts.get(m.file.fileId)?.size ?? 0) : 0}
                         onMenu={setActionMsg}
                         onReply={startReply}
                         onHeart={(msg) => void toggleReaction(msg, '❤️')}
                         onOpenImage={setViewImage}
+                        onDownloadFile={downloadFile}
                         onJumpTo={jumpToMessage}
                         onToggleChip={(msg, emoji) => void toggleReaction(msg, emoji)}
                       />
@@ -834,7 +966,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         ) : (
           <div className="flex items-end gap-1.5 px-2 py-2">
             <input
-              ref={fileRef}
+              ref={imageRef}
               type="file"
               accept="image/*"
               className="hidden"
@@ -844,14 +976,25 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 if (f) void handlePickImage(f);
               }}
             />
+            <input
+              ref={docRef}
+              type="file"
+              accept="*/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (f) void handlePickFile(f);
+              }}
+            />
             <button
-              onClick={() => fileRef.current?.click()}
-              disabled={sendingImage}
-              aria-label={sendingImage ? 'Фото отправляется' : 'Прикрепить фото'}
-              aria-busy={sendingImage || undefined}
+              onClick={() => setAttachSheetOpen(true)}
+              disabled={sendingAttachment}
+              aria-label={sendingAttachment ? 'Вложение отправляется' : 'Прикрепить'}
+              aria-busy={sendingAttachment || undefined}
               className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted transition-colors active:bg-surface active:text-accent disabled:opacity-50"
             >
-              {sendingImage ? (
+              {sendingAttachment ? (
                 <Loader2 size={20} className="animate-spin motion-reduce:animate-none" />
               ) : (
                 <Paperclip size={20} />
@@ -897,6 +1040,31 @@ export function ChatTab({ familyId }: { familyId: string }) {
         )}
       </div>
 
+      <Sheet open={attachSheetOpen} onClose={() => setAttachSheetOpen(false)} title="Вложение">
+        <div className="space-y-2 pb-2">
+          <button
+            onClick={() => {
+              setAttachSheetOpen(false);
+              imageRef.current?.click();
+            }}
+            className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
+          >
+            <ImageIcon size={18} className="text-accent" />
+            Фото
+          </button>
+          <button
+            onClick={() => {
+              setAttachSheetOpen(false);
+              docRef.current?.click();
+            }}
+            className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
+          >
+            <FileIcon size={18} className="text-accent" />
+            Файл
+          </button>
+        </div>
+      </Sheet>
+
       <Sheet open={actionMsg !== null} onClose={() => setActionMsg(null)} title="Сообщение">
         {actionMsg && (
           <div className="space-y-2 pb-2">
@@ -933,7 +1101,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 Копировать
               </button>
             )}
-            {actionMsg.senderMemberId === selfId && !actionMsg.image && !actionMsg.audio && (
+            {actionMsg.senderMemberId === selfId && !actionMsg.image && !actionMsg.audio && !actionMsg.file && (
               <button
                 onClick={() => startEdit(actionMsg)}
                 className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"

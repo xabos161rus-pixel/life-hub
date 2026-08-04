@@ -433,6 +433,14 @@ export interface FamilyMessage {
   editedAt?: string | null; // метка «изменено»
   status: 'pending' | 'sent' | 'acked'; // локальное состояние доставки (мимо синка)
   deletedAt: string | null;
+  /** Сообщение-файл (манифест): описание без содержимого. Содержимое едет
+   *  отдельными сообщениями-чанками и собирается по fileId. */
+  file?: { fileId: string; name: string; mime: string; size: number; chunksTotal: number } | null;
+  /** Собранный (или исходный у отправителя) файл целиком, dataURL. Есть только
+   *  локально после сборки всех чанков; в payload манифеста НЕ входит. */
+  fileData?: string | null;
+  /** Кусок файла. Такие сообщения не рендерятся пузырём вовсе. */
+  fileChunk?: { fileId: string; idx: number; total: number; data: string } | null;
 }
 
 // === Напоминания — закреплённые подсказки по темам (сворачиваемые разделы) ===

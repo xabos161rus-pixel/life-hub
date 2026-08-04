@@ -11,6 +11,7 @@ import { db } from '../../db/db';
 import type { FamilyConfig, FamilyMessage, FamilyTask, FamilyMember } from '../../db/types';
 import { getPushSubscription } from '../push';
 import { getFamilyConfig, patchFamilyConfig, listFamilyConfigs } from './familyState';
+import { assembleFile, splitDataUrl } from './fileTransfer';
 import {
   WORKER_URL,
   adoptSealedKey,
@@ -223,11 +224,18 @@ class FamilyEngine {
         /* чужой ключ / битый шифротекст */
       }
     }
+    // fileId'ы, которых коснулась эта пачка (пришёл чанк или манифест) — после
+    // транзакции по каждому пробуем собрать файл заново.
+    const touchedFileIds = new Set<string>();
     await db.transaction('rw', db.familyMessages, db.familyTasks, db.familyMembers, async () => {
       for (const { it, p } of decoded) {
         if (it.channel === 'msg') {
           const local = await db.familyMessages.get(it.itemId);
           if (local && local.seq != null && it.seq <= local.seq) continue;
+          const file = (p.file as FamilyMessage['file']) ?? null;
+          const fileChunk = (p.fileChunk as FamilyMessage['fileChunk']) ?? null;
+          if (file) touchedFileIds.add(file.fileId);
+          if (fileChunk) touchedFileIds.add(fileChunk.fileId);
           await db.familyMessages.put({
             clientMsgId: it.itemId,
             familyId: this.familyId,
@@ -244,6 +252,13 @@ class FamilyEngine {
             editedAt: (p.editedAt as string | null) ?? null,
             status: 'acked',
             deletedAt: (p.deletedAt as string | null) ?? null,
+            file,
+            fileChunk,
+            // fileData манифеста НЕ едет в payload (манифест лёгкий) — своё
+            // (уже собранное или изначально своё же, у отправителя) значение
+            // сохраняем, иначе echo собственного файла стёр бы его в гонке
+            // с ack: put() ниже полностью заменяет строку, а не патчит.
+            fileData: local?.fileData ?? null,
           });
         } else if (it.channel === 'task') {
           const local = await db.familyTasks.get(it.itemId);
@@ -254,6 +269,9 @@ class FamilyEngine {
         }
       }
     });
+    // Сборка ВНЕ транзакции: и бэкфилл, и живой поток проходят здесь — только
+    // это место пишет fileData собранного файла в манифест.
+    for (const fileId of touchedFileIds) await this.assembleIfPossible(fileId);
     const maxSeq = items.reduce((mx, i) => Math.max(mx, i.seq), c.lastSeq);
     if (maxSeq > c.lastSeq) {
       c.lastSeq = maxSeq;
@@ -268,11 +286,34 @@ class FamilyEngine {
           it.senderMemberId !== c.selfMemberId &&
           !p.system &&
           !p.reaction &&
-          !p.deletedAt,
+          !p.deletedAt &&
+          !p.fileChunk, // кусок файла — служебная запись, звук уведомления не нужен
       )
     ) {
       incomingListeners.forEach((l) => l(this.familyId));
     }
+  }
+
+  /** Пробует собрать файл по fileId из уже сохранённых в db чанков и манифеста.
+   *  undefined от assembleFile — нормальное состояние: либо ещё не все чанки
+   *  доехали, либо (для старой истории) часть уже вытеснена ретеншном сервера. */
+  private async assembleIfPossible(fileId: string): Promise<void> {
+    const manifest = await db.familyMessages
+      .where('familyId')
+      .equals(this.familyId)
+      .filter((m) => m.file?.fileId === fileId)
+      .first();
+    if (!manifest?.file || manifest.fileData) return;
+    const chunkRows = await db.familyMessages
+      .where('familyId')
+      .equals(this.familyId)
+      .filter((m) => m.fileChunk?.fileId === fileId)
+      .toArray();
+    const assembled = assembleFile(
+      chunkRows.map((r) => ({ idx: r.fileChunk!.idx, data: r.fileChunk!.data })),
+      manifest.file.chunksTotal,
+    );
+    if (assembled !== undefined) await db.familyMessages.update(manifest.clientMsgId, { fileData: assembled });
   }
 
   // Микро-очередь живых item: пачка за 50мс применяется одной транзакцией.
@@ -301,7 +342,7 @@ class FamilyEngine {
         senderMemberId: m.senderMemberId,
         createdAt: m.createdAt,
         edit: true, // при реконнекте могут быть правки/удаления — пропускаем дедуп
-        silent: (m.system ?? false) || Boolean(m.reaction),
+        silent: (m.system ?? false) || Boolean(m.reaction) || Boolean(m.fileChunk),
         ciphertext: await encFamily(c, this.msgPayload(m)),
       }));
     }
@@ -518,6 +559,10 @@ class FamilyEngine {
       replyTo: m.replyTo ?? null,
       reaction: m.reaction ?? null,
       editedAt: m.editedAt ?? null,
+      file: m.file ?? null,
+      fileChunk: m.fileChunk ?? null,
+      // fileData сюда сознательно НЕ входит: манифест едет лёгким сообщением,
+      // содержимое — отдельными чанками, каждый по себе укладывается в 1 МиБ.
     };
   }
 
@@ -593,6 +638,71 @@ class FamilyEngine {
     const createdAt = new Date().toISOString();
     await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: '', audio: dataUrl, audioDur: durationSec, status: 'pending', deletedAt: null });
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encFamily(c, { text: '', deletedAt: null, audio: dataUrl, audioDur: durationSec }) });
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
+  }
+
+  /** Отправить произвольный файл (dataURL целиком уже на руках — сжатие/чтение
+   *  делает UI). Режем на чанки не длиннее CHUNK_RAW_BYTES символов dataURL и
+   *  шлём их отдельными silent-сообщениями (как реакции — без пуша на каждый
+   *  кусок), затем — манифест: единственное сообщение с пушем и превью «Файл».
+   *  fileData манифеста заполняем сразу: у отправителя файл и так на руках,
+   *  ждать собственных чанков обратно смысла нет. */
+  async sendFile(file: { name: string; mime: string; size: number; dataUrl: string }): Promise<void> {
+    const c = await this.cfg();
+    if (!c) return;
+    const fileId = crypto.randomUUID();
+    const parts = splitDataUrl(file.dataUrl);
+    const base = Date.now();
+    for (let idx = 0; idx < parts.length; idx++) {
+      const clientMsgId = crypto.randomUUID();
+      // +idx мс — только чтобы порядок pending-сообщений (сортировка по
+      // createdAt) шёл чанк-за-чанком перед манифестом; сами чанки не рендерятся.
+      const createdAt = new Date(base + idx).toISOString();
+      const row: FamilyMessage = {
+        clientMsgId,
+        familyId: this.familyId,
+        seq: null,
+        senderMemberId: c.selfMemberId,
+        createdAt,
+        text: '',
+        fileChunk: { fileId, idx, total: parts.length, data: parts[idx] },
+        status: 'pending',
+        deletedAt: null,
+      };
+      await db.familyMessages.put(row);
+      this.trySendFrame({
+        type: 'send',
+        channel: 'msg',
+        clientMsgId,
+        senderMemberId: c.selfMemberId,
+        createdAt,
+        silent: true,
+        ciphertext: await encFamily(c, this.msgPayload(row)),
+      });
+    }
+    const manifestId = crypto.randomUUID();
+    const manifestCreatedAt = new Date(base + parts.length).toISOString();
+    const manifestRow: FamilyMessage = {
+      clientMsgId: manifestId,
+      familyId: this.familyId,
+      seq: null,
+      senderMemberId: c.selfMemberId,
+      createdAt: manifestCreatedAt,
+      text: '',
+      file: { fileId, name: file.name, mime: file.mime, size: file.size, chunksTotal: parts.length },
+      fileData: file.dataUrl,
+      status: 'pending',
+      deletedAt: null,
+    };
+    await db.familyMessages.put(manifestRow);
+    this.trySendFrame({
+      type: 'send',
+      channel: 'msg',
+      clientMsgId: manifestId,
+      senderMemberId: c.selfMemberId,
+      createdAt: manifestCreatedAt,
+      ciphertext: await encFamily(c, this.msgPayload(manifestRow)),
+    });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -733,6 +843,9 @@ export function sendImage(familyId: string, dataUrl: string): Promise<void> {
 }
 export function sendAudio(familyId: string, dataUrl: string, durationSec: number): Promise<void> {
   return getEngine(familyId).sendAudio(dataUrl, durationSec);
+}
+export function sendFile(familyId: string, file: { name: string; mime: string; size: number; dataUrl: string }): Promise<void> {
+  return getEngine(familyId).sendFile(file);
 }
 export function sendSystemMessage(familyId: string, text: string): Promise<void> {
   return getEngine(familyId).sendSystemMessage(text);
