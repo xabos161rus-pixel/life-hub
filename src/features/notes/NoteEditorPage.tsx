@@ -7,6 +7,8 @@ import {
   type ReactNode,
 } from 'react';
 import DOMPurify from 'dompurify';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { marked } from 'marked';
 import { Bold, Italic, Heading, Strikethrough, Pin, SlidersHorizontal, Type } from 'lucide-react';
 import {
@@ -137,6 +139,9 @@ export function NoteEditorPage() {
 
   const [pinned, setPinned] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Дата изменения под шапкой — как в Apple Notes. null, пока существующая
+  // заметка не загрузилась: мигать сегодняшней датой на чужой заметке нельзя.
+  const [editedAt, setEditedAt] = useState<string | null>(isNew ? new Date().toISOString() : null);
   // Активность кнопок форматирования для подсветки в тулбаре.
   const [active, setActive] = useState({
     bold: false, italic: false, ul: false, ol: false,
@@ -228,6 +233,7 @@ export function NoteEditorPage() {
       initializedRef.current = true;
       savedIdRef.current = n.id;
       setPinned(n.pinned);
+      setEditedAt(n.updatedAt);
       if (editorRef.current) {
         const raw = n.content || '';
         // Заметки v1 хранили markdown, новый редактор работает с HTML. Старый
@@ -286,6 +292,7 @@ export function NoteEditorPage() {
   const touch = useCallback(() => {
     dirtyRef.current = true;
     setSaved(false);
+    setEditedAt(new Date().toISOString());
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => void flush(), AUTOSAVE_MS);
   }, [flush]);
@@ -532,6 +539,14 @@ export function NoteEditorPage() {
         </div>
       }
     >
+      {/* Дата изменения по центру над текстом — фирменная строка Apple Notes:
+          тихий факт вместо интерфейса, живёт прямо в листе заметки. */}
+      {editedAt && (
+        <p className="mb-2 text-center text-xs text-muted">
+          {format(new Date(editedAt), "d MMMM yyyy 'г'., HH:mm", { locale: ru })}
+        </p>
+      )}
+
       <Hint
         id="note-editor-tricks"
         title="Редактор заметок"
