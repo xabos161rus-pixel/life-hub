@@ -573,7 +573,17 @@ export function NoteEditorPage() {
           e.preventDefault();
           const html = e.clipboardData.getData('text/html');
           const text = e.clipboardData.getData('text/plain');
-          const clean = html ? DOMPurify.sanitize(html, SANITIZE) : text;
+          // Простой текст — БУКВАЛЬНО: раньше он шёл в insertHTML сырым, и
+          // символы разметки из буфера (ответы ИИ полны «a<b», «&amp;»,
+          // числовых сущностей) интерпретировались: куски текста глотались,
+          // сущности превращались в кашу символов, переносы строк слипались
+          // (\n для HTML — пробел). Экранируем и переводим \n в <br> руками.
+          const literal = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\n/g, '<br>');
+          const clean = html ? DOMPurify.sanitize(html, SANITIZE) : literal;
           document.execCommand('insertHTML', false, clean);
           // Вставленная разметка приносит свои <div>/<p>, и первая строка
           // оказывается внутри блока — то есть перестаёт быть заголовком.

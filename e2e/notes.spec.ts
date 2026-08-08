@@ -470,3 +470,17 @@ test.describe('низ заметки не прячется под панелью
     expect(gap).toBeGreaterThanOrEqual(0);
   });
 });
+
+test.describe('вставка простого текста — буквально', () => {
+  test('символы разметки из буфера не интерпретируются как HTML', async ({ page }) => {
+    await newNote(page);
+    // Типичный фрагмент из ответа ИИ: угловые скобки, амперсанд, числовая
+    // сущность. Всё это обязано отобразиться ровно как скопировано.
+    await paste(page, 'Заголовок\nусловие a<b и b>c\nкоманда <script>нет</script>\nсущность &#8594; и &amp;');
+    const text = await page.locator('.note-editor').innerText();
+    expect(text).toContain('a<b и b>c');
+    expect(text).toContain('<script>нет</script>');
+    expect(text).toContain('&#8594;');
+    expect(text).toContain('&amp;');
+  });
+});
