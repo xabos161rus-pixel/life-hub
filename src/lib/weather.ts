@@ -4,6 +4,7 @@
 
 const MOSCOW = { lat: 55.75, lon: 37.62 };
 const CACHE_KEY = 'life-hub-weather';
+const COORDS_KEY = 'life-hub-weather-coords';
 const TTL_MS = 30 * 60 * 1000;
 
 export interface Weather {
@@ -16,12 +17,45 @@ export interface Weather {
   fetchedAt: number;
 }
 
-function getCoords(): Promise<{ lat: number; lon: number }> {
+function readSavedCoords(): { lat: number; lon: number } | null {
+  try {
+    const raw = localStorage.getItem(COORDS_KEY);
+    return raw ? (JSON.parse(raw) as { lat: number; lon: number }) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Координаты для погоды — БЕЗ единого системного диалога по нашей инициативе.
+ *
+ *  getCurrentPosition сам по себе показывает запрос «разрешить геопозицию?»,
+ *  а iOS вебу разрешения «навсегда» не даёт — и виджет переспрашивал при
+ *  каждом протухании кэша, раз в полчаса, бесконечно. Теперь позиционирование
+ *  зовётся только когда разрешение УЖЕ выдано (navigator.permissions), иначе
+ *  тихо берём последние известные координаты, а без них — Москву. Виджет
+ *  погоды — фон, а не причина дёргать человека системными окнами. */
+async function getCoords(): Promise<{ lat: number; lon: number }> {
+  const saved = readSavedCoords();
+  if (!navigator.geolocation) return saved ?? MOSCOW;
+  let granted = false;
+  try {
+    granted = (await navigator.permissions.query({ name: 'geolocation' })).state === 'granted';
+  } catch {
+    // permissions API нет (старые WebKit) — считаем «не выдано» и не спрашиваем.
+  }
+  if (!granted) return saved ?? MOSCOW;
   return new Promise((resolve) => {
-    if (!navigator.geolocation) return resolve(MOSCOW);
     navigator.geolocation.getCurrentPosition(
-      (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
-      () => resolve(MOSCOW), // отказ/ошибка — Москва
+      (p) => {
+        const c = { lat: p.coords.latitude, lon: p.coords.longitude };
+        try {
+          localStorage.setItem(COORDS_KEY, JSON.stringify(c));
+        } catch {
+          /* приватный режим */
+        }
+        resolve(c);
+      },
+      () => resolve(saved ?? MOSCOW),
       { timeout: 6000, maximumAge: TTL_MS },
     );
   });
