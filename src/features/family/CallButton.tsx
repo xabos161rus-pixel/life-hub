@@ -3,7 +3,6 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import type { FamilyMember } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
-import { IconButton } from '../../components/ui/IconButton';
 import { GPhone } from '../../components/ui/glyphs';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import { subscribePresence } from '../../lib/family/familyChat';
@@ -55,12 +54,17 @@ export function CallButton({ familyId }: { familyId: string }) {
 
   return (
     <>
-      <IconButton
-        icon={GPhone}
-        label={others.length === 1 ? `Позвонить: ${others[0].displayName}` : 'Позвонить'}
-        tone="accent"
+      {/* Не голая иконка, а заметная круглая кнопка в фирменном градиенте
+          (как отправка в чате): звонок — главное действие шапки, и человек
+          должен видеть, куда нажать, не разглядывая пиктограммы. */}
+      <button
+        type="button"
+        aria-label={others.length === 1 ? `Позвонить: ${others[0].displayName}` : 'Позвонить'}
         onClick={() => (others.length === 1 ? call(others[0].id) : setPick(true))}
-      />
+        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent active:scale-95"
+      >
+        <GPhone size={19} />
+      </button>
 
       <Sheet open={pick} onClose={() => setPick(false)} title="Кому позвонить">
         <div className="space-y-1 pb-2">
