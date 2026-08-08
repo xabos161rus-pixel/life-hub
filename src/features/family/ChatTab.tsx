@@ -197,6 +197,20 @@ function relTime(iso: string, now: number): string {
   return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
+/** Сообщение из одних эмодзи (1–3 графемы): рисуется без пузыря, крупно —
+ *  как в больших мессенджерах. Сегментация по графемам, а не по кодпоинтам:
+ *  флаги, скин-тоны и ZWJ-связки — это один видимый символ из многих кодов. */
+function emojiOnly(text: string): number {
+  const t = text.trim();
+  if (!t || t.length > 24) return 0;
+  const seg = new Intl.Segmenter('ru', { granularity: 'grapheme' });
+  const clusters = [...seg.segment(t)].map((x) => x.segment);
+  if (clusters.length === 0 || clusters.length > 3) return 0;
+  return clusters.every((c) => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(c))
+    ? clusters.length
+    : 0;
+}
+
 /** Сниппет сообщения для цитаты ответа. */
 function snippetOf(m: FamilyMessage): string {
   if (m.text) return m.text.slice(0, 120);
@@ -220,6 +234,8 @@ function MessageRow({
   own,
   authorName,
   authorColor,
+  groupStart,
+  groupEnd,
   highlight,
   chips,
   maxOtherRead,
@@ -236,6 +252,10 @@ function MessageRow({
   own: boolean;
   authorName: string | null;
   authorColor: string | null;
+  /** Первый/последний в серии подряд идущих сообщений одного автора за день:
+   *  имя — только на первом, «хвостик» угла — только на последнем. */
+  groupStart: boolean;
+  groupEnd: boolean;
   highlight: boolean;
   chips: { emoji: string; count: number; mine: boolean }[] | undefined;
   maxOtherRead: number;
@@ -356,6 +376,10 @@ function MessageRow({
     setDragX(0);
   }
 
+  // Крупные эмодзи без пузыря — только у «чистого» эмодзи-сообщения: цитата,
+  // фото или файл возвращают обычный пузырь, иначе им не на чем висеть.
+  const jumbo = !m.replyTo && !m.image && !m.audio && !m.file ? emojiOnly(m.text) : 0;
+
   return (
     <div className={`flex ${own ? 'justify-end' : 'justify-start'}`}>
       <div className={`flex max-w-[80%] flex-col ${own ? 'items-end' : 'items-start'}`}>
@@ -380,13 +404,17 @@ function MessageRow({
               transition: dragX ? undefined : 'transform 160ms ease',
               WebkitTouchCallout: 'none',
             }}
-            className={`cursor-pointer select-none overflow-hidden rounded-2xl transition-shadow active:opacity-80 ${
-              m.image ? 'p-1' : 'px-3 py-2'
-            } ${own ? 'bg-accent-fill text-white' : 'bg-surface-2 text-text'} ${
-              highlight ? 'ring-2 ring-frost' : ''
-            }`}
+            className={`cursor-pointer select-none overflow-hidden transition-shadow active:opacity-80 ${
+              jumbo
+                ? 'bg-transparent px-1 py-0'
+                : `rounded-2xl ${m.image ? 'p-1' : 'px-3 py-2'} ${
+                    own
+                      ? `bg-gradient-to-br from-accent-fill to-accent-2-fill text-white ${groupEnd ? 'rounded-br-md' : ''}`
+                      : `bg-surface-2 text-text ${groupEnd ? 'rounded-bl-md' : ''}`
+                  }`
+            } ${highlight ? 'ring-2 ring-frost' : ''}`}
           >
-            {!own && authorName && (
+            {!own && authorName && groupStart && (
               <p className={`mb-0.5 text-xs font-semibold ${m.image ? 'px-2 pt-1' : ''}`} style={{ color: authorColor ?? undefined }}>
                 {authorName}
               </p>
@@ -415,10 +443,15 @@ function MessageRow({
             {m.image && (
               <img src={m.image} alt="Фото" loading="lazy" className="block max-h-80 max-w-full rounded-xl" draggable={false} />
             )}
-            {m.text && (
+            {m.text && jumbo > 0 && (
+              <p className={`leading-none ${jumbo === 1 ? 'text-5xl' : jumbo === 2 ? 'text-4xl' : 'text-3xl'}`}>
+                {m.text.trim()}
+              </p>
+            )}
+            {m.text && jumbo === 0 && (
               <p className={`whitespace-pre-wrap break-words text-sm ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
             )}
-            <span className={`mt-0.5 flex items-center justify-end gap-1 text-2xs ${m.image ? 'px-2 pb-1' : ''} ${own ? 'text-white/70' : 'text-muted'}`}>
+            <span className={`mt-0.5 flex items-center justify-end gap-1 text-2xs ${m.image ? 'px-2 pb-1' : ''} ${jumbo ? 'text-muted' : own ? 'text-white/70' : 'text-muted'}`}>
               {m.editedAt && <span>изменено</span>}
               {timeLabel(m.createdAt)}
               {own &&
@@ -839,8 +872,21 @@ export function ChatTab({ familyId }: { familyId: string }) {
               <p className="py-12 text-center text-sm text-muted">Пока нет сообщений. Напишите первым!</p>
             )
           ) : (
-            <div className="space-y-2 py-2">
+            // justify-end: короткая переписка живёт у композера, как во всех
+            // мессенджерах, а не болтается в середине экрана. Ритм отступов —
+            // по сериям (см. sameGroup), а не одинаковой прокладкой.
+            <div className="flex min-h-full flex-col justify-end py-2">
               {list.map((m, i) => {
+                const sameGroup = (a: FamilyMessage | undefined, b: FamilyMessage) =>
+                  Boolean(
+                    a &&
+                      !a.system &&
+                      !b.system &&
+                      a.senderMemberId === b.senderMemberId &&
+                      dayKey(a.createdAt) === dayKey(b.createdAt),
+                  );
+                const groupStart = !sameGroup(list[i - 1], m);
+                const groupEnd = !sameGroup(list[i + 1] as FamilyMessage | undefined, m);
                 const divider =
                   i === 0 || dayKey(list[i - 1].createdAt) !== dayKey(m.createdAt) ? (
                     <div key={`d-${m.clientMsgId}`} className="flex items-center justify-center py-1.5">
@@ -851,10 +897,12 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   ) : null;
                 if (m.system) {
                   return (
-                    <div key={m.clientMsgId}>
+                    <div key={m.clientMsgId} className="mt-2">
                       {divider}
-                      <div className="py-1 text-center">
-                        <span className="inline-block rounded-full bg-surface-2 px-3 py-1 text-xs text-muted">{m.text}</span>
+                      {/* Полупрозрачная плашка: служебные события не должны
+                          весить столько же, сколько живые сообщения. */}
+                      <div className="py-0.5 text-center">
+                        <span className="inline-block rounded-full bg-surface-2/70 px-3 py-1 text-xs text-muted">{m.text}</span>
                       </div>
                     </div>
                   );
@@ -863,7 +911,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 const author = memberMap[m.senderMemberId];
                 const chips = reactionChips.get(m.clientMsgId);
                 return (
-                  <div key={m.clientMsgId}>
+                  <div key={m.clientMsgId} className={groupStart ? 'mt-2.5' : 'mt-0.5'}>
                     {divider}
                     <div data-msg-id={m.clientMsgId}>
                       <MessageRow
@@ -871,6 +919,8 @@ export function ChatTab({ familyId }: { familyId: string }) {
                         own={own}
                         authorName={author?.displayName ?? null}
                         authorColor={author?.color ?? null}
+                        groupStart={groupStart}
+                        groupEnd={groupEnd}
                         highlight={highlightId === m.clientMsgId}
                         chips={chips}
                         maxOtherRead={maxOtherRead}
@@ -964,7 +1014,11 @@ export function ChatTab({ familyId }: { familyId: string }) {
             </button>
           </div>
         ) : (
-          <div className="flex items-end gap-1.5 px-2 py-2">
+          // Единая капсула ввода на всю ширину: скрепка живёт ВНУТРИ поля
+          // (как в больших мессенджерах), снаружи — одна круглая кнопка.
+          // Раньше скрепка висела отдельной прозрачной кнопкой слева, и поле
+          // выглядело зажатым посередине с рыхлыми пустотами по бокам.
+          <div className="flex items-end gap-2 px-3 py-2">
             <input
               ref={imageRef}
               type="file"
@@ -987,37 +1041,39 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 if (f) void handlePickFile(f);
               }}
             />
-            <button
-              onClick={() => setAttachSheetOpen(true)}
-              disabled={sendingAttachment}
-              aria-label={sendingAttachment ? 'Вложение отправляется' : 'Прикрепить'}
-              aria-busy={sendingAttachment || undefined}
-              className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted transition-colors active:bg-surface active:text-accent disabled:opacity-50"
-            >
-              {sendingAttachment ? (
-                <Loader2 size={20} className="animate-spin motion-reduce:animate-none" />
-              ) : (
-                <Paperclip size={20} />
-              )}
-            </button>
-            <textarea
-              value={text}
-              onChange={(e) => {
-                setText(e.target.value);
-                if (e.target.value.trim()) sendTyping(familyId);
-              }}
-              onKeyDown={(e) => {
-                // На тач-устройствах Enter = перенос строки (отправка — кнопкой):
-                // экранная клавиатура ставит «ввод», а не «отправить».
-                if (e.key === 'Enter' && !e.shiftKey && !isTouch) {
-                  e.preventDefault();
-                  void submit();
-                }
-              }}
-              rows={1}
-              placeholder="Сообщение…"
-              className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none rounded-3xl border border-border bg-surface px-4 py-2.5 text-sm leading-tight outline-none focus:border-accent"
-            />
+            <div className="flex min-w-0 flex-1 items-end rounded-3xl border border-border bg-surface transition-colors focus-within:border-accent">
+              <button
+                onClick={() => setAttachSheetOpen(true)}
+                disabled={sendingAttachment}
+                aria-label={sendingAttachment ? 'Вложение отправляется' : 'Прикрепить'}
+                aria-busy={sendingAttachment || undefined}
+                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted active:text-accent disabled:opacity-50"
+              >
+                {sendingAttachment ? (
+                  <Loader2 size={20} className="animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <Paperclip size={20} />
+                )}
+              </button>
+              <textarea
+                value={text}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  if (e.target.value.trim()) sendTyping(familyId);
+                }}
+                onKeyDown={(e) => {
+                  // На тач-устройствах Enter = перенос строки (отправка — кнопкой):
+                  // экранная клавиатура ставит «ввод», а не «отправить».
+                  if (e.key === 'Enter' && !e.shiftKey && !isTouch) {
+                    e.preventDefault();
+                    void submit();
+                  }
+                }}
+                rows={1}
+                placeholder="Сообщение…"
+                className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 pl-0.5 pr-4 text-sm leading-tight outline-none"
+              />
+            </div>
             {text.trim() || !rec.supported ? (
               <button
                 onClick={() => void submit()}
