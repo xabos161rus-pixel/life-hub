@@ -1014,11 +1014,10 @@ export function ChatTab({ familyId }: { familyId: string }) {
             </button>
           </div>
         ) : (
-          // Единая капсула ввода на всю ширину: скрепка живёт ВНУТРИ поля
-          // (как в больших мессенджерах), снаружи — одна круглая кнопка.
-          // Раньше скрепка висела отдельной прозрачной кнопкой слева, и поле
-          // выглядело зажатым посередине с рыхлыми пустотами по бокам.
-          <div className="flex items-end gap-2 px-3 py-2">
+          // Одна цельная капсула от края до края: скрепка внутри слева,
+          // отправка/микрофон внутри справа. Никаких отдельно висящих кнопок —
+          // поле было «зажато посередине» между ними и выглядело разорванным.
+          <div className="px-3 py-2">
             <input
               ref={imageRef}
               type="file"
@@ -1041,7 +1040,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 if (f) void handlePickFile(f);
               }}
             />
-            <div className="flex min-w-0 flex-1 items-end rounded-3xl border border-border bg-surface transition-colors focus-within:border-accent">
+            <div className="flex w-full items-end rounded-3xl border border-border bg-surface transition-colors focus-within:border-accent">
               <button
                 onClick={() => setAttachSheetOpen(true)}
                 disabled={sendingAttachment}
@@ -1071,27 +1070,27 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 }}
                 rows={1}
                 placeholder="Сообщение…"
-                className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 pl-0.5 pr-4 text-sm leading-tight outline-none"
+                className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 pl-0.5 pr-2 text-sm leading-tight outline-none"
               />
+              {text.trim() || !rec.supported ? (
+                <button
+                  onClick={() => void submit()}
+                  disabled={!text.trim()}
+                  aria-label="Отправить"
+                  className="m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white disabled:opacity-40 active:scale-95"
+                >
+                  <Send size={17} />
+                </button>
+              ) : (
+                <button
+                  onClick={() => void rec.start()}
+                  aria-label="Записать голосовое"
+                  className="m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
+                >
+                  <Mic size={17} />
+                </button>
+              )}
             </div>
-            {text.trim() || !rec.supported ? (
-              <button
-                onClick={() => void submit()}
-                disabled={!text.trim()}
-                aria-label="Отправить"
-                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white disabled:opacity-40 active:scale-95"
-              >
-                <Send size={20} />
-              </button>
-            ) : (
-              <button
-                onClick={() => void rec.start()}
-                aria-label="Записать голосовое"
-                className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
-              >
-                <Mic size={20} />
-              </button>
-            )}
           </div>
         )}
       </div>
