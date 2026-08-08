@@ -19,6 +19,7 @@ import {
 } from '../../components/ui/glyphs';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Screen } from '../../components/layout/Screen';
+import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 import { MicButton } from '../../components/ui/MicButton';
 import { Hint } from '../../components/ui/Hint';
 import { db } from '../../db/db';
@@ -290,6 +291,7 @@ export function NoteEditorPage() {
   }, [flush]);
 
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const keyboardInset = useKeyboardInset();
 
   // «Камера» следует за текстом: при наборе курсор уезжает под клавиатуру /
   // панель форматирования, а контейнер сам не скроллится — докручиваем
@@ -586,11 +588,20 @@ export function NoteEditorPage() {
         }}
       />
 
-      {/* Панель форматирования над клавиатурой (таб-бар на этом экране скрыт). */}
+      {/* Распорка под перекрытие снизу: панель форматирования + клавиатура.
+          Без неё скролл упирается, когда последние строки ещё лежат под
+          панелью, — низ заметки физически нельзя было увидеть. 72px — панель
+          (~60px с safe-area) с запасом; клавиатурная часть — живая, от
+          useKeyboardInset. */}
+      <div aria-hidden style={{ height: keyboardInset + 72 }} />
+
+      {/* Панель форматирования над клавиатурой (таб-бар на этом экране скрыт).
+          fixed bottom-0 на iOS клавиатура просто накрывает (fixed живёт в
+          layout-вьюпорте) — поднимаем панель на её высоту через translateY. */}
       <div
         ref={toolbarRef}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface p-2 pb-[calc(env(safe-area-inset-bottom)+8px)]"
-        style={{ position: 'fixed' }}
+        style={{ position: 'fixed', transform: keyboardInset > 0 ? `translateY(-${keyboardInset}px)` : undefined }}
       >
         <div className="mx-auto flex w-full max-w-lg items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ToolBtn

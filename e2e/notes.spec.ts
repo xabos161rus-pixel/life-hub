@@ -432,3 +432,41 @@ test.describe('редактор', () => {
     expect(scrollable).toBe(false);
   });
 });
+
+test.describe('низ заметки не прячется под панелью', () => {
+  test('длинную заметку можно доскроллить: последняя строка видна над панелью форматирования', async ({
+    page,
+  }) => {
+    await newNote(page);
+    // Достаточно строк, чтобы контент гарантированно ушёл за экран 660px.
+    // Вставляем как HTML: plain-text не порождает блочных строк в contenteditable.
+    const lines = Array.from({ length: 60 }, (_, i) => `Строка ${i + 1}`);
+    await paste(page, lines.join('\n'), 'Заголовок' + lines.map((l) => `<div>${l}</div>`).join(''));
+    await page.keyboard.press('Escape'); // убрать фокус — интересует чистый скролл, без каретки
+
+    // Скроллим контейнер до упора вниз — как палец, доводящий заметку до конца.
+    await page.evaluate(() => {
+      const s = document.getElementById('app-scroll')!;
+      s.scrollTop = s.scrollHeight;
+    });
+    await page.waitForTimeout(200);
+
+    const gap = await page.evaluate(() => {
+      const blocks = document.querySelectorAll('.note-editor > div');
+      const last = blocks[blocks.length - 1]!.getBoundingClientRect();
+      // Панель — fixed-элемент с кнопками форматирования; ищем по ref-классам
+      // ненадёжно, берём её как ближайший fixed к низу с кнопками внутри.
+      // Панель — fixed у самого низа И невысокая: фильтр по top отсекает
+      // fixed-каркас всего приложения (он тоже прибит к низу, но top=0).
+      const toolbar = [...document.querySelectorAll('div')].find((d) => {
+        if (getComputedStyle(d).position !== 'fixed' || !d.querySelector('button')) return false;
+        const r = d.getBoundingClientRect();
+        return r.bottom >= window.innerHeight - 1 && r.top > window.innerHeight * 0.6;
+      })!;
+      return toolbar.getBoundingClientRect().top - last.bottom;
+    });
+    // Последняя строка целиком ВЫШЕ верха панели — раньше распорки не было,
+    // и низ заметки физически нельзя было увидеть.
+    expect(gap).toBeGreaterThanOrEqual(0);
+  });
+});
