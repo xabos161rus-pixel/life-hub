@@ -288,6 +288,13 @@ export class InviteExpiredError extends Error {
   }
 }
 
+export class InviteDamagedError extends Error {
+  constructor() {
+    super('Код приглашения неполный или повреждён');
+    this.name = 'InviteDamagedError';
+  }
+}
+
 export class InviteWordError extends Error {
   constructor() {
     super('Неверное кодовое слово');
@@ -328,6 +335,69 @@ export async function openInvite(code: string, word: string): Promise<InviteSecr
     // Различить нельзя, и не нужно: для человека это один и тот же случай.
     throw new InviteWordError();
   }
+}
+
+// === Разбор кода, вставленного из мессенджера ===
+//
+// Код — сплошная base64url-строка в несколько сотен символов, и до поля ввода
+// он доезжает через чат: с сопроводительным текстом («Вот код: …»), с
+// невидимыми символами разметки, которые дописывают чаты и клавиатуры
+// (U+200B/U+200E), порванный переносами при копировании из письма или PDF.
+// Строгий парсер на таком вставленном падает, и человек видел «неверный код»
+// на код, который на той стороне был верным.
+
+/** Первые символы base64url от JSON-заголовков обоих форматов: у sealInvite и
+ *  encodeFamilyPairing поле v стоит в объекте первым, поэтому префикс кода
+ *  детерминирован — btoa('{"v":3') и btoa('{"v":2'). По нему битый код
+ *  отличается от текста, не являющегося кодом вовсе. Закреплено тестом. */
+const V3_CODE_PREFIX = 'eyJ2Ijoz';
+const V2_CODE_PREFIX = 'eyJ2Ijoy';
+
+/** Кандидаты в код из вставленного текста: сам текст без крайних пробелов,
+ *  самый длинный base64url-кусок (код в обрамлении слов), склейка всех
+ *  длинных кусков (код, порванный переносами или невидимыми символами).
+ *  Куски короче 20 символов — сопроводительные слова, не код. */
+function inviteCandidates(raw: string): string[] {
+  const runs = raw.match(/[A-Za-z0-9_-]{20,}/g) ?? [];
+  const longest = [...runs].sort((a, b) => b.length - a.length)[0];
+  const joined = runs.join('');
+  const out = [raw.trim()];
+  if (longest && !out.includes(longest)) out.push(longest);
+  if (joined && !out.includes(joined)) out.push(joined);
+  return out;
+}
+
+export type PastedInvite =
+  | { kind: 'v3'; code: string; peeked: SealedInvite }
+  | { kind: 'v2'; code: string };
+
+/** Разбирает вставленное «как есть». Возвращает распознанный код (его и
+ *  передавать дальше в joinFamily) и, для v3, прочитанный без слова конверт.
+ *  Бросает InviteDamagedError, если в тексте есть что-то похожее на код, но
+ *  целиком он не разбирается — это «скопировано не всё», а не «не тот код».
+ *  Обычная Error — кода в тексте нет вовсе. */
+export function parsePastedInvite(raw: string): PastedInvite {
+  const candidates = inviteCandidates(raw);
+  for (const code of candidates) {
+    try {
+      return { kind: 'v3', code, peeked: peekInvite(code) };
+    } catch {
+      /* следующий кандидат */
+    }
+  }
+  for (const code of candidates) {
+    try {
+      decodeFamilyPairing(code);
+      return { kind: 'v2', code };
+    } catch {
+      /* следующий кандидат */
+    }
+  }
+  const looksLikeCode = candidates.some(
+    (c) => c.startsWith(V3_CODE_PREFIX) || c.startsWith(V2_CODE_PREFIX),
+  );
+  if (looksLikeCode) throw new InviteDamagedError();
+  throw new Error('Это не код приглашения');
 }
 
 // === Личный конверт участника (ECDH P-256 + AES-256-GCM) ===

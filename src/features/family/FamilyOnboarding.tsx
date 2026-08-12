@@ -10,10 +10,11 @@ import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { createFamily, joinFamily } from '../../lib/family/familyLifecycle';
 import {
+  InviteDamagedError,
   InviteExpiredError,
   InviteWordError,
   normalizeInviteWord,
-  peekInvite,
+  parsePastedInvite,
 } from '../../lib/crypto';
 import { STROKE_HEAVY } from '../../components/ui/icons';
 
@@ -146,24 +147,33 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
   // Подключение через ref (стабильная ссылка для камеры-эффекта).
   const joinRef = useRef<(code: string) => void>(() => {});
   useEffect(() => {
-    joinRef.current = (code: string) => {
+    joinRef.current = (raw: string) => {
       if (busy) return;
       if (!name.trim()) {
         setError('Сначала введите своё имя');
         return;
       }
-      // Код прочитан — теперь нужно кодовое слово. Раньше вход происходил
-      // сразу, потому что ключ лежал прямо в коде; теперь код без слова
-      // бесполезен, и это второй шаг, а не лишний вопрос.
-      let peeked;
+      // Разбор терпит то, что приезжает из мессенджера вместе с кодом:
+      // сопроводительный текст, невидимые символы, переносы. Битый код при
+      // этом называется битым, а не «неверным» — человеку с верным кодом
+      // на руках сообщение «проверьте код» не давало никакого хода.
+      let parsed;
       try {
-        peeked = peekInvite(code.trim());
-      } catch {
+        parsed = parsePastedInvite(raw);
+      } catch (err) {
+        setError(
+          err instanceof InviteDamagedError
+            ? 'Код неполный или повреждён. Скопируйте сообщение с кодом целиком и вставьте ещё раз'
+            : 'Это не похоже на код приглашения. Вставьте код из приложения целиком',
+        );
+        return;
+      }
+      if (parsed.kind === 'v2') {
         // Старый код без слова (формат v:2) — принимаем как есть, чтобы
         // сохранённые до обновления приглашения продолжали работать.
         setBusy(true);
         setError('');
-        void joinFamily(code.trim(), name)
+        void joinFamily(parsed.code, name)
           .then((id) => {
             onClose();
             onReady?.(id);
@@ -174,8 +184,11 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
           });
         return;
       }
-      setPendingCode(code.trim());
-      setPendingName(peeked.familyName);
+      // Код прочитан — теперь нужно кодовое слово. Раньше вход происходил
+      // сразу, потому что ключ лежал прямо в коде; теперь код без слова
+      // бесполезен, и это второй шаг, а не лишний вопрос.
+      setPendingCode(parsed.code);
+      setPendingName(parsed.peeked.familyName);
       setError('');
     };
   });

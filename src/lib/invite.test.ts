@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  InviteDamagedError,
   InviteExpiredError,
   InviteWordError,
+  encodeFamilyPairing,
   formatInviteWord,
   generateInviteWord,
   normalizeInviteWord,
   openInvite,
+  parsePastedInvite,
   peekInvite,
   sealInvite,
 } from './crypto';
@@ -88,5 +91,103 @@ describe('приглашение под кодовым словом', () => {
 
   it('испорченный код не проходит проверку формата', () => {
     expect(() => peekInvite('не-код')).toThrow();
+  });
+});
+
+// Багрепорт 2026-08-12: «отправляю код, человек вводит — пишет "неверный код"».
+// Код доезжает до поля ввода через мессенджер, и вставляют его вместе с тем,
+// что вокруг: сопроводительным текстом, невидимыми символами разметки,
+// переносами. Строгий парсер на этом падал, и верный код выглядел неверным.
+describe('код, вставленный из мессенджера', () => {
+  it('чистый код разбирается как раньше', async () => {
+    const word = generateInviteWord();
+    const code = await sealInvite(DATA, word);
+    const parsed = parsePastedInvite(code);
+    expect(parsed.kind).toBe('v3');
+    expect(parsed.code).toBe(code);
+    if (parsed.kind === 'v3') expect(parsed.peeked.familyName).toBe('Наша семья');
+  });
+
+  it('открывается код с сопроводительным текстом и эмодзи вокруг', async () => {
+    const word = generateInviteWord();
+    const code = await sealInvite(DATA, word);
+    const pasted = `Привет! Вот код приглашения:\n${code}\nслово скажу голосом 🙂`;
+    const parsed = parsePastedInvite(pasted);
+    expect(parsed.kind).toBe('v3');
+    const opened = await openInvite(parsed.code, word);
+    expect(opened.familyToken).toBe(DATA.familyToken);
+  });
+
+  it('переживает невидимые символы разметки внутри кода', async () => {
+    const word = generateInviteWord();
+    const code = await sealInvite(DATA, word);
+    // U+200E в начале и U+200B в середине — их дописывают чаты и клавиатуры.
+    const cut = Math.floor(code.length / 2);
+    const pasted = `‎${code.slice(0, cut)}​${code.slice(cut)}`;
+    const parsed = parsePastedInvite(pasted);
+    expect(parsed.kind).toBe('v3');
+    const opened = await openInvite(parsed.code, word);
+    expect(opened.key).toBe(DATA.key);
+  });
+
+  it('собирает код, порванный переносами строк', async () => {
+    const word = generateInviteWord();
+    const code = await sealInvite(DATA, word);
+    const third = Math.floor(code.length / 3);
+    const pasted = `${code.slice(0, third)}\n${code.slice(third, third * 2)}\n${code.slice(third * 2)}`;
+    const parsed = parsePastedInvite(pasted);
+    expect(parsed.kind).toBe('v3');
+    const opened = await openInvite(parsed.code, word);
+    expect(opened.familyToken).toBe(DATA.familyToken);
+  });
+
+  it('длинное латинское слово рядом с кодом не мешает', async () => {
+    const word = generateInviteWord();
+    const code = await sealInvite(DATA, word);
+    // Кусок ≥20 base64url-символов, который кодом не является: склейка «всё
+    // подряд» дала бы мусор, поэтому целый код должен выигрывать у склейки.
+    const parsed = parsePastedInvite(`congratulationsonjoiningthefamily ${code}`);
+    expect(parsed.kind).toBe('v3');
+    expect(parsed.code).toBe(code);
+  });
+
+  it('обрезанный код — внятная ошибка «повреждён», а не «неверный код»', async () => {
+    const code = await sealInvite(DATA, generateInviteWord());
+    // Скопировали не всё: хвост потерян при выделении вручную.
+    const cut = code.slice(0, Math.floor(code.length * 0.8));
+    expect(() => parsePastedInvite(cut)).toThrow(InviteDamagedError);
+  });
+
+  it('старый код (v:2) с текстом вокруг тоже распознаётся', () => {
+    const code = encodeFamilyPairing({
+      v: 2,
+      familyId: 'fam-2',
+      familyToken: 'tok',
+      key: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      familyName: 'Семья',
+    });
+    const parsed = parsePastedInvite(`держи: ${code}`);
+    expect(parsed.kind).toBe('v2');
+    expect(parsed.code).toBe(code);
+  });
+
+  it('случайный текст — не «повреждённый код», а просто не код', () => {
+    expect(() => parsePastedInvite('просто длинное сообщение без кода внутри')).toThrow();
+    expect(() => parsePastedInvite('просто длинное сообщение без кода внутри')).not.toThrow(
+      InviteDamagedError,
+    );
+  });
+
+  it('префиксы кодов детерминированы — на них держится детект «битого» кода', async () => {
+    const v3 = await sealInvite(DATA, generateInviteWord());
+    expect(v3.startsWith('eyJ2Ijoz')).toBe(true); // btoa('{"v":3')
+    const v2 = encodeFamilyPairing({
+      v: 2,
+      familyId: 'f',
+      familyToken: 't',
+      key: 'k',
+      familyName: 'n',
+    });
+    expect(v2.startsWith('eyJ2Ijoy')).toBe(true); // btoa('{"v":2')
   });
 });
