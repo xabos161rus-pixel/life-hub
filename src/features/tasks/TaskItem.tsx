@@ -8,6 +8,7 @@ import { db } from '../../db/db';
 import { remove, update } from '../../db/repo';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
 import { addDaysKey, formatDueDate, todayKey } from '../../lib/dates';
+import { formatDueRange } from '../../lib/taskDates';
 import { describeRecurrence } from '../../lib/recurrence';
 import { skipTask, toggleTask } from './taskActions';
 
@@ -119,7 +120,10 @@ export function TaskItem({
   const handleTomorrow = () => {
     setDx(0);
     const dueDate = addDaysKey(todayKey(), 1);
-    void update(db.tasks, task.id, { dueDate });
+    // Начало окна не может оказаться позже нового дедлайна: окно из будущего
+    // схлопывается в завтрашний день.
+    const startDate = task.startDate && task.startDate > dueDate ? dueDate : (task.startDate ?? null);
+    void update(db.tasks, task.id, { dueDate, startDate });
     // Переносим и пуш-напоминание (иначе оно осталось бы на сегодня, а завтра
     // не сработало бы). scheduleReminder сам снимет пуш, если времени нет.
     void scheduleReminder({ ...task, dueDate });
@@ -325,7 +329,9 @@ export function TaskItem({
               )}
               {task.dueDate && (
                 <span className={overdue ? 'text-warning' : ''}>
-                  {formatDueDate(task.dueDate)}
+                  {task.startDate
+                    ? formatDueRange(task.startDate, task.dueDate)
+                    : formatDueDate(task.dueDate)}
                   {task.dueTime
                     ? `, ${task.dueTime}${
                         task.duration ? `–${addMinutesToTime(task.dueTime, task.duration)}` : ''

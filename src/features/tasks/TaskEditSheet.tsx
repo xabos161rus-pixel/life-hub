@@ -126,6 +126,8 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
   const [dueDate, setDueDate] = useState<string | null>(
     task ? task.dueDate : (defaults?.dueDate ?? null),
   );
+  // Начало окна для срока-периода («с 10 по 25»). null — обычный срок.
+  const [startDate, setStartDate] = useState<string | null>(task?.startDate ?? null);
   const [dueTime, setDueTime] = useState<string | null>(task?.dueTime ?? null);
   const [duration, setDuration] = useState<number | null>(task?.duration ?? null);
   const [remindBefore, setRemindBefore] = useState<number | null>(task?.remindBefore ?? null);
@@ -209,13 +211,21 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
     if (savingRef.current) return; // защита от дабл-тапа: не плодим дубликаты
     savingRef.current = true;
     try {
+      // Перепутанные концы периода не ошибка, а лишний вопрос — меняем местами.
+      const range =
+        dueDate && startDate
+          ? startDate <= dueDate
+            ? { startDate, dueDate }
+            : { startDate: dueDate, dueDate: startDate }
+          : { startDate: null, dueDate };
       const data = {
         title: title.trim(),
         notes: notes.trim(),
         projectId,
         goalId,
         priority,
-        dueDate,
+        dueDate: range.dueDate,
+        startDate: range.startDate,
         dueTime: dueDate ? dueTime : null,
         duration: dueDate ? duration : null,
         remindBefore: dueTime ? remindBefore : null,
@@ -239,7 +249,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
       void scheduleReminder({
         id: savedId,
         title: data.title,
-        dueDate: data.dueDate,
+        dueDate: range.dueDate,
         dueTime: data.dueTime,
         remindBefore: data.remindBefore,
       });
@@ -575,7 +585,18 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         </Field>
 
         <div>
-          <Field label="Срок">
+          {/* Период: «сдать с 10 по 25». Начало — отдельным полем над сроком,
+              срок остаётся дедлайном (просрочка и напоминание — по нему). */}
+          {startDate !== null && (
+            <Field label="Начало" className="mb-3">
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value || null)}
+              />
+            </Field>
+          )}
+          <Field label={startDate !== null ? 'Сдать до' : 'Срок'}>
             <Input
               type="date"
               value={dueDate ?? ''}
@@ -591,9 +612,25 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 Завтра
               </Chip>
               <Chip
+                active={startDate !== null}
+                onClick={() => {
+                  if (startDate !== null) {
+                    setStartDate(null);
+                    return;
+                  }
+                  // Типовой период начинается сегодня; без дедлайна период не
+                  // имеет смысла — ставим и его, человек поправит оба поля.
+                  if (!dueDate) setDueDate(todayKey());
+                  setStartDate(todayKey());
+                }}
+              >
+                Период
+              </Chip>
+              <Chip
                 onClick={() => {
                   setDueDate(null);
                   setDueTime(null);
+                  setStartDate(null);
                 }}
               >
                 Убрать

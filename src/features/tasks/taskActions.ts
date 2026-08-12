@@ -2,6 +2,7 @@ import type { Task } from '../../db/types';
 import { db } from '../../db/db';
 import { create, now, uid, update } from '../../db/repo';
 import { nextOccurrence } from '../../lib/recurrence';
+import { nextWindowStart } from '../../lib/taskDates';
 import { todayKey } from '../../lib/dates';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
 
@@ -31,6 +32,10 @@ export async function toggleTask(task: Task): Promise<string | null> {
       goalId: null,
       priority: task.priority,
       dueDate: nextDue,
+      // Окно повторяется вместе с дедлайном той же длины: «каждый месяц с 10
+      // по 25» остаётся «с 10 по 25», а не превращается в точку.
+      startDate:
+        task.startDate && task.dueDate ? nextWindowStart(task.startDate, task.dueDate, nextDue) : null,
       dueTime: task.dueTime ?? null,
       duration: task.duration ?? null,
       remindBefore: task.remindBefore ?? null,
@@ -56,7 +61,13 @@ export async function skipTask(task: Task): Promise<void> {
   if (task.completedAt) return;
   const skippedCount = (task.skippedCount ?? 0) + 1;
   const nextDue = task.recurrence ? nextOccurrence(task.recurrence, task.dueDate) : todayKey();
-  await update(db.tasks, task.id, { dueDate: nextDue, skippedCount });
+  // Повторяющаяся уносит окно с собой; разовая переносится на сегодня точкой —
+  // её окно уже прожито.
+  const nextStart =
+    task.recurrence && task.startDate && task.dueDate
+      ? nextWindowStart(task.startDate, task.dueDate, nextDue)
+      : null;
+  await update(db.tasks, task.id, { dueDate: nextDue, startDate: nextStart, skippedCount });
   void scheduleReminder({ ...task, dueDate: nextDue });
 }
 

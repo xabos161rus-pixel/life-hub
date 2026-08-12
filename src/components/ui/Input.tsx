@@ -214,9 +214,17 @@ export function SearchField({
 }
 
 /** Подпись + контрол — стандартная строка формы в шитах. */
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <label className="block">
+    <label className={className ? `block ${className}` : 'block'}>
       <span className="mb-1.5 block text-sm font-medium text-muted">{label}</span>
       {children}
     </label>

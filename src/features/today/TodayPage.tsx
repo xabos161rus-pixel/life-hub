@@ -9,6 +9,7 @@ import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Project, Task } from '../../db/types';
 import { formatHeaderDate, todayKey } from '../../lib/dates';
+import { taskOnDay } from '../../lib/taskDates';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -75,10 +76,10 @@ export function TodayPage() {
     .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? '') || byPriorityThenOrder(a, b));
 
   const todayOpen = tasks
-    .filter((t) => !t.completedAt && !t.frozenAt && t.dueDate === today)
+    .filter((t) => !t.completedAt && !t.frozenAt && taskOnDay(t, today))
     .sort(byTimeThenPriority);
   const todayDone = tasks
-    .filter((t) => Boolean(t.completedAt) && t.dueDate === today)
+    .filter((t) => Boolean(t.completedAt) && taskOnDay(t, today))
     .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
 
   function openEdit(t: Task) {

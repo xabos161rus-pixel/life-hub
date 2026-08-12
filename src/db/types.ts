@@ -39,6 +39,12 @@ export interface Task extends BaseEntity {
   goalId: string | null;
   priority: Priority;
   dueDate: string | null; // 'YYYY-MM-DD' (локальная дата)
+  // Начало окна выполнения для срока-периода («сдать с 10 по 25»): dueDate
+  // остаётся дедлайном — просрочка, напоминание и повторение считаются по
+  // нему, а startDate лишь говорит, с какого дня задача актуальна: с него она
+  // видна в «Сегодня» и в календаре. null/undefined — обычный срок одним
+  // днём. Инвариант startDate <= dueDate держит форма (swap при сохранении).
+  startDate?: string | null;
   dueTime: string | null; // 'HH:mm' время дня, опционально (имеет смысл при dueDate)
   duration: number | null; // длительность в минутах (интервал «09:30 – 10:15»)
   remindBefore: number | null; // напомнить за N минут до dueTime; 0 = вовремя, null = выкл

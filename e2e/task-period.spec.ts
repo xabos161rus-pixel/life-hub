@@ -1,0 +1,68 @@
+import { test, expect, openApp } from './fixtures';
+
+// Срок-период у задачи: «сдать лист в кадры с 10 по 25». Дедлайн остаётся
+// dueDate (просрочка и напоминание по нему), startDate добавляет окно — с
+// него задача видна в «Сегодня» и на каждом дне окна в календаре.
+
+import { addDaysKey, todayKey } from '../src/lib/dates';
+
+test('задача с периодом: создание, подпись диапазона, «Сегодня», календарь', async ({ page }) => {
+  const start = addDaysKey(todayKey(), -2);
+  const due = addDaysKey(todayKey(), 3);
+
+  await openApp(page, '/tasks');
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.locator('textarea[placeholder="Что нужно сделать?"]').fill('Сдать лист в кадры');
+
+  // Чип «Период» раскрывает поле начала; «Срок» превращается в «Сдать до».
+  await page.getByRole('button', { name: 'Период' }).click();
+  await page.getByLabel('Начало').fill(start);
+  await page.getByLabel('Сдать до').fill(due);
+  await page.getByRole('button', { name: 'Сохранить' }).click();
+
+  // Подпись — диапазон, а не одна дата (дедлайн «через 3 дня» — датой).
+  const row = page.getByText('Сдать лист в кадры');
+  await expect(row).toBeVisible();
+  const label = await page
+    .locator('div')
+    .filter({ hasText: 'Сдать лист в кадры' })
+    .last()
+    .innerText();
+  expect(label).toMatch(/–|—/);
+
+  // Сегодня — внутри окна: задача в списке «Сегодня».
+  await openApp(page, '/');
+  await expect(page.getByText('Сдать лист в кадры')).toBeVisible();
+
+  // Календарь: день внутри окна (вчера) содержит задачу, хотя дедлайн позже.
+  await openApp(page, '/calendar');
+  const yesterday = addDaysKey(todayKey(), -1);
+  const dayNum = Number(yesterday.slice(8, 10));
+  // Ячейка дня подписана полной датой («11 августа 2026…») — ловим по началу.
+  await page
+    .getByRole('button', { name: new RegExp(`^${dayNum} `) })
+    .first()
+    .click();
+  await expect(page.getByText('Сдать лист в кадры')).toBeVisible();
+
+  // Переживает перезагрузку.
+  await page.reload();
+  await openApp(page, '/tasks');
+  await expect(page.getByText('Сдать лист в кадры')).toBeVisible();
+});
+
+test('чип «Период» выключается — задача сохраняется обычной датой', async ({ page }) => {
+  await openApp(page, '/tasks');
+  await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+  await page.locator('textarea[placeholder="Что нужно сделать?"]').fill('Обычная задача');
+  await page.getByRole('button', { name: 'Период' }).click();
+  await expect(page.getByLabel('Начало')).toBeVisible();
+  await page.getByRole('button', { name: 'Период' }).click();
+  await expect(page.getByLabel('Начало')).toHaveCount(0);
+  await page.getByLabel('Срок').fill(todayKey());
+  await page.getByRole('button', { name: 'Сохранить' }).click();
+  // Дождаться закрытия шита: пока он открыт, список под ним не проверить.
+  await expect(page.locator('textarea[placeholder="Что нужно сделать?"]')).toHaveCount(0);
+  await expect(page.getByText('Обычная задача')).toBeVisible();
+  await expect(page.locator('#app-scroll').getByText('Сегодня', { exact: true })).toBeVisible();
+});

@@ -21,7 +21,8 @@ import { alive } from '../../db/repo';
 import type { Task } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
-import { formatRu, todayKey, toKey, WEEKDAY_LABELS } from '../../lib/dates';
+import { addDaysKey, formatRu, todayKey, toKey, WEEKDAY_LABELS } from '../../lib/dates';
+import { taskOnDay } from '../../lib/taskDates';
 import { cycleAllowed } from '../../lib/sections';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
@@ -80,13 +81,18 @@ export function CalendarPage() {
     const map = new Map<string, { count: number; overdue: boolean }>();
     for (const t of tasks) {
       if (t.completedAt || !t.dueDate) continue;
-      const prev = map.get(t.dueDate);
       const overdue = t.dueDate < today;
-      if (prev) {
-        prev.count += 1;
-        prev.overdue = prev.overdue || overdue;
-      } else {
-        map.set(t.dueDate, { count: 1, overdue });
+      // Срок-период занимает каждый день окна, точечный — один. Потолок в
+      // год — защита от кривых данных, а не рабочий предел.
+      let day = t.startDate && t.startDate <= t.dueDate ? t.startDate : t.dueDate;
+      for (let i = 0; i < 366 && day <= t.dueDate; i++, day = addDaysKey(day, 1)) {
+        const prev = map.get(day);
+        if (prev) {
+          prev.count += 1;
+          prev.overdue = prev.overdue || overdue;
+        } else {
+          map.set(day, { count: 1, overdue });
+        }
       }
     }
     return map;
@@ -95,7 +101,7 @@ export function CalendarPage() {
   const dayTasks = useMemo(
     () =>
       tasks
-        .filter((t) => t.dueDate === selectedDate)
+        .filter((t) => taskOnDay(t, selectedDate))
         .sort(
           (a, b) =>
             Number(Boolean(a.completedAt)) - Number(Boolean(b.completedAt)) ||

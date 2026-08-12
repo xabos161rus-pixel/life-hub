@@ -12,6 +12,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/toastContext';
 import { formatDueDate } from '../../lib/dates';
+import { formatDueRange } from '../../lib/taskDates';
 import { freezeTasks } from './taskActions';
 import { STROKE } from '../../components/ui/icons';
 
@@ -153,7 +154,11 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
             {t.title}
           </span>
           <span className="block truncate text-xs text-muted">
-            {t.dueDate ? formatDueDate(t.dueDate) : 'без срока'}
+            {t.dueDate
+              ? t.startDate
+                ? formatDueRange(t.startDate, t.dueDate)
+                : formatDueDate(t.dueDate)
+              : 'без срока'}
           </span>
         </span>
       </button>
