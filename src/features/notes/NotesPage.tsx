@@ -19,6 +19,7 @@ import { formatRu, toKey } from '../../lib/dates';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { FolderSheet } from './FolderSheet';
 import { checklistProgress } from './checklist';
+import { countNotesDeep, flattenTree } from './folderTree';
 
 /** HTML заметки → плоский текст для превью/поиска (с переносами на блоках). */
 function htmlToText(html: string): string {
@@ -160,13 +161,23 @@ function NoteRow({
   );
 }
 
+// Открытая папка живёт в модуле: маршрут /notes/:id размонтирует экран списка
+// целиком, и state внутри компонента терял папку — возврат из заметки всегда
+// выкидывал в корень (вопреки прежнему комментарию, который это обещал).
+// С вложенными папками терялась бы вся глубина. Отдельный маршрут на папку —
+// лишняя сущность: адрес заметки важен (шарится, восстанавливается), адрес
+// папки — нет.
+let lastOpenFolder: string | null = null;
+
 export function NotesPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
-  // Открытая папка. null — корень, «Все заметки». Состояние экрана, а не
-  // адреса: возврат из заметки не должен выкидывать человека в корень, а
-  // отдельный маршрут на папку ради этого — лишняя сущность.
-  const [openFolder, setOpenFolder] = useState<string | null>(null);
+  // Открытая папка. null — корень, «Все заметки».
+  const [openFolder, setOpenFolderState] = useState<string | null>(lastOpenFolder);
+  const setOpenFolder = (id: string | null) => {
+    lastOpenFolder = id;
+    setOpenFolderState(id);
+  };
   const [folderSheet, setFolderSheet] = useState<NoteFolder | 'new' | null>(null);
   // Режим переноса: выбрана заметка, дальше человек тыкает в папку.
   const [moving, setMoving] = useState<Note | null>(null);
@@ -179,18 +190,27 @@ export function NotesPage() {
     () => alive(folderRows ?? []).sort((a, b) => a.sortOrder - b.sortOrder),
     [folderRows],
   );
+  const current = folders.find((f) => f.id === openFolder) ?? null;
+  // Запомненная папка могла исчезнуть (удалена с другого устройства, пока мы
+  // были в редакторе) — тогда работаем от корня, а не от призрака: иначе
+  // экран показывал бы вечное «пусто» без кнопки назад.
+  const level = current ? openFolder : null;
   // Что показывать списком: в папке — её заметки, в корне — те, что НЕ
   // разложены. Иначе заметка видна и в папке, и в общем списке, и человек не
   // понимает, перенеслась она или скопировалась.
   const notes = useMemo(
     () =>
-      openFolder
-        ? allNotes.filter((n) => n.folderId === openFolder)
-        : allNotes.filter((n) => !n.folderId),
-    [allNotes, openFolder],
+      level ? allNotes.filter((n) => n.folderId === level) : allNotes.filter((n) => !n.folderId),
+    [allNotes, level],
   );
-  const countIn = (id: string) => allNotes.filter((n) => n.folderId === id).length;
-  const current = folders.find((f) => f.id === openFolder) ?? null;
+  const countIn = (id: string) => countNotesDeep(allNotes, folders, id);
+  // Папки ТЕКУЩЕГО уровня: подпапки открытой папки, в корне — корневые.
+  // Вложенность как в Apple Notes: каждый экран показывает один уровень.
+  const levelFolders = useMemo(
+    () => folders.filter((f) => (f.parentId ?? null) === level),
+    [folders, level],
+  );
+  const parent = current ? (folders.find((f) => f.id === current.parentId) ?? null) : null;
 
   // Индекс поиска считаем один раз на изменение заметок, а не на каждый ввод.
   // Индекс — по ВСЕМ заметкам, а не по текущему списку: искать надо везде.
@@ -255,9 +275,9 @@ export function NotesPage() {
       )}
       {rest.length > 0 && (
         <div className="mb-4">
-          {!q && (pinned.length > 0 || (!current && folders.length > 0)) && (
+          {!q && (pinned.length > 0 || levelFolders.length > 0) && (
             <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">
-              {!current && folders.length > 0 ? 'Вне папок' : 'Заметки'}
+              {!current && levelFolders.length > 0 ? 'Вне папок' : 'Заметки'}
             </h2>
           )}
           {renderList(rest)}
@@ -292,11 +312,15 @@ export function NotesPage() {
             <span className="min-w-0 flex-1 font-medium">Все заметки</span>
             {!moving.folderId && <Check size={18} className="shrink-0 text-accent" />}
           </button>
-          {folders.map((f) => (
+          {/* Всё дерево одним списком: вложенность показана отступом, как в
+              «Куда перенести?» Apple Notes, — переносить можно на любой
+              уровень, не проваливаясь по папкам. */}
+          {flattenTree(folders).map(({ folder: f, depth }) => (
             <button
               key={f.id}
               onClick={() => void moveTo(f.id)}
               className="flex w-full items-center gap-3 px-4 py-3 text-left active:opacity-80"
+              style={depth > 0 ? { paddingLeft: `${16 + depth * 24}px` } : undefined}
             >
               <span
                 className="flex size-9 shrink-0 items-center justify-center rounded-xl text-lg"
@@ -304,7 +328,7 @@ export function NotesPage() {
               >
                 {f.emoji}
               </span>
-              <span className="min-w-0 flex-1 font-medium">{f.name}</span>
+              <span className="min-w-0 flex-1 truncate font-medium">{f.name}</span>
               {moving.folderId === f.id && <Check size={18} className="shrink-0 text-accent" />}
             </button>
           ))}
@@ -323,40 +347,45 @@ export function NotesPage() {
     <Screen
       title={current ? `${current.emoji} ${current.name}` : 'Заметки'}
       right={
-        current ? (
-          <button
-            onClick={() => setFolderSheet(current)}
-            className="text-sm font-medium text-accent active:opacity-60"
-          >
-            Изменить
-          </button>
-        ) : (
+        <div className="flex items-center gap-1">
+          {/* Новая папка создаётся на ТЕКУЩЕМ уровне: в корне — корневая,
+              внутри папки — вложенная, как в Apple Notes. */}
           <button
             onClick={() => setFolderSheet('new')}
-            aria-label="Новая папка"
+            aria-label={current ? 'Новая вложенная папка' : 'Новая папка'}
             className={`p-1 text-accent active:opacity-60 ${HIT_SLOP_44}`}
           >
             <FolderPlus size={20} />
           </button>
-        )
+          {current && (
+            <button
+              onClick={() => setFolderSheet(current)}
+              className="pl-1 text-sm font-medium text-accent active:opacity-60"
+            >
+              Изменить
+            </button>
+          )}
+        </div>
       }
     >
       {current && (
         <button
-          onClick={() => setOpenFolder(null)}
+          onClick={() => setOpenFolder(current.parentId ?? null)}
           className="mb-3 -ml-1 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent active:opacity-60"
         >
-          <ChevronLeft size={16} /> Все заметки
+          {/* Назад — на уровень выше, а не всегда в корень: внутри вложенной
+              папки «Все заметки» перепрыгивал бы родителя. */}
+          <ChevronLeft size={16} /> {parent ? `${parent.emoji} ${parent.name}` : 'Все заметки'}
         </button>
       )}
 
       <SearchField value={query} onChange={setQuery} className="mb-3" />
 
-      {/* Папки — только в корне и только когда не ищут: во время поиска нужен
+      {/* Папки текущего уровня — и только когда не ищут: во время поиска нужен
           результат по всем заметкам, а не разбивка по хранилищам. */}
-      {!current && !q && folders.length > 0 && (
+      {!q && levelFolders.length > 0 && (
         <div className="card mb-4 divide-y divide-hairline">
-          {folders.map((f) => (
+          {levelFolders.map((f) => (
             <button
               key={f.id}
               onClick={() => setOpenFolder(f.id)}
@@ -390,7 +419,10 @@ export function NotesPage() {
           renderFound()
         )
       ) : notes.length === 0 ? (
-        loaded && (
+        // Пустой уровень — это когда нет НИ заметок, НИ подпапок: экран с
+        // одними папками не «пуст», и говорить так — врать о содержимом.
+        loaded &&
+        levelFolders.length === 0 && (
           <EmptyState
             icon={NotebookText}
             title={current ? 'В папке пусто' : 'Пока нет заметок'}
@@ -410,11 +442,14 @@ export function NotesPage() {
         key={folderSheet === 'new' ? 'new' : (folderSheet?.id ?? 'closed')}
         open={folderSheet !== null}
         folder={folderSheet === 'new' ? null : folderSheet}
-        onClose={() => {
-          // Папку могли удалить — тогда возвращаемся в корень, иначе экран
-          // остался бы открытым на несуществующей папке.
-          if (folderSheet && folderSheet !== 'new') setOpenFolder(null);
-          setFolderSheet(null);
+        parentId={level}
+        onClose={() => setFolderSheet(null)}
+        onDeleted={() => {
+          // С удалённой папки уходим к её родителю — там теперь лежит её
+          // содержимое. Обычное закрытие шита (правка имени) не дёргает
+          // навигацию вовсе: раньше любой выход из «Изменить» выкидывал в
+          // корень.
+          setOpenFolder(current?.parentId ?? null);
         }}
       />
     </Screen>

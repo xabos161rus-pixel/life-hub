@@ -150,13 +150,16 @@ export interface NoteFile extends BaseEntity {
   data: string;
 }
 
-/** Папка заметок. Плоский список, без вложенности. */
+/** Папка заметок. Вложенность как в Apple Notes: parentId указывает на
+ *  родителя, null/undefined — корень. Глубина моделью не ограничена (UI
+ *  каждого уровня показывает только его детей, глубже — по шагу за тап). */
 export interface NoteFolder extends BaseEntity {
   name: string;
   // Цвет и эмодзи — чтобы папка узнавалась с одного взгляда, а не читалась.
   emoji: string;
   color: string;
   sortOrder: number;
+  parentId?: string | null;
 }
 
 export type LearningKind =

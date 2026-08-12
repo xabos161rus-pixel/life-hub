@@ -149,7 +149,9 @@ test.describe('папки', () => {
     await page.waitForTimeout(700);
     await page.mouse.up();
     await page.getByRole('button', { name: /Архив/ }).click();
-    await expect(page.getByText('Пока нет заметок')).toBeVisible();
+    // Корневой список заметок пуст (папка с заметкой — не в счёт: экран с
+    // папками больше не притворяется пустым).
+    await expect(page.getByText('Спрятанная заметка про якорь')).toHaveCount(0);
 
     // И ищем её из корня.
     await page.getByPlaceholder(/Поиск/i).fill('якорь');
@@ -549,5 +551,97 @@ test.describe('фото и файлы в заметке', () => {
     await page.reload();
     await expect(page.locator('.note-editor')).toBeVisible();
     await expect(page.getByTestId('note-attachments')).toHaveCount(0);
+  });
+});
+
+// Вложенные папки — как в Apple Notes: папка создаётся на текущем уровне,
+// каждый экран показывает один уровень, назад ведёт к родителю, содержимое
+// удалённой папки поднимается на уровень выше.
+test.describe('вложенные папки', () => {
+  async function makeFolder(page: Page, name: string, label = 'Новая папка') {
+    await page.getByRole('button', { name: label }).click();
+    await page.getByPlaceholder('Например, «Работа»').fill(name);
+    await page.getByRole('button', { name: 'Создать папку' }).click();
+  }
+
+  test('папка в папке: создание, заметка внутри, навигация по уровням', async ({ page }) => {
+    await openApp(page, '/notes');
+    await makeFolder(page, 'Работа');
+    await page.getByRole('button', { name: /Работа/ }).click();
+    // Внутри папки той же кнопкой создаётся вложенная.
+    await makeFolder(page, 'Проекты', 'Новая вложенная папка');
+    await page.getByRole('button', { name: /Проекты/ }).click();
+
+    // Заметка, созданная из подпапки, попадает в подпапку.
+    await page.getByRole('button', { name: 'Добавить' }).click();
+    await page.locator('.note-editor').click(); // дождаться редактор и фокус
+    await page.keyboard.type('План RTE');
+    await page.waitForTimeout(900); // автосохранение
+    await page.getByRole('link', { name: /Назад/ }).click(); // назад из редактора
+    await expect(page.getByText('План RTE')).toBeVisible();
+
+    // Назад — по уровням: из «Проекты» в «Работа», оттуда в корень.
+    await page.getByRole('button', { name: /Работа/ }).click();
+    await expect(page.getByText('План RTE')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Проекты/ })).toBeVisible();
+    await page.getByRole('button', { name: /Все заметки/ }).click();
+    // В корне видна только корневая папка, вложенная не светится, а её
+    // счётчик считает заметку в глубине.
+    await expect(page.getByRole('button', { name: /Работа/ })).toContainText('1');
+    await expect(page.getByRole('button', { name: /Проекты/ })).toHaveCount(0);
+
+    // Структура переживает перезагрузку.
+    await page.reload();
+    await page.getByRole('button', { name: /Работа/ }).click();
+    await page.getByRole('button', { name: /Проекты/ }).click();
+    await expect(page.getByText('План RTE')).toBeVisible();
+  });
+
+  test('удаление папки поднимает заметки и подпапки на уровень выше', async ({ page }) => {
+    await openApp(page, '/notes');
+    await makeFolder(page, 'Родитель');
+    await page.getByRole('button', { name: /Родитель/ }).click();
+    await makeFolder(page, 'Вложенная', 'Новая вложенная папка');
+
+    // Заметка прямо в «Родителе».
+    await page.getByRole('button', { name: 'Добавить' }).click();
+    await page.locator('.note-editor').click(); // дождаться редактор и фокус
+    await page.keyboard.type('Заметка родителя');
+    await page.waitForTimeout(900);
+    await page.getByRole('link', { name: /Назад/ }).click();
+
+    page.on('dialog', (d) => void d.accept());
+    await page.getByRole('button', { name: 'Изменить' }).click();
+    await page.getByRole('button', { name: 'Удалить папку' }).click();
+
+    // Мы в корне; вложенная папка стала корневой, заметка — в общем списке.
+    await expect(page.getByRole('button', { name: /Родитель/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Вложенная/ })).toBeVisible();
+    await expect(page.getByText('Заметка родителя')).toBeVisible();
+  });
+
+  test('перенос заметки в подпапку — всё дерево в одном списке', async ({ page }) => {
+    await newNote(page);
+    await page.keyboard.type('Кочующая заметка');
+    await page.waitForTimeout(900);
+    await openApp(page, '/notes');
+    await makeFolder(page, 'Верх');
+    await page.getByRole('button', { name: /Верх/ }).click();
+    await makeFolder(page, 'Глубина', 'Новая вложенная папка');
+    await page.getByRole('button', { name: /Все заметки/ }).click();
+
+    // Долгое нажатие — перенос; подпапка доступна из дерева сразу, без
+    // проваливания по уровням.
+    const row = page.getByText('Кочующая заметка').first();
+    await row.hover();
+    await page.mouse.down();
+    await page.waitForTimeout(700);
+    await page.mouse.up();
+    await expect(page.getByText('Куда перенести?')).toBeVisible();
+    await page.getByRole('button', { name: /Глубина/ }).click();
+
+    await page.getByRole('button', { name: /Верх/ }).click();
+    await page.getByRole('button', { name: /Глубина/ }).click();
+    await expect(page.getByText('Кочующая заметка')).toBeVisible();
   });
 });

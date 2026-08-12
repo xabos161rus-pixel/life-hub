@@ -36,7 +36,7 @@ import type {
   SymptomDef,
 } from './cycleTypes';
 
-export const SCHEMA_VERSION = 14;
+export const SCHEMA_VERSION = 15;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -264,6 +264,20 @@ export class LifeHubDB extends Dexie {
     this.version(14).stores({
       noteFiles: 'id, noteId, fileId',
     });
+
+    // v15 — вложенные папки заметок: parentId у папки (+ индекс для выборки
+    // детей), как parentId у проектов в v8. Существующие папки нормализуются
+    // в parentId=null (корень).
+    this.version(15)
+      .stores({ noteFolders: 'id, sortOrder, parentId' })
+      .upgrade((tx) =>
+        tx
+          .table('noteFolders')
+          .toCollection()
+          .modify((f) => {
+            if (f.parentId === undefined) f.parentId = null;
+          }),
+      );
   }
 }
 

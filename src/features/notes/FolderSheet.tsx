@@ -17,11 +17,20 @@ const EMOJIS = ['📁', '💼', '🏠', '💡', '📚', '✈️', '🍽', '💪'
 export function FolderSheet({
   open,
   folder,
+  parentId = null,
   onClose,
+  onDeleted,
 }: {
   open: boolean;
   folder?: NoteFolder | null;
+  /** Где создать новую папку: id родителя или null для корня. Подпапка
+   *  заводится из открытой папки — как в Apple Notes, без отдельного выбора
+   *  расположения в форме. На правку существующей не влияет. */
+  parentId?: string | null;
   onClose: () => void;
+  /** Папка удалена (а не просто закрыли шит) — вызывающему экрану надо уйти
+   *  с неё, остальные закрытия оставляют человека где он был. */
+  onDeleted?: () => void;
 }) {
   const [name, setName] = useState(folder?.name ?? '');
   const [emoji, setEmoji] = useState(folder?.emoji ?? EMOJIS[0]);
@@ -36,7 +45,13 @@ export function FolderSheet({
       if (folder) {
         await update(db.noteFolders, folder.id, { name: trimmed, emoji, color });
       } else {
-        await create(db.noteFolders, { name: trimmed, emoji, color, sortOrder: Date.now() });
+        await create(db.noteFolders, {
+          name: trimmed,
+          emoji,
+          color,
+          sortOrder: Date.now(),
+          parentId,
+        });
       }
       onClose();
     } finally {
@@ -46,13 +61,25 @@ export function FolderSheet({
 
   async function del() {
     if (!folder) return;
-    // Заметки НЕ удаляем вместе с папкой — это была бы потеря данных из-за
-    // действия, которое человек считает организационным. Они возвращаются во
-    // «Все заметки», и об этом сказано прямо в вопросе.
-    if (!window.confirm(`Удалить папку «${folder.name}»? Заметки останутся — они вернутся в общий список.`)) return;
+    // Содержимое НЕ удаляем вместе с папкой — это была бы потеря данных из-за
+    // действия, которое человек считает организационным. Заметки и вложенные
+    // папки поднимаются на уровень выше (для корневой папки — в общий список),
+    // и об этом сказано прямо в вопросе.
+    if (
+      !window.confirm(
+        `Удалить папку «${folder.name}»? Содержимое останется — заметки и вложенные папки поднимутся на уровень выше.`,
+      )
+    )
+      return;
+    const lift = folder.parentId ?? null;
     const inside = await db.notes.where('folderId').equals(folder.id).toArray();
-    for (const n of inside) await update(db.notes, n.id, { folderId: null });
+    for (const n of inside) await update(db.notes, n.id, { folderId: lift });
+    const children = await db.noteFolders.where('parentId').equals(folder.id).toArray();
+    for (const c of children) {
+      if (!c.deletedAt) await update(db.noteFolders, c.id, { parentId: lift });
+    }
     await remove(db.noteFolders, folder.id);
+    onDeleted?.();
     onClose();
   }
 
