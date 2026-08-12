@@ -13,7 +13,6 @@ import { marked } from 'marked';
 import {
   Bold,
   Italic,
-  Heading,
   Image as ImageIcon,
   Paperclip,
   Strikethrough,
@@ -25,7 +24,6 @@ import {
   GBullets as List,
   GChecklist as ListChecks,
   GNumbers as ListOrdered,
-  GQuote as Quote,
   GTrash as Trash2,
   GUndo as Undo2,
 } from '../../components/ui/glyphs';
@@ -73,12 +71,18 @@ function ToolBtn({
   onClick,
   label,
   active,
+  bare,
+  className = '',
   children,
 }: {
   onClick: () => void;
   label: string;
   /** Подсветка «формат включён». У кнопок-действий (отмена) состояния нет. */
   active?: boolean;
+  /** Кнопка полосы: без собственной подложки — полоса спокойная, подложка
+   *  появляется только у активного состояния (как в Apple Notes). */
+  bare?: boolean;
+  className?: string;
   children: ReactNode;
 }) {
   return (
@@ -89,9 +93,13 @@ function ToolBtn({
       // не отдаём фокус из редактора — иначе пропадёт выделение
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`flex size-10 items-center justify-center rounded-xl transition-colors ${
-        active ? 'bg-accent/15 text-accent' : 'bg-surface-2 text-text active:bg-elevated'
-      }`}
+      className={`flex size-11 items-center justify-center rounded-xl transition-colors ${
+        active
+          ? 'bg-accent/15 text-accent'
+          : bare
+            ? 'text-text active:bg-surface-2'
+            : 'bg-surface-2 text-text active:bg-elevated'
+      } ${className}`}
     >
       {children}
     </button>
@@ -129,6 +137,9 @@ export function NoteEditorPage() {
     bold: false, italic: false, ul: false, ol: false,
     strike: false, h2: false, quote: false, checklist: false,
   });
+  // Панель «Aa»: стили текста спрятаны за одной кнопкой, как в Apple Notes, —
+  // полоса остаётся из пяти понятных входов без горизонтального скролла.
+  const [formatOpen, setFormatOpen] = useState(false);
 
   // Пересчитываем активные форматы по текущему выделению (в обработчике, не в
   // рендере). Тротл: selectionchange стреляет на каждый символ, а 4 вызова
@@ -655,7 +666,7 @@ export function NoteEditorPage() {
         items={[
           { icon: Type, text: <>Первая строка — заголовок заметки</> },
           { icon: ListOrdered, text: <>Начните строку с «1. » — Enter продолжит нумерацию сам</> },
-          { icon: SlidersHorizontal, text: <>Панель внизу — форматирование и списки</> },
+          { icon: SlidersHorizontal, text: <>«Aa» внизу — стили текста; рядом чек-лист, фото и файл</> },
         ]}
       />
 
@@ -743,10 +754,10 @@ export function NoteEditorPage() {
 
       {/* Распорка под перекрытие снизу: панель форматирования + клавиатура.
           Без неё скролл упирается, когда последние строки ещё лежат под
-          панелью, — низ заметки физически нельзя было увидеть. 72px — панель
-          (~60px с safe-area) с запасом; клавиатурная часть — живая, от
-          useKeyboardInset. */}
-      <div aria-hidden style={{ height: keyboardInset + 72 }} />
+          панелью, — низ заметки физически нельзя было увидеть. 76px — полоса
+          (~64px с safe-area) с запасом, раскрытая панель «Aa» добавляет свои
+          ~124px; клавиатурная часть — живая, от useKeyboardInset. */}
+      <div aria-hidden style={{ height: keyboardInset + 76 + (formatOpen ? 124 : 0) }} />
 
       {/* Панель форматирования над клавиатурой (таб-бар на этом экране скрыт).
           fixed bottom-0 на iOS клавиатура просто накрывает (fixed живёт в
@@ -756,60 +767,115 @@ export function NoteEditorPage() {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-surface p-2 pb-[calc(env(safe-area-inset-bottom)+8px)]"
         style={{ position: 'fixed', transform: keyboardInset > 0 ? `translateY(-${keyboardInset}px)` : undefined }}
       >
-        <div className="mx-auto flex w-full max-w-lg items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <ToolBtn
-          onClick={() =>
-            withCaret(() => {
-              const el = editorRef.current;
-              if (el) {
-                el.focus();
-                toggleChecklist(el);
-              }
-            })
-          }
-          label="Список задач"
-          active={active.checklist}
-        >
-          <ListChecks size={ICON.header} strokeWidth={STROKE_STRONG} />
-        </ToolBtn>
-        <ToolBtn onClick={() => exec('bold')} label="Жирный" active={active.bold}>
-          <Bold size={ICON.header} strokeWidth={STROKE_STRONG} />
-        </ToolBtn>
-        <ToolBtn onClick={() => exec('italic')} label="Курсив" active={active.italic}>
-          <Italic size={ICON.header} strokeWidth={STROKE_STRONG} />
-        </ToolBtn>
-        <ToolBtn onClick={() => exec('insertUnorderedList')} label="Маркированный список" active={active.ul}>
-          <List size={ICON.header} strokeWidth={STROKE_STRONG} />
-        </ToolBtn>
-        <ToolBtn onClick={() => exec('insertOrderedList')} label="Нумерованный список" active={active.ol}>
-          <ListOrdered size={ICON.header} strokeWidth={STROKE_STRONG} />
-        </ToolBtn>
-        <ToolBtn onClick={() => exec('strikeThrough')} label="Зачёркнутый" active={active.strike}>
-          <Strikethrough size={ICON.header} strokeWidth={STROKE_STRONG} />
-        </ToolBtn>
-        <ToolBtn onClick={() => exec('formatBlock', 'h2')} label="Подзаголовок" active={active.h2}>
-          <Heading size={ICON.header} strokeWidth={STROKE_STRONG} />
-        </ToolBtn>
-        <ToolBtn onClick={() => exec('formatBlock', 'blockquote')} label="Цитата" active={active.quote}>
-          <Quote size={ICON.header} strokeWidth={STROKE_STRONG} />
-        </ToolBtn>
-        <ToolBtn
-          onClick={() => {
-            // Позицию каретки запоминаем сейчас: пикер уведёт фокус, и к
-            // моменту выбора файла выделение уже будет потеряно.
-            caretBeforePickRef.current = editorRef.current ? caretOffset(editorRef.current) : null;
-            photoInputRef.current?.click();
-          }}
-          label="Фото"
-        >
-          <ImageIcon size={ICON.header} strokeWidth={STROKE_STRONG} />
-        </ToolBtn>
-        <ToolBtn onClick={() => fileInputRef.current?.click()} label="Файл">
-          <Paperclip size={ICON.header} strokeWidth={STROKE_STRONG} />
-        </ToolBtn>
-        <ToolBtn onClick={() => exec('undo')} label="Отменить">
-          <Undo2 size={ICON.header} strokeWidth={STROKE_STRONG} />
-        </ToolBtn>
+        {/* Панель «Aa»: стили абзаца показаны собственной типографикой —
+            «Заголовок» жирный, «Цитата» курсивная. Слова вместо иконок:
+            подпись не нуждается в расшифровке. */}
+        {formatOpen && (
+          <div className="animate-fade-in mx-auto mb-2 w-full max-w-lg space-y-2" data-testid="format-panel">
+            <div className="flex gap-1 rounded-2xl bg-surface-2 p-1">
+              <button
+                type="button"
+                aria-label="Подзаголовок"
+                aria-pressed={active.h2}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec('formatBlock', 'h2')}
+                className={`min-h-11 flex-1 rounded-xl text-base font-bold transition-colors ${
+                  active.h2 ? 'bg-accent/15 text-accent' : 'text-text active:bg-elevated'
+                }`}
+              >
+                Заголовок
+              </button>
+              <button
+                type="button"
+                aria-label="Обычный текст"
+                aria-pressed={!active.h2 && !active.quote}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec('formatBlock', 'div')}
+                className={`min-h-11 flex-1 rounded-xl text-sm transition-colors ${
+                  !active.h2 && !active.quote ? 'bg-accent/15 text-accent' : 'text-text active:bg-elevated'
+                }`}
+              >
+                Обычный
+              </button>
+              <button
+                type="button"
+                aria-label="Цитата"
+                aria-pressed={active.quote}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec('formatBlock', 'blockquote')}
+                className={`min-h-11 flex-1 rounded-xl text-sm italic transition-colors ${
+                  active.quote ? 'bg-accent/15 text-accent' : 'text-text active:bg-elevated'
+                }`}
+              >
+                Цитата
+              </button>
+            </div>
+            <div className="flex items-center justify-between gap-1">
+              <ToolBtn onClick={() => exec('bold')} label="Жирный" active={active.bold} className="flex-1">
+                <Bold size={ICON.header} strokeWidth={STROKE_STRONG} />
+              </ToolBtn>
+              <ToolBtn onClick={() => exec('italic')} label="Курсив" active={active.italic} className="flex-1">
+                <Italic size={ICON.header} strokeWidth={STROKE_STRONG} />
+              </ToolBtn>
+              <ToolBtn onClick={() => exec('strikeThrough')} label="Зачёркнутый" active={active.strike} className="flex-1">
+                <Strikethrough size={ICON.header} strokeWidth={STROKE_STRONG} />
+              </ToolBtn>
+              <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-hairline" />
+              <ToolBtn onClick={() => exec('insertUnorderedList')} label="Маркированный список" active={active.ul} className="flex-1">
+                <List size={ICON.header} strokeWidth={STROKE_STRONG} />
+              </ToolBtn>
+              <ToolBtn onClick={() => exec('insertOrderedList')} label="Нумерованный список" active={active.ol} className="flex-1">
+                <ListOrdered size={ICON.header} strokeWidth={STROKE_STRONG} />
+              </ToolBtn>
+            </div>
+          </div>
+        )}
+
+        {/* Полоса: пять входов без скролла — стили за «Aa», рядом чек-лист,
+            фото, файл и отмена. Ровно то, что нужно чаще всего. */}
+        <div className="mx-auto flex w-full max-w-lg items-center justify-around">
+          <ToolBtn
+            onClick={() => setFormatOpen((v) => !v)}
+            label="Формат"
+            active={formatOpen}
+            bare
+          >
+            <span className="text-[19px] font-semibold leading-none tracking-tight">Aa</span>
+          </ToolBtn>
+          <ToolBtn
+            onClick={() =>
+              withCaret(() => {
+                const el = editorRef.current;
+                if (el) {
+                  el.focus();
+                  toggleChecklist(el);
+                }
+              })
+            }
+            label="Список задач"
+            active={active.checklist}
+            bare
+          >
+            <ListChecks size={ICON.header} strokeWidth={STROKE_STRONG} />
+          </ToolBtn>
+          <ToolBtn
+            onClick={() => {
+              // Позицию каретки запоминаем сейчас: пикер уведёт фокус, и к
+              // моменту выбора файла выделение уже будет потеряно.
+              caretBeforePickRef.current = editorRef.current ? caretOffset(editorRef.current) : null;
+              photoInputRef.current?.click();
+            }}
+            label="Фото"
+            bare
+          >
+            <ImageIcon size={ICON.header} strokeWidth={STROKE_STRONG} />
+          </ToolBtn>
+          <ToolBtn onClick={() => fileInputRef.current?.click()} label="Файл" bare>
+            <Paperclip size={ICON.header} strokeWidth={STROKE_STRONG} />
+          </ToolBtn>
+          <ToolBtn onClick={() => exec('undo')} label="Отменить" bare>
+            <Undo2 size={ICON.header} strokeWidth={STROKE_STRONG} />
+          </ToolBtn>
         </div>
         <span
           className={`pointer-events-none absolute right-3 -top-6 text-xs font-medium text-muted transition-opacity ${

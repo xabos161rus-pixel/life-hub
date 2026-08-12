@@ -8,6 +8,16 @@ import type { Page } from '@playwright/test';
 // любой блочный тег его сбрасывает. Пока человек печатает руками, инвариант
 // держится сам; вставка из буфера приносит чужую разметку и ломала его.
 
+
+/** Кнопка форматирования из панели «Aa»: открывает панель, если та закрыта. */
+async function fmtBtn(page: Page, name: string) {
+  const btn = page.getByRole('button', { name, exact: true });
+  if (!(await btn.isVisible().catch(() => false))) {
+    await page.getByRole('button', { name: 'Формат' }).click();
+  }
+  await btn.click();
+}
+
 async function newNote(page: Page) {
   await openApp(page, '/notes/new');
   await page.locator('.note-editor').click();
@@ -255,14 +265,14 @@ test.describe('редактор', () => {
     await page.keyboard.type('Заметка');
     await page.keyboard.press('Enter');
     await page.keyboard.type('Раздел');
-    await page.getByRole('button', { name: 'Подзаголовок' }).click();
+    await fmtBtn(page, 'Подзаголовок');
     await expect(page.locator('.note-editor h2')).toHaveCount(1);
-    await page.getByRole('button', { name: 'Подзаголовок' }).click();
+    await fmtBtn(page, 'Подзаголовок');
     await expect(page.locator('.note-editor h2')).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Цитата' }).click();
+    await fmtBtn(page, 'Цитата');
     await expect(page.locator('.note-editor blockquote')).toHaveCount(1);
-    await page.getByRole('button', { name: 'Цитата' }).click();
+    await fmtBtn(page, 'Цитата');
     await expect(page.locator('.note-editor blockquote')).toHaveCount(0);
   });
 
@@ -272,7 +282,7 @@ test.describe('редактор', () => {
     await page.keyboard.press('Enter');
     await page.keyboard.type('Отменённый пункт');
     await page.keyboard.press('Shift+Home');
-    await page.getByRole('button', { name: 'Зачёркнутый' }).click();
+    await fmtBtn(page, 'Зачёркнутый');
     await page.waitForTimeout(900);
     await page.reload();
     await page.waitForTimeout(900);
@@ -288,7 +298,7 @@ test.describe('редактор', () => {
     await page.keyboard.type('Заголовок');
     await page.keyboard.press('Enter');
     await page.keyboard.type('Покупки');
-    await page.getByRole('button', { name: 'Маркированный список' }).click();
+    await fmtBtn(page, 'Маркированный список');
     await page.keyboard.type(' на неделю');
     const item = await page.locator('.note-editor li').first().textContent();
     expect(item).toBe('Покупки на неделю');
@@ -301,7 +311,7 @@ test.describe('редактор', () => {
     await newNote(page);
     await page.keyboard.type('Покупки');
     await page.keyboard.press('Enter'); // заголовок остаётся заголовком
-    await page.getByRole('button', { name: 'Маркированный список' }).click();
+    await fmtBtn(page, 'Маркированный список');
     await page.keyboard.type('молоко');
     await page.keyboard.press('Enter');
     await page.keyboard.type('хлеб');
@@ -318,7 +328,7 @@ test.describe('редактор', () => {
     await newNote(page);
     await page.keyboard.type('Заголовок');
     await page.keyboard.press('Enter');
-    await page.getByRole('button', { name: 'Маркированный список' }).click();
+    await fmtBtn(page, 'Маркированный список');
     await page.keyboard.type('купить хлеб и молоко');
     const item = await page.locator('.note-editor li').first().textContent();
     expect(item).toBe('Купить хлеб и молоко');
@@ -341,7 +351,7 @@ test.describe('редактор', () => {
     await page.keyboard.press('Enter');
     await page.keyboard.type('Покупки');
     await page.keyboard.press('Home'); // каретка в начало строки
-    await page.getByRole('button', { name: 'Маркированный список' }).click();
+    await fmtBtn(page, 'Маркированный список');
     await page.keyboard.type('хлеб');
 
     const html = await page.locator('.note-editor').innerHTML();
@@ -643,5 +653,58 @@ test.describe('вложенные папки', () => {
     await page.getByRole('button', { name: /Верх/ }).click();
     await page.getByRole('button', { name: /Глубина/ }).click();
     await expect(page.getByText('Кочующая заметка')).toBeVisible();
+  });
+});
+
+// Полоса редактора — как в Apple Notes: пять входов без горизонтального
+// скролла, стили текста собраны за кнопкой «Aa».
+test.describe('панель инструментов', () => {
+  test('полоса помещается без скролла, «Aa» открывает и закрывает стили', async ({ page }) => {
+    await newNote(page);
+    // Пять кнопок полосы видны сразу.
+    for (const name of ['Формат', 'Список задач', 'Фото', 'Файл', 'Отменить']) {
+      await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+    }
+    // Контейнер полосы не скроллится вбок.
+    const overflow = await page.evaluate(() => {
+      const bar = document.querySelector('[aria-label="Формат"]')!.parentElement!;
+      return bar.scrollWidth - bar.clientWidth;
+    });
+    expect(overflow).toBeLessThanOrEqual(0);
+
+    // Стили спрятаны, пока «Aa» не нажата.
+    await expect(page.getByTestId('format-panel')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Формат' }).click();
+    await expect(page.getByTestId('format-panel')).toBeVisible();
+    // Слова-стили с собственной типографикой + начертания и списки.
+    for (const name of ['Подзаголовок', 'Обычный текст', 'Цитата', 'Жирный', 'Курсив', 'Зачёркнутый', 'Маркированный список', 'Нумерованный список']) {
+      await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+    }
+    await page.getByRole('button', { name: 'Формат' }).click();
+    await expect(page.getByTestId('format-panel')).toHaveCount(0);
+  });
+
+  test('жирный из панели «Aa» применяется и сохраняется', async ({ page }) => {
+    await newNote(page);
+    await page.keyboard.type('Заголовок');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('важное слово');
+    await page.keyboard.press('Shift+Home');
+    await fmtBtn(page, 'Жирный');
+    await page.waitForTimeout(900);
+    await page.reload();
+    await page.waitForTimeout(400);
+    await expect(page.locator('.note-editor b, .note-editor strong')).toHaveCount(1);
+  });
+
+  test('«Обычный» возвращает заголовок к тексту', async ({ page }) => {
+    await newNote(page);
+    await page.keyboard.type('Заметка');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Раздел');
+    await fmtBtn(page, 'Подзаголовок');
+    await expect(page.locator('.note-editor h2')).toHaveCount(1);
+    await fmtBtn(page, 'Обычный текст');
+    await expect(page.locator('.note-editor h2')).toHaveCount(0);
   });
 });
