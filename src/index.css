@@ -355,6 +355,15 @@ select {
 .note-editor li {
   margin: 0.15em 0;
 }
+/* Инлайн-фото в тексте заметки. Блочная строка со скруглением, как пузырь
+   фото в чате; max-width держит его в колонке текста на любом экране. */
+.note-editor img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin: 0.35em 0;
+}
 
 /* Чек-лист. Пункт — обычный <li>, состояние в атрибуте, галочка нарисована
    через ::before: настоящие <input type="checkbox"> внутри contenteditable

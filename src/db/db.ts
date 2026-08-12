@@ -6,6 +6,7 @@ import type {
   Habit,
   HabitLog,
   Note,
+  NoteFile,
   NoteFolder,
   LearningItem,
   LearningLog,
@@ -35,7 +36,7 @@ import type {
   SymptomDef,
 } from './cycleTypes';
 
-export const SCHEMA_VERSION = 13;
+export const SCHEMA_VERSION = 14;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -44,6 +45,7 @@ export class LifeHubDB extends Dexie {
   habits!: Table<Habit, string>;
   habitLogs!: Table<HabitLog, string>;
   notes!: Table<Note, string>;
+  noteFiles!: Table<NoteFile, string>;
   noteFolders!: Table<NoteFolder, string>;
   learningItems!: Table<LearningItem, string>;
   learningLogs!: Table<LearningLog, string>;
@@ -254,6 +256,14 @@ export class LifeHubDB extends Dexie {
             if (row.onboardingDone === undefined) row.onboardingDone = '2000-01-01T00:00:00.000Z';
           });
       });
+
+    // v14 — файлы-вложения заметок (чанками, см. NoteFile в types.ts). Только
+    // новая таблица, существующие не трогаются → upgrade-функция не нужна.
+    // fileId в индексе: удаление одного вложения и подсчёт его чанков идут
+    // выборкой по fileId, а не сканом всех файлов заметки.
+    this.version(14).stores({
+      noteFiles: 'id, noteId, fileId',
+    });
   }
 }
 

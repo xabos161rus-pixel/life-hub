@@ -125,6 +125,31 @@ export interface Note extends BaseEntity {
   folderId?: string | null;
 }
 
+/** Чанк файла-вложения заметки.
+ *
+ *  Файл целиком в одну запись не помещается: записи синкаются через D1, а там
+ *  значение одной колонки ≤ 2 МБ (см. cloudBackup.ts). Поэтому dataURL режется
+ *  кусками splitDataUrl (те же 400 КиБ сырых байт, что в семейном чате) и
+ *  собирается assembleFile при чтении. Метаданные (имя/тип/размер/total)
+ *  дублируются в каждом чанке: отдельная запись-манифест дала бы ещё одну
+ *  сущность и гонку «манифест доехал, чанки нет» на ровном месте.
+ *
+ *  Картинок это не касается: они живут инлайном в Note.content (сжатый JPEG
+ *  dataURL в <img>), как фото в чате и «Местах». */
+export interface NoteFile extends BaseEntity {
+  noteId: string;
+  /** Общий id файла у всех его чанков (uuid). */
+  fileId: string;
+  idx: number;
+  total: number;
+  name: string;
+  mime: string;
+  /** Размер исходного файла в байтах (не чанка). */
+  size: number;
+  /** Кусок dataURL. */
+  data: string;
+}
+
 /** Папка заметок. Плоский список, без вложенности. */
 export interface NoteFolder extends BaseEntity {
   name: string;

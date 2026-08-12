@@ -8,6 +8,7 @@ const TABLES = [
   'habits',
   'habitLogs',
   'notes',
+  'noteFiles',
   'noteFolders',
   'learningItems',
   'learningLogs',

@@ -484,3 +484,70 @@ test.describe('вставка простого текста — буквальн
     expect(text).toContain('&amp;');
   });
 });
+
+// Фото и файлы в заметке. Фото — инлайн в тексте (сжатый JPEG dataURL, как в
+// чате), файлы — вложения чанками в noteFiles (лимит D1-колонки — 2 МБ на
+// запись синка, файл целиком в неё не лезет).
+const PNG_1PX = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+test.describe('фото и файлы в заметке', () => {
+  test('заметка из одного фото сохраняется и переживает перезагрузку', async ({ page }) => {
+    await newNote(page);
+    await page
+      .locator('input[type="file"][accept="image/*"]')
+      .setInputFiles({ name: 'фото.png', mimeType: 'image/png', buffer: PNG_1PX });
+    // Сжатие кладёт фото в текст встроенным JPEG.
+    await expect(page.locator('.note-editor img')).toHaveAttribute('src', /^data:image\//);
+    // Автосейв обязан сохранить заметку БЕЗ текста: фото — уже содержимое.
+    await expect(page).toHaveURL(/\/notes\/[0-9a-f-]{36}/, { timeout: 5000 });
+    await page.reload();
+    await expect(page.locator('.note-editor img')).toHaveAttribute('src', /^data:image\//);
+  });
+
+  test('внешняя картинка отрезается санитайзом, встроенная остаётся', async ({ page }) => {
+    await newNote(page);
+    const inline = `data:image/png;base64,${PNG_1PX.toString('base64')}`;
+    await paste(
+      page,
+      'Заголовок',
+      `<div>Заголовок</div><img src="https://evil.example/pixel.png"><img src="${inline}">`,
+    );
+    // Чужой URL — трекинг-пиксель или битая без сети картинка; встроенная —
+    // легитимное фото. Санитайз обязан отличать одно от другого.
+    await expect(page.locator('.note-editor img')).toHaveCount(1);
+    await expect(page.locator('.note-editor img')).toHaveAttribute('src', /^data:image\//);
+    await expect(page).toHaveURL(/\/notes\/[0-9a-f-]{36}/, { timeout: 5000 });
+    await page.reload();
+    await expect(page.locator('.note-editor img')).toHaveCount(1);
+    await expect(page.locator('.note-editor img')).toHaveAttribute('src', /^data:image\//);
+  });
+
+  test('файл прикладывается карточкой, переживает перезагрузку и удаляется', async ({ page }) => {
+    await newNote(page);
+    await page
+      .locator('input[type="file"]:not([accept])')
+      .setInputFiles({
+        name: 'отчёт.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('привет из файла', 'utf8'),
+      });
+    const card = page.getByTestId('note-attachments');
+    await expect(card).toContainText('отчёт.txt');
+    await expect(card).toContainText('Текст');
+    // Вложение к пустой заметке создаёт саму заметку — иначе файлу не к чему
+    // прикрепиться и перезагрузка его потеряла бы.
+    await expect(page).toHaveURL(/\/notes\/[0-9a-f-]{36}/, { timeout: 5000 });
+    await page.reload();
+    await expect(page.getByTestId('note-attachments')).toContainText('отчёт.txt');
+
+    page.on('dialog', (d) => void d.accept());
+    await page.getByRole('button', { name: 'Удалить отчёт.txt' }).click();
+    await expect(page.getByTestId('note-attachments')).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('.note-editor')).toBeVisible();
+    await expect(page.getByTestId('note-attachments')).toHaveCount(0);
+  });
+});

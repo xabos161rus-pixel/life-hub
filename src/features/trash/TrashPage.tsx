@@ -95,6 +95,11 @@ export function TrashPage() {
       if (entry.tableName === 'learningItems') {
         await db.learningLogs.where('itemId').equals(entry.id).delete();
       }
+      // Чанки файлов-вложений заметки: пока заметка лежала в корзине, они
+      // оставались живыми (иначе восстановление вернуло бы её без файлов).
+      if (entry.tableName === 'notes') {
+        await db.noteFiles.where('noteId').equals(entry.id).delete();
+      }
       await db.table(entry.tableName).delete(entry.id);
       toast('Удалено навсегда');
     } finally {

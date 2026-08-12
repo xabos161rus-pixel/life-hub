@@ -6,11 +6,21 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
-import DOMPurify from 'dompurify';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { marked } from 'marked';
-import { Bold, Italic, Heading, Strikethrough, Pin, SlidersHorizontal, Type } from 'lucide-react';
+import {
+  Bold,
+  Italic,
+  Heading,
+  Image as ImageIcon,
+  Paperclip,
+  Strikethrough,
+  Pin,
+  SlidersHorizontal,
+  Type,
+} from 'lucide-react';
 import {
   GBullets as List,
   GChecklist as ListChecks,
@@ -33,14 +43,13 @@ import {
   setCaretAtOffset,
 } from './editorDom';
 import { isRefused, shouldCapitalize, type CapitalizeMemo } from './autocapitalize';
-import {
-  CHECKLIST_CLASS,
-  closestChecklistItem,
-  hitCheckbox,
-  toggleChecklist,
-  toggleItem,
-} from './checklist';
-import { create, remove, update } from '../../db/repo';
+import { closestChecklistItem, hitCheckbox, toggleChecklist, toggleItem } from './checklist';
+import { sanitizeNoteHtml } from './sanitize';
+import { NoteAttachments } from './NoteAttachments';
+import { MAX_FILE_BYTES, formatFileSize, groupNoteAttachments, planNoteFileChunks } from '../../lib/noteFiles';
+import { ImageTooLargeError, MAX_INPUT_BYTES, compressImage } from '../../lib/image';
+import { useToast } from '../../components/ui/toastContext';
+import { create, remove, uid, update } from '../../db/repo';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
 
@@ -48,33 +57,6 @@ const AUTOSAVE_MS = 600;
 
 /** Команды, которые пересобирают блок вокруг каретки, а не красят выделение. */
 const BLOCK_COMMANDS = new Set(['insertUnorderedList', 'insertOrderedList', 'formatBlock']);
-
-// Содержимое — это HTML из contentEditable. Чистим перед записью: заметки
-// свои, не импортированные, но санитайз защищает от вставленного из буфера.
-// Санитайз идёт и на вставке, и на сохранении.
-//
-// Здесь стоял ALLOWED_CLASSES: { ul: ['cl'] } — такой опции у DOMPurify НЕТ
-// (она из sanitize-html), незнакомые ключи конфига просто игнорируются. То
-// есть class проходил целиком и на всех тегах — ровно наоборот тому, что
-// обещал прежний комментарий. Приложение на Tailwind с глобальными
-// утилитами, поэтому вставленный из веба фрагмент с class="hidden" давал
-// сохранённый, но невидимый текст, а class="fixed inset-0 z-50" — блок
-// поверх всего экрана.
-//
-// Класс нужен ровно один — маркер чек-листа. Оставляем его хуком, который
-// работает уже ПОСЛЕ разбора атрибутов, и стираем всё остальное.
-DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (!(node instanceof Element) || !node.hasAttribute('class')) return;
-  const keep = node.tagName === 'UL' && node.classList.contains(CHECKLIST_CLASS);
-  if (keep) node.setAttribute('class', CHECKLIST_CLASS);
-  else node.removeAttribute('class');
-});
-
-const SANITIZE = {
-  ALLOWED_TAGS: ['p', 'div', 'br', 'b', 'strong', 'i', 'em', 'u', 's', 'strike',
-    'ul', 'ol', 'li', 'h1', 'h2', 'span', 'blockquote'],
-  ALLOWED_ATTR: ['class', 'data-done'],
-};
 
 /** Заголовок заметки = первая непустая строка её текста (как в iOS).
  *  Без жёсткого лимита: режем лишь на 300 символов — защита от «заголовка» в
@@ -243,10 +225,7 @@ export function NoteEditorPage() {
         if (looksHtml || !raw) {
           editorRef.current.innerHTML = raw;
         } else {
-          editorRef.current.innerHTML = DOMPurify.sanitize(
-            marked.parse(raw, { async: false }) as string,
-            SANITIZE,
-          );
+          editorRef.current.innerHTML = sanitizeNoteHtml(marked.parse(raw, { async: false }) as string);
           dirtyRef.current = true;
         }
       }
@@ -262,16 +241,19 @@ export function NoteEditorPage() {
     dirtyRef.current = false;
     savingRef.current = true; // in-flight guard: не создаём дубль новой заметки
     try {
-      const html = DOMPurify.sanitize(el.innerHTML, SANITIZE);
+      const html = sanitizeNoteHtml(el.innerHTML);
       const plain = (el.innerText ?? '').trim();
-      const title = deriveTitle(el.innerText ?? '');
+      // Заметка из одной фотографии: innerText пуст, но содержимое есть —
+      // и сохранить её надо, и в списке ей нужен хоть какой-то заголовок.
+      const hasImage = Boolean(el.querySelector('img'));
+      const title = deriveTitle(el.innerText ?? '') || (hasImage ? 'Фото' : '');
       if (savedIdRef.current) {
         await update(db.notes, savedIdRef.current, {
           title,
           content: html,
           pinned: pinnedRef.current,
         });
-      } else if (plain) {
+      } else if (plain || hasImage) {
         // Пустую новую заметку не сохраняем (как в iOS).
         const created = await create(db.notes, {
           title,
@@ -299,6 +281,125 @@ export function NoteEditorPage() {
 
   const toolbarRef = useRef<HTMLDivElement>(null);
   const keyboardInset = useKeyboardInset();
+  const toast = useToast();
+
+  // === Фото и файлы ===
+
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Куда смотрела каретка в момент нажатия кнопки: системный пикер уводит
+  // фокус, и к возвращению выбранного файла выделение уже потеряно.
+  const caretBeforePickRef = useRef<number | null>(null);
+
+  // id заметки для живого запроса вложений. routeId, а не savedIdRef: ref не
+  // реактивен, а после первого сохранения новая заметка получает настоящий
+  // адрес через navigate(replace) — и запрос оживает сам.
+  const noteId = isNew ? null : (routeId ?? null);
+  const attachments = useLiveQuery(
+    async () => {
+      if (!noteId) return [];
+      return groupNoteAttachments(await db.noteFiles.where('noteId').equals(noteId).toArray());
+    },
+    [noteId],
+    [],
+  );
+
+  /** id заметки, создав запись при необходимости: вложению нужен носитель.
+   *  Сначала обычный flush (он же создаст заметку с текстом), а пустую под
+   *  вложение создаём отдельно — flush пустых не пишет, и это правильно для
+   *  текста, но файл сам по себе уже содержимое. */
+  const ensureNote = useCallback(async (): Promise<string | null> => {
+    if (!savedIdRef.current) {
+      dirtyRef.current = true;
+      await flush();
+    }
+    if (!savedIdRef.current) {
+      const created = await create(db.notes, {
+        title: '',
+        content: '',
+        tags: [],
+        pinned: pinnedRef.current,
+        folderId: folderRef.current,
+      });
+      savedIdRef.current = created.id;
+      navigate(`/notes/${created.id}`, { replace: true });
+    }
+    return savedIdRef.current;
+  }, [flush, navigate]);
+
+  /** Фото — инлайн в текст, в позицию каретки (как в Apple Notes). Сжатие то
+   *  же, что в чате и «Местах»: длинная сторона 1024, JPEG 0.6. */
+  const addPhoto = useCallback(
+    async (file: File) => {
+      const el = editorRef.current;
+      if (!el) return;
+      let dataUrl: string;
+      try {
+        dataUrl = await compressImage(file);
+      } catch (err) {
+        toast(
+          err instanceof ImageTooLargeError
+            ? `Фото больше ${Math.round(MAX_INPUT_BYTES / 1024 / 1024)} МБ — выберите поменьше`
+            : 'Не удалось открыть фото. Попробуйте другой файл',
+        );
+        return;
+      }
+      el.focus();
+      const at = caretBeforePickRef.current;
+      if (at !== null) setCaretAtOffset(el, at);
+      else {
+        // Каретки не было (кнопку нажали, не заходя в текст) — фото в конец.
+        const sel = document.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
+      // execCommand, а не ручная правка DOM: вставка попадает в стек отмены.
+      document.execCommand('insertHTML', false, `<img src="${dataUrl}" alt="">`);
+      touch();
+    },
+    [toast, touch],
+  );
+
+  /** Файл — вложение под текстом, чанками в noteFiles (см. lib/noteFiles). */
+  const addFile = useCallback(
+    async (file: File) => {
+      if (file.size > MAX_FILE_BYTES) {
+        toast(`Файл больше ${formatFileSize(MAX_FILE_BYTES)} — выберите поменьше`);
+        return;
+      }
+      const dataUrl = await new Promise<string>((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result));
+        fr.onerror = () => rej(new Error('read'));
+        fr.readAsDataURL(file);
+      }).catch(() => null);
+      if (dataUrl === null) {
+        toast('Не удалось прочитать файл. Попробуйте другой');
+        return;
+      }
+      const id = await ensureNote();
+      if (!id) return;
+      const chunks = planNoteFileChunks(
+        id,
+        uid(),
+        { name: file.name || 'файл', mime: file.type, size: file.size },
+        dataUrl,
+      );
+      for (const chunk of chunks) await create(db.noteFiles, chunk);
+    },
+    [ensureNote, toast],
+  );
+
+  /** Удалить вложение: мягко, каждый чанк — синк разнесёт удаление по
+   *  устройствам так же, как разносил сам файл. */
+  const deleteAttachment = useCallback(async (fileId: string) => {
+    if (!window.confirm('Удалить файл из заметки?')) return;
+    const rows = await db.noteFiles.where('fileId').equals(fileId).toArray();
+    for (const r of rows) await remove(db.noteFiles, r.id);
+  }, []);
 
   // «Камера» следует за текстом: при наборе курсор уезжает под клавиатуру /
   // панель форматирования, а контейнер сам не скроллится — докручиваем
@@ -583,7 +684,7 @@ export function NoteEditorPage() {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/\n/g, '<br>');
-          const clean = html ? DOMPurify.sanitize(html, SANITIZE) : literal;
+          const clean = html ? sanitizeNoteHtml(html) : literal;
           document.execCommand('insertHTML', false, clean);
           // Вставленная разметка приносит свои <div>/<p>, и первая строка
           // оказывается внутри блока — то есть перестаёт быть заголовком.
@@ -610,6 +711,33 @@ export function NoteEditorPage() {
         onBlur={() => {
           clearTimeout(timerRef.current);
           void flush();
+        }}
+      />
+
+      {/* Файлы-вложения — под текстом. Картинки живут в самом тексте. */}
+      <NoteAttachments files={attachments} onDelete={(fid) => void deleteAttachment(fid)} />
+
+      {/* Скрытые инпуты кнопок «Фото» и «Файл». value сбрасывается, чтобы
+          повторный выбор того же файла сработал. */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (f) void addPhoto(f);
+        }}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (f) void addFile(f);
         }}
       />
 
@@ -664,6 +792,20 @@ export function NoteEditorPage() {
         </ToolBtn>
         <ToolBtn onClick={() => exec('formatBlock', 'blockquote')} label="Цитата" active={active.quote}>
           <Quote size={ICON.header} strokeWidth={STROKE_STRONG} />
+        </ToolBtn>
+        <ToolBtn
+          onClick={() => {
+            // Позицию каретки запоминаем сейчас: пикер уведёт фокус, и к
+            // моменту выбора файла выделение уже будет потеряно.
+            caretBeforePickRef.current = editorRef.current ? caretOffset(editorRef.current) : null;
+            photoInputRef.current?.click();
+          }}
+          label="Фото"
+        >
+          <ImageIcon size={ICON.header} strokeWidth={STROKE_STRONG} />
+        </ToolBtn>
+        <ToolBtn onClick={() => fileInputRef.current?.click()} label="Файл">
+          <Paperclip size={ICON.header} strokeWidth={STROKE_STRONG} />
         </ToolBtn>
         <ToolBtn onClick={() => exec('undo')} label="Отменить">
           <Undo2 size={ICON.header} strokeWidth={STROKE_STRONG} />
