@@ -3,9 +3,12 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
 import { BellRing, GraduationCap, PhoneCall, SlidersHorizontal, Lightbulb } from 'lucide-react';
 import {
+  GCheck,
   GChevronRight as ChevronRight,
   GTrash as Trash2,
 } from '../../components/ui/glyphs';
+import { ACCENTS } from '../../lib/accents';
+import { APP_VERSION } from '../../lib/changelog';
 import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/sounds';
 import { RINGTONES, previewRingtone, type RingtoneKind } from '../../lib/family/ringtone';
 import { Screen } from '../../components/layout/Screen';
@@ -316,13 +319,50 @@ export function SettingsPage() {
   return (
     <Screen title="Настройки" backTo="/home">
       <div className="space-y-6">
-        <Section title="Тема">
-          <div className="card p-4">
-            <SegmentedControl
-              options={THEME_OPTIONS}
-              value={settings.theme}
-              onChange={(theme) => void updateSettings({ theme })}
-            />
+        <Section title="Оформление">
+          <div className="card">
+            <div className="p-4">
+              <SegmentedControl
+                options={THEME_OPTIONS}
+                value={settings.theme}
+                onChange={(theme) => void updateSettings({ theme })}
+              />
+            </div>
+            {/* Акцент применяется мгновенно — сам экран и есть превью. Кружки
+                показывают палитру каждого акцента (акцент, пара, заливка) в
+                цветах текущей темы: превью в чужой теме обещало бы не те
+                цвета, что человек получит. */}
+            {ACCENTS.map((a) => {
+              const selected = (settings.accent ?? 'indigo') === a.id;
+              const light =
+                settings.theme === 'light' ||
+                (settings.theme === 'system' &&
+                  window.matchMedia('(prefers-color-scheme: light)').matches);
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => void updateSettings({ accent: a.id })}
+                  aria-pressed={selected}
+                  className="flex w-full items-center gap-3 border-t border-hairline p-4 text-left active:opacity-80"
+                >
+                  <span className="flex shrink-0 -space-x-1.5">
+                    {(light ? a.light : a.dark).map((c, i) => (
+                      <span
+                        key={i}
+                        className="size-5 rounded-full ring-2 ring-surface"
+                        style={{ background: c }}
+                      />
+                    ))}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{a.label}</span>
+                    <span className="block text-sm text-muted">{a.hint}</span>
+                  </span>
+                  {selected && <GCheck size={18} className="shrink-0 text-accent" />}
+                </button>
+              );
+            })}
           </div>
         </Section>
 
@@ -603,9 +643,19 @@ export function SettingsPage() {
               </p>
               <InstallLink />
             </div>
-            <p className="border-t border-hairline px-4 py-3 text-sm text-muted">
-              Версия 1.0.0 · данные хранятся только на этом устройстве
-            </p>
+            {/* Версия — из changelog, а не хардкод: прежняя строка «1.0.0»
+                застыла навсегда и врала. Тап открывает окно «Что нового»
+                (сброс lastSeenVersion — WhatsNew сам покажется). */}
+            <button
+              type="button"
+              onClick={() => void updateSettings({ lastSeenVersion: '' })}
+              className="flex w-full items-center gap-2 border-t border-hairline px-4 py-3 text-left"
+            >
+              <span className="min-w-0 flex-1 text-sm text-muted">
+                Версия {APP_VERSION} · данные хранятся только на этом устройстве
+              </span>
+              <span className="shrink-0 text-sm font-medium text-accent">Что нового</span>
+            </button>
           </div>
         </Section>
       </div>

@@ -168,6 +168,47 @@
   color-scheme: light;
 }
 
+/* ── Акцентные темы ─────────────────────────────────────────────
+   Индиго — дефолт без атрибута. Каждый акцент переопределяет ровно четыре
+   цветовых токена и тень; поверхности и смысловые цвета (успех/опасность)
+   общие. Значения подобраны той же методикой, что базовая палитра: hue и
+   chroma фиксированы, L двигается бинарным поиском до WCAG 4.5 — не глубже
+   (scratchpad/pick-accents.mjs). Для ТЕКСТА акцента худший фон включает его
+   собственную подложку bg-accent/15 (32 места в коде); у accent-2 подложки
+   в коде нет, его порог — три поверхности.
+
+   Порядок блоков важен: тёмный блок акцента стоит ПОСЛЕ :root.light и при
+   равной специфичности перебил бы светлые дефолты, поэтому светлый блок
+   акцента (:root.light[data-accent]) идёт следом и специфичностью выигрывает. */
+:root[data-accent='emerald'] {
+  --app-accent: oklch(0.695 0.16 158);
+  --app-accent-2: oklch(0.64 0.17 130);
+  --app-accent-fill: oklch(0.55 0.125 158);
+  --app-accent-2-fill: oklch(0.555 0.145 130);
+  --shadow-accent: 0 10px 30px -8px oklch(0.7 0.14 158 / 0.5);
+}
+:root.light[data-accent='emerald'] {
+  --app-accent: oklch(0.469 0.11 158);
+  --app-accent-2: oklch(0.523 0.14 130);
+  --app-accent-fill: oklch(0.55 0.125 158);
+  --app-accent-2-fill: oklch(0.555 0.145 130);
+  --shadow-accent: 0 10px 30px -10px oklch(0.55 0.13 158 / 0.45);
+}
+:root[data-accent='sunset'] {
+  --app-accent: oklch(0.73 0.165 27);
+  --app-accent-2: oklch(0.666 0.165 55);
+  --app-accent-fill: oklch(0.592 0.215 27);
+  --app-accent-2-fill: oklch(0.577 0.14 55);
+  --shadow-accent: 0 10px 30px -8px oklch(0.66 0.19 35 / 0.5);
+}
+:root.light[data-accent='sunset'] {
+  --app-accent: oklch(0.495 0.2 27);
+  --app-accent-2: oklch(0.546 0.14 52);
+  --app-accent-fill: oklch(0.593 0.225 27);
+  --app-accent-2-fill: oklch(0.577 0.145 52);
+  --shadow-accent: 0 10px 30px -10px oklch(0.6 0.19 35 / 0.45);
+}
+
 html,
 body,
 #root {

@@ -296,6 +296,11 @@ export interface UserProfile {
 export interface Settings {
   id: 'app';
   theme: 'dark' | 'light' | 'system';
+  /** Акцентный цвет интерфейса. undefined = 'indigo' (классический). Работает
+   *  в паре с theme: у каждого акцента свои значения для тёмной и светлой,
+   *  подобранные до WCAG 4.5 той же методикой, что базовая палитра
+   *  (scratchpad/pick-accents.mjs). Device-local, как тема. */
+  accent?: 'indigo' | 'emerald' | 'sunset';
   weekStart: 1; // понедельник
   lastBackupAt: string | null;
   schemaVersion: number;

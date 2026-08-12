@@ -72,7 +72,7 @@ function ScrollReset() {
 }
 
 function ThemeApplier() {
-  const { theme } = useSettings();
+  const { theme, accent } = useSettings();
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: light)');
     const apply = () => {
@@ -85,6 +85,12 @@ function ThemeApplier() {
       return () => mq.removeEventListener('change', apply);
     }
   }, [theme]);
+  useEffect(() => {
+    // Индиго — отсутствие атрибута, а не значение: акцентные блоки в CSS
+    // существуют только для не-дефолтных акцентов.
+    if (accent && accent !== 'indigo') document.documentElement.dataset.accent = accent;
+    else delete document.documentElement.dataset.accent;
+  }, [accent]);
   return null;
 }
 

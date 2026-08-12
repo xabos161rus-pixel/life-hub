@@ -46,6 +46,10 @@ export function WhatsNew() {
     }
   }, [silentCatchUp, seen]);
 
+  // Кнопка «Что нового» в настройках сбрасывает lastSeenVersion — окно
+  // обязано открыться и у того, кто уже закрывал его в этом сеансе.
+  useEffect(() => setDismissed(false), [seen]);
+
   const open = !loading && !silentCatchUp && seen !== APP_VERSION && !dismissed;
 
   function close() {

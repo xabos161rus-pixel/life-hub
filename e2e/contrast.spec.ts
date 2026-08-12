@@ -99,23 +99,54 @@ async function scan(page: Page): Promise<Finding[]> {
   });
 }
 
+// Акцентные темы меняют только акцентные токены, поэтому их прогон короче:
+// экраны, где акцент представлен всеми ролями — текстом, заливкой кнопок,
+// чипами, Fab и градиентом шапки. Дефолтный индиго проверяется по всем
+// экранам, как раньше.
+const ACCENT_SCREENS = ['/', '/tasks', '/notes', '/goals', '/home', '/more/settings'];
+
+async function auditScreens(
+  page: Page,
+  theme: 'dark' | 'light',
+  accent: string,
+  screens: string[],
+): Promise<string[]> {
+  await page.evaluate(
+    ({ t, a }) => {
+      document.documentElement.classList.toggle('light', t === 'light');
+      if (a === 'indigo') delete document.documentElement.dataset.accent;
+      else document.documentElement.dataset.accent = a;
+    },
+    { t: theme, a: accent },
+  );
+  const bad: string[] = [];
+  for (const path of screens) {
+    // Переход внутри приложения, без перезагрузки: она сбросила бы класс темы,
+    // и «светлая» проверялась бы вхолостую.
+    await page.evaluate((p) => {
+      history.pushState({}, '', p);
+      dispatchEvent(new PopStateEvent('popstate'));
+    }, path);
+    await page.waitForTimeout(400);
+    for (const f of await scan(page)) {
+      bad.push(`${path} — «${f.что}» ${f.контраст}:1 (нужно ${f.нужно}) [${f.класс}]`);
+    }
+  }
+  return bad;
+}
+
 for (const theme of ['dark', 'light'] as const) {
   test(`${theme}: контраст текста и иконок не ниже AA`, async ({ page }) => {
     await openApp(page);
-    await page.evaluate((t) => document.documentElement.classList.toggle('light', t === 'light'), theme);
-    const bad: string[] = [];
-    for (const path of SCREENS) {
-      // Переход внутри приложения, без перезагрузки: она сбросила бы класс темы,
-      // и «светлая» проверялась бы вхолостую.
-      await page.evaluate((p) => {
-        history.pushState({}, '', p);
-        dispatchEvent(new PopStateEvent('popstate'));
-      }, path);
-      await page.waitForTimeout(400);
-      for (const f of await scan(page)) {
-        bad.push(`${path} — «${f.что}» ${f.контраст}:1 (нужно ${f.нужно}) [${f.класс}]`);
-      }
-    }
+    const bad = await auditScreens(page, theme, 'indigo', SCREENS);
     expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
   });
+
+  for (const accent of ['emerald', 'sunset'] as const) {
+    test(`${theme} + ${accent}: акцентная палитра не роняет контраст`, async ({ page }) => {
+      await openApp(page);
+      const bad = await auditScreens(page, theme, accent, ACCENT_SCREENS);
+      expect(bad, `пар ниже порога: ${bad.length}`).toEqual([]);
+    });
+  }
 }
