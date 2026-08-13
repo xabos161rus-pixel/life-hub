@@ -7,6 +7,7 @@ import { GPhone } from '../../components/ui/glyphs';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import { subscribePresence } from '../../lib/family/familyChat';
 import { callManager } from '../../lib/family/familyCall';
+import { t } from '../../lib/i18n';
 
 /**
  * Звонок из семейного экрана.
@@ -59,14 +60,14 @@ export function CallButton({ familyId }: { familyId: string }) {
           должен видеть, куда нажать, не разглядывая пиктограммы. */}
       <button
         type="button"
-        aria-label={others.length === 1 ? `Позвонить: ${others[0].displayName}` : 'Позвонить'}
+        aria-label={others.length === 1 ? t('Позвонить: {name}', { name: others[0].displayName }) : t('Позвонить')}
         onClick={() => (others.length === 1 ? call(others[0].id) : setPick(true))}
         className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent active:scale-95"
       >
         <GPhone size={19} />
       </button>
 
-      <Sheet open={pick} onClose={() => setPick(false)} title="Кому позвонить">
+      <Sheet open={pick} onClose={() => setPick(false)} title={t('Кому позвонить')}>
         <div className="space-y-1 pb-2">
           {sorted.map((m) => (
             <MemberRow key={m.id} member={m} online={onlineSet.has(m.id)} onCall={() => call(m.id)} />
@@ -105,7 +106,7 @@ function MemberRow({
             человек может ответить. Прятать таких из списка значило бы решать
             за него, что до него не дозвониться. */}
         <span className={`block text-sm ${online ? 'text-success' : 'text-muted'}`}>
-          {online ? 'В сети' : 'Не в сети'}
+          {online ? t('В сети') : t('Не в сети')}
         </span>
       </span>
       <GPhone size={20} className="shrink-0 text-accent" />

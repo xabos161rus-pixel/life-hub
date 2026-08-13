@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { FamilyTask, FamilyMember, Priority } from '../../db/types';
 import { createFamilyTask, updateFamilyTask, deleteFamilyTask } from '../../lib/family/familyRepo';
+import { t } from '../../lib/i18n';
 
 interface Props {
   familyId: string;
@@ -24,7 +25,7 @@ const PRIORITIES: { value: PStr; label: string }[] = [
 
 export function FamilyTaskSheet({ familyId, open, onClose, task, members }: Props) {
   return (
-    <Sheet open={open} onClose={onClose} title={task ? 'Задача' : 'Новая задача'}>
+    <Sheet open={open} onClose={onClose} title={task ? t('Задача') : t('Новая задача')}>
       <FamilyTaskForm key={task?.id ?? 'new'} familyId={familyId} task={task} members={members} onClose={onClose} />
     </Sheet>
   );
@@ -48,22 +49,22 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
 
   async function remove() {
     if (!task) return;
-    if (!window.confirm('Удалить задачу?')) return;
+    if (!window.confirm(t('Удалить задачу?'))) return;
     await deleteFamilyTask(familyId, task.id);
     onClose();
   }
 
   return (
     <div className="space-y-4 pb-2">
-      <Field label="Что нужно сделать">
+      <Field label={t('Что нужно сделать')}>
         <AutoGrowTextarea
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onClear={() => setTitle('')}
-          placeholder="Название задачи"
+          placeholder={t('Название задачи')}
         />
       </Field>
-      <Field label="Кому">
+      <Field label={t('Кому')}>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -85,17 +86,21 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
           ))}
         </div>
       </Field>
-      <Field label="Приоритет">
-        <SegmentedControl options={PRIORITIES} value={priority} onChange={setPriority} />
+      <Field label={t('Приоритет')}>
+        <SegmentedControl
+          options={PRIORITIES.map((o) => ({ ...o, label: t(o.label) }))}
+          value={priority}
+          onChange={setPriority}
+        />
       </Field>
-      <Field label="Срок">
+      <Field label={t('Срок')}>
         <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
       </Field>
-      <Field label="Детали">
+      <Field label={t('Детали')}>
         <AutoGrowTextarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Заметки…"
+          placeholder={t('Заметки…')}
           className="min-h-[4.5rem]"
         />
       </Field>

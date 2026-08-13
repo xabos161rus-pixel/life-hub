@@ -1,6 +1,7 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { ChevronsRight, Lock } from 'lucide-react';
 import { clampKnob, slidUnlocked } from './callGuardMath';
+import { t } from '../../lib/i18n';
 
 /** Ширина ползунка (px) — синхронно с размером кнопки-ручки в разметке. */
 const KNOB = 56;
@@ -56,7 +57,7 @@ export function CallGuard({
         </span>
         <p className="text-lg font-semibold">{peerName}</p>
         <p className="text-sm text-muted">На связи · {elapsed}</p>
-        <p className="mt-1 text-sm text-muted">Экран заблокирован, чтобы не нажать щекой</p>
+        <p className="mt-1 text-sm text-muted">{t('Экран заблокирован, чтобы не нажать щекой')}</p>
       </div>
 
       {/* Провести, чтобы показать управление */}
@@ -69,7 +70,7 @@ export function CallGuard({
         </span>
         <button
           type="button"
-          aria-label="Разблокировать управление"
+          aria-label={t('Разблокировать управление')}
           onPointerDown={onDown}
           onPointerMove={onMove}
           onPointerUp={onUp}

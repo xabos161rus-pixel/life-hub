@@ -227,6 +227,88 @@ export const EN: Record<string, string> = {
   'На картинке не найден QR-код. Попробуйте другое фото или вставьте код вручную.':
     'No QR code found in the picture. Try another photo or paste the code manually.',
 
+  // === Семья: участники и группа ===
+  'Стать владельцем группы?\n\nВладелец — единственный, кто может исключать участников. Обратно передать владение нельзя, и второго владельца не будет. Берите, только если эту группу создали вы.':
+    "Become the group owner?\n\nThe owner is the only one who can remove members. Ownership can't be transferred back, and there won't be a second owner. Take it only if you created this group.",
+  'Не получилось: владельца уже забрал кто-то другой либо нет связи.':
+    "Didn't work: someone else already took ownership, or you're offline.",
+  'Выйти из группы? Её общий чат и задачи перестанут синхронизироваться на этом устройстве.':
+    'Leave the group? Its shared chat and tasks will stop syncing on this device.',
+  'Переименовать': 'Rename',
+  'вы': 'you',
+  'исключён': 'removed',
+  'Исключить {name}': 'Remove {name}',
+  'Позвонить {name}': 'Call {name}',
+  'У группы нет владельца': 'This group has no owner',
+  'Она создана до того, как появилась возможность исключать участников. Пока владельца нет, исключить никого нельзя.':
+    'It was created before member removal existed. Until it has an owner, no one can be removed.',
+  'Забираем…': 'Claiming…',
+  'Стать владельцем': 'Become the owner',
+  'Добавить группу': 'Add a group',
+  'Выйти из группы': 'Leave the group',
+  'Не удалось исключить участника. Проверьте связь и попробуйте ещё раз':
+    "Couldn't remove the member. Check your connection and try again",
+  'Исключить {name}?': 'Remove {name}?',
+  'Новые сообщения, задачи и звонки станут ему недоступны: группа перейдёт на новый ключ.':
+    'They will lose access to new messages, tasks and calls: the group moves to a new key.',
+  'Переписку, которую он уже скачал, вернуть нельзя — она осталась на его устройстве.':
+    "Messages they already downloaded can't be taken back — they stay on their device.",
+  'Вернуть его можно только новым приглашением.': 'They can only come back with a new invitation.',
+  'Исключаем…': 'Removing…',
+  'Исключить': 'Remove',
+
+  // === Семья: экран звонка ===
+  'Вызов…': 'Calling…',
+  'Входящий звонок': 'Incoming call',
+  'Соединение…': 'Connecting…',
+  'На связи': 'Connected',
+  'Отклонить': 'Decline',
+  // «Включить»/«Микрофон» — подписи кнопки mute на звонке.
+  'Включить': 'Unmute',
+  'Микрофон': 'Mute',
+  'Динамик': 'Speaker',
+  'К уху': 'Earpiece',
+  'Наушники': 'Headphones',
+  'Блокировка': 'Lock',
+  'Завершить': 'End',
+  'Экран заблокирован, чтобы не нажать щекой': "Screen is locked so your cheek won't press anything",
+  'Разблокировать управление': 'Unlock controls',
+  'Кому позвонить': 'Who to call',
+  'Позвонить': 'Call',
+  'Позвонить: {name}': 'Call {name}',
+  'В сети': 'Online',
+  'Не в сети': 'Offline',
+
+  // === Семья: страница, вкладки, приглашение ===
+  'Чат': 'Chat',
+  'Участники': 'Members',
+  'подключение…': 'connecting…',
+  'на связи': 'connected',
+  'Управление группами': 'Manage groups',
+  'Пригласить в группу': 'Invite to the group',
+  'QR-код приглашения': 'Invitation QR code',
+  'Скопировать код': 'Copy code',
+  'Приглашение действует до {date}.': 'The invitation is valid until {date}.',
+  'Выйти из «{name}»? Переписка этой группы удалится с этого устройства (у остальных участников она останется).':
+    'Leave “{name}”? This group’s messages will be deleted from this device (other members keep theirs).',
+  'Перетащить': 'Drag to reorder',
+  'Имя в группе': 'Name in the group',
+  'всем': 'everyone',
+  'от {name}': 'from {name}',
+  'Пока нет общих задач.': 'No shared tasks yet.',
+  'Что нужно сделать': 'What needs to be done',
+  'Название задачи': 'Task title',
+  'Кому': 'Assign to',
+  'Детали': 'Details',
+  'Заметки…': 'Notes…',
+  'Уведомления не поддерживаются этим браузером.': "Notifications aren't supported in this browser.",
+  'Уведомления работают только в установленном приложении. Добавьте LifeHearth на экран «Домой» и откройте оттуда.':
+    'Notifications only work in the installed app. Add LifeHearth to your Home Screen and open it from there.',
+  'Разрешение не выдано. Включите в настройках устройства.':
+    'Permission not granted. Enable it in your device settings.',
+  'Не удалось включить уведомления. Проверьте разрешения в настройках устройства':
+    "Couldn't enable notifications. Check permissions in your device settings",
+
   // === Погода («Сегодня») ===
   'Ясно': 'Clear',
   'Малооблачно': 'Partly cloudy',

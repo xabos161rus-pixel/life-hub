@@ -24,6 +24,7 @@ import {
 } from '../../lib/family/familyKeys';
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
+import { t } from '../../lib/i18n';
 
 export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
   const members = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]) ?? [];
@@ -62,19 +63,17 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
 
   async function claim() {
     if (!window.confirm(
-      'Стать владельцем группы?\n\nВладелец — единственный, кто может исключать участников. ' +
-        'Обратно передать владение нельзя, и второго владельца не будет. ' +
-        'Берите, только если эту группу создали вы.',
+      t('Стать владельцем группы?\n\nВладелец — единственный, кто может исключать участников. Обратно передать владение нельзя, и второго владельца не будет. Берите, только если эту группу создали вы.'),
     )) return;
     setClaiming(true);
     const ok = await claimOwnership(familyId);
     setClaiming(false);
     if (ok) setOwnerless(false);
-    else window.alert('Не получилось: владельца уже забрал кто-то другой либо нет связи.');
+    else window.alert(t('Не получилось: владельца уже забрал кто-то другой либо нет связи.'));
   }
 
   async function leave() {
-    if (!window.confirm('Выйти из группы? Её общий чат и задачи перестанут синхронизироваться на этом устройстве.')) return;
+    if (!window.confirm(t('Выйти из группы? Её общий чат и задачи перестанут синхронизироваться на этом устройстве.'))) return;
     await leaveFamily(familyId);
     onLeft();
   }
@@ -86,8 +85,8 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         className="flex w-full items-center gap-2 card px-4 py-3 text-left active:opacity-80"
       >
         <Pencil size={16} className="shrink-0 text-muted" />
-        <span className="flex-1 truncate font-medium">{config?.familyName || 'Семья'}</span>
-        <span className="text-sm text-muted">Переименовать</span>
+        <span className="flex-1 truncate font-medium">{config?.familyName || t('Семья')}</span>
+        <span className="text-sm text-muted">{t('Переименовать')}</span>
       </button>
 
       <Button onClick={() => setInvite(true)} className="w-full inline-flex items-center justify-center gap-2">
@@ -118,11 +117,11 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
               <span className="min-w-0 flex-1 truncate font-medium">
                 <span className={m.removedAt ? 'line-through opacity-60' : undefined}>{m.displayName}</span>
                 {m.id === selfId ? (
-                  <span className="text-muted"> · вы</span>
+                  <span className="text-muted"> · {t('вы')}</span>
                 ) : m.removedAt ? (
-                  <span className="text-xs text-muted"> · исключён</span>
+                  <span className="text-xs text-muted"> · {t('исключён')}</span>
                 ) : (
-                  <span className="text-xs text-muted"> · {onlineSet.has(m.id) ? 'в сети' : 'не в сети'}</span>
+                  <span className="text-xs text-muted"> · {onlineSet.has(m.id) ? t('в сети') : t('не в сети')}</span>
                 )}
               </span>
             </button>
@@ -131,7 +130,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
                 {isOwner && (
                   <button
                     onClick={() => setRemoving(m)}
-                    aria-label={`Исключить ${m.displayName}`}
+                    aria-label={t('Исключить {name}', { name: m.displayName })}
                     className="flex size-10 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95"
                   >
                     <UserMinus size={18} />
@@ -139,7 +138,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
                 )}
                 <button
                   onClick={() => void callManager.startCall(familyId, m.id)}
-                  aria-label={`Позвонить ${m.displayName}`}
+                  aria-label={t('Позвонить {name}', { name: m.displayName })}
                   className="flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success active:scale-95"
                 >
                   <Phone size={18} />
@@ -152,13 +151,12 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
 
       {ownerless && (
         <div className="card p-4">
-          <p className="font-semibold">У группы нет владельца</p>
+          <p className="font-semibold">{t('У группы нет владельца')}</p>
           <p className="mt-0.5 text-sm leading-relaxed text-muted">
-            Она создана до того, как появилась возможность исключать участников. Пока владельца
-            нет, исключить никого нельзя.
+            {t('Она создана до того, как появилась возможность исключать участников. Пока владельца нет, исключить никого нельзя.')}
           </p>
           <Button className="mt-3 w-full" disabled={claiming} onClick={() => void claim()}>
-            {claiming ? 'Забираем…' : 'Стать владельцем'}
+            {claiming ? t('Забираем…') : t('Стать владельцем')}
           </Button>
         </div>
       )}
@@ -173,13 +171,13 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
           className="flex w-full items-center justify-center gap-2 card px-4 py-3 text-sm font-medium active:opacity-80"
         >
           <Plus size={16} className="shrink-0 text-muted" />
-          Добавить группу
+          {t('Добавить группу')}
         </button>
       )}
 
       <button onClick={() => void leave()} className="flex w-full items-center justify-center gap-2 pt-2 text-sm text-danger active:opacity-60">
         <LogOut size={16} />
-        Выйти из группы
+        {t('Выйти из группы')}
       </button>
 
       <RemoveMemberSheet
@@ -237,7 +235,7 @@ function RemoveMemberSheet({
       await removeMember(familyId, member.id);
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось исключить участника. Проверьте связь и попробуйте ещё раз');
+      setError(e instanceof Error ? e.message : t('Не удалось исключить участника. Проверьте связь и попробуйте ещё раз'));
     } finally {
       setBusy(false);
     }
@@ -246,12 +244,12 @@ function RemoveMemberSheet({
   const stranded = plan?.stranded ?? [];
 
   return (
-    <Sheet open={Boolean(member)} onClose={onClose} title={`Исключить ${member?.displayName ?? ''}?`}>
+    <Sheet open={Boolean(member)} onClose={onClose} title={t('Исключить {name}?', { name: member?.displayName ?? '' })}>
       <div className="space-y-4 pb-2">
         <ul className="space-y-2 text-sm leading-snug text-text/90">
-          <li>Новые сообщения, задачи и звонки станут ему недоступны: группа перейдёт на новый ключ.</li>
-          <li>Переписку, которую он уже скачал, вернуть нельзя — она осталась на его устройстве.</li>
-          <li>Вернуть его можно только новым приглашением.</li>
+          <li>{t('Новые сообщения, задачи и звонки станут ему недоступны: группа перейдёт на новый ключ.')}</li>
+          <li>{t('Переписку, которую он уже скачал, вернуть нельзя — она осталась на его устройстве.')}</li>
+          <li>{t('Вернуть его можно только новым приглашением.')}</li>
         </ul>
 
         {stranded.length > 0 && (
@@ -270,7 +268,7 @@ function RemoveMemberSheet({
           disabled={busy || !plan}
           onClick={() => void confirm()}
         >
-          {busy ? 'Исключаем…' : 'Исключить'}
+          {busy ? t('Исключаем…') : t('Исключить')}
         </Button>
         <button onClick={onClose} className="w-full py-2 text-sm text-muted active:opacity-60">
           Отмена
@@ -290,13 +288,13 @@ function RenameSheet({ familyId, open, current, onClose }: { familyId: string; o
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Название группы">
+    <Sheet open={open} onClose={onClose} title={t('Название группы')}>
       <div className="space-y-4">
-        <Field label="Название группы">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, «Наша семья»" autoFocus />
+        <Field label={t('Название группы')}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Например, «Наша семья»')} autoFocus />
         </Field>
         <Button className="w-full" disabled={!name.trim()} onClick={() => void save()}>
-          Сохранить
+          {t('Сохранить')}
         </Button>
       </div>
     </Sheet>

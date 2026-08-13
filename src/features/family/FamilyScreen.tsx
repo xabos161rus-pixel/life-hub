@@ -12,6 +12,7 @@ import { MembersTab } from './MembersTab';
 import { ChatTab } from './ChatTab';
 import { FamilyTasksTab } from './FamilyTasksTab';
 import { useToast } from '../../components/ui/toastContext';
+import { t } from '../../lib/i18n';
 
 type Tab = 'chat' | 'tasks' | 'members';
 const TABS = [
@@ -36,7 +37,7 @@ const CONN_LABEL: Record<string, string> = { offline: 'не в сети', connec
  *  ответственности строки внутри ChatTab, второй счётчик был бы дублем. */
 export function useFamilyStatusLine(familyId: string): string {
   const conn = useConnection(familyId);
-  return CONN_LABEL[conn];
+  return t(CONN_LABEL[conn]);
 }
 
 export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
@@ -48,16 +49,16 @@ export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: strin
 
   async function enableFamilyPush() {
     if (!pushSupported()) {
-      toast('Уведомления не поддерживаются этим браузером.');
+      toast(t('Уведомления не поддерживаются этим браузером.'));
       return;
     }
     if (!isStandalone()) {
-      toast('Уведомления работают только в установленном приложении. Добавьте LifeHearth на экран «Домой» и откройте оттуда.');
+      toast(t('Уведомления работают только в установленном приложении. Добавьте LifeHearth на экран «Домой» и откройте оттуда.'));
       return;
     }
     const res = await enablePush();
     if (!res.ok) {
-      toast(res.reason === 'denied' ? 'Разрешение не выдано. Включите в настройках устройства.' : 'Не удалось включить уведомления. Проверьте разрешения в настройках устройства');
+      toast(res.reason === 'denied' ? t('Разрешение не выдано. Включите в настройках устройства.') : t('Не удалось включить уведомления. Проверьте разрешения в настройках устройства'));
       return;
     }
     await registerAllFamilyPush();
@@ -84,16 +85,16 @@ export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: strin
             <BellRing size={16} className="shrink-0 text-accent" />
             {/* Короткая формулировка намеренно: длинная растягивала баннер на
                 три строки и вместе с остальной шапкой выталкивала чат за экран. */}
-            <span className="min-w-0 flex-1">Уведомления</span>
+            <span className="min-w-0 flex-1">{t('Уведомления')}</span>
             <button onClick={() => void enableFamilyPush()} className="shrink-0 font-semibold text-accent active:opacity-60">
               Включить
             </button>
-            <button onClick={() => setPushHidden(true)} aria-label="Скрыть" className="shrink-0 p-0.5 text-muted active:opacity-60">
+            <button onClick={() => setPushHidden(true)} aria-label={t('Скрыть')} className="shrink-0 p-0.5 text-muted active:opacity-60">
               <X size={16} />
             </button>
           </div>
         )}
-        <SegmentedControl options={TABS} value={tab} onChange={setTab} />
+        <SegmentedControl options={TABS.map((o) => ({ ...o, label: t(o.label) }))} value={tab} onChange={setTab} />
       </div>
       {/* Для чата — без внешнего скролла (ChatTab имеет свой), иначе два
           вложенных overflow-y-auto давали «войну скроллов» и заморозку. */}

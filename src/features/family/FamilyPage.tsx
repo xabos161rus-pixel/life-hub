@@ -15,6 +15,7 @@ import { FamilyOnboarding, CreateFamilySheet, JoinFamilySheet } from './FamilyOn
 import { FamilyScreen, useFamilyStatusLine } from './FamilyScreen';
 import { CallButton } from './CallButton';
 import { ManageGroupsSheet } from './ManageGroupsSheet';
+import { t } from '../../lib/i18n';
 
 const ACTIVE_KEY = 'life-hub-active-family';
 
@@ -37,14 +38,14 @@ export function FamilyPage() {
 
   if (!configs)
     return (
-      <Screen title="Семья" backTo="/home">
+      <Screen title={t('Семья')} backTo="/home">
         <div />
       </Screen>
     );
 
   if (configs.length === 0) {
     return (
-      <Screen title="Семья" backTo="/home">
+      <Screen title={t('Семья')} backTo="/home">
         <FamilyOnboarding onReady={select} />
       </Screen>
     );
@@ -102,13 +103,13 @@ export function FamilyPage() {
         </div>
       </div>
 
-      <Sheet open={addMode === 'choose'} onClose={() => setAddMode(null)} title="Добавить группу">
+      <Sheet open={addMode === 'choose'} onClose={() => setAddMode(null)} title={t('Добавить группу')}>
         <div className="space-y-3 pb-2">
           <Button className="w-full" onClick={() => setAddMode('create')}>
-            Создать группу
+            {t('Создать группу')}
           </Button>
           <Button variant="secondary" className="w-full" onClick={() => setAddMode('join')}>
-            Войти по приглашению
+            {t('Войти по приглашению')}
           </Button>
         </div>
       </Sheet>
@@ -198,7 +199,7 @@ function GroupSwitcher({
               active ? 'bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent' : 'bg-surface-2 text-muted'
             }`}
           >
-            <span className="max-w-[9rem] truncate">{c.familyName || 'Семья'}</span>
+            <span className="max-w-[9rem] truncate">{c.familyName || t('Семья')}</span>
             {n > 0 && (
               <span
                 className={`flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-2xs font-bold leading-none ${
@@ -213,7 +214,7 @@ function GroupSwitcher({
       })}
       <button
         onClick={onAdd}
-        aria-label="Добавить группу"
+        aria-label={t('Добавить группу')}
         className="flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-surface-2 text-muted active:opacity-80"
       >
         <Plus size={18} />
@@ -221,7 +222,7 @@ function GroupSwitcher({
       {configs.length > 0 && (
         <button
           onClick={onManage}
-          aria-label="Управление группами"
+          aria-label={t('Управление группами')}
           className="flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-surface-2 text-muted active:opacity-80"
         >
           <SlidersHorizontal size={16} />

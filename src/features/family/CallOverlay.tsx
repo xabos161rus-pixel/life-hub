@@ -4,7 +4,7 @@ import {
   GPhone as Phone,
 } from '../../components/ui/glyphs';
 import { callManager, type CallSnapshot } from '../../lib/family/familyCall';
-import { t } from '../../lib/i18n';
+import { getLang, t } from '../../lib/i18n';
 import { CallGuard } from './CallGuard';
 
 /** Через сколько заблокировать экран после того, как звонок ушёл «к уху». */
@@ -22,13 +22,13 @@ function fmtElapsed(ms: number): string {
 function statusText(snap: CallSnapshot): string {
   switch (snap.status) {
     case 'outgoing':
-      return 'Вызов…';
+      return t('Вызов…');
     case 'incoming':
-      return 'Входящий звонок';
+      return t('Входящий звонок');
     case 'connecting':
-      return 'Соединение…';
+      return t('Соединение…');
     case 'active':
-      return 'На связи';
+      return t('На связи');
     case 'ended':
       // endReason — внутренний русский код из familyCall (там он сравнивается
       // с литералами), перевод — только здесь, в точке отображения.
@@ -116,7 +116,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
           {initial}
         </span>
         <div className="text-center">
-          <p className="text-2xl font-semibold">{snap.peerName || 'Участник'}</p>
+          <p className="text-2xl font-semibold">{snap.peerName || t('Участник')}</p>
           <p className="mt-1 text-base text-muted">
             {snap.status === 'active' && snap.startedAt
               ? fmtElapsed(now - snap.startedAt)
@@ -130,10 +130,16 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
         <div className="flex w-full flex-wrap items-center justify-center gap-x-5 gap-y-4">
           {incoming ? (
             <>
-              <CallButton color="danger" label="Отклонить" onClick={() => callManager.decline()}>
+              <CallButton color="danger" label={t('Отклонить')} onClick={() => callManager.decline()}>
                 <PhoneOff size={24} />
               </CallButton>
-              <CallButton color="success" label="Ответить" onClick={() => void callManager.accept()}>
+              {/* «Ответить» — омоним: в чате это Reply, на звонке — Answer.
+                  Словарь держит один ключ, поэтому здесь явная ветка языка. */}
+              <CallButton
+                color="success"
+                label={getLang() === 'en' ? 'Answer' : 'Ответить'}
+                onClick={() => void callManager.accept()}
+              >
                 <Phone size={24} />
               </CallButton>
             </>
@@ -141,7 +147,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
             <>
               <CallButton
                 color={snap.muted ? 'active' : 'surface'}
-                label={snap.muted ? 'Включить' : 'Микрофон'}
+                label={snap.muted ? t('Включить') : t('Микрофон')}
                 onClick={bump(() => callManager.toggleMute())}
               >
                 {snap.muted ? <MicOff size={24} /> : <Mic size={24} />}
@@ -149,7 +155,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
               {snap.speakerAvailable && (
                 <CallButton
                   color={snap.speakerOn ? 'active' : 'surface'}
-                  label={snap.speakerOn ? 'Динамик' : 'К уху'}
+                  label={snap.speakerOn ? t('Динамик') : t('К уху')}
                   onClick={bump(() => void callManager.toggleSpeaker())}
                 >
                   <Volume2 size={24} />
@@ -158,18 +164,18 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
               {snap.outputPickerAvailable && (
                 <CallButton
                   color="surface"
-                  label="Наушники"
+                  label={t('Наушники')}
                   onClick={bump(() => callManager.showOutputPicker())}
                 >
                   <Headphones size={24} />
                 </CallButton>
               )}
               {earpiece && (
-                <CallButton color="surface" label="Блокировка" onClick={lockNow}>
+                <CallButton color="surface" label={t('Блокировка')} onClick={lockNow}>
                   <Lock size={24} />
                 </CallButton>
               )}
-              <CallButton color="danger" label="Завершить" onClick={bump(() => callManager.hangup())}>
+              <CallButton color="danger" label={t('Завершить')} onClick={bump(() => callManager.hangup())}>
                 <PhoneOff size={24} />
               </CallButton>
             </>
@@ -179,7 +185,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
     </div>
     {locked && earpiece && (
       <CallGuard
-        peerName={snap.peerName || 'Участник'}
+        peerName={snap.peerName || t('Участник')}
         elapsed={snap.startedAt ? fmtElapsed(now - snap.startedAt) : '0:00'}
         onUnlock={unlock}
       />

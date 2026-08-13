@@ -3,6 +3,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Field, Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { upsertSelfMember } from '../../lib/family/familyRepo';
+import { t } from '../../lib/i18n';
 
 interface Props {
   familyId: string;
@@ -22,10 +23,10 @@ export function ProfileNameSheet({ familyId, open, currentName, onClose }: Props
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Имя в группе">
+    <Sheet open={open} onClose={onClose} title={t('Имя в группе')}>
       <div className="space-y-4">
-        <Field label="Имя в группе">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Влад" autoFocus />
+        <Field label={t('Имя в группе')}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Например, Влад')} autoFocus />
         </Field>
         <Button className="w-full" disabled={!name.trim()} onClick={() => void save()}>
           Сохранить

@@ -8,6 +8,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { reorderFamilies } from '../../lib/family/familyState';
 import { renameFamily } from '../../lib/family/familyChat';
 import { leaveFamily } from '../../lib/family/familyLifecycle';
+import { t } from '../../lib/i18n';
 
 const ROW_H = 60; // фиксированная высота строки — по ней считаем шаг перетаскивания
 
@@ -88,7 +89,7 @@ export function ManageGroupsSheet({
 
   async function leaveGroup(id: string, name: string) {
     const ok = window.confirm(
-      `Выйти из «${name}»? Переписка этой группы удалится с этого устройства (у остальных участников она останется).`,
+      t('Выйти из «{name}»? Переписка этой группы удалится с этого устройства (у остальных участников она останется).', { name }),
     );
     if (!ok) return;
     await leaveFamily(id);
@@ -96,13 +97,13 @@ export function ManageGroupsSheet({
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Управление группами">
+    <Sheet open={open} onClose={onClose} title={t('Управление группами')}>
       <div className="space-y-2 pb-2">
         <p className="px-1 text-sm text-muted">
           Перетащите за ручку, чтобы изменить порядок. Нажмите на название — переименовать.
         </p>
         {order.map((id) => {
-          const name = nameById[id] ?? 'Семья';
+          const name = nameById[id] ?? t('Семья');
           const isDragging = dragId === id;
           return (
             <div
@@ -113,7 +114,7 @@ export function ManageGroupsSheet({
               style={{ height: ROW_H }}
             >
               <button
-                aria-label="Перетащить"
+                aria-label={t('Перетащить')}
                 onPointerDown={(e) => onHandleDown(e, id)}
                 onPointerMove={onHandleMove}
                 onPointerUp={onHandleUp}
@@ -142,7 +143,7 @@ export function ManageGroupsSheet({
                 </button>
               )}
               <button
-                aria-label="Выйти из группы"
+                aria-label={t('Выйти из группы')}
                 onClick={() => void leaveGroup(id, name)}
                 className="p-2 text-danger active:opacity-60"
               >

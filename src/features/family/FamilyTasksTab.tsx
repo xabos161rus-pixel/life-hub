@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { formatDueDate } from '../../lib/dates';
 import { toggleFamilyTask } from '../../lib/family/familyRepo';
 import { FamilyTaskSheet } from './FamilyTaskSheet';
+import { t } from '../../lib/i18n';
 
 export function FamilyTasksTab({ familyId }: { familyId: string }) {
   const tasksRaw = useLiveQuery(() => db.familyTasks.where('familyId').equals(familyId).toArray(), [familyId]);
@@ -20,13 +21,13 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
   const members = useMemo(() => membersRaw ?? [], [membersRaw]);
   const memberMap = useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
 
-  const tasks = useMemo(() => (tasksRaw ?? []).filter((t) => !t.deletedAt), [tasksRaw]);
+  const tasks = useMemo(() => (tasksRaw ?? []).filter((task) => !task.deletedAt), [tasksRaw]);
   const active = useMemo(
-    () => tasks.filter((t) => !t.completedAt).sort((a, b) => b.sortOrder - a.sortOrder),
+    () => tasks.filter((task) => !task.completedAt).sort((a, b) => b.sortOrder - a.sortOrder),
     [tasks],
   );
   const completed = useMemo(
-    () => tasks.filter((t) => t.completedAt).sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? '')),
+    () => tasks.filter((task) => task.completedAt).sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? '')),
     [tasks],
   );
 
@@ -38,26 +39,26 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
     setEditing(null);
     setOpen(true);
   };
-  const openEdit = (t: FamilyTask) => {
-    setEditing(t);
+  const openEdit = (task: FamilyTask) => {
+    setEditing(task);
     setOpen(true);
   };
 
-  const renderRow = (t: FamilyTask) => {
-    const done = !!t.completedAt;
-    const assignee = t.assigneeId ? memberMap[t.assigneeId] : null;
-    const author = memberMap[t.createdBy];
+  const renderRow = (task: FamilyTask) => {
+    const done = !!task.completedAt;
+    const assignee = task.assigneeId ? memberMap[task.assigneeId] : null;
+    const author = memberMap[task.createdBy];
     return (
-      <div key={t.id} onClick={() => openEdit(t)} className="flex items-start gap-3 py-3 active:opacity-80">
-        <TaskCheck checked={done} onChange={() => void toggleFamilyTask(familyId, t)} color={assignee?.color} />
+      <div key={task.id} onClick={() => openEdit(task)} className="flex items-start gap-3 py-3 active:opacity-80">
+        <TaskCheck checked={done} onChange={() => void toggleFamilyTask(familyId, task)} color={assignee?.color} />
         <div className="min-w-0 flex-1">
-          <p className={`break-words ${done ? 'text-muted line-through' : 'font-medium'}`}>{t.title}</p>
+          <p className={`break-words ${done ? 'text-muted line-through' : 'font-medium'}`}>{task.title}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
-            {author && <span>от {author.displayName}</span>}
+            {author && <span>{t('от {name}', { name: author.displayName })}</span>}
             <span style={assignee ? { color: assignee.color } : undefined}>
-              → {assignee ? assignee.displayName : 'всем'}
+              → {assignee ? assignee.displayName : t('всем')}
             </span>
-            {t.dueDate && <span>· {formatDueDate(t.dueDate)}</span>}
+            {task.dueDate && <span>· {formatDueDate(task.dueDate)}</span>}
           </p>
         </div>
       </div>
@@ -68,11 +69,11 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
     <div className="space-y-3">
       <Button onClick={openNew} className="w-full inline-flex items-center justify-center gap-2">
         <Plus size={18} />
-        Новая задача
+        {t('Новая задача')}
       </Button>
 
       {active.length === 0 && completed.length === 0 ? (
-        loaded && <p className="py-10 text-center text-sm text-muted">Пока нет общих задач.</p>
+        loaded && <p className="py-10 text-center text-sm text-muted">{t('Пока нет общих задач.')}</p>
       ) : (
         <>
           {active.length > 0 && <div className="card divide-y divide-hairline px-4">{active.map(renderRow)}</div>}
@@ -84,7 +85,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
                 className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-sm text-muted active:opacity-60"
               >
                 <ChevronRight size={14} className={`shrink-0 transition-transform ${showDone ? 'rotate-90' : ''}`} />
-                <span>Выполненные</span>
+                <span>{t('Выполненные')}</span>
                 <span className="text-xs">{completed.length}</span>
               </button>
               {showDone && (
