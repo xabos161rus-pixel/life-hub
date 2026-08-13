@@ -7,6 +7,7 @@ import type { FamilyTask, FamilyMember, Priority } from '../../db/types';
 import { PRESET_COLORS } from '../colors';
 import { getFamilyConfig } from './familyState';
 import { sendItem } from './familyChat';
+import { t } from '../i18n';
 
 function stripMeta<T extends { id: string; seq: number; familyId: string; pendingNotify?: unknown }>(
   row: T,
@@ -33,7 +34,7 @@ export async function upsertSelfMember(familyId: string, displayName: string): P
     id: c.selfMemberId,
     familyId,
     seq: 0,
-    displayName: displayName.trim() || 'Без имени',
+    displayName: displayName.trim() || t('Без имени'),
     color: existing?.color ?? colorFor(c.selfMemberId),
     joinedAt: existing?.joinedAt ?? c.joinedAt,
     leftAt: null,

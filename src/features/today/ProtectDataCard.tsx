@@ -9,6 +9,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { pushEnabled } from '../../lib/push';
 import { HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
+import { t } from '../../lib/i18n';
 
 /**
  * Мягкое напоминание на «Сегодня»: защитить данные — включить синхронизацию,
@@ -36,17 +37,17 @@ export function ProtectDataCard() {
 
   const text =
     !syncOn && !pushOn
-      ? 'Синхронизация между устройствами, зашифрованная копия в облаке и напоминания даже при закрытом приложении.'
+      ? t('Синхронизация между устройствами, зашифрованная копия в облаке и напоминания даже при закрытом приложении.')
       : !syncOn
-        ? 'Включите синхронизацию и облачную копию — данные переживут потерю или замену телефона.'
-        : 'Включите уведомления — напоминания придут даже при закрытом приложении.';
+        ? t('Включите синхронизацию и облачную копию — данные переживут потерю или замену телефона.')
+        : t('Включите уведомления — напоминания придут даже при закрытом приложении.');
 
   return (
     <section className="mb-5">
       <div className="card relative p-4">
         <button
           type="button"
-          aria-label="Скрыть"
+          aria-label={t('Скрыть')}
           onClick={() => setDismissed(true)}
           className={`absolute top-2.5 right-2.5 flex size-7 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
         >
@@ -57,13 +58,13 @@ export function ProtectDataCard() {
             <ShieldCheck size={20} />
           </div>
           <div className="min-w-0">
-            <h3 className="font-semibold">Защитите свои данные</h3>
+            <h3 className="font-semibold">{t('Защитите свои данные')}</h3>
             <p className="mt-0.5 text-sm leading-relaxed text-muted">{text}</p>
             <Link
               to="/more/settings"
               className="mt-2.5 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-accent active:opacity-70"
             >
-              Настроить
+              {t('Настроить')}
               <ChevronRight size={16} />
             </Link>
           </div>

@@ -13,6 +13,7 @@ import type { ReminderItem, ReminderSection } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
+import { t } from '../../lib/i18n';
 
 /** Закреплённые напоминания на «Сегодня»: разделы по темам (Работа и т.п.),
  *  каждый сворачивается/разворачивается по ситуации. */
@@ -42,12 +43,12 @@ export function RemindersBlock() {
   return (
     <section className="mb-5">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-muted">Напоминания</h2>
+        <h2 className="text-sm font-semibold text-muted">{t('Напоминания')}</h2>
         <button
           onClick={() => setSectionSheet('new')}
           className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent active:opacity-70"
         >
-          <Plus size={16} /> раздел
+          <Plus size={16} /> {t('раздел')}
         </button>
       </div>
 
@@ -56,7 +57,7 @@ export function RemindersBlock() {
           onClick={() => setSectionSheet('new')}
           className="card w-full px-4 py-3 text-left text-sm text-muted active:opacity-80"
         >
-          Добавьте раздел — например, «Работа» — и держите под рукой важные напоминания.
+          {t('Добавьте раздел — например, «Работа» — и держите под рукой важные напоминания.')}
         </button>
       ) : (
         <div className="flex flex-col gap-3">
@@ -118,7 +119,7 @@ function ReminderSectionCard({
           <span className="min-w-0 flex-1 truncate font-semibold">{section.title}</span>
           <span className="shrink-0 text-xs text-muted">{items.length}</span>
         </button>
-        <button onClick={onEditSection} aria-label="Изменить раздел" className="px-3.5 py-3 text-muted active:opacity-60">
+        <button onClick={onEditSection} aria-label={t('Изменить раздел')} className="px-3.5 py-3 text-muted active:opacity-60">
           <Pencil size={14} />
         </button>
       </div>
@@ -136,7 +137,7 @@ function ReminderSectionCard({
           ))}
           <button
             onClick={onAddItem}
-            aria-label="Добавить напоминание"
+            aria-label={t('Добавить напоминание')}
             className="inline-flex items-center justify-center px-1 pt-0.5 text-accent active:opacity-70"
           >
             <Plus size={18} />
@@ -159,16 +160,16 @@ function SectionSheet({
   const [title, setTitle] = useState(section?.title ?? '');
 
   async function save() {
-    const t = title.trim();
-    if (!t) return;
-    if (section) await update(db.reminderSections, section.id, { title: t });
-    else await create(db.reminderSections, { title: t, collapsed: false, sortOrder: Date.now() });
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+    if (section) await update(db.reminderSections, section.id, { title: trimmedTitle });
+    else await create(db.reminderSections, { title: trimmedTitle, collapsed: false, sortOrder: Date.now() });
     onClose();
   }
 
   async function del() {
     if (!section) return;
-    if (!window.confirm('Удалить раздел вместе с его напоминаниями?')) return;
+    if (!window.confirm(t('Удалить раздел вместе с его напоминаниями?'))) return;
     const its = await db.reminderItems.where('sectionId').equals(section.id).toArray();
     for (const it of its) await remove(db.reminderItems, it.id);
     await remove(db.reminderSections, section.id);
@@ -176,19 +177,19 @@ function SectionSheet({
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={section ? 'Раздел напоминаний' : 'Новый раздел'}>
+    <Sheet open={open} onClose={onClose} title={section ? t('Раздел напоминаний') : t('Новый раздел')}>
       <div className="space-y-4 pb-2">
-        <Field label="Название раздела">
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Например, «Работа»" autoFocus />
+        <Field label={t('Название раздела')}>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('Например, «Работа»')} autoFocus />
         </Field>
         <div className="flex gap-2">
           {section && (
             <Button variant="danger" onClick={() => void del()} className="inline-flex items-center gap-1.5">
-              <Trash2 size={16} /> Удалить
+              <Trash2 size={16} /> {t('Удалить')}
             </Button>
           )}
           <Button className="flex-1" disabled={!title.trim()} onClick={() => void save()}>
-            Сохранить
+            {t('Сохранить')}
           </Button>
         </div>
       </div>
@@ -208,10 +209,10 @@ function ItemSheet({
   const [text, setText] = useState(item?.text ?? '');
 
   async function save() {
-    const t = text.trim();
-    if (!t) return;
-    if (item) await update(db.reminderItems, item.id, { text: t });
-    else await create(db.reminderItems, { sectionId, text: t, sortOrder: Date.now() });
+    const trimmedText = text.trim();
+    if (!trimmedText) return;
+    if (item) await update(db.reminderItems, item.id, { text: trimmedText });
+    else await create(db.reminderItems, { sectionId, text: trimmedText, sortOrder: Date.now() });
     onClose();
   }
 
@@ -222,13 +223,13 @@ function ItemSheet({
   }
 
   return (
-    <Sheet open onClose={onClose} title={item ? 'Напоминание' : 'Новое напоминание'}>
+    <Sheet open onClose={onClose} title={item ? t('Напоминание') : t('Новое напоминание')}>
       <div className="space-y-4 pb-2">
-        <Field label="Текст напоминания">
+        <Field label={t('Текст напоминания')}>
           <AutoGrowTextarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Например, максимальные расходы на работе 465 ₽"
+            placeholder={t('Например, максимальные расходы на работе 465 ₽')}
             className="min-h-[4.5rem]"
             autoFocus
           />
@@ -236,11 +237,11 @@ function ItemSheet({
         <div className="flex gap-2">
           {item && (
             <Button variant="danger" onClick={() => void del()} className="inline-flex items-center gap-1.5">
-              <Trash2 size={16} /> Удалить
+              <Trash2 size={16} /> {t('Удалить')}
             </Button>
           )}
           <Button className="flex-1" disabled={!text.trim()} onClick={() => void save()}>
-            Сохранить
+            {t('Сохранить')}
           </Button>
         </div>
       </div>

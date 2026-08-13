@@ -8,6 +8,7 @@ import { create, now, remove, update } from '../../db/repo';
 import { PRESET_COLORS } from '../../lib/colors';
 import { WEEKDAY_LABELS } from '../../lib/dates';
 import { isFrozenNow } from '../../lib/habits';
+import { t } from '../../lib/i18n';
 import { freezeHabit, unfreezeHabit } from './habitRepo';
 import type { Habit, HabitSchedule } from '../../db/types';
 
@@ -22,7 +23,7 @@ interface Props {
 
 export function HabitSheet({ open, onClose, item }: Props) {
   return (
-    <Sheet open={open} onClose={onClose} title={item ? 'Привычка' : 'Новая привычка'}>
+    <Sheet open={open} onClose={onClose} title={item ? t('Привычка') : t('Новая привычка')}>
       {/* Sheet при !open размонтирует содержимое → форма всегда инициализируется
           заново из item (key меняется). */}
       <HabitForm key={item?.id ?? 'new'} item={item ?? null} onClose={onClose} />
@@ -107,34 +108,34 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm('Удалить привычку? История отметок тоже скроется.')) return;
+    if (!window.confirm(t('Удалить привычку? История отметок тоже скроется.'))) return;
     await remove(db.habits, item.id);
     onClose();
   };
 
   return (
     <div className="space-y-4 pb-2">
-      <Field label="Название">
+      <Field label={t('Название')}>
         <AutoGrowTextarea
           value={name}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setName(e.target.value)}
           onClear={() => setName('')}
-          placeholder="Например, «Отжимания»"
+          placeholder={t('Например, «Отжимания»')}
         />
       </Field>
 
-      <Field label="Эмодзи">
+      <Field label={t('Эмодзи')}>
         <Input
           value={emoji}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setEmoji(e.target.value)}
         />
       </Field>
 
-      <Field label="Как отмечать">
+      <Field label={t('Как отмечать')}>
         <SegmentedControl<Mode>
           options={[
-            { value: 'check', label: 'Галочка' },
-            { value: 'count', label: 'Счётчик' },
+            { value: 'check', label: t('Галочка') },
+            { value: 'count', label: t('Счётчик') },
           ]}
           value={mode}
           onChange={setMode}
@@ -143,29 +144,29 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
 
       {mode === 'count' && (
         <>
-          <Field label="Цель за день">
+          <Field label={t('Цель за день')}>
             <Input
               inputMode="decimal"
               value={targetRaw}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setTargetRaw(e.target.value)}
-              placeholder="Например, 30"
+              placeholder={t('Например, 30')}
             />
           </Field>
-          <Field label="Единица">
+          <Field label={t('Единица')}>
             <Input
               value={unit}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setUnit(e.target.value)}
-              placeholder="раз, км, л, мин…"
+              placeholder={t('раз, км, л, мин…')}
             />
           </Field>
         </>
       )}
 
-      <Field label="Как часто">
+      <Field label={t('Как часто')}>
         <SegmentedControl<SchedType>
           options={[
-            { value: 'daily', label: 'Каждый день' },
-            { value: 'weekdays', label: 'По дням недели' },
+            { value: 'daily', label: t('Каждый день') },
+            { value: 'weekdays', label: t('По дням недели') },
           ]}
           value={schedType}
           onChange={setSchedType}
@@ -188,7 +189,7 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
                     : 'border-hairline bg-surface-2 text-muted'
                 }`}
               >
-                {label}
+                {t(label)}
               </button>
             );
           })}
@@ -196,13 +197,13 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
       )}
 
       <div>
-        <span className="mb-1.5 block text-sm font-medium text-muted">Цвет</span>
+        <span className="mb-1.5 block text-sm font-medium text-muted">{t('Цвет')}</span>
         <div className="flex flex-wrap gap-2.5">
           {PRESET_COLORS.map((c) => (
             <button
               key={c}
               type="button"
-              aria-label={`Цвет ${c}`}
+              aria-label={t('Цвет {c}', { c })}
               onClick={() => setColor(c)}
               className={`size-9 rounded-full border-2 transition-colors ${
                 color === c ? 'border-text' : 'border-transparent'
@@ -216,10 +217,10 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
       {item && (
         <div className="flex gap-2">
           <Button variant="secondary" className="flex-1" onClick={() => void handleFreeze()}>
-            {frozen ? 'Разморозить' : 'Заморозить'}
+            {frozen ? t('Разморозить') : t('Заморозить')}
           </Button>
           <Button variant="secondary" className="flex-1" onClick={() => void handleArchive()}>
-            {item.archivedAt ? 'Вернуть из архива' : 'В архив'}
+            {item.archivedAt ? t('Вернуть из архива') : t('В архив')}
           </Button>
         </div>
       )}
@@ -227,11 +228,11 @@ function HabitForm({ item, onClose }: { item: Habit | null; onClose: () => void 
       <div className="flex gap-2">
         {item && (
           <Button variant="danger" onClick={() => void handleDelete()}>
-            Удалить
+            {t('Удалить')}
           </Button>
         )}
         <Button className="flex-1" disabled={!valid} onClick={() => void handleSave()}>
-          Сохранить
+          {t('Сохранить')}
         </Button>
       </div>
     </div>

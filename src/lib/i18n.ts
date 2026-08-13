@@ -62,6 +62,7 @@ const EN_PLURALS: Record<string, [string, string]> = {
   месяцев: ['month', 'months'],
   лет: ['year', 'years'],
   циклов: ['cycle', 'cycles'],
+  менструаций: ['period', 'periods'],
   отметок: ['entry', 'entries'],
   файлов: ['file', 'files'],
   участников: ['member', 'members'],

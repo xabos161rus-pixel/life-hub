@@ -7,6 +7,8 @@
 // dataURL, потом шифротекст → JSON) — по ×1,33 каждый раз. 400 КиБ сырых
 // байт после этого превращаются примерно в 710 КиБ — с запасом под лимит.
 
+import { getLang, t } from '../i18n';
+
 /** Размер одного чанка в СЫРЫХ байтах исходного файла (до base64-раздувания). */
 export const CHUNK_RAW_BYTES = 400 * 1024;
 
@@ -49,15 +51,17 @@ export function assembleFile(chunks: { idx: number; data: string }[], total: num
  *  CyclePage.tsx. */
 function ruNumber(v: number): string {
   const rounded = Math.round(v * 10) / 10;
-  return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace('.', ',');
+  if (Number.isInteger(rounded)) return String(rounded);
+  // Десятичный разделитель следует за языком: 7,5 по-русски, 7.5 по-английски.
+  return getLang() === 'en' ? String(rounded) : String(rounded).replace('.', ',');
 }
 
 /** «512 Б» / «512 КБ» / «1,2 МБ» — неразрывный пробел перед единицей, как в
  *  formatDays. Границы: КБ с 1024 байт, МБ с 1024×1024 байт. */
 export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} Б`;
-  if (bytes < 1024 * 1024) return `${ruNumber(bytes / 1024)} КБ`;
-  return `${ruNumber(bytes / (1024 * 1024))} МБ`;
+  if (bytes < 1024) return t('{n}\u00A0Б', { n: bytes });
+  if (bytes < 1024 * 1024) return t('{n}\u00A0КБ', { n: ruNumber(bytes / 1024) });
+  return t('{n}\u00A0МБ', { n: ruNumber(bytes / (1024 * 1024)) });
 }
 
 /** Короткая русская подпись типа файла по mime/расширению. Намеренно всего

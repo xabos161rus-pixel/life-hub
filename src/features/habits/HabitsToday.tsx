@@ -10,6 +10,7 @@ import { useNavLayout } from '../../hooks/useNavLayout';
 import { toggleHabitDone } from './habitRepo';
 import { HabitLogSheet } from './HabitLogSheet';
 import type { Habit, HabitLog } from '../../db/types';
+import { t } from '../../lib/i18n';
 
 /** Блок на «Сегодня»: запланированные на сегодня привычки с быстрой отметкой.
  *  Если на сегодня привычек нет — блок скрывается целиком (return null).
@@ -53,7 +54,7 @@ export function HabitsToday() {
   return (
     <section className="mb-5">
       <h2 className="mb-2 flex items-center justify-between px-1 text-sm font-semibold text-muted">
-        <span>Привычки</span>
+        <span>{t('Привычки')}</span>
         <span className="text-xs font-normal">
           {doneCount}/{planned.length}
         </span>
@@ -91,7 +92,7 @@ export function HabitsToday() {
               {counted ? (
                 <button
                   type="button"
-                  aria-label="Ввести значение"
+                  aria-label={t('Ввести значение')}
                   onClick={(e) => {
                     e.stopPropagation();
                     setLogHabit(h);

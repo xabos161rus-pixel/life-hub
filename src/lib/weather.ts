@@ -2,6 +2,8 @@
 // геолокации устройства, при отказе/недоступности — Москва. Кэш 30 мин в
 // localStorage, чтобы не дёргать сеть и не переспрашивать координаты.
 
+import { t } from './i18n';
+
 const MOSCOW = { lat: 55.75, lon: 37.62 };
 const CACHE_KEY = 'life-hub-weather';
 const COORDS_KEY = 'life-hub-weather-coords';
@@ -116,14 +118,14 @@ export async function getWeather(): Promise<Weather | null> {
 
 /** Краткое описание погоды по WMO-коду (для подписи). */
 export function weatherLabel(code: number): string {
-  if (code === 0) return 'Ясно';
-  if (code <= 2) return 'Малооблачно';
-  if (code === 3) return 'Облачно';
-  if (code <= 48) return 'Туман';
-  if (code <= 57) return 'Морось';
-  if (code <= 67) return 'Дождь';
-  if (code <= 77) return 'Снег';
-  if (code <= 82) return 'Ливень';
-  if (code <= 86) return 'Снегопад';
-  return 'Гроза';
+  if (code === 0) return t('Ясно');
+  if (code <= 2) return t('Малооблачно');
+  if (code === 3) return t('Облачно');
+  if (code <= 48) return t('Туман');
+  if (code <= 57) return t('Морось');
+  if (code <= 67) return t('Дождь');
+  if (code <= 77) return t('Снег');
+  if (code <= 82) return t('Ливень');
+  if (code <= 86) return t('Снегопад');
+  return t('Гроза');
 }

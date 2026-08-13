@@ -13,7 +13,7 @@ import { alive } from '../../db/repo';
 import type { Habit, HabitLog } from '../../db/types';
 import { formatRu, todayKey } from '../../lib/dates';
 import { doneDates, habitStats, isFrozenNow, scheduleLabel } from '../../lib/habits';
-import { plur } from '../../lib/plural';
+import { t, tPlur } from '../../lib/i18n';
 import { toggleHabitDone } from './habitRepo';
 import { HabitSheet } from './HabitSheet';
 import { HabitLogSheet } from './HabitLogSheet';
@@ -75,20 +75,21 @@ export function HabitsPage() {
     : 0;
 
   return (
-    <Screen title="Привычки" backTo="/home">
+    <Screen title={t('Привычки')} backTo="/home">
       <div className="space-y-3">
         <div className="card p-4">
           <p className="text-sm leading-relaxed text-muted">
-            Отмечайте выполнение каждый день — серия&nbsp;🔥 растёт, пока не пропустите
-            запланированный день.
+            {t(
+              'Отмечайте выполнение каждый день — серия 🔥 растёт, пока не пропустите запланированный день.',
+            )}
           </p>
         </div>
 
         {archivedHabits.length > 0 && (
           <SegmentedControl<Filter>
             options={[
-              { value: 'active', label: `Активные (${activeHabits.length})` },
-              { value: 'archived', label: `Архив (${archivedHabits.length})` },
+              { value: 'active', label: t('Активные ({n})', { n: activeHabits.length }) },
+              { value: 'archived', label: t('Архив ({n})', { n: archivedHabits.length }) },
             ]}
             value={effFilter}
             onChange={setFilter}
@@ -98,11 +99,11 @@ export function HabitsPage() {
         {rows.length === 0 ? (
           loaded && <EmptyState
             icon={CalendarCheck}
-            title={effFilter === 'archived' ? 'Архив пуст' : 'Пока нет привычек'}
+            title={effFilter === 'archived' ? t('Архив пуст') : t('Пока нет привычек')}
             hint={
               effFilter === 'archived'
-                ? 'Сюда попадают привычки, убранные в архив.'
-                : 'Нажмите +, чтобы добавить привычку и вести серию.'
+                ? t('Сюда попадают привычки, убранные в архив.')
+                : t('Нажмите +, чтобы добавить привычку и вести серию.')
             }
           />
         ) : (
@@ -132,29 +133,32 @@ export function HabitsPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{habit.name}</p>
                   {frozen ? (
-                    <p className="mt-0.5 text-xs text-muted">Заморожена с {formatRu(frozenSince!)}</p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      {t('Заморожена с {date}', { date: formatRu(frozenSince!) })}
+                    </p>
                   ) : (
                     <>
                       <p className="mt-0.5 text-xs text-muted">
                         {scheduleLabel(habit.schedule)}
                         {counted && ` · ${target}${habit.unit ? ' ' + habit.unit : ''}`}
                         {current > 0 && ` · 🔥 ${current}`}
-                        {best > 1 && ` · рекорд ${best}`}
+                        {best > 1 && ` · ${t('рекорд {n}', { n: best })}`}
                       </p>
                       {frozenInCurrent > 0 && (
                         <p className="text-xs text-muted">
-                          в серии заморозка {plur(frozenInCurrent, ['день', 'дня', 'дней'])}
+                          {t('в серии заморозка')}{' '}
+                          {tPlur(frozenInCurrent, ['день', 'дня', 'дней'])}
                         </p>
                       )}
                     </>
                   )}
                 </div>
                 {habit.archivedAt || frozen ? null : !plannedToday ? (
-                  <span className="shrink-0 text-2xs text-muted">не сегодня</span>
+                  <span className="shrink-0 text-2xs text-muted">{t('не сегодня')}</span>
                 ) : counted ? (
                   <button
                     type="button"
-                    aria-label="Ввести значение"
+                    aria-label={t('Ввести значение')}
                     onClick={(e) => {
                       e.stopPropagation();
                       setLogHabit(habit);

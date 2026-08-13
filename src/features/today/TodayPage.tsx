@@ -23,6 +23,7 @@ import { HabitsToday } from '../habits/HabitsToday';
 import { EnergyTodayLine } from '../energy/EnergyTodayLine';
 import { ProtectDataCard } from './ProtectDataCard';
 import { IconButton } from '../../components/ui/IconButton';
+import { t } from '../../lib/i18n';
 
 /** Список задач в карточке — как в TasksPage. */
 function TaskList({
@@ -92,10 +93,10 @@ export function TodayPage() {
 
   return (
     <Screen
-      title="Сегодня"
+      title={t('Сегодня')}
       subtitle={formatHeaderDate()}
       right={
-        <IconButton icon={Search} label="Поиск" to="/search" />
+        <IconButton icon={Search} label={t('Поиск')} to="/search" />
       }
     >
       <WeatherWidget />
@@ -118,17 +119,17 @@ export function TodayPage() {
 
       {overdue.length > 0 && (
         <section className="mb-5">
-          <h2 className="mb-2 text-sm font-semibold text-warning">Просрочено</h2>
+          <h2 className="mb-2 text-sm font-semibold text-warning">{t('Просрочено')}</h2>
           <TaskList tasks={overdue} projectById={projectById} onEdit={openEdit} />
         </section>
       )}
 
       {noTasks ? (
-        loaded && <EmptyState icon={Sun} title="На сегодня задач нет" hint="Добавьте задачу кнопкой +" />
+        loaded && <EmptyState icon={Sun} title={t('На сегодня задач нет')} hint={t('Добавьте задачу кнопкой +')} />
       ) : (
         (todayOpen.length > 0 || todayDone.length > 0) && (
           <section className="mb-5">
-            <h2 className="mb-2 text-sm font-semibold text-muted">Задачи на сегодня</h2>
+            <h2 className="mb-2 text-sm font-semibold text-muted">{t('Задачи на сегодня')}</h2>
             {todayOpen.length > 0 && (
               <TaskList tasks={todayOpen} projectById={projectById} onEdit={openEdit} />
             )}

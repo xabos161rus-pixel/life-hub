@@ -111,6 +111,129 @@ export const EN: Record<string, string> = {
   'Иначе данные могут не сохраниться. Как это сделать →':
     'Otherwise your data may not persist. How to do it →',
 
+  // === Семья: звонок (внутренние коды причин из familyCall) ===
+  'Не удалось соединиться — сеть не пропускает звонок':
+    "Couldn't connect — the network is blocking the call",
+  'Соединение потеряно': 'Connection lost',
+  'Нет доступа к микрофону': 'No microphone access',
+  'Не ответили': 'No answer',
+  'Ошибка': 'Error',
+  'Отклонено': 'Declined',
+  'Отменено': 'Cancelled',
+  'Звонок завершён': 'Call ended',
+  'Пропущенный звонок': 'Missed call',
+  'Занято': 'Busy',
+  'Участник': 'Member',
+  'участник': 'member',
+
+  // === Семья: группа и файлы ===
+  'Участник исключён, но новый ключ пока не дошёл до: {names}. Повторите, когда они будут в сети.':
+    "Member removed, but the new key hasn't reached: {names}. Retry when they are online.",
+  'Исключать участников может только владелец группы': 'Only the group owner can remove members',
+  'Группа не найдена': 'Group not found',
+  'Без имени': 'Unnamed',
+  '{n} Б': '{n} B',
+  '{n} КБ': '{n} KB',
+  '{n} МБ': '{n} MB',
+
+  // === Погода («Сегодня») ===
+  'Ясно': 'Clear',
+  'Малооблачно': 'Partly cloudy',
+  'Облачно': 'Cloudy',
+  'Туман': 'Fog',
+  'Морось': 'Drizzle',
+  'Дождь': 'Rain',
+  'Снег': 'Snow',
+  'Ливень': 'Showers',
+  'Снегопад': 'Heavy snow',
+  'Гроза': 'Thunderstorm',
+
+  // === Привычки: расписание ===
+  'Не задано': 'Not set',
+  '{n}× в неделю': '{n}× a week',
+
+  // === Сегодня и привычки ===
+  'Привычка': 'Habit',
+  'Новая привычка': 'New habit',
+  'Удалить привычку? История отметок тоже скроется.':
+    'Delete habit? Entry history will disappear too.',
+  'Например, «Отжимания»': 'e.g. “Push-ups”',
+  'Как отмечать': 'How to track',
+  'Галочка': 'Check',
+  'Счётчик': 'Counter',
+  'Цель за день': 'Daily target',
+  'Например, 30': 'e.g. 30',
+  'Единица': 'Unit',
+  'раз, км, л, мин…': 'times, km, l, min…',
+  'По дням недели': 'Specific days',
+  'Разморозить': 'Unfreeze',
+  'Вернуть из архива': 'Restore from archive',
+  'В архив': 'Archive',
+  'Напоминания': 'Reminders',
+  'раздел': 'section',
+  'Добавьте раздел — например, «Работа» — и держите под рукой важные напоминания.':
+    'Add a section — like "Work" — and keep important reminders at hand.',
+  'Изменить раздел': 'Edit section',
+  'Добавить напоминание': 'Add reminder',
+  'Удалить раздел вместе с его напоминаниями?': 'Delete this section along with its reminders?',
+  'Раздел напоминаний': 'Reminder section',
+  'Новый раздел': 'New section',
+  'Название раздела': 'Section name',
+  'Новое напоминание': 'New reminder',
+  'Текст напоминания': 'Reminder text',
+  'Например, максимальные расходы на работе 465 ₽': 'E.g. max work expenses 465 ₽',
+  'Просрочено': 'Overdue',
+  'На сегодня задач нет': 'No tasks for today',
+  'Добавьте задачу кнопкой +': 'Add a task with the + button',
+  'Задачи на сегодня': "Today's tasks",
+  'Отмечайте выполнение каждый день — серия\u00A0🔥 растёт, пока не пропустите запланированный день.':
+    'Check it off every day — your streak 🔥 grows until you miss a scheduled day.',
+  'Активные ({n})': 'Active ({n})',
+  'Архив ({n})': 'Archive ({n})',
+  'Архив пуст': 'Archive is empty',
+  'Пока нет привычек': 'No habits yet',
+  'Сюда попадают привычки, убранные в архив.': 'Habits you archive end up here.',
+  'Нажмите +, чтобы добавить привычку и вести серию.': 'Tap + to add a habit and start a streak.',
+  'Заморожена с {date}': 'Frozen since {date}',
+  'рекорд {n}': 'record {n}',
+  'в серии заморозка': 'streak includes',
+  'не сегодня': 'not today',
+  'Ввести значение': 'Enter value',
+  'Синхронизация между устройствами, зашифрованная копия в облаке и напоминания даже при закрытом приложении.':
+    'Sync across devices, an encrypted backup in the cloud, and reminders even when the app is closed.',
+  'Включите синхронизацию и облачную копию — данные переживут потерю или замену телефона.':
+    'Turn on sync and cloud backup — your data survives losing or replacing your phone.',
+  'Включите уведомления — напоминания придут даже при закрытом приложении.':
+    'Turn on notifications — reminders will arrive even when the app is closed.',
+  'Защитите свои данные': 'Protect your data',
+  'Настроить': 'Set up',
+
+  'Сколько сегодня ({unit})': 'How much today ({unit})',
+  'Сколько сегодня': 'How much today',
+  '= цель': '= target',
+  'Сброс': 'Reset',
+
+  // === Цикл: отклонения ===
+  'Циклы заметно разной длины': 'Cycle lengths vary noticeably',
+  'За полгода самый короткий цикл {min}, самый длинный {max} — разница {spread}.':
+    'Over six months the shortest cycle was {min}, the longest {max} — a spread of {spread}.',
+  'Менструаций за полгода меньше обычного': 'Fewer periods than usual over six months',
+  'За последние шесть месяцев отмечено одно начало менструации.':
+    'Only one period start recorded in the last six months.',
+  'За последние шесть месяцев отмечено {n} начала менструации.':
+    '{n} period starts recorded in the last six months.',
+  'Долгие менструации': 'Long periods',
+  'За полгода {n} длились {days} и дольше.': 'Over six months, {n} lasted {days} or longer.',
+  'Мажущие выделения между менструациями': 'Spotting between periods',
+  'Отмечены в {n} циклах за полгода, вне дней менструации.':
+    'Recorded in {n} cycles over six months, outside period days.',
+  'Менструации нет три месяца': 'No period for three months',
+  'Последнее начало — {days} назад. Если беременность исключена, это повод показаться врачу.':
+    "Last period started {days} ago. If pregnancy is ruled out, it's worth seeing a doctor.",
+  'Обильные менструации': 'Heavy periods',
+  'В {heavy} циклах из {total} было три и больше дней подряд с обильными выделениями. Если это мешает обычным делам или есть слабость — стоит проверить железо.':
+    "In {heavy} of {total} cycles there were three or more days in a row of heavy bleeding. If it gets in the way of daily life or you feel weak, it's worth checking your iron.",
+
   // === Даты ===
   'Пн': 'Mon',
   'Вт': 'Tue',

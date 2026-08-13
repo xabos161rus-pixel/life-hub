@@ -4,6 +4,7 @@ import {
   GPhone as Phone,
 } from '../../components/ui/glyphs';
 import { callManager, type CallSnapshot } from '../../lib/family/familyCall';
+import { t } from '../../lib/i18n';
 import { CallGuard } from './CallGuard';
 
 /** Через сколько заблокировать экран после того, как звонок ушёл «к уху». */
@@ -29,7 +30,9 @@ function statusText(snap: CallSnapshot): string {
     case 'active':
       return 'На связи';
     case 'ended':
-      return snap.endReason ?? 'Звонок завершён';
+      // endReason — внутренний русский код из familyCall (там он сравнивается
+      // с литералами), перевод — только здесь, в точке отображения.
+      return t(snap.endReason ?? 'Звонок завершён');
     default:
       return '';
   }

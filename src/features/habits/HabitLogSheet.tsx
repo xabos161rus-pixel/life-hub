@@ -3,6 +3,7 @@ import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Input';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 import { Sheet } from '../../components/ui/Sheet';
+import { t } from '../../lib/i18n';
 import { setHabitValue } from './habitRepo';
 import type { Habit } from '../../db/types';
 
@@ -73,7 +74,13 @@ function LogForm({
           label={`${val}/${target}`}
         />
       </div>
-      <Field label={`Сколько сегодня${habit.unit ? ` (${habit.unit})` : ''}`}>
+      <Field
+        label={
+          habit.unit
+            ? t('Сколько сегодня ({unit})', { unit: habit.unit })
+            : t('Сколько сегодня')
+        }
+      >
         <Input
           inputMode="decimal"
           value={raw}
@@ -93,14 +100,14 @@ function LogForm({
           </Button>
         ))}
         <Button variant="secondary" onClick={() => set(String(target))}>
-          = цель
+          {t('= цель')}
         </Button>
         <Button variant="secondary" onClick={() => set('')}>
-          Сброс
+          {t('Сброс')}
         </Button>
       </div>
       <Button className="w-full" onClick={() => void save()}>
-        Сохранить
+        {t('Сохранить')}
       </Button>
     </div>
   );

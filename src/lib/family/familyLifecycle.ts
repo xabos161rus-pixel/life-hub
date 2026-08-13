@@ -18,6 +18,7 @@ import { saveFamilyConfig, getFamilyConfig, listFamilyConfigs, clearFamily } fro
 import { upsertSelfMember } from './familyRepo';
 import { connectFamily, disconnectFamily, sendSystemMessage } from './familyChat';
 import { ensureBoxKeys, registerMember } from './familyKeys';
+import { t } from '../i18n';
 
 /** Создать новую группу на этом устройстве (ты — первый участник). Возвращает
  *  familyId созданной группы (чтобы UI сразу её выбрал). */
@@ -30,7 +31,7 @@ export async function createFamily(familyName: string, displayName: string): Pro
     familyId,
     familyToken: randomToken(),
     familyKey: key,
-    familyName: familyName.trim() || 'Семья',
+    familyName: familyName.trim() || t('Семья'),
     selfMemberId,
     lastSeq: 0,
     lastReadSeq: 0,

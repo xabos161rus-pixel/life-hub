@@ -1,5 +1,6 @@
 import type { Habit, HabitLog, HabitSchedule } from '../db/types';
 import { addDaysKey, isoWeekday, todayKey, WEEKDAY_LABELS } from './dates';
+import { t } from './i18n';
 
 // Логика привычек — чистые функции над множеством дат-отметок (ключи 'YYYY-MM-DD').
 // Даты-строки сравниваются лексикографически = хронологически (нулевые паддинги).
@@ -44,17 +45,17 @@ export function isActiveOn(habit: Habit, date: string): boolean {
 export function scheduleLabel(schedule: HabitSchedule): string {
   switch (schedule.type) {
     case 'daily':
-      return 'Каждый день';
+      return t('Каждый день');
     case 'weekdays':
-      if (schedule.weekdays.length >= 7) return 'Каждый день';
-      if (schedule.weekdays.length === 0) return 'Не задано';
+      if (schedule.weekdays.length >= 7) return t('Каждый день');
+      if (schedule.weekdays.length === 0) return t('Не задано');
       return schedule.weekdays
         .slice()
         .sort((a, b) => a - b)
-        .map((d) => WEEKDAY_LABELS[d - 1])
+        .map((d) => t(WEEKDAY_LABELS[d - 1]))
         .join(', ');
     case 'timesPerWeek':
-      return `${schedule.times}× в неделю`;
+      return t('{n}× в неделю', { n: schedule.times });
     default:
       return '';
   }

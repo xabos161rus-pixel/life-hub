@@ -18,7 +18,7 @@
 import type { AgeBand, Cycle, CycleDayLog, CycleEpisode, LocalDate } from '../../db/cycleTypes';
 import { addDaysKey } from '../dates';
 import { daysBetween, overlapsEpisode } from './derive';
-import { plur } from '../plural';
+import { t, tPlur } from '../i18n';
 
 // Числа в этих текстах — про здоровье, и читает их человек, а не машина.
 // «21 дней» и «5 менструации» здесь были не опечаткой, а тремя багами подряд.
@@ -139,8 +139,12 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
     if (spread >= IRREGULAR_SPREAD) {
       out.push({
         kind: 'irregular',
-        title: 'Циклы заметно разной длины',
-        detail: `За полгода самый короткий цикл ${plur(Math.min(...lens), DAYS)}, самый длинный ${Math.max(...lens)} — разница ${plur(spread, DAYS)}.`,
+        title: t('Циклы заметно разной длины'),
+        detail: t('За полгода самый короткий цикл {min}, самый длинный {max} — разница {spread}.', {
+          min: tPlur(Math.min(...lens), DAYS),
+          max: Math.max(...lens),
+          spread: tPlur(spread, DAYS),
+        }),
         worthAsking: true,
       });
     }
@@ -158,8 +162,13 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
   ) {
     out.push({
       kind: 'infrequent',
-      title: 'Менструаций за полгода меньше обычного',
-      detail: `За последние шесть месяцев отмечено ${periodsInWindow === 1 ? 'одно начало' : `${periodsInWindow} начала`} менструации.`,
+      title: t('Менструаций за полгода меньше обычного'),
+      detail:
+        periodsInWindow === 1
+          ? t('За последние шесть месяцев отмечено одно начало менструации.')
+          : t('За последние шесть месяцев отмечено {n} начала менструации.', {
+              n: periodsInWindow,
+            }),
       worthAsking: true,
     });
   }
@@ -172,8 +181,11 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
   if (prolonged >= PROLONGED_MIN_TIMES) {
     out.push({
       kind: 'prolonged',
-      title: 'Долгие менструации',
-      detail: `За полгода ${plur(prolonged, ['менструация', 'менструации', 'менструаций'])} длились ${plur(PROLONGED_DAYS, DAYS)} и дольше.`,
+      title: t('Долгие менструации'),
+      detail: t('За полгода {n} длились {days} и дольше.', {
+        n: tPlur(prolonged, ['менструация', 'менструации', 'менструаций']),
+        days: tPlur(PROLONGED_DAYS, DAYS),
+      }),
       worthAsking: true,
     });
   }
@@ -195,8 +207,10 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
   if (spottingCycles.size >= 2) {
     out.push({
       kind: 'intermenstrual',
-      title: 'Мажущие выделения между менструациями',
-      detail: `Отмечены в ${spottingCycles.size} циклах за полгода, вне дней менструации.`,
+      title: t('Мажущие выделения между менструациями'),
+      detail: t('Отмечены в {n} циклах за полгода, вне дней менструации.', {
+        n: spottingCycles.size,
+      }),
       worthAsking: true,
     });
   }
@@ -212,8 +226,10 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
     if (since >= AMENORRHEA_DAYS) {
       out.push({
         kind: 'amenorrhea',
-        title: 'Менструации нет три месяца',
-        detail: `Последнее начало — ${plur(since, DAYS)} назад. Если беременность исключена, это повод показаться врачу.`,
+        title: t('Менструации нет три месяца'),
+        detail: t('Последнее начало — {days} назад. Если беременность исключена, это повод показаться врачу.', {
+          days: tPlur(since, DAYS),
+        }),
         worthAsking: true,
       });
     }
@@ -233,8 +249,11 @@ export function detectAnomalies(input: AnomalyInput): Anomaly[] {
   if (inWindow.length >= 3 && heavyCycles >= 2) {
     out.push({
       kind: 'heavy',
-      title: 'Обильные менструации',
-      detail: `В ${heavyCycles} циклах из ${inWindow.length} было три и больше дней подряд с обильными выделениями. Если это мешает обычным делам или есть слабость — стоит проверить железо.`,
+      title: t('Обильные менструации'),
+      detail: t('В {heavy} циклах из {total} было три и больше дней подряд с обильными выделениями. Если это мешает обычным делам или есть слабость — стоит проверить железо.', {
+        heavy: heavyCycles,
+        total: inWindow.length,
+      }),
       worthAsking: true,
     });
   }

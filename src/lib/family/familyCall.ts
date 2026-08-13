@@ -13,6 +13,7 @@ import { encryptJSON, decryptJSON } from '../crypto';
 import { getFamilyConfig } from './familyState';
 import { sendSignal, sendSystemMessage, connectFamily, type SignalFrame, type SignalKind } from './familyChat';
 import { startRingtone, stopRingtone } from './ringtone';
+import { t } from '../i18n';
 
 const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
 const RING_TIMEOUT_MS = 30_000;
@@ -187,7 +188,7 @@ class CallManager {
 
   private async peerName(peerId: string): Promise<string> {
     const m = await db.familyMembers.get(peerId);
-    return m?.displayName || 'Участник';
+    return m?.displayName || t('Участник');
   }
 
   private getMic(): Promise<MediaStream> {

@@ -41,6 +41,7 @@ import {
   unpackEpoch,
 } from '../crypto';
 import { getFamilyConfig, patchFamilyConfig } from './familyState';
+import { t } from '../i18n';
 
 export const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
 
@@ -316,8 +317,9 @@ export class KeyDeliveryError extends Error {
   readonly names: string[];
   constructor(names: string[]) {
     super(
-      `Участник исключён, но новый ключ пока не дошёл до: ${names.join(', ')}. ` +
-        'Повторите, когда они будут в сети.',
+      t('Участник исключён, но новый ключ пока не дошёл до: {names}. Повторите, когда они будут в сети.', {
+        names: names.join(', '),
+      }),
     );
     this.name = 'KeyDeliveryError';
     this.names = names;
@@ -363,9 +365,9 @@ export async function resendKeys(familyId: string): Promise<string[]> {
         headers: { Authorization: `Bearer ${c.familyToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ channel: 'key', itemId: m.id, ciphertext }),
       });
-      if (!r.ok) failed.push(m.displayName || 'участник');
+      if (!r.ok) failed.push(m.displayName || t('участник'));
     } catch {
-      failed.push(m.displayName || 'участник');
+      failed.push(m.displayName || t('участник'));
     }
   }
   return failed;
@@ -373,7 +375,7 @@ export async function resendKeys(familyId: string): Promise<string[]> {
 
 export class NotOwnerError extends Error {
   constructor() {
-    super('Исключать участников может только владелец группы');
+    super(t('Исключать участников может только владелец группы'));
     this.name = 'NotOwnerError';
   }
 }
@@ -402,7 +404,7 @@ export class NotOwnerError extends Error {
  *  авторизации именно ради этого случая. */
 export async function removeMember(familyId: string, memberId: string): Promise<RemovalPlan> {
   let c = await getFamilyConfig(familyId);
-  if (!c) throw new Error('Группа не найдена');
+  if (!c) throw new Error(t('Группа не найдена'));
   const ownerSecret = c.ownerSecret;
   if (!ownerSecret) throw new NotOwnerError();
   c = await ensureBoxKeys(c);
