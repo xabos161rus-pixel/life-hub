@@ -8,6 +8,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Field, Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { t } from '../../lib/i18n';
 import { createFamily, joinFamily } from '../../lib/family/familyLifecycle';
 import {
   InviteDamagedError,
@@ -42,15 +43,15 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
         <Plus size={40} strokeWidth={STROKE_HEAVY} />
       </div>
       <div className="space-y-1.5">
-        <p className="text-lg font-semibold">Семейная группа</p>
-        <p className="px-6 text-sm text-muted">Общий чат и задачи с близкими. Содержимое шифруется на устройстве.</p>
+        <p className="text-lg font-semibold">{t('Семейная группа')}</p>
+        <p className="px-6 text-sm text-muted">{t('Общий чат и задачи с близкими. Содержимое шифруется на устройстве.')}</p>
       </div>
       <div className="w-full max-w-sm space-y-3 px-6 pt-2">
         <Button className="w-full" onClick={() => setMode('create')}>
-          Создать группу
+          {t('Создать группу')}
         </Button>
         <Button variant="secondary" className="w-full" onClick={() => setMode('join')}>
-          Войти по приглашению
+          {t('Войти по приглашению')}
         </Button>
       </div>
       <CreateFamilySheet
@@ -91,16 +92,16 @@ export function CreateFamilySheet({ open, onClose, onReady }: { open: boolean; o
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Создать группу">
+    <Sheet open={open} onClose={onClose} title={t('Создать группу')}>
       <div className="space-y-4">
-        <Field label="Название группы">
-          <Input value={familyName} onChange={(e) => setFamilyName(e.target.value)} placeholder="Например, «Наша семья»" />
+        <Field label={t('Название группы')}>
+          <Input value={familyName} onChange={(e) => setFamilyName(e.target.value)} placeholder={t('Например, «Наша семья»')} />
         </Field>
-        <Field label="Ваше имя">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Влад" />
+        <Field label={t('Ваше имя')}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Например, Влад')} />
         </Field>
         <Button className="w-full" disabled={!familyName.trim() || !name.trim() || busy} onClick={() => void create()}>
-          {busy ? 'Создаю…' : 'Создать группу'}
+          {busy ? t('Создаю…') : t('Создать группу')}
         </Button>
       </div>
     </Sheet>
@@ -135,10 +136,10 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
     } catch (err) {
       setError(
         err instanceof InviteExpiredError
-          ? 'Срок действия приглашения истёк — попросите новое'
+          ? t('Срок действия приглашения истёк — попросите новое')
           : err instanceof InviteWordError
-            ? 'Слово не подошло. Проверьте и попробуйте снова'
-            : 'Не удалось войти. Проверьте код',
+            ? t('Слово не подошло. Проверьте и попробуйте снова')
+            : t('Не удалось войти. Проверьте код'),
       );
       setBusy(false);
     }
@@ -150,7 +151,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
     joinRef.current = (raw: string) => {
       if (busy) return;
       if (!name.trim()) {
-        setError('Сначала введите своё имя');
+        setError(t('Сначала введите своё имя'));
         return;
       }
       // Разбор терпит то, что приезжает из мессенджера вместе с кодом:
@@ -163,8 +164,8 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
       } catch (err) {
         setError(
           err instanceof InviteDamagedError
-            ? 'Код неполный или повреждён. Скопируйте сообщение с кодом целиком и вставьте ещё раз'
-            : 'Это не похоже на код приглашения. Вставьте код из приложения целиком',
+            ? t('Код неполный или повреждён. Скопируйте сообщение с кодом целиком и вставьте ещё раз')
+            : t('Это не похоже на код приглашения. Вставьте код из приложения целиком'),
         );
         return;
       }
@@ -179,7 +180,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
             onReady?.(id);
           })
           .catch(() => {
-            setError('Не удалось войти. Проверьте код.');
+            setError(t('Не удалось войти. Проверьте код.'));
             setBusy(false);
           });
         return;
@@ -235,7 +236,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
         };
         rafRef.current = requestAnimationFrame(tick);
       } catch {
-        setError('Нет доступа к камере. Вставьте код вручную.');
+        setError(t('Нет доступа к камере. Вставьте код вручную.'));
         setTab('paste');
       }
     })();
@@ -266,39 +267,43 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
       canvas.height = h;
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        setError('Не удалось открыть фото. Попробуйте другой файл');
+        setError(t('Не удалось открыть фото. Попробуйте другой файл'));
         return;
       }
       ctx.drawImage(img, 0, 0, w, h);
       const data = ctx.getImageData(0, 0, w, h);
       const found = jsQR(data.data, data.width, data.height);
       if (found?.data) joinRef.current(found.data);
-      else setError('На картинке не найден QR-код. Попробуйте другое фото или вставьте код вручную.');
+      else setError(t('На картинке не найден QR-код. Попробуйте другое фото или вставьте код вручную.'));
     } catch {
-      setError('Не удалось открыть фото. Попробуйте другой файл');
+      setError(t('Не удалось открыть фото. Попробуйте другой файл'));
     } finally {
       URL.revokeObjectURL(url);
     }
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Войти по приглашению">
+    <Sheet open={open} onClose={onClose} title={t('Войти по приглашению')}>
       <div className="space-y-4">
-        <Field label="Ваше имя">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Например, Брат" />
+        <Field label={t('Ваше имя')}>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Например, Брат')} />
         </Field>
-        <SegmentedControl options={JOIN_TABS} value={tab} onChange={setTab} />
+        <SegmentedControl
+          options={JOIN_TABS.map((o) => ({ ...o, label: t(o.label) }))}
+          value={tab}
+          onChange={setTab}
+        />
         {pendingCode !== null ? (
           // Второй шаг входа: код прочитан, нужно слово. Показываем название
           // группы — человек должен видеть, куда его зовут, до ввода.
           <div className="space-y-3">
             <div className="card p-4 text-center">
-              <p className="text-sm text-muted">Приглашение в группу</p>
-              <p className="mt-0.5 font-semibold">{pendingName || 'Семья'}</p>
+              <p className="text-sm text-muted">{t('Приглашение в группу')}</p>
+              <p className="mt-0.5 font-semibold">{pendingName || t('Семья')}</p>
             </div>
             <label className="block">
               <span className="mb-1.5 block text-sm font-medium text-muted">
-                Кодовое слово от приглашающего
+                {t('Кодовое слово от приглашающего')}
               </span>
               <input
                 value={wordInput}
@@ -310,12 +315,11 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
                 autoComplete="off"
                 autoCapitalize="characters"
                 className="w-full rounded-xl border border-border bg-surface p-3 text-center font-mono text-lg tracking-[0.15em] uppercase"
-                aria-label="Кодовое слово"
+                aria-label={t('Кодовое слово')}
               />
             </label>
             <p className="text-xs leading-snug text-muted">
-              Его называет тот, кто вас приглашает. Без слова код не открыть — так перехваченное
-              приглашение остаётся бесполезным.
+              {t('Его называет тот, кто вас приглашает. Без слова код не открыть — так перехваченное приглашение остаётся бесполезным.')}
             </p>
             {/* Столбиком: на 320px две кнопки в ряд обрезают «Назад к коду». */}
             <div className="flex flex-col gap-2 min-[380px]:flex-row">
@@ -324,7 +328,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
                 disabled={wordInput.length < 4 || busy}
                 onClick={() => void confirmWord()}
               >
-                {busy ? 'Вхожу…' : 'Войти'}
+                {busy ? t('Вхожу…') : t('Войти')}
               </Button>
               <Button
                 variant="secondary"
@@ -334,7 +338,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
                   setError('');
                 }}
               >
-                Назад к коду
+                {t('Назад к коду')}
               </Button>
             </div>
           </div>
@@ -344,19 +348,19 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
               <video ref={videoRef} className="aspect-square w-full object-cover" muted playsInline />
               <ScanLine className="pointer-events-none absolute inset-0 m-auto text-white/40" size={120} />
             </div>
-            <p className="text-center text-sm text-muted">Наведите камеру на QR приглашения</p>
+            <p className="text-center text-sm text-muted">{t('Наведите камеру на QR приглашения')}</p>
           </div>
         ) : (
           <div className="space-y-2">
             <textarea
               value={pasteVal}
               onChange={(e) => setPasteVal(e.target.value)}
-              placeholder="Вставьте код приглашения"
+              placeholder={t('Вставьте код приглашения')}
               rows={4}
               className="w-full rounded-xl border border-border bg-surface p-3 font-mono text-xs"
             />
             <Button className="w-full" disabled={!pasteVal.trim() || busy} onClick={() => joinRef.current(pasteVal)}>
-              {busy ? 'Вхожу…' : 'Войти'}
+              {busy ? t('Вхожу…') : t('Войти')}
             </Button>
           </div>
         )}
@@ -378,7 +382,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
           onClick={() => fileRef.current?.click()}
         >
           <ImageUp size={18} />
-          Выбрать фото с QR-кодом
+          {t('Выбрать фото с QR-кодом')}
         </Button>
 
         {error && <p className="text-sm text-danger">{error}</p>}

@@ -32,6 +32,7 @@ import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';
 import { Sheet } from '../../components/ui/Sheet';
 import { Hint } from '../../components/ui/Hint';
+import { getLang, t } from '../../lib/i18n';
 import { useToast } from '../../components/ui/toastContext';
 import {
   compressImage,
@@ -84,7 +85,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
           if (a.paused) void a.play();
           else a.pause();
         }}
-        aria-label={playing ? 'Пауза' : 'Воспроизвести'}
+        aria-label={playing ? t('Пауза') : t('Воспроизвести')}
         className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'}`}
       >
         {playing ? <Pause size={16} /> : <Play size={16} />}
@@ -130,10 +131,10 @@ function FileBubble({ m, own, received }: { m: FamilyMessage; own: boolean; rece
   // просто честно говорим «недоступен», как и просили в задаче.
   const unavailable = !available && received === 0;
   const subtitle = available
-    ? `${fileKindLabel(info.mime, info.name)} · ${formatFileSize(info.size)}`
+    ? `${t(fileKindLabel(info.mime, info.name))} · ${formatFileSize(info.size)}`
     : unavailable
-      ? 'Файл недоступен'
-      : `Получение ${received} из ${info.chunksTotal}`;
+      ? t('Файл недоступен')
+      : t('Получение {a} из {b}', { a: received, b: info.chunksTotal });
   return (
     <div className="flex min-w-[190px] max-w-[240px] items-center gap-2.5 py-0.5">
       <div
@@ -172,11 +173,11 @@ function dayLabel(iso: string, now: number): string {
   const today = new Date(now);
   const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const diffDays = Math.round((startOf(today) - startOf(d)) / 86_400_000);
-  if (diffDays === 0) return 'Сегодня';
-  if (diffDays === 1) return 'Вчера';
+  if (diffDays === 0) return t('Сегодня');
+  if (diffDays === 1) return t('Вчера');
   const opts: Intl.DateTimeFormatOptions =
     d.getFullYear() === today.getFullYear() ? { day: 'numeric', month: 'long' } : { day: 'numeric', month: 'long', year: 'numeric' };
-  return d.toLocaleDateString('ru-RU', opts);
+  return d.toLocaleDateString(getLang() === 'ru' ? 'ru-RU' : 'en-US', opts);
 }
 function dayKey(iso: string): string {
   const d = new Date(iso);
@@ -187,14 +188,14 @@ function dayKey(iso: string): string {
  *  чтобы не звать Date.now() в теле рендера (react-hooks/purity). */
 function relTime(iso: string, now: number): string {
   const min = Math.floor((now - new Date(iso).getTime()) / 60000);
-  if (min < 1) return 'только что';
-  if (min < 60) return `${min}\u00A0мин назад`;
+  if (min < 1) return t('только что');
+  if (min < 60) return t('{m}\u00A0мин назад', { m: min });
   const h = Math.floor(min / 60);
-  if (h < 24) return `${h}\u00A0ч назад`;
+  if (h < 24) return t('{h}\u00A0ч назад', { h });
   const d = Math.floor(h / 24);
-  if (d === 1) return 'вчера';
-  if (d < 7) return `${d}\u00A0дн назад`;
-  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  if (d === 1) return t('вчера');
+  if (d < 7) return t('{d}\u00A0дн назад', { d });
+  return new Date(iso).toLocaleDateString(getLang() === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' });
 }
 
 /** Сообщение из одних эмодзи (1–3 графемы): рисуется без пузыря, крупно —
@@ -214,10 +215,10 @@ function emojiOnly(text: string): number {
 /** Сниппет сообщения для цитаты ответа. */
 function snippetOf(m: FamilyMessage): string {
   if (m.text) return m.text.slice(0, 120);
-  if (m.image) return 'Фото';
-  if (m.audio) return 'Голосовое сообщение';
-  if (m.file) return 'Файл';
-  return 'Сообщение';
+  if (m.image) return t('Фото');
+  if (m.audio) return t('Голосовое сообщение');
+  if (m.file) return t('Файл');
+  return t('Сообщение');
 }
 
 const SWIPE_REPLY_PX = 56; // порог свайпа вправо «ответить»
@@ -441,7 +442,7 @@ function MessageRow({
             {m.audio && <AudioBubble src={m.audio} duration={m.audioDur ?? 0} own={own} />}
             {m.file && <FileBubble m={m} own={own} received={fileReceived} />}
             {m.image && (
-              <img src={m.image} alt="Фото" loading="lazy" className="block max-h-80 max-w-full rounded-xl" draggable={false} />
+              <img src={m.image} alt={t('Фото')} loading="lazy" className="block max-h-80 max-w-full rounded-xl" draggable={false} />
             )}
             {m.text && jumbo > 0 && (
               <p className={`leading-none ${jumbo === 1 ? 'text-5xl' : jumbo === 2 ? 'text-4xl' : 'text-3xl'}`}>
@@ -452,7 +453,7 @@ function MessageRow({
               <p className={`whitespace-pre-wrap break-words text-sm ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
             )}
             <span className={`mt-0.5 flex items-center justify-end gap-1 text-2xs ${m.image ? 'px-2 pb-1' : ''} ${jumbo ? 'text-muted' : own ? 'text-white/70' : 'text-muted'}`}>
-              {m.editedAt && <span>изменено</span>}
+              {m.editedAt && <span>{t('изменено')}</span>}
               {timeLabel(m.createdAt)}
               {own &&
                 (m.status === 'pending' ? (
@@ -675,7 +676,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
       const quote = replyTo
         ? {
             id: replyTo.clientMsgId,
-            name: memberMap[replyTo.senderMemberId]?.displayName || 'Участник',
+            // Снапшот цитаты уезжает в payload сообщения: подпись и сниппет
+            // фиксируются на языке автора — как и snippetOf выше.
+            name: memberMap[replyTo.senderMemberId]?.displayName || t('Участник'),
             text: snippetOf(replyTo),
           }
         : undefined;
@@ -701,9 +704,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
     setActionMsg(null);
     try {
       await navigator.clipboard.writeText(m.text);
-      toast('Скопировано');
+      toast(t('Скопировано'));
     } catch {
-      toast('Не удалось скопировать. Выделите текст вручную');
+      toast(t('Не удалось скопировать. Выделите текст вручную'));
     }
   }
 
@@ -732,13 +735,13 @@ export function ChatTab({ familyId }: { familyId: string }) {
       await sendImage(familyId, dataUrl);
     } catch (err) {
       if (err instanceof ImageTooLargeError) {
-        toast(`Файл больше ${Math.round(MAX_INPUT_BYTES / 1024 / 1024)} МБ — выберите поменьше`);
+        toast(t('Файл больше {mb} МБ — выберите поменьше', { mb: Math.round(MAX_INPUT_BYTES / 1024 / 1024) }));
       } else if (err instanceof ImageDecodeError) {
         // Чаще всего это HEIC с айфона, открытый в стороннем браузере: формат
         // системный, и разобрать его умеет не всякий движок.
-        toast('Не удалось открыть фото. Попробуйте другой файл');
+        toast(t('Не удалось открыть фото. Попробуйте другой файл'));
       } else {
-        toast('Не удалось отправить фото. Проверьте связь');
+        toast(t('Не удалось отправить фото. Проверьте связь'));
       }
     } finally {
       setSendingImage(false);
@@ -750,7 +753,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
    *  внутри sendFile: сообщить человеку до траты времени на FileReader. */
   async function handlePickFile(file: File) {
     if (file.size > MAX_FILE_BYTES) {
-      toast('Файл больше 8 МБ — такой не пройдёт через чат');
+      toast(t('Файл больше 8 МБ — такой не пройдёт через чат'));
       return;
     }
     setSendingFile(true);
@@ -763,7 +766,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
       });
       await sendFile(familyId, { name: file.name, mime: file.type || 'application/octet-stream', size: file.size, dataUrl });
     } catch {
-      toast('Не удалось отправить файл. Проверьте связь');
+      toast(t('Не удалось отправить файл. Проверьте связь'));
     } finally {
       setSendingFile(false);
     }
@@ -790,16 +793,16 @@ export function ChatTab({ familyId }: { familyId: string }) {
     if (others.length === 0) return null;
     if (typers.length > 0) {
       const name = memberMap[typers[0]]?.displayName;
-      return others.length === 1 ? 'печатает…' : `${name || 'Кто-то'} печатает…`;
+      return others.length === 1 ? t('печатает…') : t('{name} печатает…', { name: name || t('Кто-то') });
     }
     if (others.length === 1) {
       return onlineSet.has(others[0].id)
-        ? 'в сети'
+        ? t('в сети')
         : lastSeen[others[0].id] && now
-          ? `был(а) в сети ${relTime(lastSeen[others[0].id], now)}`
-          : 'не в сети';
+          ? t('был(а) в сети {when}', { when: relTime(lastSeen[others[0].id], now) })
+          : t('не в сети');
     }
-    return `${others.filter((o) => onlineSet.has(o.id)).length} в сети`;
+    return t('{n} в сети', { n: others.filter((o) => onlineSet.has(o.id)).length });
   })();
 
   return (
@@ -839,19 +842,19 @@ export function ChatTab({ familyId }: { familyId: string }) {
       )}
       <Hint
         id="chat-gestures"
-        title="Жесты чата"
+        title={t('Жесты чата')}
         className="mb-2 shrink-0"
         items={
           isTouch
             ? [
-                { icon: ArrowRight, text: <>Свайп по сообщению вправо — ответить</> },
-                { icon: Heart, text: <>Двойной тап — быстрое ❤️</> },
-                { icon: Hand, text: <>Тап или удержание — меню: реакции, копировать, править</> },
+                { icon: ArrowRight, text: <>{t('Свайп по сообщению вправо — ответить')}</> },
+                { icon: Heart, text: <>{t('Двойной тап — быстрое ❤️')}</> },
+                { icon: Hand, text: <>{t('Тап или удержание — меню: реакции, копировать, править')}</> },
               ]
             : [
-                { icon: ArrowRight, text: <>Потяните сообщение мышью вправо — ответить</> },
-                { icon: Heart, text: <>Двойной клик — быстрое ❤️</> },
-                { icon: Hand, text: <>Клик — меню: реакции, копировать, править</> },
+                { icon: ArrowRight, text: <>{t('Потяните сообщение мышью вправо — ответить')}</> },
+                { icon: Heart, text: <>{t('Двойной клик — быстрое ❤️')}</> },
+                { icon: Hand, text: <>{t('Клик — меню: реакции, копировать, править')}</> },
               ]
         }
       />
@@ -869,7 +872,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         >
           {list.length === 0 ? (
             loaded && (
-              <p className="py-12 text-center text-sm text-muted">Пока нет сообщений. Напишите первым!</p>
+              <p className="py-12 text-center text-sm text-muted">{t('Пока нет сообщений. Напишите первым!')}</p>
             )
           ) : (
             // justify-end: короткая переписка живёт у композера, как во всех
@@ -944,7 +947,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         {showJump && (
           <button
             type="button"
-            aria-label="К последним сообщениям"
+            aria-label={t('К последним сообщениям')}
             onClick={() => {
               const el = scrollRef.current;
               if (el) el.scrollTop = el.scrollHeight;
@@ -960,13 +963,13 @@ export function ChatTab({ familyId }: { familyId: string }) {
         {editingId && (
           <div className="flex items-center gap-2 px-1 pt-2 text-sm text-muted">
             <Pencil size={14} className="shrink-0 text-accent" />
-            <span className="flex-1">Редактирование сообщения</span>
+            <span className="flex-1">{t('Редактирование сообщения')}</span>
             <button
               onClick={() => {
                 setEditingId(null);
                 setText('');
               }}
-              aria-label="Отменить редактирование"
+              aria-label={t('Отменить редактирование')}
               className="p-1 active:opacity-60"
             >
               <X size={16} />
@@ -978,13 +981,13 @@ export function ChatTab({ familyId }: { familyId: string }) {
             <Reply size={14} className="shrink-0 text-accent" />
             <div className="min-w-0 flex-1 border-l-2 border-accent pl-2">
               <p className="text-xs font-semibold text-accent">
-                {memberMap[replyTo.senderMemberId]?.displayName || 'Участник'}
+                {memberMap[replyTo.senderMemberId]?.displayName || t('Участник')}
               </p>
               <p className="truncate text-xs text-muted">{snippetOf(replyTo)}</p>
             </div>
             <button
               onClick={() => setReplyTo(null)}
-              aria-label="Отменить ответ"
+              aria-label={t('Отменить ответ')}
               className="p-1 text-muted active:opacity-60"
             >
               <X size={16} />
@@ -995,7 +998,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
           <div className="flex items-center gap-3 px-2 py-2">
             <button
               onClick={rec.cancel}
-              aria-label="Отменить запись"
+              aria-label={t('Отменить запись')}
               className="flex size-11 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95"
             >
               <Trash2 size={20} />
@@ -1007,7 +1010,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             </div>
             <button
               onClick={rec.stop}
-              aria-label="Отправить голосовое"
+              aria-label={t('Отправить голосовое')}
               className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
             >
               <Send size={20} />
@@ -1045,7 +1048,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               <button
                 onClick={() => setAttachSheetOpen(true)}
                 disabled={sendingAttachment}
-                aria-label={sendingAttachment ? 'Вложение отправляется' : 'Прикрепить'}
+                aria-label={sendingAttachment ? t('Вложение отправляется') : t('Прикрепить')}
                 aria-busy={sendingAttachment || undefined}
                 className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted active:text-accent disabled:opacity-50"
               >
@@ -1070,14 +1073,14 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   }
                 }}
                 rows={1}
-                placeholder="Сообщение…"
+                placeholder={t('Сообщение…')}
                 className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 pl-0.5 pr-2 text-sm leading-tight outline-none"
               />
               {text.trim() || !rec.supported ? (
                 <button
                   onClick={() => void submit()}
                   disabled={!text.trim()}
-                  aria-label="Отправить"
+                  aria-label={t('Отправить')}
                   className="m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white disabled:opacity-40 active:scale-95"
                 >
                   <Send size={17} />
@@ -1085,7 +1088,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               ) : (
                 <button
                   onClick={() => void rec.start()}
-                  aria-label="Записать голосовое"
+                  aria-label={t('Записать голосовое')}
                   className="m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
                 >
                   <Mic size={17} />
@@ -1096,7 +1099,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         )}
       </div>
 
-      <Sheet open={attachSheetOpen} onClose={() => setAttachSheetOpen(false)} title="Вложение">
+      <Sheet open={attachSheetOpen} onClose={() => setAttachSheetOpen(false)} title={t('Вложение')}>
         <div className="space-y-2 pb-2">
           <button
             onClick={() => {
@@ -1121,7 +1124,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         </div>
       </Sheet>
 
-      <Sheet open={actionMsg !== null} onClose={() => setActionMsg(null)} title="Сообщение">
+      <Sheet open={actionMsg !== null} onClose={() => setActionMsg(null)} title={t('Сообщение')}>
         {actionMsg && (
           <div className="space-y-2 pb-2">
             {!actionMsg.system && (
@@ -1131,7 +1134,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                     key={emoji}
                     type="button"
                     onClick={() => void toggleReaction(actionMsg, emoji)}
-                    aria-label={`Реакция ${emoji}`}
+                    aria-label={t('Реакция {emoji}', { emoji })}
                     className={`flex size-10 items-center justify-center rounded-full text-lg transition-transform active:scale-90 ${
                       myReactions.get(actionMsg.clientMsgId) === emoji ? 'bg-accent/20 ring-1 ring-accent/50' : ''
                     }`}
@@ -1146,7 +1149,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
             >
               <Reply size={18} className="text-accent" />
-              Ответить
+              {t('Ответить')}
             </button>
             {actionMsg.text && (
               <button
@@ -1154,7 +1157,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
               >
                 <Copy size={18} className="text-accent" />
-                Копировать
+                {t('Копировать')}
               </button>
             )}
             {actionMsg.senderMemberId === selfId && !actionMsg.image && !actionMsg.audio && !actionMsg.file && (
@@ -1163,7 +1166,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
               >
                 <Pencil size={18} className="text-accent" />
-                Редактировать
+                {t('Редактировать')}
               </button>
             )}
             {actionMsg.senderMemberId === selfId && (
@@ -1172,7 +1175,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 className="flex w-full items-center gap-3 rounded-xl bg-danger/15 p-3.5 text-left text-danger active:opacity-80"
               >
                 <Trash2 size={18} />
-                Удалить
+                {t('Удалить')}
               </button>
             )}
           </div>
