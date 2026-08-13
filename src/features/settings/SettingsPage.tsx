@@ -8,6 +8,7 @@ import {
   GTrash as Trash2,
 } from '../../components/ui/glyphs';
 import { ACCENTS } from '../../lib/accents';
+import { getLang, resolveLang, t } from '../../lib/i18n';
 import { APP_VERSION } from '../../lib/changelog';
 import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/sounds';
 import { RINGTONES, previewRingtone, type RingtoneKind } from '../../lib/family/ringtone';
@@ -318,13 +319,13 @@ export function SettingsPage() {
   }
 
   return (
-    <Screen title="Настройки" backTo="/home">
+    <Screen title={t('Настройки')} backTo="/home">
       <div className="space-y-6">
-        <Section title="Оформление">
+        <Section title={t('Оформление')}>
           <div className="card">
             <div className="p-4">
               <SegmentedControl
-                options={THEME_OPTIONS}
+                options={THEME_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
                 value={settings.theme}
                 onChange={(theme) => void updateSettings({ theme })}
               />
@@ -357,13 +358,35 @@ export function SettingsPage() {
                     ))}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{a.label}</span>
-                    <span className="block text-sm text-muted">{a.hint}</span>
+                    <span className="block font-medium">{t(a.label)}</span>
+                    <span className="block text-sm text-muted">{t(a.hint)}</span>
                   </span>
                   {selected && <GCheck size={18} className="shrink-0 text-accent" />}
                 </button>
               );
             })}
+            {/* Смена языка перерисовывает приложение перезагрузкой: строки
+                читаются в момент рендера, reload — честный способ обновить
+                каждую (язык меняют раз в жизни, цена приемлема). */}
+            <div className="flex flex-wrap items-center gap-2 border-t border-hairline p-4">
+              <span className="flex-1">{t('Язык')}</span>
+              <Select
+                compact
+                aria-label={t('Язык')}
+                value={settings.language ?? 'system'}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  const language = v === 'system' ? undefined : (v as 'ru' | 'en');
+                  void updateSettings({ language }).then(() => {
+                    if (resolveLang(language) !== getLang()) window.location.reload();
+                  });
+                }}
+              >
+                <option value="system">{t('Как в системе')}</option>
+                <option value="ru">{t('Русский')}</option>
+                <option value="en">English</option>
+              </Select>
+            </div>
           </div>
         </Section>
 
@@ -653,9 +676,9 @@ export function SettingsPage() {
               className="flex w-full items-center gap-2 border-t border-hairline px-4 py-3 text-left"
             >
               <span className="min-w-0 flex-1 text-sm text-muted">
-                Версия {APP_VERSION} · данные хранятся только на этом устройстве
+                {t('Версия {v} · данные хранятся только на этом устройстве', { v: APP_VERSION })}
               </span>
-              <span className="shrink-0 text-sm font-medium text-accent">Что нового</span>
+              <span className="shrink-0 text-sm font-medium text-accent">{t('Что нового')}</span>
             </button>
           </div>
         </Section>

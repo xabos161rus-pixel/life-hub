@@ -15,7 +15,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { dateLocale } from '../../lib/dates';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Task } from '../../db/types';
@@ -67,7 +67,7 @@ export function CalendarPage() {
     const to = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 1 });
     return {
       monthDate,
-      monthLabel: format(monthDate, 'LLLL yyyy', { locale: ru }),
+      monthLabel: format(monthDate, 'LLLL yyyy', { locale: dateLocale() }),
       days: eachDayOfInterval({ start: from, end: to }).map((d) => ({
         date: d,
         key: toKey(d),
@@ -202,7 +202,7 @@ export function CalendarPage() {
               <button
                 key={day.key}
                 type="button"
-                aria-label={`${format(day.date, 'd MMMM yyyy', { locale: ru })}${
+                aria-label={`${format(day.date, 'd MMMM yyyy', { locale: dateLocale() })}${
                   isSelected ? ', выбрано' : ''
                 }${stat ? `, задач: ${stat.count}${stat.overdue ? ', есть просроченные' : ''}` : ''}${
                   cycleMarks.has(day.key) ? ', менструация' : ''

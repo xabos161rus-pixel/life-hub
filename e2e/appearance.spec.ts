@@ -42,3 +42,19 @@ test('строка версии живая и открывает «Что нов
   await page.getByRole('button', { name: /Что нового/ }).click();
   await expect(page.getByText('Что нового')).toHaveCount(2); // кнопка + заголовок окна
 });
+
+test('английский язык: включается, переживает перезагрузку, выключается', async ({ page }) => {
+  await openApp(page, '/more/settings');
+  await page.getByLabel('Язык').selectOption('en');
+  // Смена языка перезагружает страницу сама — ждём английский интерфейс.
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('Appearance')).toBeVisible();
+  // Настройка держится после перезагрузки.
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  // Непереведённые разделы честно остаются русскими (fallback, не пустота).
+  await expect(page.getByText('Синхронизация')).toBeVisible();
+  // Обратно на русский — селект теперь подписан по-английски.
+  await page.getByLabel('Language').selectOption('ru');
+  await expect(page.getByRole('heading', { name: 'Настройки' })).toBeVisible({ timeout: 10000 });
+});

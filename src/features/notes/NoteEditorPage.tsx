@@ -8,7 +8,8 @@ import {
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { dateLocale } from '../../lib/dates';
+import { getLang } from '../../lib/i18n';
 import { marked } from 'marked';
 import { Pin, SlidersHorizontal, Type } from 'lucide-react';
 import {
@@ -651,7 +652,11 @@ export function NoteEditorPage() {
           тихий факт вместо интерфейса, живёт прямо в листе заметки. */}
       {editedAt && (
         <p className="mb-2 text-center text-xs text-muted">
-          {format(new Date(editedAt), "d MMMM yyyy 'г'., HH:mm", { locale: ru })}
+          {format(
+            new Date(editedAt),
+            getLang() === 'ru' ? "d MMMM yyyy 'г'., HH:mm" : 'MMMM d, yyyy · HH:mm',
+            { locale: dateLocale() },
+          )}
         </p>
       )}
 

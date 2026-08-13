@@ -313,6 +313,10 @@ export interface UserProfile {
 export interface Settings {
   id: 'app';
   theme: 'dark' | 'light' | 'system';
+  /** Язык интерфейса. undefined = как в системе (телефоны существующих
+   *  пользователей русские — для них ничего не меняется). Device-local.
+   *  Механика перевода — src/lib/i18n.ts. */
+  language?: 'ru' | 'en';
   /** Акцентный цвет интерфейса. undefined = 'indigo' (классический). Работает
    *  в паре с theme: у каждого акцента свои значения для тёмной и светлой,
    *  подобранные до WCAG 4.5 той же методикой, что базовая палитра

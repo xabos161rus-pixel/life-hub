@@ -1,5 +1,11 @@
 import { addDays, format, getISODay, parse, startOfDay, startOfWeek } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { enUS, ru } from 'date-fns/locale';
+import { getLang } from './i18n';
+
+/** Локаль дат следует за языком интерфейса. Единственная точка выбора. */
+export function dateLocale() {
+  return getLang() === 'ru' ? ru : enUS;
+}
 
 // Календарные даты в приложении — локальные строки 'YYYY-MM-DD'.
 // Это исключает таймзонный баг: отметка в 23:30 МСК остаётся в своём дне.
@@ -33,12 +39,12 @@ export function isoWeekday(key: string): number {
 
 /** «11 июня», «11 июня 2027» и т.п. */
 export function formatRu(key: string, fmt = 'd MMMM'): string {
-  return format(fromKey(key), fmt, { locale: ru });
+  return format(fromKey(key), fmt, { locale: dateLocale() });
 }
 
 /** Заголовок «Сегодня»: «Четверг, 12 июня». */
 export function formatHeaderDate(d: Date = new Date()): string {
-  const s = format(d, 'EEEE, d MMMM', { locale: ru });
+  const s = format(d, 'EEEE, d MMMM', { locale: dateLocale() });
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 

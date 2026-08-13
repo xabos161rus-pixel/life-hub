@@ -48,6 +48,10 @@ export async function openApp(page: Page, path = '', extraSettings: SeedSettings
         // тестов) существует только в женском. Тесты мужского профиля и самого
         // гейта переопределяют это через extraSettings / чистый заход.
         gender: 'female',
+        // Язык — явно русский: headless-Chromium живёт с navigator.language
+        // en-US, и «как в системе» дал бы английский интерфейс — все тексты
+        // существующих тестов перестали бы находиться. EN-тесты переопределяют.
+        language: 'ru',
         ...extra,
       });
     },
