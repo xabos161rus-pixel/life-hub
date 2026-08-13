@@ -6,6 +6,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
 import { alive, create, now, remove, update } from '../../db/repo';
+import { t } from '../../lib/i18n';
 import type { LearningItem, LearningKind } from '../../db/types';
 
 type EditableStatus = 'planned' | 'inProgress' | 'done';
@@ -19,7 +20,7 @@ interface Props {
 
 export function LearningItemSheet({ open, onClose, item }: Props) {
   return (
-    <Sheet open={open} onClose={onClose} title={item ? 'Материал' : 'Новый материал'}>
+    <Sheet open={open} onClose={onClose} title={item ? t('Материал') : t('Новый материал')}>
       {/* Sheet при !open возвращает null → форма размонтируется и при
           следующем открытии инициализируется заново из item. */}
       <ItemForm key={item?.id ?? 'new'} item={item ?? null} onClose={onClose} />
@@ -95,34 +96,34 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm('Удалить материал?')) return;
+    if (!window.confirm(t('Удалить материал?'))) return;
     await remove(db.learningItems, item.id);
     onClose();
   };
 
   return (
     <div className="space-y-4 pb-2">
-        <Field label="Название">
+        <Field label={t('Название')}>
           <AutoGrowTextarea
             value={title}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
             onClear={() => setTitle('')}
-            placeholder="Например, «Атомные привычки»"
+            placeholder={t('Например, «Атомные привычки»')}
           />
         </Field>
-        <Field label="Автор">
+        <Field label={t('Автор')}>
           <Input
             value={author}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setAuthor(e.target.value)}
-            placeholder="Автор или источник"
+            placeholder={t('Автор или источник')}
           />
         </Field>
-        <Field label="Тип">
+        <Field label={t('Тип')}>
           <SegmentedControl<LearningKind>
             options={[
-              { value: 'book', label: 'Книга' },
-              { value: 'course', label: 'Курс' },
-              { value: 'article', label: 'Статья' },
+              { value: 'book', label: t('Книга') },
+              { value: 'course', label: t('Курс') },
+              { value: 'article', label: t('Статья') },
             ]}
             value={kind}
             onChange={handleKindChange}
@@ -130,55 +131,55 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
           <div className="mt-2">
             <SegmentedControl<LearningKind>
               options={[
-                { value: 'video', label: 'Видео' },
-                { value: 'research', label: 'Исследование' },
-                { value: 'language', label: 'Язык' },
+                { value: 'video', label: t('Видео') },
+                { value: 'research', label: t('Исследование') },
+                { value: 'language', label: t('Язык') },
               ]}
               value={kind}
               onChange={handleKindChange}
             />
           </div>
         </Field>
-        <Field label="Статус">
+        <Field label={t('Статус')}>
           <SegmentedControl<EditableStatus>
             options={[
-              { value: 'planned', label: 'В планах' },
-              { value: 'inProgress', label: 'В процессе' },
-              { value: 'done', label: 'Завершено' },
+              { value: 'planned', label: t('В планах') },
+              { value: 'inProgress', label: t('В процессе') },
+              { value: 'done', label: t('Завершено') },
             ]}
             value={status}
             onChange={setStatus}
           />
         </Field>
-        <Field label="Единица прогресса">
+        <Field label={t('Единица прогресса')}>
           <SegmentedControl<ProgressUnit>
             options={[
-              { value: 'percent', label: '%' },
-              { value: 'pages', label: 'Страницы' },
-              { value: 'lessons', label: 'Уроки' },
+              { value: 'percent', label: t('%') },
+              { value: 'pages', label: t('Страницы') },
+              { value: 'lessons', label: t('Уроки') },
             ]}
             value={unit}
             onChange={setUnit}
           />
         </Field>
         {unit !== 'percent' && (
-          <Field label={unit === 'pages' ? 'Всего страниц' : 'Всего уроков'}>
+          <Field label={unit === 'pages' ? t('Всего страниц') : t('Всего уроков')}>
             <Input
               type="number"
               inputMode="numeric"
               min={1}
               value={targetStr}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setTargetStr(e.target.value)}
-              placeholder={unit === 'pages' ? 'Например, 340' : 'Например, 20'}
+              placeholder={unit === 'pages' ? t('Например, 340') : t('Например, 20')}
             />
           </Field>
         )}
-        <Field label="Цель">
+        <Field label={t('Цель')}>
           <Select
             value={goalId}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setGoalId(e.target.value)}
           >
-            <option value="">Без цели</option>
+            <option value="">{t('Без цели')}</option>
             {goals.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.title}
@@ -186,18 +187,18 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
             ))}
           </Select>
         </Field>
-        <Field label="Заметки">
+        <Field label={t('Заметки')}>
           <AutoGrowTextarea
             value={notes}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
-            placeholder="Мысли, цитаты, выводы…"
+            placeholder={t('Мысли, цитаты, выводы…')}
             className="min-h-[4.5rem]"
           />
         </Field>
         <div className="flex gap-2 pt-1">
           {item && (
             <Button variant="danger" onClick={() => void handleDelete()}>
-              Удалить
+              {t('Удалить')}
             </Button>
           )}
           <Button
@@ -205,7 +206,7 @@ function ItemForm({ item, onClose }: { item: LearningItem | null; onClose: () =>
             disabled={!title.trim()}
             onClick={() => void handleSave()}
           >
-            Сохранить
+            {t('Сохранить')}
           </Button>
       </div>
     </div>

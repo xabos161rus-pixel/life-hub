@@ -17,6 +17,7 @@ import { useToast } from '../../components/ui/toastContext';
 import { IconButton } from '../../components/ui/IconButton';
 import { StatCard } from '../../components/ui/StatCard';
 import { EnergyStatsCard } from '../energy/EnergyStatsCard';
+import { t } from '../../lib/i18n';
 
 interface TaskStats {
   /** последние 7 дней (старые → новые): подпись дня + число выполненных */
@@ -110,16 +111,16 @@ function computeTaskBreakdown(tasks: Task[], deleted: number): TaskBreakdown {
 function formatDuration(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
-  if (h === 0) return `${m}\u00A0мин`;
-  return m === 0 ? `${h}\u00A0ч` : `${h}\u00A0ч ${m}\u00A0мин`;
+  if (h === 0) return t('{m}\u00A0мин', { m });
+  return m === 0 ? t('{h}\u00A0ч', { h }) : t('{h}\u00A0ч {m}\u00A0мин', { h, m });
 }
 
 /** Компактная подпись столбца графика: «45м», «2ч», «1.5ч». */
 function compactDuration(min: number): string {
   if (min === 0) return '';
-  if (min < 60) return `${min}\u00A0мин`;
+  if (min < 60) return t('{m}\u00A0мин', { m: min });
   const h = min / 60;
-  return Number.isInteger(h) ? `${h}ч` : `${h.toFixed(1)}ч`;
+  return t('{h}ч', { h: Number.isInteger(h) ? h : h.toFixed(1) });
 }
 
 interface TaskTimeStats {
@@ -222,7 +223,7 @@ export function StatsPage() {
       } catch (err) {
         // AbortError — пользователь закрыл шит шаринга, это не ошибка
         if (!(err instanceof DOMException && err.name === 'AbortError')) {
-          toast('Не удалось поделиться отчётом. Попробуйте ещё раз');
+          toast(t('Не удалось поделиться отчётом. Попробуйте ещё раз'));
         }
         return;
       }
@@ -237,7 +238,7 @@ export function StatsPage() {
       URL.revokeObjectURL(url);
     }
 
-    toast('Отчёт готов');
+    toast(t('Отчёт готов'));
   }
 
   const taskStats = useMemo(() => computeTaskStats(tasks), [tasks]);
@@ -307,18 +308,18 @@ export function StatsPage() {
   // выбор был бы между двумя вспышками: ложное «нет данных» или графики,
   // построенные по нулям.
   if (!loaded) return (
-    <Screen title="Статистика" backTo="/home">
+    <Screen title={t('Статистика')} backTo="/home">
       <div />
     </Screen>
   );
 
   if (noData) {
     return (
-      <Screen title="Статистика" backTo="/home">
+      <Screen title={t('Статистика')} backTo="/home">
         <EmptyState
           icon={ChartColumnBig}
-          title="Пока нет данных"
-          hint="Добавьте задачи, цели или другие записи — здесь появится обзор продуктивности"
+          title={t('Пока нет данных')}
+          hint={t('Добавьте задачи, цели или другие записи — здесь появится обзор продуктивности')}
         />
       </Screen>
     );
@@ -326,19 +327,19 @@ export function StatsPage() {
 
   return (
     <Screen
-      title="Статистика"
+      title={t('Статистика')}
       backTo="/home"
       right={
-        <IconButton icon={Share2} label="Поделиться отчётом" onClick={() => void handleShareReport()} />
+        <IconButton icon={Share2} label={t('Поделиться отчётом')} onClick={() => void handleShareReport()} />
       }
     >
       <div className="flex flex-col gap-4">
         {/* Эффективность — разбор задач по статусам */}
-        <StatCard title="Эффективность">
+        <StatCard title={t('Эффективность')}>
           {/* Хедлайн: процент выполнения + полоса */}
           <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
             <div className="mb-2 flex items-baseline justify-between gap-2">
-              <span className="min-w-0 truncate text-sm font-medium">Выполнено из всех</span>
+              <span className="min-w-0 truncate text-sm font-medium">{t('Выполнено из всех')}</span>
               <span className="shrink-0 text-lg font-bold" style={{ color: 'var(--app-success)' }}>
                 {taskBreakdown.completionRate}%
               </span>
@@ -348,28 +349,28 @@ export function StatsPage() {
 
           {/* Каждая метрика — отдельная плитка, чтобы пункты не сливались */}
           <div className="grid grid-cols-3 gap-2">
-            <StatTile value={taskBreakdown.total} label="всего активных" />
-            <StatTile value={taskBreakdown.completed} label="выполнено" color="var(--app-success)" />
-            <StatTile value={taskBreakdown.open} label="не выполнено" />
+            <StatTile value={taskBreakdown.total} label={t('всего активных')} />
+            <StatTile value={taskBreakdown.completed} label={t('выполнено')} color="var(--app-success)" />
+            <StatTile value={taskBreakdown.open} label={t('не выполнено')} />
             <StatTile
               value={taskBreakdown.partial}
-              label="частично"
+              label={t('частично')}
               color={taskBreakdown.partial > 0 ? 'var(--app-warning)' : undefined}
             />
             <StatTile
               value={taskBreakdown.overdue}
-              label="просрочено"
+              label={t('просрочено')}
               color={taskBreakdown.overdue > 0 ? 'var(--app-danger)' : undefined}
             />
             <StatTile
               value={taskBreakdown.skipped}
-              label="пропущено"
+              label={t('пропущено')}
               color={taskBreakdown.skipped > 0 ? 'var(--app-warning)' : undefined}
             />
-            <StatTile value={taskBreakdown.deleted} label="в корзине" />
-            <StatTile value={taskBreakdown.dueToday} label="срок сегодня" />
-            <StatTile value={taskBreakdown.noDate} label="без срока" />
-            <StatTile value={`${taskBreakdown.avgChecklist}%`} label="чек-листы" />
+            <StatTile value={taskBreakdown.deleted} label={t('в корзине')} />
+            <StatTile value={taskBreakdown.dueToday} label={t('срок сегодня')} />
+            <StatTile value={taskBreakdown.noDate} label={t('без срока')} />
+            <StatTile value={`${taskBreakdown.avgChecklist}%`} label={t('чек-листы')} />
           </div>
         </StatCard>
 
@@ -378,12 +379,12 @@ export function StatsPage() {
 
         {/* Время на задачи — суммарная длительность задач по дням */}
         {taskTime.weekTotal > 0 && (
-          <StatCard title="Время на задачи">
+          <StatCard title={t('Время на задачи')}>
             <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="min-w-0 truncate text-sm font-medium">Сегодня на задачи</span>
+                <span className="min-w-0 truncate text-sm font-medium">{t('Сегодня на задачи')}</span>
                 <span className="shrink-0 text-lg font-bold" style={{ color: 'var(--app-accent-2)' }}>
-                  {taskTime.today > 0 ? formatDuration(taskTime.today) : '0м'}
+                  {taskTime.today > 0 ? formatDuration(taskTime.today) : t('0м')}
                 </span>
               </div>
             </div>
@@ -403,19 +404,19 @@ export function StatsPage() {
                       }}
                     />
                   </div>
-                  <span className={`text-xs ${d.isToday ? 'font-bold text-text' : 'text-muted'}`}>{d.label}</span>
+                  <span className={`text-xs ${d.isToday ? 'font-bold text-text' : 'text-muted'}`}>{t(d.label)}</span>
                 </div>
               ))}
             </div>
 
             <p className="mt-3 text-center text-xs text-muted">
-              За неделю всего: <span className="font-semibold text-text">{formatDuration(taskTime.weekTotal)}</span>
+              {t('За неделю всего:')} <span className="font-semibold text-text">{formatDuration(taskTime.weekTotal)}</span>
             </p>
           </StatCard>
         )}
 
         {/* За неделю — гистограмма выполненных задач по дням */}
-        <StatCard title="За неделю">
+        <StatCard title={t('За неделю')}>
           <div className="flex items-end justify-between gap-2" style={{ height: 96 }}>
             {taskStats.week.map((d, i) => (
               <div key={i} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
@@ -430,7 +431,7 @@ export function StatsPage() {
                     }}
                   />
                 </div>
-                <span className="text-xs text-muted">{d.label}</span>
+                <span className="text-xs text-muted">{t(d.label)}</span>
               </div>
             ))}
           </div>
@@ -438,12 +439,12 @@ export function StatsPage() {
 
         {/* Цели */}
         {activeGoals.length > 0 && (
-          <StatCard title="Цели">
+          <StatCard title={t('Цели')}>
             <div className="mb-4 grid grid-cols-2 gap-x-4 gap-y-4">
-              <StatNumber value={activeGoals.length} label="активных" />
+              <StatNumber value={activeGoals.length} label={t('активных')} />
               <div className="min-w-0">
                 <p className="text-lg font-bold leading-tight">{avgGoalProgress}%</p>
-                <p className="text-xs text-muted">средний прогресс</p>
+                <p className="text-xs text-muted">{t('средний прогресс')}</p>
               </div>
             </div>
             <div className="flex flex-col gap-3">
@@ -462,13 +463,13 @@ export function StatsPage() {
 
         {/* Развитие */}
         {learning.length > 0 && (
-          <StatCard title="Развитие">
+          <StatCard title={t('Развитие')}>
             <p className="mb-3 text-sm text-muted">
-              Обучение:{' '}
-              <span className="font-semibold text-text">{learningStats.done} завершено</span>
+              {t('Обучение:')}{' '}
+              <span className="font-semibold text-text">{learningStats.done} {t('завершено')}</span>
               {' / '}
               <span className="font-semibold text-text">
-                {learningStats.inProgress} в процессе
+                {learningStats.inProgress} {t('в процессе')}
               </span>
             </p>
           </StatCard>
@@ -476,7 +477,7 @@ export function StatsPage() {
 
         {/* Финансы */}
         {expenses.length > 0 && (
-          <StatCard title="Финансы">
+          <StatCard title={t('Финансы')}>
             {/* formatRub склеивает разряды NBSP — сумма физически не переносится,
                 значит помещать её можно только уменьшением кегля. clamp по vw
                 делает это плавно и сохраняет две колонки (ломать сетку в одну
@@ -486,7 +487,7 @@ export function StatsPage() {
                 <p className="text-lg font-bold leading-tight tabular-nums">
                   {formatRub(finance.expense)}
                 </p>
-                <p className="text-xs text-muted">расходы в месяц</p>
+                <p className="text-xs text-muted">{t('расходы в месяц')}</p>
               </div>
               <div className="min-w-0">
                 <p
@@ -498,7 +499,7 @@ export function StatsPage() {
                 >
                   {formatRub(finance.balance)}
                 </p>
-                <p className="text-xs text-muted">баланс</p>
+                <p className="text-xs text-muted">{t('баланс')}</p>
               </div>
             </div>
           </StatCard>

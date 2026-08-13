@@ -86,14 +86,20 @@ function StorageStatus() {
 
   return state.persisted ? (
     <p className="text-sm text-muted">
-      Данные защищены от автоочистки браузером{used ? `, занято ${used}` : ''}.
+      {t('Данные защищены от автоочистки браузером{suffix}.', {
+        suffix: used ? t(', занято {used}', { used }) : '',
+      })}
     </p>
   ) : (
     <p className="text-sm leading-snug">
-      <span className="font-semibold text-warning">Браузер не гарантирует сохранность данных.</span>{' '}
+      <span className="font-semibold text-warning">
+        {t('Браузер не гарантирует сохранность данных.')}
+      </span>{' '}
       <span className="text-muted">
-        Если открывать приложение как обычную вкладку, Safari стирает данные сайта после недели без
-        визитов. Установите приложение на экран «Домой» и держите копию{used ? ` (сейчас занято ${used})` : ''}.
+        {t(
+          'Если открывать приложение как обычную вкладку, Safari стирает данные сайта после недели без визитов. Установите приложение на экран «Домой» и держите копию{suffix}.',
+          { suffix: used ? t(' (сейчас занято {used})', { used }) : '' },
+        )}
       </span>
     </p>
   );
@@ -121,9 +127,11 @@ function HintsResetRow() {
     >
       <Lightbulb size={20} className="shrink-0 text-muted" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate">Показать подсказки заново</span>
+        <span className="block truncate">{t('Показать подсказки заново')}</span>
         <span className="block text-sm text-muted">
-          {nothingToReset ? 'Все подсказки на месте' : `Скрыто ${hidden} из ${HINT_IDS.length}`}
+          {nothingToReset
+            ? t('Все подсказки на месте')
+            : t('Скрыто {hidden} из {total}', { hidden, total: HINT_IDS.length })}
         </span>
       </span>
       <ChevronRight size={20} className="shrink-0 text-muted" />
@@ -158,12 +166,14 @@ export function SettingsPage() {
 
   async function handleEnablePush() {
     if (!pushSupported()) {
-      toast('Уведомления не поддерживаются этим браузером.');
+      toast(t('Уведомления не поддерживаются этим браузером.'));
       return;
     }
     if (isIOS() && !isStandalone()) {
       toast(
-        'На iPhone уведомления работают только в установленном приложении. Добавьте LifeHearth на экран «Домой» и откройте оттуда.',
+        t(
+          'На iPhone уведомления работают только в установленном приложении. Добавьте LifeHearth на экран «Домой» и откройте оттуда.',
+        ),
       );
       return;
     }
@@ -174,15 +184,15 @@ export function SettingsPage() {
       if (!res.ok) {
         toast(
           res.reason === 'denied'
-            ? 'Разрешение не выдано. Включите его: Настройки iPhone → Уведомления → LifeHearth.'
-            : 'Не удалось включить уведомления.',
+            ? t('Разрешение не выдано. Включите его: Настройки iPhone → Уведомления → LifeHearth.')
+            : t('Не удалось включить уведомления.'),
         );
         return;
       }
       setPushOn(true);
-      const tasks = alive(await db.tasks.toArray()).filter((t) => !t.completedAt);
+      const tasks = alive(await db.tasks.toArray()).filter((task) => !task.completedAt);
       await rescheduleAll(tasks);
-      toast('Уведомления включены');
+      toast(t('Уведомления включены'));
     } finally {
       pushingRef.current = false;
     }
@@ -205,7 +215,7 @@ export function SettingsPage() {
         } catch (err) {
           // AbortError — пользователь закрыл шит шаринга, это не ошибка
           if (!(err instanceof DOMException && err.name === 'AbortError')) {
-            toast('Не удалось поделиться файлом резервной копии. Он сохранён — найдите его в «Файлах»');
+            toast(t('Не удалось поделиться файлом резервной копии. Он сохранён — найдите его в «Файлах»'));
           }
           return;
         }
@@ -221,7 +231,7 @@ export function SettingsPage() {
       }
 
       await updateSettings({ lastBackupAt: now() });
-      toast('Резервная копия сохранена');
+      toast(t('Резервная копия сохранена'));
     } finally {
       exportingRef.current = false;
     }
@@ -230,27 +240,30 @@ export function SettingsPage() {
   // Подтверждение + применение копии (файл или облако) — общая логика.
   async function confirmAndImport(backup: BackupFile): Promise<void> {
     const p = previewBackup(backup);
-    const msg =
-      'Импорт заменит ВСЕ текущие данные.\n\nВ резервной копии:\n' +
-      `• проектов: ${p.counts.projects}\n` +
-      `• задач: ${p.counts.tasks}\n` +
-      `• целей: ${p.counts.goals}\n` +
-      `• привычек: ${p.counts.habits}\n` +
-      `• отметок привычек: ${p.counts.habitLogs}\n` +
-      `• заметок: ${p.counts.notes}\n` +
-      `• материалов обучения: ${p.counts.learningItems}\n` +
-      `• записей прогресса: ${p.counts.learningLogs}\n` +
-      `• расходов: ${p.counts.expenseItems}\n` +
-      `• способов восстановления: ${p.counts.energyItems}\n` +
-      `• отметок энергии: ${p.counts.energyLogs ?? 0}\n` +
-      `• мест: ${p.counts.placeItems}\n` +
-      `• метрик: ${p.counts.metrics}\n` +
-      `• замеров метрик: ${p.counts.metricLogs}\n` +
-      `• семейных сообщений: ${p.counts.familyMessages ?? 0}\n` +
-      `• семейных задач: ${p.counts.familyTasks ?? 0}\n\nПродолжить?`;
+    const msg = t(
+      'Импорт заменит ВСЕ текущие данные.\n\nВ резервной копии:\n• проектов: {projects}\n• задач: {tasks}\n• целей: {goals}\n• привычек: {habits}\n• отметок привычек: {habitLogs}\n• заметок: {notes}\n• материалов обучения: {learningItems}\n• записей прогресса: {learningLogs}\n• расходов: {expenseItems}\n• способов восстановления: {energyItems}\n• отметок энергии: {energyLogs}\n• мест: {placeItems}\n• метрик: {metrics}\n• замеров метрик: {metricLogs}\n• семейных сообщений: {familyMessages}\n• семейных задач: {familyTasks}\n\nПродолжить?',
+      {
+        projects: p.counts.projects,
+        tasks: p.counts.tasks,
+        goals: p.counts.goals,
+        habits: p.counts.habits,
+        habitLogs: p.counts.habitLogs,
+        notes: p.counts.notes,
+        learningItems: p.counts.learningItems,
+        learningLogs: p.counts.learningLogs,
+        expenseItems: p.counts.expenseItems,
+        energyItems: p.counts.energyItems,
+        energyLogs: p.counts.energyLogs ?? 0,
+        placeItems: p.counts.placeItems,
+        metrics: p.counts.metrics,
+        metricLogs: p.counts.metricLogs,
+        familyMessages: p.counts.familyMessages ?? 0,
+        familyTasks: p.counts.familyTasks ?? 0,
+      },
+    );
     if (!window.confirm(msg)) return;
     await importBackup(backup);
-    toast('Данные восстановлены');
+    toast(t('Данные восстановлены'));
   }
 
   async function handleImport(e: ChangeEvent<HTMLInputElement>) {
@@ -261,7 +274,7 @@ export function SettingsPage() {
       const parsed: unknown = JSON.parse(await file.text());
       await confirmAndImport(validateBackup(parsed));
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Не удалось прочитать файл резервной копии');
+      toast(err instanceof Error ? err.message : t('Не удалось прочитать файл резервной копии'));
     }
   }
 
@@ -271,31 +284,34 @@ export function SettingsPage() {
     try {
       const n = await pushAccountSnapshot(force);
       if (!n) {
-        toast('Сначала включите синхронизацию — облачная копия хранится под вашим ключом.');
+        toast(t('Сначала включите синхронизацию — облачная копия хранится под вашим ключом.'));
         return;
       }
       await updateSettings({ lastCloudBackupAt: now(), cloudBackupBlocked: null });
       setCloudDate(new Date().toISOString());
-      toast('Копия сохранена в облако');
+      toast(t('Копия сохранена в облако'));
     } catch (e) {
       // Копия в облаке полнее, чем данные здесь. Хранение latest-only: запись
       // сотрёт её без следа, а история цикла и старая переписка не приедут
       // обратно ниоткуда — дельта-синк их не возит. Поэтому не «не удалось»,
       // а прямой вопрос с числами: сколько записей исчезнет.
       if (e instanceof BackupWouldLoseDataError) {
-        const lines = e.losing.map((l) => `${TABLE_RU[l.table] ?? l.table}: ${l.had} → ${l.now}`);
+        const lines = e.losing.map((l) =>
+          t('{table}: {had} → {now}', { table: t(TABLE_RU[l.table] ?? l.table), had: l.had, now: l.now }),
+        );
         const when = e.remoteDate
-          ? ` от ${formatRu(e.remoteDate.slice(0, 10), 'd MMMM yyyy')}`
+          ? t(' от {date}', { date: formatRu(e.remoteDate.slice(0, 10), 'd MMMM yyyy') })
           : '';
         const ok = window.confirm(
-          `В облаке лежит копия${when}, и в ней БОЛЬШЕ данных, чем на этом устройстве:\n\n` +
-            `${lines.join('\n')}\n\n` +
-            'Заменить её копией с этого устройства? Разницу вернуть будет неоткуда.',
+          t(
+            'В облаке лежит копия{when}, и в ней БОЛЬШЕ данных, чем на этом устройстве:\n\n{lines}\n\nЗаменить её копией с этого устройства? Разницу вернуть будет неоткуда.',
+            { when, lines: lines.join('\n') },
+          ),
         );
         if (ok) await handleCloudBackupNow(true);
         return;
       }
-      toast('Не удалось сохранить копию в облако. Проверьте связь и попробуйте ещё раз.');
+      toast(t('Не удалось сохранить копию в облако. Проверьте связь и попробуйте ещё раз.'));
     } finally {
       cloudRef.current = false;
     }
@@ -307,12 +323,12 @@ export function SettingsPage() {
     try {
       const backup = await pullAccountSnapshot();
       if (!backup) {
-        toast('В облаке пока нет резервной копии.');
+        toast(t('В облаке пока нет резервной копии.'));
         return;
       }
       await confirmAndImport(backup);
     } catch {
-      toast('Не удалось получить копию из облака. Проверьте связь и попробуйте ещё раз.');
+      toast(t('Не удалось получить копию из облака. Проверьте связь и попробуйте ещё раз.'));
     } finally {
       cloudRef.current = false;
     }
@@ -390,22 +406,23 @@ export function SettingsPage() {
           </div>
         </Section>
 
-        <Section title="Уведомления">
+        <Section title={t('Уведомления')}>
           <div className="card">
             <div className="p-4">
               {pushOn ? (
                 <p className="text-sm">
-                  <span className="font-medium text-success">Включены</span> · напоминания о
-                  задачах придут даже при закрытом приложении
+                  <span className="font-medium text-success">{t('Включены')}</span>{' · '}
+                  {t('напоминания о задачах придут даже при закрытом приложении')}
                 </p>
               ) : (
                 <>
                   <Button className="w-full" onClick={() => void handleEnablePush()}>
-                    Включить уведомления
+                    {t('Включить уведомления')}
                   </Button>
                   <p className="mt-2 text-sm text-muted">
-                    Нужны для напоминаний о задачах («напомнить за 15 минут»). На iPhone работают
-                    только в установленном приложении.
+                    {t(
+                      'Нужны для напоминаний о задачах («напомнить за 15 минут»). На iPhone работают только в установленном приложении.',
+                    )}
                   </p>
                 </>
               )}
@@ -424,7 +441,7 @@ export function SettingsPage() {
                 подписи по-прежнему прижимает селект к правому краю. */}
             <div className="flex flex-wrap items-center gap-2 border-t border-hairline p-4">
               <BellRing size={20} className="shrink-0 text-muted" />
-              <span className="flex-1">Звук сообщений</span>
+              <span className="flex-1">{t('Звук сообщений')}</span>
               {/* Выбор сразу проигрывает звук — слышно, что выбираешь. */}
               {/* compact-Select вместо голого <select>: он снимает системную
                   стрелку, съедавшую ~40px внутри поля, и берёт ширину по самому
@@ -442,14 +459,14 @@ export function SettingsPage() {
               >
                 {MESSAGE_SOUNDS.map((s) => (
                   <option key={s.value} value={s.value}>
-                    {s.label}
+                    {t(s.label)}
                   </option>
                 ))}
               </Select>
             </div>
             <div className="flex flex-wrap items-center gap-2 border-t border-hairline p-4">
               <PhoneCall size={20} className="shrink-0 text-muted" />
-              <span className="flex-1">Звук звонка</span>
+              <span className="flex-1">{t('Звук звонка')}</span>
               {/* Выбор сразу проигрывает короткий фрагмент рингтона. */}
               <Select
                 compact
@@ -462,7 +479,7 @@ export function SettingsPage() {
               >
                 {RINGTONES.map((r) => (
                   <option key={r.value} value={r.value}>
-                    {r.label}
+                    {t(r.label)}
                   </option>
                 ))}
               </Select>
@@ -470,21 +487,21 @@ export function SettingsPage() {
           </div>
         </Section>
 
-        <Section title="Синхронизация">
+        <Section title={t('Синхронизация')}>
           <SyncSection />
         </Section>
 
-        <Section title="Данные">
+        <Section title={t('Данные')}>
           <div className="card space-y-3 p-4">
             {/* Автоматическая облачная копия — переживает потерю телефона */}
             <div className="flex items-center justify-between gap-3">
-              <span className="min-w-0 text-sm font-medium">Копия в облаке</span>
+              <span className="min-w-0 text-sm font-medium">{t('Копия в облаке')}</span>
               {syncOn && (
                 <div className="w-32 shrink-0">
                   <SegmentedControl<'off' | 'cloud'>
                     options={[
-                      { value: 'off', label: 'Выкл' },
-                      { value: 'cloud', label: 'Вкл' },
+                      { value: 'off', label: t('Выкл') },
+                      { value: 'cloud', label: t('Вкл') },
                     ]}
                     value={settings.autoBackup === 'cloud' ? 'cloud' : 'off'}
                     onChange={(v) => void updateSettings({ autoBackup: v })}
@@ -494,13 +511,14 @@ export function SettingsPage() {
             </div>
             {!syncOn ? (
               <p className="text-sm text-muted">
-                Доступна при включённой синхронизации: зашифрованная копия всех данных хранится
-                в облаке под вашим ключом и переживает потерю или замену телефона.
+                {t(
+                  'Доступна при включённой синхронизации: зашифрованная копия всех данных хранится в облаке под вашим ключом и переживает потерю или замену телефона.',
+                )}
               </p>
             ) : settings.autoBackup === 'cloud' ? (
               <>
                 <label className="flex items-center justify-between gap-3 text-sm">
-                  <span className="min-w-0 truncate text-muted">Как часто</span>
+                  <span className="min-w-0 truncate text-muted">{t('Как часто')}</span>
                   {/* Тот же дефект, что у звуков: под системную стрелку уходило
                       ~40px внутри поля, и «Каждую неделю» (105px) не помещалось в
                       оставшиеся 76px — читалось «Каждую не…». compact-Select даёт
@@ -516,8 +534,8 @@ export function SettingsPage() {
                       })
                     }
                   >
-                    <option value="daily">Каждый день</option>
-                    <option value="weekly">Каждую неделю</option>
+                    <option value="daily">{t('Каждый день')}</option>
+                    <option value="weekly">{t('Каждую неделю')}</option>
                   </Select>
                 </label>
                 {/* Дата — С СЕРВЕРА, а не из settings. Локальная отметка между
@@ -528,19 +546,20 @@ export function SettingsPage() {
                     пришёл, не пишем ничего: «не создана» на секунду — то же
                     самое ложное сообщение, только мельком. */}
                 <p className="text-sm text-muted">
-                  Копия в облаке:{' '}
+                  {t('Копия в облаке:')}{' '}
                   {cloudDate === undefined ? (
-                    <span className="opacity-60">проверяем…</span>
+                    <span className="opacity-60">{t('проверяем…')}</span>
                   ) : cloudDate ? (
                     formatRu(cloudDate.slice(0, 10), 'd MMMM yyyy')
                   ) : (
-                    <span className="font-bold text-warning">ещё не создана</span>
+                    <span className="font-bold text-warning">{t('ещё не создана')}</span>
                   )}
                 </p>
                 {settings.cloudBackupBlocked && (
                   <p className="text-sm text-warning">
-                    Автокопия приостановлена: в облаке лежит копия полнее, чем данные на этом
-                    устройстве. Нажмите «Сохранить сейчас», чтобы решить, что с этим делать.
+                    {t(
+                      'Автокопия приостановлена: в облаке лежит копия полнее, чем данные на этом устройстве. Нажмите «Сохранить сейчас», чтобы решить, что с этим делать.',
+                    )}
                   </p>
                 )}
                 <div className="flex gap-2">
@@ -549,43 +568,43 @@ export function SettingsPage() {
                     className="flex-1"
                     onClick={() => void handleCloudBackupNow()}
                   >
-                    Сохранить сейчас
+                    {t('Сохранить сейчас')}
                   </Button>
                   <Button
                     variant="secondary"
                     className="flex-1"
                     onClick={() => void handleCloudRestore()}
                   >
-                    Восстановить
+                    {t('Восстановить')}
                   </Button>
                 </div>
               </>
             ) : (
               <p className="text-sm text-muted">
-                Зашифрованная копия всех данных будет сама сохраняться в облако.
+                {t('Зашифрованная копия всех данных будет сама сохраняться в облако.')}
               </p>
             )}
             <div className="h-px bg-hairline" />
             <StorageStatus />
             <div className="h-px bg-hairline" />
             <Button className="w-full" onClick={() => void handleExport()}>
-              Экспортировать резервную копию
+              {t('Экспортировать резервную копию')}
             </Button>
             {/* Прямо о том, что в файле. Копия в облако шифруется ключом на
                 устройстве, а файл — обычный JSON: он читается любым, кто его
                 откроет. Человек имеет право знать это ДО того, как отправит
                 файл себе в мессенджер. */}
             <p className="text-sm leading-snug text-muted">
-              В копию входит всё: задачи, заметки, финансы, семейный чат, а также раздел «Женские
-              дни», если вы им пользуетесь. Файл не зашифрован — храните его там, куда нет доступа
-              у посторонних. Копия в облако, в отличие от файла, шифруется на устройстве.
+              {t(
+                'В копию входит всё: задачи, заметки, финансы, семейный чат, а также раздел «Женские дни», если вы им пользуетесь. Файл не зашифрован — храните его там, куда нет доступа у посторонних. Копия в облако, в отличие от файла, шифруется на устройстве.',
+              )}
             </p>
             <p className="text-sm text-muted">
-              Последняя резервная копия:{' '}
+              {t('Последняя резервная копия:')}{' '}
               {settings.lastBackupAt ? (
                 formatRu(settings.lastBackupAt.slice(0, 10), 'd MMMM yyyy')
               ) : (
-                <span className="font-bold text-warning">никогда</span>
+                <span className="font-bold text-warning">{t('никогда')}</span>
               )}
             </p>
             <Button
@@ -593,7 +612,7 @@ export function SettingsPage() {
               className="w-full"
               onClick={() => fileRef.current?.click()}
             >
-              Импортировать резервную копию
+              {t('Импортировать резервную копию')}
             </Button>
             <input
               ref={fileRef}
@@ -605,39 +624,51 @@ export function SettingsPage() {
           </div>
         </Section>
 
-        <Section title="Хранилище">
+        <Section title={t('Хранилище')}>
           <div className="card space-y-1.5 p-4 text-sm">
             <p>
-              Защищённое хранилище:{' '}
+              {t('Защищённое хранилище:')}{' '}
               <span className="font-medium">
-                {persisted === null ? 'Неизвестно' : persisted ? 'Да' : 'Нет'}
+                {/* «Нет» — омоним ключа приоритета задач (None); здесь ответ
+                    «да/нет» — явная ветка языка. */}
+                {persisted === null
+                  ? t('Неизвестно')
+                  : persisted
+                    ? t('Да')
+                    : getLang() === 'en'
+                      ? 'No'
+                      : 'Нет'}
               </span>
             </p>
             <p>
-              Занято:{' '}
+              {t('Занято:')}{' '}
               <span className="font-medium">
-                {usageMb === null ? 'неизвестно' : `${usageMb.toFixed(1).replace('.', ',')}\u00A0МБ`}
+                {usageMb === null
+                  ? t('неизвестно')
+                  : t('{n}\u00A0МБ', {
+                      n: getLang() === 'en' ? usageMb.toFixed(1) : usageMb.toFixed(1).replace('.', ','),
+                    })}
               </span>
             </p>
             {(persisted === false || settings.lastBackupAt === null) && (
-              <p className="text-warning">Регулярно делайте резервную копию.</p>
+              <p className="text-warning">{t('Регулярно делайте резервную копию.')}</p>
             )}
           </div>
         </Section>
 
-        <Section title="Приложение">
+        <Section title={t('Приложение')}>
           <div className="card">
             <Link
               to="/more/settings/sections"
               className="flex items-center gap-2 border-b border-hairline p-4"
             >
               <SlidersHorizontal size={20} className="shrink-0 text-muted" />
-              <span className="min-w-0 flex-1 truncate">Настроить разделы</span>
+              <span className="min-w-0 flex-1 truncate">{t('Настроить разделы')}</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </Link>
             <Link to="/more/trash" className="flex items-center gap-2 border-b border-hairline p-4">
               <Trash2 size={20} className="shrink-0 text-muted" />
-              <span className="min-w-0 flex-1 truncate">Корзина</span>
+              <span className="min-w-0 flex-1 truncate">{t('Корзина')}</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </Link>
             <button
@@ -649,7 +680,7 @@ export function SettingsPage() {
               className="flex w-full items-center gap-2 border-b border-hairline p-4 text-left"
             >
               <GraduationCap size={20} className="shrink-0 text-muted" />
-              <span className="min-w-0 flex-1 truncate">Показать обучение заново</span>
+              <span className="min-w-0 flex-1 truncate">{t('Показать обучение заново')}</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </button>
             <HintsResetRow />
@@ -657,13 +688,14 @@ export function SettingsPage() {
               to="/more/settings/install"
               className="flex items-center justify-between gap-2 border-b border-hairline p-4"
             >
-              <span className="min-w-0">Установка и восстановление данных</span>
+              <span className="min-w-0">{t('Установка и восстановление данных')}</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </Link>
             <div className="p-4">
               <p className="mb-2.5 text-sm text-muted">
-                Ссылка для установки — открыть в Safari и добавить на «Домой», переустановить
-                или поделиться приложением:
+                {t(
+                  'Ссылка для установки — открыть в Safari и добавить на «Домой», переустановить или поделиться приложением:',
+                )}
               </p>
               <InstallLink />
             </div>

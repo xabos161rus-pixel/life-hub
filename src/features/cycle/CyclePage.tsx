@@ -9,7 +9,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Button } from '../../components/ui/Button';
 import { ensureCycleSetup } from '../../lib/cycle/cycleRepo';
 import { formatRu, todayKey } from '../../lib/dates';
-import { plural } from '../../lib/plural';
+import { getLang, t, tPlur, tPlural } from '../../lib/i18n';
 import { CycleCalendar } from './CycleCalendar';
 import { CycleHabitsCard } from './CycleHabitsCard';
 import { DayLogSheet } from './DayLogSheet';
@@ -35,25 +35,27 @@ function predictionText(p: CyclePredictionResult): { title: string; note?: strin
 
   if (p.confidence === 'population_prior') {
     return {
-      title: `Примерно ${range(p.lo80, p.hi80)}`,
-      note: 'Пока это оценка по усреднённым данным, а не по вашим: циклов слишком мало.',
+      title: t('Примерно {range}', { range: range(p.lo80, p.hi80) }),
+      note: t('Пока это оценка по усреднённым данным, а не по вашим: циклов слишком мало.'),
     };
   }
   if (p.confidence === 'very_wide') {
     return {
-      title: `Между ${range(p.lo80, p.hi80)}`,
-      note: 'Прогноз ориентировочный: разница между вашими циклами больше двух недель.',
+      title: t('Между {range}', { range: range(p.lo80, p.hi80) }),
+      note: t('Прогноз ориентировочный: разница между вашими циклами больше двух недель.'),
     };
   }
   if (p.confidence === 'wide') {
     return {
-      title: `Между ${range(p.lo80, p.hi80)}`,
-      note: 'Циклы заметно разной длины, поэтому диапазон широкий.',
+      title: t('Между {range}', { range: range(p.lo80, p.hi80) }),
+      note: t('Циклы заметно разной длины, поэтому диапазон широкий.'),
     };
   }
   return {
-    title: `Скорее всего ${range(p.lo50!, p.hi50!)}`,
-    note: `Обычно попадает в ${range(p.lo80, p.hi80)} — примерно в четырёх случаях из пяти.`,
+    title: t('Скорее всего {range}', { range: range(p.lo50!, p.hi50!) }),
+    note: t('Обычно попадает в {range} — примерно в четырёх случаях из пяти.', {
+      range: range(p.lo80, p.hi80),
+    }),
   };
 }
 
@@ -80,7 +82,7 @@ export function CyclePage() {
 
   return (
     <Screen
-      title="Женские дни"
+      title={t('Женские дни')}
       backTo="/home"
       right={
         locked ? undefined : (
@@ -90,13 +92,13 @@ export function CyclePage() {
             onClick={() => setPickedDate(todayKey())}
             className="shrink-0 rounded-lg px-2 py-2.5 text-sm font-medium text-accent active:opacity-60"
           >
-            Отметить
+            {t('Отметить')}
           </button>
           {/* ml-2 к зазору: зона касания шире иконки на 3px с каждой стороны,
               и без запаса тап у левого края уходил бы кнопке «Отметить». */}
           <IconButton
             icon={SlidersHorizontal}
-            label="Настройки раздела"
+            label={t('Настройки раздела')}
             to="/more/cycle/settings"
             tone="muted"
             className="ml-2"
@@ -112,8 +114,10 @@ export function CyclePage() {
         {!data.hasAnyData && !data.loading ? (
           <EmptyState
             icon={Droplet}
-            title="Пока нет ни одной отметки"
-            hint="Отметьте дни последней менструации — и появится календарь. Прогноз включится, когда наберётся хотя бы один полный цикл."
+            title={t('Пока нет ни одной отметки')}
+            hint={t(
+              'Отметьте дни последней менструации — и появится календарь. Прогноз включится, когда наберётся хотя бы один полный цикл.',
+            )}
           />
         ) : (
           <>
@@ -124,11 +128,11 @@ export function CyclePage() {
             <div className="card p-4">
               <div className="flex items-baseline justify-between gap-3">
                 <p className="min-w-0 text-sm font-medium text-muted">
-                  {currentDay !== undefined ? 'День цикла' : 'Цикл'}
+                  {currentDay !== undefined ? t('День цикла') : t('Цикл')}
                 </p>
                 {stats.n > 0 && stats.averageLength !== undefined && (
                   <p className="shrink-0 text-xs text-muted">
-                    в среднем {formatDays(stats.averageLength)}
+                    {t('в среднем {v}', { v: formatDays(stats.averageLength) })}
                   </p>
                 )}
               </div>
@@ -138,7 +142,7 @@ export function CyclePage() {
 
               {forecast && (
                 <div className="mt-3 rounded-xl bg-surface-2 p-3">
-                  <p className="text-xs text-muted">Следующая менструация</p>
+                  <p className="text-xs text-muted">{t('Следующая менструация')}</p>
                   <p className="mt-0.5 font-semibold">{forecast.title}</p>
                   {forecast.note && (
                     <p className="mt-1 text-xs leading-snug text-muted">{forecast.note}</p>
@@ -147,9 +151,9 @@ export function CyclePage() {
                     // Сознательно не «задержка»: это слово подразумевает вывод,
                     // который приложение делать не вправе.
                     <p className="mt-1.5 text-xs leading-snug text-muted">
-                      Прошло на {prediction.daysPastPrediction}{' '}
-                      {plural(prediction.daysPastPrediction, ['день', 'дня', 'дней'])} больше
-                      ожидаемого. У циклов бывает разброс — это само по себе ни о чём не говорит.
+                      {t('Прошло на {n} больше ожидаемого. У циклов бывает разброс — это само по себе ни о чём не говорит.', {
+                        n: tPlur(prediction.daysPastPrediction, ['день', 'дня', 'дней']),
+                      })}
                     </p>
                   )}
                 </div>
@@ -167,7 +171,7 @@ export function CyclePage() {
               <section>
                 <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
                   <Info size={14} className="shrink-0" />
-                  Стоит обратить внимание
+                  {t('Стоит обратить внимание')}
                 </h2>
                 <div className="card divide-y divide-hairline px-4">
                   {anomalies.map((a) => (
@@ -181,46 +185,54 @@ export function CyclePage() {
                     настройках: приложение считает по введённым отметкам и не
                     ставит диагнозов. */}
                 <p className="mt-2 px-1 text-xs leading-snug text-muted">
-                  Это наблюдения по вашим отметкам, а не диагноз. Приложение ничего не измеряет —
-                  только считает то, что ты отметила.
+                  {t(
+                    'Это наблюдения по вашим отметкам, а не диагноз. Приложение ничего не измеряет — только считает то, что ты отметила.',
+                  )}
                 </p>
               </section>
             )}
 
             {stats.n > 0 && (
               <section>
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Статистика</h2>
+                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Статистика')}</h2>
                 <div className="card divide-y divide-hairline px-4">
-                  <Row label="Циклов учтено" value={String(stats.n)} />
+                  <Row label={t('Циклов учтено')} value={String(stats.n)} />
                   {stats.medianLength !== undefined && (
-                    <Row label="Обычная длина" value={formatDays(stats.medianLength)} />
+                    <Row label={t('Обычная длина')} value={formatDays(stats.medianLength)} />
                   )}
                   {stats.shortestLength !== undefined && stats.longestLength !== undefined && (
                     <Row
-                      label="Самый короткий и длинный"
-                      value={`${stats.shortestLength} и ${formatDays(stats.longestLength)}`}
+                      label={t('Самый короткий и длинный')}
+                      value={t('{min} и {max}', {
+                        min: stats.shortestLength,
+                        max: formatDays(stats.longestLength),
+                      })}
                     />
                   )}
                   {stats.variability !== undefined && (
                     <Row
-                      label="Разница между соседними"
+                      label={t('Разница между соседними')}
                       value={formatDays(stats.variability)}
                     />
                   )}
                   {stats.averagePeriodLength !== undefined && (
-                    <Row label="Менструация" value={formatDays(stats.averagePeriodLength)} />
+                    <Row label={t('Менструация')} value={formatDays(stats.averagePeriodLength)} />
                   )}
                   {/* Точность прогноза — то, чего не показывает ни один
                       конкурент. Цифра может оказаться неприятной; смягчать её
                       нельзя, можно только объяснить, что разброс биологический. */}
                   {data.accuracy.n >= 3 && (
                     <Row
-                      label="Прогноз сбывался"
-                      value={`${data.accuracy.hits} из ${data.accuracy.n}${
+                      label={t('Прогноз сбывался')}
+                      value={
                         data.accuracy.mae === undefined
-                          ? ''
-                          : `, ошибка ${formatDays(data.accuracy.mae)}`
-                      }`}
+                          ? t('{done} из {total}', { done: data.accuracy.hits ?? 0, total: data.accuracy.n })
+                          : t('{done} из {total}, ошибка {mae}', {
+                              done: data.accuracy.hits ?? 0,
+                              total: data.accuracy.n,
+                              mae: formatDays(data.accuracy.mae),
+                            })
+                      }
                     />
                   )}
                 </div>
@@ -235,8 +247,12 @@ export function CyclePage() {
                   data.accuracy.bias !== undefined &&
                   Math.abs(data.accuracy.bias) >= 1 && (
                     <p className="mt-2 px-1 text-xs leading-snug text-muted">
-                      Прогноз в среднем на {formatDays(Math.abs(data.accuracy.bias))}{' '}
-                      {data.accuracy.bias > 0 ? 'раньше' : 'позже'} факта.
+                      {t(
+                        data.accuracy.bias > 0
+                          ? 'Прогноз в среднем на {bias} раньше факта.'
+                          : 'Прогноз в среднем на {bias} позже факта.',
+                        { bias: formatDays(Math.abs(data.accuracy.bias)) },
+                      )}
                     </p>
                   )}
 
@@ -245,8 +261,9 @@ export function CyclePage() {
                     неприятной, и смягчать её нельзя, можно только объяснить. */}
                 {data.accuracy.n >= 3 && (
                   <p className="mt-1 px-1 text-xs leading-snug text-muted">
-                    Точность прогноза считается по вашим циклам: обещанный диапазон против
-                    факта. Разброс — биологический, а не ошибка программы.
+                    {t(
+                      'Точность прогноза считается по вашим циклам: обещанный диапазон против факта. Разброс — биологический, а не ошибка программы.',
+                    )}
                   </p>
                 )}
 
@@ -258,7 +275,7 @@ export function CyclePage() {
                   to="/more/cycle/year"
                   className="mt-3 inline-block px-1 text-sm font-medium text-accent"
                 >
-                  Обзор за год →
+                  {t('Обзор за год →')}
                 </Link>
               </section>
             )}
@@ -274,7 +291,7 @@ export function CyclePage() {
 
         {!data.hasAnyData && !data.loading && (
           <Button onClick={() => setPickedDate(todayKey())} className="w-full">
-            <Plus size={18} className="-mt-0.5 mr-1 inline" /> Отметить сегодня
+            <Plus size={18} className="-mt-0.5 mr-1 inline" /> {t('Отметить сегодня')}
           </Button>
         )}
       </div>
@@ -295,8 +312,9 @@ export function CyclePage() {
  *  даёт «28.4 дней». Заодно переводим точку в запятую. */
 function formatDays(v: number): string {
   const isFraction = !Number.isInteger(v);
-  const text = String(v).replace('.', ',');
-  return `${text}\u00A0${isFraction ? 'дня' : plural(v, ['день', 'дня', 'дней'])}`;
+  const ru = getLang() === 'ru';
+  const text = ru ? String(v).replace('.', ',') : String(v);
+  return `${text}\u00A0${isFraction && ru ? 'дня' : tPlural(v, ['день', 'дня', 'дней'])}`;
 }
 
 function Row({ label, value }: { label: string; value: string }) {

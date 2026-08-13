@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
 import { formatRu } from '../../lib/dates';
-import { plur, plural } from '../../lib/plural';
+import { getLang, t, tPlur, tPlural } from '../../lib/i18n';
 import { buildDoctorReport, type DoctorReportWindow } from '../../lib/cycle/report';
 import { useCycleData } from './useCycleData';
 import { CycleLock } from './CycleLock';
@@ -24,8 +24,9 @@ const WINDOW_OPTIONS: { value: DoctorReportWindow; label: string }[] = [
  *  функция не экспортирована, а трогать этот файл в рамках задачи нельзя. */
 function formatDays(v: number): string {
   const isFraction = !Number.isInteger(v);
-  const text = String(v).replace('.', ',');
-  return `${text} ${isFraction ? 'дня' : plural(v, ['день', 'дня', 'дней'])}`;
+  const ru = getLang() === 'ru';
+  const text = ru ? String(v).replace('.', ',') : String(v);
+  return `${text}\u00A0${isFraction && ru ? 'дня' : tPlural(v, ['день', 'дня', 'дней'])}`;
 }
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -68,28 +69,34 @@ export function CycleReportPage() {
       : `${formatRu(report.periodFrom, 'd MMMM yyyy')} — ${formatRu(report.periodTo, 'd MMMM yyyy')}`;
 
   return (
-    <Screen title="Отчёт для врача" backTo="/more/cycle/settings">
+    <Screen title={t('Отчёт для врача')} backTo="/more/cycle/settings">
       {locked ? (
         <CycleLock settings={data.settings} onUnlock={() => undefined} />
       ) : (
         <div className="space-y-5">
           {/* Переключатель окна — только на экране, в печать не идёт. */}
           <div className="print:hidden">
-            <SegmentedControl options={WINDOW_OPTIONS} value={reportWindow} onChange={setReportWindow} />
+            <SegmentedControl
+              options={WINDOW_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
+              value={reportWindow}
+              onChange={setReportWindow}
+            />
           </div>
 
           {/* Дальше — само содержимое отчёта: то, что уходит на печать целиком. */}
           <div className="space-y-5">
             <div className="card p-4">
-              <p className="text-sm text-muted">Составлено {formatRu(report.generatedAt, 'd MMMM yyyy')}</p>
-              <p className="mt-0.5 font-semibold">Период: {periodText}</p>
+              <p className="text-sm text-muted">
+                {t('Составлено {date}', { date: formatRu(report.generatedAt, 'd MMMM yyyy') })}
+              </p>
+              <p className="mt-0.5 font-semibold">{t('Период: {period}', { period: periodText })}</p>
             </div>
 
             <section>
-              <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Циклы периода</h2>
+              <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Циклы периода')}</h2>
               {report.cycles.length === 0 ? (
                 <div className="card p-4">
-                  <p className="text-sm text-muted">За выбранный период отметок нет.</p>
+                  <p className="text-sm text-muted">{t('За выбранный период отметок нет.')}</p>
                 </div>
               ) : (
                 <div className="card divide-y divide-hairline px-4">
@@ -98,17 +105,19 @@ export function CycleReportPage() {
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="font-medium">{formatRu(c.startDate, 'd MMMM yyyy')}</span>
                         <span className="shrink-0 text-sm tabular-nums text-muted">
-                          {c.lengthDays !== undefined ? formatDays(c.lengthDays) : 'Текущий'}
+                          {c.lengthDays !== undefined ? formatDays(c.lengthDays) : t('Текущий')}
                         </span>
                       </div>
                       {c.periodLengthDays !== undefined && (
                         <p className="mt-0.5 text-sm text-muted">
-                          Менструация: {formatDays(c.periodLengthDays)}
+                          {t('Менструация: {days}', { days: formatDays(c.periodLengthDays) })}
                         </p>
                       )}
                       {c.excluded && (
                         <p className="mt-0.5 text-sm text-muted">
-                          Исключён из статистики{c.excludeReasonLabel ? ` — ${c.excludeReasonLabel}` : ''}
+                          {t('Исключён из статистики{reason}', {
+                            reason: c.excludeReasonLabel ? ` — ${c.excludeReasonLabel}` : '',
+                          })}
                         </p>
                       )}
                     </div>
@@ -119,20 +128,23 @@ export function CycleReportPage() {
 
             {report.stats.n > 0 && (
               <section>
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Статистика периода</h2>
+                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Статистика периода')}</h2>
                 <div className="card divide-y divide-hairline px-4">
-                  <Row label="Завершённых циклов" value={String(report.stats.n)} />
+                  <Row label={t('Завершённых циклов')} value={String(report.stats.n)} />
                   {report.stats.medianLength !== undefined && (
-                    <Row label="Медианная длина" value={formatDays(report.stats.medianLength)} />
+                    <Row label={t('Медианная длина')} value={formatDays(report.stats.medianLength)} />
                   )}
                   {report.stats.shortestLength !== undefined && report.stats.longestLength !== undefined && (
                     <Row
-                      label="Мин. и макс. длина"
-                      value={`${report.stats.shortestLength} и ${formatDays(report.stats.longestLength)}`}
+                      label={t('Мин. и макс. длина')}
+                      value={t('{min} и {max}', {
+                        min: report.stats.shortestLength,
+                        max: formatDays(report.stats.longestLength),
+                      })}
                     />
                   )}
                   {report.stats.spread !== undefined && (
-                    <Row label="Размах" value={formatDays(report.stats.spread)} />
+                    <Row label={t('Размах')} value={formatDays(report.stats.spread)} />
                   )}
                 </div>
               </section>
@@ -140,34 +152,34 @@ export function CycleReportPage() {
 
             {report.symptomFrequency.length > 0 && (
               <section>
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Симптомы</h2>
+                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Симптомы')}</h2>
                 <div className="card divide-y divide-hairline px-4">
                   {report.symptomFrequency.map((s) => (
-                    <Row key={s.key} label={s.label} value={plur(s.days, ['день', 'дня', 'дней'])} />
+                    <Row key={s.key} label={s.label} value={tPlur(s.days, ['день', 'дня', 'дней'])} />
                   ))}
                 </div>
               </section>
             )}
 
             <section>
-              <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Кровотечение по дням</h2>
+              <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Кровотечение по дням')}</h2>
               <div className="card divide-y divide-hairline px-4">
                 {report.bleedingDays.map((b) => (
-                  <Row key={b.level} label={b.label} value={plur(b.days, ['день', 'дня', 'дней'])} />
+                  <Row key={b.level} label={b.label} value={tPlur(b.days, ['день', 'дня', 'дней'])} />
                 ))}
               </div>
             </section>
 
             {report.episodes.length > 0 && (
               <section>
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Эпизоды</h2>
+                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Эпизоды')}</h2>
                 <div className="card divide-y divide-hairline px-4">
                   {report.episodes.map((e, i) => (
                     <div key={`${e.kind}-${e.startDate}-${i}`} className="py-3">
                       <p className="font-medium">{e.label}</p>
                       <p className="mt-0.5 text-sm text-muted">
                         {formatRu(e.startDate, 'd MMMM yyyy')} —{' '}
-                        {e.endDate ? formatRu(e.endDate, 'd MMMM yyyy') : 'продолжается'}
+                        {e.endDate ? formatRu(e.endDate, 'd MMMM yyyy') : t('продолжается')}
                       </p>
                     </div>
                   ))}
@@ -177,7 +189,7 @@ export function CycleReportPage() {
 
             {report.anomalies.length > 0 && (
               <section>
-                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Стоит обратить внимание</h2>
+                <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Стоит обратить внимание')}</h2>
                 <div className="card divide-y divide-hairline px-4">
                   {report.anomalies.map((a) => (
                     <div key={a.kind} className="py-3">
@@ -193,17 +205,17 @@ export function CycleReportPage() {
                 содержимым: врач должен видеть его на бумаге, а не только на
                 экране перед печатью. */}
             <p className="px-1 text-xs leading-snug text-muted">
-              Составлено по отметкам в приложении. Приложение ничего не измеряет и не ставит диагнозов.
+              {t('Составлено по отметкам в приложении. Приложение ничего не измеряет и не ставит диагнозов.')}
             </p>
           </div>
 
           <div className="print:hidden space-y-2">
             <Button className="w-full" onClick={() => window.print()}>
               <Printer size={18} className="-mt-0.5 mr-1 inline" strokeWidth={2} />
-              Распечатать или сохранить в PDF
+              {t('Распечатать или сохранить в PDF')}
             </Button>
             <p className="px-1 text-xs leading-snug text-muted">
-              Распечатка и сохранённый файл не защищены замком раздела.
+              {t('Распечатка и сохранённый файл не защищены замком раздела.')}
             </p>
           </div>
         </div>

@@ -9,6 +9,7 @@ import {
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
+import { t } from '../../lib/i18n';
 import { Screen } from '../../components/layout/Screen';
 import { Sheet } from '../../components/ui/Sheet';
 import { Chip, ChipRow } from '../../components/ui/Chip';
@@ -129,7 +130,7 @@ function DurationStepper({
       <div className="flex items-center justify-between gap-1">
         <button
           type="button"
-          aria-label={`${label}: меньше`}
+          aria-label={t('{label}: меньше', { label })}
           onClick={() => onChange(Math.max(1, value - 1))}
           className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90"
         >
@@ -139,7 +140,7 @@ function DurationStepper({
           type="text"
           inputMode="numeric"
           pattern="[0-9]*"
-          aria-label={`${label}, минут`}
+          aria-label={t('{label}, минут', { label })}
           value={text}
           onChange={(e) => {
             const raw = e.target.value.replace(/\D/g, '');
@@ -155,7 +156,7 @@ function DurationStepper({
         />
         <button
           type="button"
-          aria-label={`${label}: больше`}
+          aria-label={t('{label}: больше', { label })}
           onClick={() => onChange(value + 1)}
           className="flex size-11 shrink-0 items-center justify-center rounded-full border border-border text-lg text-muted active:scale-90"
         >
@@ -185,7 +186,7 @@ function PresetForm({
   return (
     <div className="flex flex-col gap-4 pb-2">
       <div>
-        <p className="mb-2 px-1 text-sm font-medium text-muted">Название</p>
+        <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Название')}</p>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -194,13 +195,13 @@ function PresetForm({
         />
       </div>
       <div>
-        <p className="mb-2 px-1 text-sm font-medium text-muted">Длительность (мин)</p>
+        <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Длительность (мин)')}</p>
         <div className={STEPPER_PAIR}>
-          <DurationStepper label="Фокус" value={work} onChange={setWork} />
-          <DurationStepper label="Перерыв" value={brk} onChange={setBrk} />
+          <DurationStepper label={t('Фокус')} value={work} onChange={setWork} />
+          <DurationStepper label={t('Перерыв')} value={brk} onChange={setBrk} />
         </div>
         <div className={`mt-3 ${STEPPER_PAIR}`}>
-          <DurationStepper label="Длинный перерыв" value={long} onChange={setLong} />
+          <DurationStepper label={t('Длинный перерыв')} value={long} onChange={setLong} />
           {/* Добор половины строки только в ряду; в колонке пустой блок не нужен. */}
           <div className="hidden min-[400px]:block min-[400px]:flex-1" />
         </div>
@@ -210,14 +211,14 @@ function PresetForm({
         style={{ backgroundImage: 'linear-gradient(150deg, var(--focus-accent-fill), var(--focus-accent-2-fill))' }}
         className="rounded-2xl py-3 text-center font-semibold text-white active:opacity-95"
       >
-        Сохранить
+        {t('Сохранить')}
       </button>
       {onDelete && (
         <button
           onClick={onDelete}
           className="flex items-center justify-center gap-1.5 rounded-2xl border border-border py-3 text-center font-medium text-danger active:opacity-70"
         >
-          <Trash2 size={16} /> Удалить
+          <Trash2 size={16} /> {t('Удалить')}
         </button>
       )}
     </div>
@@ -259,7 +260,7 @@ export function FocusPage() {
     setPresetSheetOpen(false);
   };
   const tasks = alive(useLiveQuery(() => db.tasks.toArray(), []) ?? []).filter(
-    (t) => !t.completedAt,
+    (task) => !task.completedAt,
   );
 
   const isWork = p.phase === 'work';
@@ -317,10 +318,10 @@ export function FocusPage() {
   };
 
   return (
-    <Screen title="Фокус" backTo="/home">
+    <Screen title={t('Фокус')} backTo="/home">
       <div className="flex flex-col items-center" style={FOCUS_VARS}>
         <p className="mb-4 text-sm font-semibold" style={{ color: accentColor }}>
-          {PHASE_LABEL[p.phase]}
+          {t(PHASE_LABEL[p.phase])}
         </p>
 
         <div className="relative">
@@ -372,7 +373,7 @@ export function FocusPage() {
             {p.taskTitle ? (
               <span className="mt-1 max-w-[60%] truncate text-sm text-muted">{p.taskTitle}</span>
             ) : idleWork ? (
-              <span className="mt-1 text-xs text-muted">крутите кольцо ↻</span>
+              <span className="mt-1 text-xs text-muted">{t('крутите кольцо ↻')}</span>
             ) : null}
           </div>
         </div>
@@ -380,14 +381,14 @@ export function FocusPage() {
         <div className="mt-8 flex items-center gap-4">
           <button
             onClick={p.reset}
-            aria-label="Сбросить"
+            aria-label={t('Сбросить')}
             className="flex size-12 items-center justify-center rounded-full border border-border text-muted active:scale-90"
           >
             <RotateCcw size={20} />
           </button>
           <button
             onClick={p.running ? p.toggle : () => (p.active ? p.toggle() : p.start())}
-            aria-label={p.running ? 'Пауза' : 'Старт'}
+            aria-label={p.running ? t('Пауза') : t('Старт')}
             style={{
               backgroundImage: 'linear-gradient(150deg, var(--focus-accent-fill), var(--focus-accent-2-fill))',
               boxShadow: 'var(--shadow-focus)',
@@ -398,7 +399,7 @@ export function FocusPage() {
           </button>
           <button
             onClick={p.skip}
-            aria-label="Пропустить фазу"
+            aria-label={t('Пропустить фазу')}
             className="flex size-12 items-center justify-center rounded-full border border-border text-muted active:scale-90"
           >
             <SkipForward size={20} />
@@ -412,42 +413,42 @@ export function FocusPage() {
         >
           <ListChecks size={20} className="shrink-0 text-accent" />
           <span className={`min-w-0 flex-1 truncate text-left ${p.taskTitle ? '' : 'text-muted'}`}>
-            {p.taskTitle || 'Выбрать задачу'}
+            {p.taskTitle || t('Выбрать задачу')}
           </span>
           <ChevronRight size={18} className="shrink-0 text-muted" />
         </button>
 
         <div className="mt-6 w-full">
-          <p className="mb-2 px-1 text-sm font-medium text-muted">Звук фокуса</p>
+          <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Звук фокуса')}</p>
           <ChipRow>
             {SOUNDS.map((sd) => (
               <Chip key={sd.value} active={p.sound === sd.value} onClick={() => p.setSound(sd.value)}>
-                {sd.label}
+                {t(sd.label)}
               </Chip>
             ))}
           </ChipRow>
         </div>
 
         <div className="mt-6 w-full">
-          <p className="mb-2 px-1 text-sm font-medium text-muted">Длительность (мин)</p>
+          <p className="mb-2 px-1 text-sm font-medium text-muted">{t('Длительность (мин)')}</p>
           <div className={STEPPER_PAIR}>
-            <DurationStepper label="Фокус" value={p.workMin} onChange={p.setWorkMin} />
-            <DurationStepper label="Перерыв" value={p.breakMin} onChange={p.setBreakMin} />
+            <DurationStepper label={t('Фокус')} value={p.workMin} onChange={p.setWorkMin} />
+            <DurationStepper label={t('Перерыв')} value={p.breakMin} onChange={p.setBreakMin} />
           </div>
           <div className={`mt-3 ${STEPPER_PAIR}`}>
-            <DurationStepper label="Длинный перерыв" value={p.longMin} onChange={p.setLongMin} />
+            <DurationStepper label={t('Длинный перерыв')} value={p.longMin} onChange={p.setLongMin} />
             {/* self-center — только рядом со степпером; в колонке подпись идёт слева. */}
             <p className="min-w-0 px-1 text-xs leading-snug text-muted min-[400px]:flex-1 min-[400px]:self-center">
-              Длинный перерыв включается после каждых 4 фокусов.
+              {t('Длинный перерыв включается после каждых 4 фокусов.')}
             </p>
           </div>
           <div className="mb-2 mt-5 flex items-center justify-between px-1">
-            <p className="text-sm font-medium text-muted">Шаблоны</p>
+            <p className="text-sm font-medium text-muted">{t('Шаблоны')}</p>
             <button
               onClick={() => setManaging((v) => !v)}
               className="text-sm font-medium text-accent active:opacity-60"
             >
-              {managing ? 'Готово' : 'Изменить'}
+              {managing ? t('Готово') : t('Изменить')}
             </button>
           </div>
           <ChipRow>
@@ -469,7 +470,7 @@ export function FocusPage() {
               onClick={openNewPreset}
               className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70"
             >
-              <Plus size={14} /> Шаблон
+              <Plus size={14} /> {t('Шаблон')}
             </button>
           </ChipRow>
         </div>
@@ -477,16 +478,16 @@ export function FocusPage() {
         <div className="mt-8 flex w-full gap-3">
           <div className="flex-1 rounded-2xl bg-surface-2 p-3 text-center">
             <p className="text-2xl font-bold">{p.completedToday}</p>
-            <p className="text-xs text-muted">помодоро сегодня</p>
+            <p className="text-xs text-muted">{t('помодоро сегодня')}</p>
           </div>
           <div className="flex-1 rounded-2xl bg-surface-2 p-3 text-center">
             <p className="text-2xl font-bold">{formatFocusTime(p.focusMinToday)}</p>
-            <p className="text-xs text-muted">фокуса сегодня</p>
+            <p className="text-xs text-muted">{t('фокуса сегодня')}</p>
           </div>
         </div>
       </div>
 
-      <Sheet open={pickerOpen} onClose={() => setPickerOpen(false)} title="Задача для фокуса">
+      <Sheet open={pickerOpen} onClose={() => setPickerOpen(false)} title={t('Задача для фокуса')}>
         <div className="flex flex-col">
           <button
             onClick={() => {
@@ -495,21 +496,21 @@ export function FocusPage() {
             }}
             className="border-b border-hairline py-3 text-left text-muted active:opacity-60"
           >
-            Без задачи
+            {t('Без задачи')}
           </button>
           {tasks.length === 0 ? (
-            <EmptyState icon={ListChecks} title="Нет активных задач" />
+            <EmptyState icon={ListChecks} title={t('Нет активных задач')} />
           ) : (
-            tasks.map((t) => (
+            tasks.map((task) => (
               <button
-                key={t.id}
+                key={task.id}
                 onClick={() => {
-                  p.setTask(t.id, t.title);
+                  p.setTask(task.id, task.title);
                   setPickerOpen(false);
                 }}
                 className="border-b border-hairline py-3 text-left active:opacity-60"
               >
-                {t.title}
+                {task.title}
               </button>
             ))
           )}
@@ -521,8 +522,8 @@ export function FocusPage() {
         onClose={() => setPresetSheetOpen(false)}
         title={
           editingPreset && presets.some((x) => x.id === editingPreset.id)
-            ? 'Изменить шаблон'
-            : 'Новый шаблон'
+            ? t('Изменить шаблон')
+            : t('Новый шаблон')
         }
       >
         {editingPreset && (

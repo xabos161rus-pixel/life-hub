@@ -6,6 +6,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
+import { t } from '../../lib/i18n';
 import type { EnergyEffort, EnergyItem } from '../../db/types';
 
 const CATEGORY_SUGGESTIONS = [
@@ -27,7 +28,7 @@ interface Props {
 
 export function EnergySheet({ open, onClose, item }: Props) {
   return (
-    <Sheet open={open} onClose={onClose} title={item ? 'Способ' : 'Новый способ'}>
+    <Sheet open={open} onClose={onClose} title={item ? t('Способ') : t('Новый способ')}>
       {/* Sheet при !open возвращает null → форма размонтируется и при
           следующем открытии инициализируется заново из item. */}
       <ItemForm key={item?.id ?? 'new'} item={item ?? null} onClose={onClose} />
@@ -49,7 +50,7 @@ function EffectivenessPicker({
           key={n}
           type="button"
           onClick={() => onChange(n)}
-          aria-label={`${n} из 5`}
+          aria-label={t('{n} из 5', { n })}
           className={`size-6 rounded-full transition-colors ${
             n <= value ? 'bg-accent' : 'bg-surface-2 border border-hairline'
           }`}
@@ -96,52 +97,52 @@ function ItemForm({ item, onClose }: { item: EnergyItem | null; onClose: () => v
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm('Удалить способ?')) return;
+    if (!window.confirm(t('Удалить способ?'))) return;
     await remove(db.energyItems, item.id);
     onClose();
   };
 
   return (
     <div className="space-y-4 pb-2">
-      <Field label="Название">
+      <Field label={t('Название')}>
         <AutoGrowTextarea
           value={title}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
           onClear={() => setTitle('')}
-          placeholder="Например, «Прогулка без телефона»"
+          placeholder={t('Например, «Прогулка без телефона»')}
         />
       </Field>
-      <Field label="Что именно делать">
+      <Field label={t('Что именно делать')}>
         <AutoGrowTextarea
           value={description}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-          placeholder="Опишите способ так, чтобы потом не пришлось думать"
+          placeholder={t('Опишите способ так, чтобы потом не пришлось думать')}
           className="min-h-[4.5rem]"
         />
       </Field>
-      <Field label="Категория">
+      <Field label={t('Категория')}>
         <Input
           value={category}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setCategory(e.target.value)}
-          placeholder="Тело, Отдых, Природа…"
+          placeholder={t('Тело, Отдых, Природа…')}
         />
       </Field>
       <ChipRow>
         {CATEGORY_SUGGESTIONS.map((c) => (
           <Chip key={c} active={category === c} onClick={() => setCategory(c)}>
-            {c}
+            {t(c)}
           </Chip>
         ))}
       </ChipRow>
-      <Field label="Насколько помогает">
+      <Field label={t('Насколько помогает')}>
         <EffectivenessPicker value={effectiveness} onChange={setEffectiveness} />
       </Field>
-      <Field label="Сколько сил требует">
+      <Field label={t('Сколько сил требует')}>
         <SegmentedControl<EnergyEffort>
           options={[
-            { value: 'low', label: 'Мало' },
-            { value: 'medium', label: 'Средне' },
-            { value: 'high', label: 'Много' },
+            { value: 'low', label: t('Мало') },
+            { value: 'medium', label: t('Средне') },
+            { value: 'high', label: t('Много') },
           ]}
           value={effort}
           onChange={setEffort}
@@ -150,11 +151,11 @@ function ItemForm({ item, onClose }: { item: EnergyItem | null; onClose: () => v
       <div className="flex gap-2 pt-1">
         {item && (
           <Button variant="danger" onClick={() => void handleDelete()}>
-            Удалить
+            {t('Удалить')}
           </Button>
         )}
         <Button className="flex-1" disabled={!title.trim()} onClick={() => void handleSave()}>
-          Сохранить
+          {t('Сохранить')}
         </Button>
       </div>
     </div>

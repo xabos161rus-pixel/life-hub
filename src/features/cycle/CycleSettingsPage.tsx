@@ -18,6 +18,7 @@ import { parseCycleCsv, type ImportReport } from '../../lib/cycle/importCsv';
 import { formatRu } from '../../lib/dates';
 import { AUTO_TASK_TEMPLATES, MAX_ACTIVE_AUTO_TASKS } from '../../lib/cycle/autoTasks';
 import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
+import { t } from '../../lib/i18n';
 
 /** Переключатель строкой. Своя реализация вместо нативного checkbox: нужен
  *  крупный тач-таргет на всю строку и подпись под заголовком, а нативный
@@ -82,29 +83,29 @@ function PinSection({ settings }: { settings: CycleSettings }) {
   }
 
   async function remove() {
-    if (!window.confirm('Убрать код? Раздел будет открываться без него.')) return;
+    if (!window.confirm(t('Убрать код? Раздел будет открываться без него.'))) return;
     await updateCycleSettings({ lock: 'none', pin: undefined });
     lockCycleSection();
   }
 
   return (
     <section>
-      <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Код доступа</h2>
+      <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Код доступа')}</h2>
       <div className="card space-y-3 p-4">
         {has ? (
           <>
             <p className="text-sm text-muted">
-              Раздел закрыт кодом. Он спрашивается при каждом открытии приложения.
+              {t('Раздел закрыт кодом. Он спрашивается при каждом открытии приложения.')}
             </p>
             <Button variant="secondary" className="w-full" onClick={() => void remove()}>
-              Убрать код
+              {t('Убрать код')}
             </Button>
           </>
         ) : (
           <>
             {/* Столбик, а не два поля в ряд: на 320px пара полей по 4-8 цифр
                 ужимается до нечитаемого, а поля кода набирают вслепую. */}
-            <Field label="Код (4–8 цифр)">
+            <Field label={t('Код (4–8 цифр)')}>
               <Input
                 type="password"
                 inputMode="numeric"
@@ -113,7 +114,7 @@ function PinSection({ settings }: { settings: CycleSettings }) {
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
               />
             </Field>
-            <Field label="Ещё раз">
+            <Field label={t('Ещё раз')}>
               <Input
                 type="password"
                 inputMode="numeric"
@@ -123,24 +124,23 @@ function PinSection({ settings }: { settings: CycleSettings }) {
               />
             </Field>
             {repeat.length > 0 && pin !== repeat && (
-              <p className="text-sm text-danger">Коды не совпадают</p>
+              <p className="text-sm text-danger">{t('Коды не совпадают')}</p>
             )}
             <Button
               className="w-full"
               disabled={pin.length < 4 || pin !== repeat || busy}
               onClick={() => void save()}
             >
-              Установить код
+              {t('Установить код')}
             </Button>
           </>
         )}
         {/* Прямо о границах защиты. Обещать больше, чем код даёт, — хуже, чем
             не иметь кода: человек станет полагаться на то, чего нет. */}
         <p className="text-xs leading-snug text-muted">
-          Код закрывает раздел от посторонних глаз, но не шифрует записи: тот, кто разбирается в
-          устройстве телефона, сможет их прочитать в обход. Шифровать данные кодом мы не стали
-          сознательно — забытый код означал бы потерю всей истории, а восстановить её неоткуда.
-          Сам код нигде не хранится, сверяется только его отпечаток.
+          {t(
+            'Код закрывает раздел от посторонних глаз, но не шифрует записи: тот, кто разбирается в устройстве телефона, сможет их прочитать в обход. Шифровать данные кодом мы не стали сознательно — забытый код означал бы потерю всей истории, а восстановить её неоткуда. Сам код нигде не хранится, сверяется только его отпечаток.',
+          )}
         </p>
       </div>
     </section>
@@ -183,11 +183,14 @@ function ImportSection() {
 
   return (
     <section>
-      <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Перенос из другого приложения</h2>
+      <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">
+        {t('Перенос из другого приложения')}
+      </h2>
       <div className="card p-4">
         <p className="mb-3 text-sm leading-snug text-muted">
-          Выгрузите историю из прежнего трекера в CSV и выберите файл здесь. Нужны колонки с
-          датой и отметкой выделений — как они называются, приложение разберётся само.
+          {t(
+            'Выгрузите историю из прежнего трекера в CSV и выберите файл здесь. Нужны колонки с датой и отметкой выделений — как они называются, приложение разберётся само.',
+          )}
         </p>
         <input
           ref={fileRef}
@@ -201,12 +204,12 @@ function ImportSection() {
           }}
         />
         <Button variant="secondary" className="w-full" onClick={() => fileRef.current?.click()}>
-          Выбрать файл
+          {t('Выбрать файл')}
         </Button>
 
         {done > 0 && (
           <p className="mt-3 text-sm text-success">
-            Перенесено дней: {done}. Прогноз пересчитан.
+            {t('Перенесено дней: {n}. Прогноз пересчитан.', { n: done })}
           </p>
         )}
 
@@ -215,37 +218,42 @@ function ImportSection() {
             {report.days.length === 0 ? (
               <p className="text-danger">
                 {report.dateColumn
-                  ? 'Даты нашлись, а отметок выделений — нет. Проверьте, что в файле есть колонка с ними.'
-                  : 'Не нашлась колонка с датой. Проверьте, что выгрузка сохранена в CSV.'}
+                  ? t(
+                      'Даты нашлись, а отметок выделений — нет. Проверьте, что в файле есть колонка с ними.',
+                    )
+                  : t('Не нашлась колонка с датой. Проверьте, что выгрузка сохранена в CSV.')}
               </p>
             ) : (
               <>
                 <p>
-                  Распознано дней: <span className="font-semibold">{report.days.length}</span>
+                  {t('Распознано дней:')} <span className="font-semibold">{report.days.length}</span>
                   {report.from && report.to && (
-                    <> — с {formatRu(report.from)} по {formatRu(report.to)}</>
+                    <> — {t('с {from} по {to}', { from: formatRu(report.from), to: formatRu(report.to) })}</>
                   )}
                 </p>
                 {/* Показываем, ЧТО именно взято за дату и за выделения: человек
                     должен убедиться, что разобрано то, что он думает, а не
                     соседняя колонка. */}
                 <p className="text-muted">
-                  Колонка с датой: «{report.dateColumn}»
-                  {report.flowColumn ? `, выделения: «${report.flowColumn}»` : ', выделения — по содержимому строк'}
+                  {t('Колонка с датой: «{col}»', { col: report.dateColumn ?? '' })}
+                  {report.flowColumn
+                    ? t(', выделения: «{col}»', { col: report.flowColumn })
+                    : t(', выделения — по содержимому строк')}
                 </p>
                 {(report.skippedNoDate > 0 || report.skippedNoFlow > 0) && (
                   <p className="text-warning">
-                    Пропущено строк: {report.skippedNoDate + report.skippedNoFlow}
-                    {report.skippedNoDate > 0 && ` (без даты: ${report.skippedNoDate})`}
-                    {report.skippedNoFlow > 0 && ` (без отметки: ${report.skippedNoFlow})`}
+                    {t('Пропущено строк: {n}', { n: report.skippedNoDate + report.skippedNoFlow })}
+                    {report.skippedNoDate > 0 && t(' (без даты: {n})', { n: report.skippedNoDate })}
+                    {report.skippedNoFlow > 0 && t(' (без отметки: {n})', { n: report.skippedNoFlow })}
                   </p>
                 )}
                 <p className="text-muted">
-                  Записи за те же дни будут заменены. Отменить перенос нельзя — если история
-                  уже есть, сделайте резервную копию заранее.
+                  {t(
+                    'Записи за те же дни будут заменены. Отменить перенос нельзя — если история уже есть, сделайте резервную копию заранее.',
+                  )}
                 </p>
                 <Button className="w-full" disabled={busy} onClick={() => void apply()}>
-                  {busy ? 'Переносим…' : `Перенести ${report.days.length}`}
+                  {busy ? t('Переносим…') : t('Перенести {n}', { n: report.days.length })}
                 </Button>
               </>
             )}
@@ -264,20 +272,22 @@ export function CycleSettingsPage() {
     void updateCycleSettings({ integrations: { ...s.integrations, [key]: value } });
 
   return (
-    <Screen title="Настройки раздела" backTo="/more/cycle">
+    <Screen title={t('Настройки раздела')} backTo="/more/cycle">
       <div className="space-y-5">
         <section>
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Прогноз</h2>
+          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Прогноз')}</h2>
           <div className="card divide-y divide-hairline px-4">
             <ToggleRow
-              label="Показывать прогноз"
-              hint="Когда выключено, раздел ведёт только календарь — без оценок и диапазонов."
+              label={t('Показывать прогноз')}
+              hint={t('Когда выключено, раздел ведёт только календарь — без оценок и диапазонов.')}
               checked={s.predictionsEnabled}
               onChange={(v) => void updateCycleSettings({ predictionsEnabled: v })}
             />
             <ToggleRow
-              label="Фертильные дни"
-              hint="Оценка окна зачатия. По календарю она приблизительная — интервал около двух недель, поэтому для предохранения не годится."
+              label={t('Фертильные дни')}
+              hint={t(
+                'Оценка окна зачатия. По календарю она приблизительная — интервал около двух недель, поэтому для предохранения не годится.',
+              )}
               checked={s.fertilityDisplay !== 'off'}
               onChange={(v) =>
                 void updateCycleSettings({ fertilityDisplay: v ? 'probability_map' : 'off' })
@@ -287,23 +297,26 @@ export function CycleSettingsPage() {
         </section>
 
         <section>
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Связь с приложением</h2>
+          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Связь с приложением')}</h2>
           <div className="card divide-y divide-hairline px-4">
             <ToggleRow
-              label="Задачи по циклу"
-              hint={`Приложение само поставит «${AUTO_TASK_TEMPLATES.supplies.title}» перед ожидаемой менструацией и напомнит о плановом визите к врачу. Не больше ${MAX_ACTIVE_AUTO_TASKS} задач одновременно.`}
+              label={t('Задачи по циклу')}
+              hint={t(
+                'Приложение само поставит «{title}» перед ожидаемой менструацией и напомнит о плановом визите к врачу. Не больше {n} задач одновременно.',
+                { title: t(AUTO_TASK_TEMPLATES.supplies.title), n: MAX_ACTIVE_AUTO_TASKS },
+              )}
               checked={s.integrations.autoTasks}
               onChange={(v) => setIntegration('autoTasks', v)}
             />
             <ToggleRow
-              label="Строка на экране «Сегодня»"
-              hint="День цикла и, если включён прогноз, ожидаемые даты."
+              label={t('Строка на экране «Сегодня»')}
+              hint={t('День цикла и, если включён прогноз, ожидаемые даты.')}
               checked={s.integrations.todayCard}
               onChange={(v) => setIntegration('todayCard', v)}
             />
             <ToggleRow
-              label="Отметки в календаре"
-              hint="Дни менструации и диапазон прогноза в общем календаре приложения."
+              label={t('Отметки в календаре')}
+              hint={t('Дни менструации и диапазон прогноза в общем календаре приложения.')}
               checked={s.integrations.calendarMarks}
               onChange={(v) => setIntegration('calendarMarks', v)}
             />
@@ -313,8 +326,10 @@ export function CycleSettingsPage() {
                 дням. Флаг energyCorrelation остаётся в схеме на случай, если
                 дневник энергии появится; из интерфейса обещание убрано. */}
             <ToggleRow
-              label="Привычки по дням цикла"
-              hint="Доля выполненных привычек в дни менструации, перед ней и в остальные дни. Только ваши числа, без выводов и советов."
+              label={t('Привычки по дням цикла')}
+              hint={t(
+                'Доля выполненных привычек в дни менструации, перед ней и в остальные дни. Только ваши числа, без выводов и советов.',
+              )}
               checked={s.integrations.habitsCorrelation}
               onChange={(v) => setIntegration('habitsCorrelation', v)}
             />
@@ -323,18 +338,24 @@ export function CycleSettingsPage() {
               переключателями, а не в справке: именно здесь человек решает,
               сколько приложению позволено. */}
           <p className="mt-2 px-1 text-xs leading-snug text-muted">
-            Приложение не будет подстраивать за вас план дня, тренировки или задачи под фазу
-            цикла. Влияние фазы на работоспособность в исследованиях оказалось незначительным, а
-            советы вроде «сегодня не берись за сложное» вредят больше, чем помогают.
+            {t(
+              'Приложение не будет подстраивать за вас план дня, тренировки или задачи под фазу цикла. Влияние фазы на работоспособность в исследованиях оказалось незначительным, а советы вроде «сегодня не берись за сложное» вредят больше, чем помогают.',
+            )}
           </p>
         </section>
 
         <section>
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Формулировки</h2>
+          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Формулировки')}</h2>
           <div className="card divide-y divide-hairline px-4">
             <ToggleRow
-              label="Нейтральные названия"
-              hint={`Задачи и уведомления называются обтекаемо: «${AUTO_TASK_TEMPLATES.supplies.title}» вместо «${AUTO_TASK_TEMPLATES.supplies.directTitle}». Список задач видно с чужого плеча чаще, чем сам раздел.`}
+              label={t('Нейтральные названия')}
+              hint={t(
+                'Задачи и уведомления называются обтекаемо: «{title}» вместо «{direct}». Список задач видно с чужого плеча чаще, чем сам раздел.',
+                {
+                  title: t(AUTO_TASK_TEMPLATES.supplies.title),
+                  direct: t(AUTO_TASK_TEMPLATES.supplies.directTitle),
+                },
+              )}
               checked={s.neutralNotificationText}
               onChange={(v) => void updateCycleSettings({ neutralNotificationText: v })}
             />
@@ -344,14 +365,14 @@ export function CycleSettingsPage() {
         <PinSection settings={s} />
 
         <section>
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Врач</h2>
+          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Врач')}</h2>
           <div className="card">
             <Link to="/more/cycle/report" className="flex items-center gap-3 p-4">
               <FileText size={20} className="shrink-0 text-muted" />
               <span className="min-w-0 flex-1">
-                <span className="block font-medium">Отчёт для врача</span>
+                <span className="block font-medium">{t('Отчёт для врача')}</span>
                 <span className="mt-0.5 block text-sm leading-snug text-muted">
-                  Сводка по циклам за период — для показа или печати на приёме.
+                  {t('Сводка по циклам за период — для показа или печати на приёме.')}
                 </span>
               </span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
@@ -360,18 +381,22 @@ export function CycleSettingsPage() {
         </section>
 
         <section>
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Данные</h2>
+          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Данные')}</h2>
           <div className="card divide-y divide-hairline px-4">
             <ToggleRow
-              label="Синхронизация между устройствами"
-              hint="Пока недоступна. Записи раздела не уходят на сервер и не передаются между устройствами."
+              label={t('Синхронизация между устройствами')}
+              hint={t(
+                'Пока недоступна. Записи раздела не уходят на сервер и не передаются между устройствами.',
+              )}
               checked={s.syncEnabled}
               onChange={() => undefined}
               disabled
             />
             <ToggleRow
-              label="Включать в резервную копию"
-              hint="Раздел не синхронизируется, поэтому копия — единственное, что спасёт историю при потере телефона. Если выключить, записи в копию не попадут и восстановить их будет неоткуда."
+              label={t('Включать в резервную копию')}
+              hint={t(
+                'Раздел не синхронизируется, поэтому копия — единственное, что спасёт историю при потере телефона. Если выключить, записи в копию не попадут и восстановить их будет неоткуда.',
+              )}
               checked={s.includeInGeneralBackup}
               onChange={(v) => void updateCycleSettings({ includeInGeneralBackup: v })}
             />

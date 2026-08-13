@@ -9,6 +9,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
+import { t } from '../../lib/i18n';
 import type { PlaceItem, PlaceKind, PlaceStatus } from '../../db/types';
 
 // Уменьшает фото до ~1280px и пережимает в JPEG — чтобы dataURL в IndexedDB
@@ -50,7 +51,7 @@ interface Props {
 
 export function PlaceSheet({ open, onClose, item }: Props) {
   return (
-    <Sheet open={open} onClose={onClose} title={item ? 'Запись' : 'Новая запись'}>
+    <Sheet open={open} onClose={onClose} title={item ? t('Запись') : t('Новая запись')}>
       {/* Sheet при !open возвращает null → форма размонтируется и при
           следующем открытии инициализируется заново из item. */}
       <PlaceForm key={item?.id ?? 'new'} item={item} onClose={onClose} />
@@ -90,7 +91,7 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
     try {
       const tags = tagsStr
         .split(',')
-        .map((t) => t.trim())
+        .map((s) => s.trim())
         .filter(Boolean);
       const base = {
         title: trimmed,
@@ -116,57 +117,57 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm('Удалить запись?')) return;
+    if (!window.confirm(t('Удалить запись?'))) return;
     await remove(db.placeItems, item.id);
     onClose();
   };
 
   return (
     <div className="space-y-4 pb-2">
-      <Field label="Название">
+      <Field label={t('Название')}>
         <AutoGrowTextarea
           value={title}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
           onClear={() => setTitle('')}
-          placeholder="Например, «Кафе у моря»"
+          placeholder={t('Например, «Кафе у моря»')}
         />
       </Field>
-      <Field label="Вид">
+      <Field label={t('Вид')}>
         <SegmentedControl<PlaceKind>
           options={[
-            { value: 'place', label: 'Места' },
-            { value: 'thing', label: 'Вещи' },
-            { value: 'tip', label: 'Советы' },
-            { value: 'food', label: 'Еда' },
-            { value: 'travel', label: 'Путешествия' },
+            { value: 'place', label: t('Места') },
+            { value: 'thing', label: t('Вещи') },
+            { value: 'tip', label: t('Советы') },
+            { value: 'food', label: t('Еда') },
+            { value: 'travel', label: t('Путешествия') },
           ]}
           value={kind}
           onChange={setKind}
         />
       </Field>
-      <Field label="Описание">
+      <Field label={t('Описание')}>
         <AutoGrowTextarea
           value={description}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-          placeholder="Совет, опыт, рекомендация…"
+          placeholder={t('Совет, опыт, рекомендация…')}
           className="min-h-[4.5rem]"
         />
       </Field>
-      <Field label="От кого">
+      <Field label={t('От кого')}>
         <Input
           value={source}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setSource(e.target.value)}
-          placeholder="Кто посоветовал"
+          placeholder={t('Кто посоветовал')}
         />
       </Field>
-      <Field label="Где">
+      <Field label={t('Где')}>
         <Input
           value={location}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)}
-          placeholder="Город или адрес"
+          placeholder={t('Город или адрес')}
         />
       </Field>
-      <Field label="Ссылка">
+      <Field label={t('Ссылка')}>
         <Input
           type="url"
           inputMode="url"
@@ -175,13 +176,13 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
           placeholder="https://"
         />
       </Field>
-      <Field label="Фото">
+      <Field label={t('Фото')}>
         {photo ? (
           <div className="relative">
             <img src={photo} alt="" className="max-h-56 w-full rounded-xl object-cover" />
             <button
               type="button"
-              aria-label="Удалить фото"
+              aria-label={t('Удалить фото')}
               onClick={() => setPhoto(null)}
               className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white active:opacity-80"
             >
@@ -195,7 +196,7 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6 text-sm text-muted active:opacity-70"
           >
             <ImagePlus size={18} />
-            Добавить фото
+            {t('Добавить фото')}
           </button>
         )}
         <input
@@ -206,19 +207,19 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
           onChange={(e) => void handlePhoto(e)}
         />
       </Field>
-      <Field label="Теги">
+      <Field label={t('Теги')}>
         <Input
           value={tagsStr}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setTagsStr(e.target.value)}
-          placeholder="Через запятую"
+          placeholder={t('Через запятую')}
         />
       </Field>
-      <Field label="Статус">
+      <Field label={t('Статус')}>
         <SegmentedControl<PlaceStatus>
           options={[
-            { value: 'idea', label: 'Идея' },
-            { value: 'want', label: 'Хочу' },
-            { value: 'done', label: 'Был' },
+            { value: 'idea', label: t('Идея') },
+            { value: 'want', label: t('Хочу') },
+            { value: 'done', label: t('Был') },
           ]}
           value={status}
           onChange={setStatus}
@@ -227,11 +228,11 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
       <div className="flex gap-2 pt-1">
         {item && (
           <Button variant="danger" onClick={() => void handleDelete()}>
-            Удалить
+            {t('Удалить')}
           </Button>
         )}
         <Button className="flex-1" disabled={!title.trim()} onClick={() => void handleSave()}>
-          Сохранить
+          {t('Сохранить')}
         </Button>
       </div>
     </div>

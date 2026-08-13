@@ -6,6 +6,7 @@ import { db } from '../../db/db';
 import { alive, create, remove, update } from '../../db/repo';
 import type { Goal, GoalProgressMode, GoalStatus } from '../../db/types';
 import { PRESET_COLORS, isLightColor, ON_COLOR_DARK } from '../../lib/colors';
+import { t } from '../../lib/i18n';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -61,14 +62,14 @@ function GoalEditForm({
 
   const savingRef = useRef(false);
   async function handleSave() {
-    const t = title.trim();
-    if (!t) return;
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
     if (savingRef.current) return; // защита от дабл-тапа
     savingRef.current = true;
     try {
       const tvRaw = targetValue.trim() === '' ? NaN : Number(targetValue);
       const data = {
-        title: t,
+        title: trimmedTitle,
         description: description.trim(),
         color,
         targetDate: targetDate || null,
@@ -95,13 +96,13 @@ function GoalEditForm({
 
   async function handleDelete() {
     if (!goal) return;
-    if (!window.confirm(`Удалить цель «${goal.title}»?`)) return;
+    if (!window.confirm(t('Удалить цель «{title}»?', { title: goal.title }))) return;
     const [tasks, items] = await Promise.all([
       db.tasks.where('goalId').equals(goal.id).toArray(),
       db.learningItems.where('goalId').equals(goal.id).toArray(),
     ]);
     await Promise.all([
-      ...alive(tasks).map((t) => update(db.tasks, t.id, { goalId: null })),
+      ...alive(tasks).map((task) => update(db.tasks, task.id, { goalId: null })),
       ...alive(items).map((li) => update(db.learningItems, li.id, { goalId: null })),
       remove(db.goals, goal.id),
     ]);
@@ -109,33 +110,33 @@ function GoalEditForm({
   }
 
   return (
-    <Sheet open onClose={onClose} title={goal ? 'Редактировать цель' : 'Новая цель'}>
+    <Sheet open onClose={onClose} title={goal ? t('Редактировать цель') : t('Новая цель')}>
       <div className="flex flex-col gap-4 pb-2">
-        <Field label="Название">
+        <Field label={t('Название')}>
           <AutoGrowTextarea
             value={title}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
             onClear={() => setTitle('')}
-            placeholder="Например, Прочитать 20 книг"
+            placeholder={t('Например, Прочитать 20 книг')}
           />
         </Field>
 
-        <Field label="Описание">
+        <Field label={t('Описание')}>
           <AutoGrowTextarea
             value={description}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-            placeholder="Зачем эта цель и что считается результатом"
+            placeholder={t('Зачем эта цель и что считается результатом')}
             className="min-h-[4.5rem]"
           />
         </Field>
 
-        <Field label="Цвет">
+        <Field label={t('Цвет')}>
           <div className="flex flex-wrap gap-2.5">
             {PRESET_COLORS.map((c) => (
               <button
                 key={c}
                 type="button"
-                aria-label={`Цвет ${c}`}
+                aria-label={t('Цвет {c}', { c })}
                 onClick={() => setColor(c)}
                 className="flex size-9 items-center justify-center rounded-full"
                 style={{ background: c }}
@@ -148,7 +149,7 @@ function GoalEditForm({
           </div>
         </Field>
 
-        <Field label="Срок">
+        <Field label={t('Срок')}>
           <Input
             type="date"
             value={targetDate}
@@ -156,14 +157,18 @@ function GoalEditForm({
           />
         </Field>
 
-        <Field label="Прогресс">
-          <SegmentedControl options={MODE_OPTIONS} value={mode} onChange={setMode} />
+        <Field label={t('Прогресс')}>
+          <SegmentedControl
+            options={MODE_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
+            value={mode}
+            onChange={setMode}
+          />
         </Field>
 
         {mode === 'numeric' && (
           <div className="flex gap-3">
             <div className="flex-1">
-              <Field label="Целевое значение">
+              <Field label={t('Целевое значение')}>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -175,11 +180,11 @@ function GoalEditForm({
               </Field>
             </div>
             <div className="flex-1">
-              <Field label="Единицы">
+              <Field label={t('Единицы')}>
                 <Input
                   value={unitLabel}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setUnitLabel(e.target.value)}
-                  placeholder="книг"
+                  placeholder={t('книг')}
                 />
               </Field>
             </div>
@@ -187,8 +192,12 @@ function GoalEditForm({
         )}
 
         {goal && (
-          <Field label="Статус">
-            <SegmentedControl options={STATUS_OPTIONS} value={status} onChange={setStatus} />
+          <Field label={t('Статус')}>
+            <SegmentedControl
+              options={STATUS_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
+              value={status}
+              onChange={setStatus}
+            />
           </Field>
         )}
 
@@ -197,11 +206,11 @@ function GoalEditForm({
             onClick={handleSave}
             disabled={!title.trim() || (mode === 'numeric' && !(Number(targetValue) > 0))}
           >
-            Сохранить
+            {t('Сохранить')}
           </Button>
           {goal && (
             <Button variant="danger" onClick={handleDelete}>
-              Удалить
+              {t('Удалить')}
             </Button>
           )}
         </div>

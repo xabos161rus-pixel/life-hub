@@ -11,6 +11,7 @@ import type { BleedingLevel, Severity, SymptomEntry } from '../../db/cycleTypes'
 import { deleteDay, putDay } from '../../lib/cycle/cycleRepo';
 import { SYMPTOM_GROUP_LABELS } from '../../lib/cycle/symptoms';
 import { formatRu } from '../../lib/dates';
+import { t } from '../../lib/i18n';
 
 /** Шкала кровотечения. Пять значений вместо принятого у Apple и Google
  *  разделения на «поток» и «межменструальное кровотечение»: человеку проще
@@ -110,7 +111,7 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
   }
 
   async function clear() {
-    if (!window.confirm(`Удалить все отметки за ${formatRu(date)}?`)) return;
+    if (!window.confirm(t('Удалить все отметки за {date}?', { date: formatRu(date) }))) return;
     await deleteDay(date);
     onClose();
   }
@@ -118,7 +119,7 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
   return (
     <Sheet open onClose={onClose} title={formatRu(date, 'd MMMM')}>
       <div className="flex flex-col gap-5 pb-2">
-        <Group label="Кровотечение">
+        <Group label={t('Кровотечение')}>
           {/* Число колонок растёт с шириной. На 320px даже три колонки режут
               подпись: под текст остаётся 79px, а «Умеренно» требует 88.
               Две колонки дают 139px — с запасом. Пять в ряд — только от 420px,
@@ -147,7 +148,7 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
                       ))
                     )}
                   </span>
-                  <span className="max-w-full truncate">{l.label}</span>
+                  <span className="max-w-full truncate">{t(l.label)}</span>
                 </button>
               );
             })}
@@ -155,7 +156,7 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
         </Group>
 
         {groups.map((g) => (
-          <Group key={g} label={SYMPTOM_GROUP_LABELS[g]}>
+          <Group key={g} label={t(SYMPTOM_GROUP_LABELS[g])}>
             <div className="flex flex-wrap gap-2">
               {enabled
                 .filter((s) => s.group === g)
@@ -173,10 +174,10 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
                           : 'border-hairline bg-surface-2 text-muted'
                       }`}
                     >
-                      {s.label}
+                      {t(s.label)}
                       {e?.severity !== undefined && (
                         <span className="ml-1.5 text-xs opacity-80">
-                          {SEVERITY_LABELS[e.severity]}
+                          {t(SEVERITY_LABELS[e.severity])}
                         </span>
                       )}
                     </button>
@@ -186,22 +187,22 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
           </Group>
         ))}
 
-        <Field label="Заметка">
+        <Field label={t('Заметка')}>
           <Textarea
             value={currentNote}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Что стоит запомнить об этом дне"
+            placeholder={t('Что стоит запомнить об этом дне')}
             className="min-h-20"
           />
         </Field>
 
         <div className="flex flex-col gap-2 min-[400px]:flex-row">
           <Button onClick={() => void save()} disabled={saving} className="min-[400px]:flex-1">
-            Сохранить
+            {t('Сохранить')}
           </Button>
           {existing && (
             <Button variant="ghost" onClick={() => void clear()} className="text-danger">
-              <Trash2 size={16} /> Очистить день
+              <Trash2 size={16} /> {t('Очистить день')}
             </Button>
           )}
         </div>
