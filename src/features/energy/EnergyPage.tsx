@@ -8,7 +8,9 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
+import { levelByDate } from '../../lib/energy';
 import type { EnergyEffort, EnergyItem } from '../../db/types';
+import { EnergyJournal } from './EnergyJournal';
 import { EnergySheet } from './EnergySheet';
 
 type Filter = 'all' | EnergyEffort;
@@ -74,6 +76,8 @@ export function EnergyPage() {
 
   const rows = useLiveQuery(() => db.energyItems.toArray(), []);
   const loaded = useLoaded(rows);
+  const logs = useLiveQuery(() => db.energyLogs.toArray(), []);
+  const byDate = levelByDate(alive(logs ?? []));
   const items = alive(rows ?? [])
     .filter((i) => filter === 'all' || i.effort === filter)
     .sort((a, b) => b.effectiveness - a.effectiveness);
@@ -90,7 +94,12 @@ export function EnergyPage() {
 
   return (
     <Screen title="Энергия" backTo="/home">
+      <div className="mb-5">
+        <EnergyJournal byDate={byDate} />
+      </div>
+
       <div className="space-y-3">
+        <h2 className="px-1 text-sm font-semibold text-muted">Что восстанавливает</h2>
         <div className="card p-4">
           <p className="text-sm leading-relaxed text-muted">
             Когда ничего не хочется — выберите способ под свои силы.

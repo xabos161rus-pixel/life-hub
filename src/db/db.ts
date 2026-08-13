@@ -14,6 +14,7 @@ import type {
   SavingsGoal,
   SavingsDeposit,
   EnergyItem,
+  EnergyLog,
   PlaceItem,
   Metric,
   MetricLog,
@@ -36,7 +37,7 @@ import type {
   SymptomDef,
 } from './cycleTypes';
 
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -53,6 +54,7 @@ export class LifeHubDB extends Dexie {
   savingsGoals!: Table<SavingsGoal, string>;
   savingsDeposits!: Table<SavingsDeposit, string>;
   energyItems!: Table<EnergyItem, string>;
+  energyLogs!: Table<EnergyLog, string>;
   placeItems!: Table<PlaceItem, string>;
   metrics!: Table<Metric, string>;
   metricLogs!: Table<MetricLog, string>;
@@ -278,6 +280,14 @@ export class LifeHubDB extends Dexie {
             if (f.parentId === undefined) f.parentId = null;
           }),
       );
+
+    // v16 — дневник уровня энергии. Уникальный индекс &date держит правило
+    // «одна отметка в день» на уровне БД, как &[habitId+date] у привычек:
+    // повторная отметка правит существующую строку, а не плодит вторую.
+    // Только новая таблица, существующие не трогаются → upgrade не нужен.
+    this.version(16).stores({
+      energyLogs: 'id, &date',
+    });
   }
 }
 

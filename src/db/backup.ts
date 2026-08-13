@@ -16,6 +16,7 @@ const TABLES = [
   'savingsGoals',
   'savingsDeposits',
   'energyItems',
+  'energyLogs',
   'placeItems',
   'metrics',
   'metricLogs',

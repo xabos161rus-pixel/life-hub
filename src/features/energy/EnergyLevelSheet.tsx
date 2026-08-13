@@ -1,0 +1,68 @@
+import { Sheet } from '../../components/ui/Sheet';
+import { formatDueDate } from '../../lib/dates';
+import { ENERGY_LABEL, ENERGY_LEVELS } from '../../lib/energy';
+import { clearEnergyLevel, setEnergyLevel } from './energyRepo';
+import type { EnergyLevel } from '../../db/types';
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  date: string | null;
+  current: EnergyLevel | null;
+}
+
+/** Отметка за конкретный день — отсюда дозаполняются пропущенные дни.
+ *  Шкала показана списком с якорями: на прошлой неделе уже не вспомнить,
+ *  что означала «четвёрка», если подписи нет. */
+export function EnergyLevelSheet({ open, onClose, date, current }: Props) {
+  const choose = async (level: EnergyLevel) => {
+    if (!date) return;
+    await setEnergyLevel(date, level);
+    onClose();
+  };
+
+  const clear = async () => {
+    if (!date) return;
+    await clearEnergyLevel(date);
+    onClose();
+  };
+
+  return (
+    <Sheet open={open} onClose={onClose} title={date ? formatDueDate(date) : ''}>
+      <div className="space-y-2">
+        {ENERGY_LEVELS.map((n) => {
+          const active = current === n;
+          return (
+            <button
+              key={n}
+              type="button"
+              aria-pressed={active}
+              onClick={() => void choose(n)}
+              className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left active:opacity-70 ${
+                active ? 'bg-accent/10 ring-1 ring-accent' : 'bg-surface-2'
+              }`}
+            >
+              <span
+                className={`flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                  active ? 'bg-accent-fill text-white' : 'bg-surface text-muted'
+                }`}
+              >
+                {n}
+              </span>
+              <span className={active ? 'font-medium' : ''}>{ENERGY_LABEL[n]}</span>
+            </button>
+          );
+        })}
+        {current !== null && (
+          <button
+            type="button"
+            onClick={() => void clear()}
+            className="min-h-11 w-full rounded-xl px-3 py-2.5 text-sm text-muted active:opacity-70"
+          >
+            Снять отметку
+          </button>
+        )}
+      </div>
+    </Sheet>
+  );
+}

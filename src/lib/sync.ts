@@ -38,6 +38,7 @@ const SYNCED_TABLES = [
   'savingsGoals',
   'savingsDeposits',
   'energyItems',
+  'energyLogs',
   'placeItems',
   'metrics',
   'metricLogs',

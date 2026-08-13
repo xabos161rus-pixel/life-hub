@@ -104,7 +104,7 @@ export const SECTIONS: Section[] = [
     label: 'Энергия',
     to: '/more/energy',
     icon: BatteryCharging,
-    subtitle: 'Что меня восстанавливает',
+    subtitle: 'Уровень сил и что восстанавливает',
   },
   {
     id: 'places',

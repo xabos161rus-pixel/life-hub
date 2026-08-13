@@ -15,6 +15,8 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useToast } from '../../components/ui/toastContext';
 import { IconButton } from '../../components/ui/IconButton';
+import { StatCard } from '../../components/ui/StatCard';
+import { EnergyStatsCard } from '../energy/EnergyStatsCard';
 
 interface TaskStats {
   /** последние 7 дней (старые → новые): подпись дня + число выполненных */
@@ -152,15 +154,6 @@ function computeTaskTime(tasks: Task[]): TaskTimeStats {
   };
 }
 
-function StatCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="card p-4">
-      <h2 className="mb-2 px-1 text-sm font-semibold text-muted">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
 function StatNumber({ value, label, color }: { value: number; label: string; color?: string }) {
   return (
     <div className="min-w-0">
@@ -203,7 +196,11 @@ export function StatsPage() {
   const goalsRaw = useLiveQuery<Goal[]>(() => db.goals.toArray(), []);
   const learningRaw = useLiveQuery<LearningItem[]>(() => db.learningItems.toArray(), []);
   const expensesRaw = useLiveQuery(() => db.expenseItems.toArray(), []);
-  const loaded = useLoaded(tasksRaw, goalsRaw, learningRaw, expensesRaw);
+  // Пятый источник — только ради noData ниже: сам блок энергии берёт данные
+  // сам (EnergyStatsCard). Иначе человек, который неделю отмечал энергию и
+  // больше ничем не пользовался, открывал бы статистику и видел «нет данных».
+  const energyRaw = useLiveQuery(() => db.energyLogs.toArray(), []);
+  const loaded = useLoaded(tasksRaw, goalsRaw, learningRaw, expensesRaw, energyRaw);
   const allTasks = tasksRaw ?? [];
   const tasks = alive(allTasks);
   const deletedTasks = allTasks.length - tasks.length;
@@ -303,7 +300,8 @@ export function StatsPage() {
     tasks.length === 0 &&
     goals.length === 0 &&
     learning.length === 0 &&
-    expenses.length === 0;
+    expenses.length === 0 &&
+    alive(energyRaw ?? []).length === 0;
 
   // Пока не ответил хотя бы один источник — только оболочка экрана. Иначе
   // выбор был бы между двумя вспышками: ложное «нет данных» или графики,
@@ -374,6 +372,9 @@ export function StatsPage() {
             <StatTile value={`${taskBreakdown.avgChecklist}%`} label="чек-листы" />
           </div>
         </StatCard>
+
+        {/* Энергия — блок берёт данные сам и молчит, пока отметок меньше семи */}
+        <EnergyStatsCard />
 
         {/* Время на задачи — суммарная длительность задач по дням */}
         {taskTime.weekTotal > 0 && (

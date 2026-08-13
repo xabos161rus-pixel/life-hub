@@ -248,6 +248,17 @@ export interface EnergyItem extends BaseEntity {
   sortOrder: number;
 }
 
+// Дневник уровня энергии: одна отметка в день, шкала с функциональными
+// якорями (1 — еле держусь, 3 — рабочий режим, 5 — прёт). День без отметки
+// значит «нет данных», а НЕ ноль: пропуск не должен тянуть среднюю вниз и
+// изображать провал там, где человек просто не открыл приложение.
+export type EnergyLevel = 1 | 2 | 3 | 4 | 5;
+
+export interface EnergyLog extends BaseEntity {
+  date: string; // 'YYYY-MM-DD'; уникальный индекс &date — одна отметка в день
+  level: EnergyLevel;
+}
+
 // === Места и путешествия (#6) — советы, опыт, рекомендации ===
 export type PlaceKind = 'place' | 'thing' | 'tip' | 'food' | 'travel';
 export type PlaceStatus = 'idea' | 'want' | 'done';

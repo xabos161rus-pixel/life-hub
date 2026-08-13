@@ -240,7 +240,8 @@ export function SettingsPage() {
       `• материалов обучения: ${p.counts.learningItems}\n` +
       `• записей прогресса: ${p.counts.learningLogs}\n` +
       `• расходов: ${p.counts.expenseItems}\n` +
-      `• записей энергии: ${p.counts.energyItems}\n` +
+      `• способов восстановления: ${p.counts.energyItems}\n` +
+      `• отметок энергии: ${p.counts.energyLogs ?? 0}\n` +
       `• мест: ${p.counts.placeItems}\n` +
       `• метрик: ${p.counts.metrics}\n` +
       `• замеров метрик: ${p.counts.metricLogs}\n` +

@@ -20,6 +20,7 @@ import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { WeatherWidget } from './widgets/WeatherWidget';
 import { RemindersBlock } from './RemindersBlock';
 import { HabitsToday } from '../habits/HabitsToday';
+import { EnergyTodayLine } from '../energy/EnergyTodayLine';
 import { ProtectDataCard } from './ProtectDataCard';
 import { IconButton } from '../../components/ui/IconButton';
 
@@ -106,6 +107,10 @@ export function TodayPage() {
       <CycleTodayLine />
 
       <RemindersBlock />
+
+      {/* Выше привычек намеренно: отметка энергии — одна строка и один тап,
+          а список привычек бывает длинным и утаскивает её под сгиб. */}
+      <EnergyTodayLine />
 
       <HabitsToday />
 
