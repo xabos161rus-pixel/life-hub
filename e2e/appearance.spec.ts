@@ -52,8 +52,10 @@ test('английский язык: включается, переживает 
   // Настройка держится после перезагрузки.
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
-  // Непереведённые разделы честно остаются русскими (fallback, не пустота).
-  await expect(page.getByText('Синхронизация')).toBeVisible();
+  // Перевод пророс глубже секции «Оформление»: миграция окончена, на этом
+  // экране русскому fallback показываться не на чем (саму механику fallback
+  // держат юниты i18n.test.ts).
+  await expect(page.getByText('Sync', { exact: true })).toBeVisible();
   // Обратно на русский — селект теперь подписан по-английски.
   await page.getByLabel('Language').selectOption('ru');
   await expect(page.getByRole('heading', { name: 'Настройки' })).toBeVisible({ timeout: 10000 });
