@@ -10,20 +10,16 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { marked } from 'marked';
+import { Pin, SlidersHorizontal, Type } from 'lucide-react';
 import {
-  Bold,
-  Italic,
-  Image as ImageIcon,
-  Paperclip,
-  Strikethrough,
-  Pin,
-  SlidersHorizontal,
-  Type,
-} from 'lucide-react';
-import {
+  GAttach,
+  GBold,
   GBullets as List,
   GChecklist as ListChecks,
+  GItalic,
   GNumbers as ListOrdered,
+  GPhoto,
+  GStrike,
   GTrash as Trash2,
   GUndo as Undo2,
 } from '../../components/ui/glyphs';
@@ -812,13 +808,13 @@ export function NoteEditorPage() {
             </div>
             <div className="flex items-center justify-between gap-1">
               <ToolBtn onClick={() => exec('bold')} label="Жирный" active={active.bold} className="flex-1">
-                <Bold size={ICON.header} strokeWidth={STROKE_STRONG} />
+                <GBold size={ICON.header} strokeWidth={STROKE_STRONG} />
               </ToolBtn>
               <ToolBtn onClick={() => exec('italic')} label="Курсив" active={active.italic} className="flex-1">
-                <Italic size={ICON.header} strokeWidth={STROKE_STRONG} />
+                <GItalic size={ICON.header} strokeWidth={STROKE_STRONG} />
               </ToolBtn>
               <ToolBtn onClick={() => exec('strikeThrough')} label="Зачёркнутый" active={active.strike} className="flex-1">
-                <Strikethrough size={ICON.header} strokeWidth={STROKE_STRONG} />
+                <GStrike size={ICON.header} strokeWidth={STROKE_STRONG} />
               </ToolBtn>
               <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-hairline" />
               <ToolBtn onClick={() => exec('insertUnorderedList')} label="Маркированный список" active={active.ul} className="flex-1">
@@ -868,10 +864,10 @@ export function NoteEditorPage() {
             label="Фото"
             bare
           >
-            <ImageIcon size={ICON.header} strokeWidth={STROKE_STRONG} />
+            <GPhoto size={ICON.header} strokeWidth={STROKE_STRONG} />
           </ToolBtn>
           <ToolBtn onClick={() => fileInputRef.current?.click()} label="Файл" bare>
-            <Paperclip size={ICON.header} strokeWidth={STROKE_STRONG} />
+            <GAttach size={ICON.header} strokeWidth={STROKE_STRONG} />
           </ToolBtn>
           <ToolBtn onClick={() => exec('undo')} label="Отменить" bare>
             <Undo2 size={ICON.header} strokeWidth={STROKE_STRONG} />

@@ -1,7 +1,8 @@
 // Файлы-вложения под текстом заметки. Картинки сюда не попадают — они живут
 // инлайном в самом тексте; здесь всё остальное: PDF, архивы, таблицы.
 
-import { File as FileIcon, FileArchive, FileSpreadsheet, FileText, X } from 'lucide-react';
+import { File as FileIcon, FileArchive, FileSpreadsheet, FileText } from 'lucide-react';
+import { GClose } from '../../components/ui/glyphs';
 import type { NoteAttachment } from '../../lib/noteFiles';
 import { fileKindLabel, formatFileSize } from '../../lib/noteFiles';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
@@ -68,7 +69,7 @@ export function NoteAttachments({
               className={`shrink-0 rounded-lg p-2 text-muted active:bg-surface-2 ${HIT_SLOP_44}`}
               onClick={() => onDelete(f.fileId)}
             >
-              <X size={16} />
+              <GClose size={16} />
             </button>
           </div>
         );
