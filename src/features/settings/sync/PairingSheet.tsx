@@ -9,6 +9,7 @@ import { Sheet } from '../../../components/ui/Sheet';
 import { Button } from '../../../components/ui/Button';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { getPairingCode, connectSync, runSync } from '../../../lib/sync';
+import { t } from '../../../lib/i18n';
 
 interface Props {
   open: boolean;
@@ -54,7 +55,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
           onClose();
         })
         .catch(() => {
-          setError('Не удалось подключить. Проверьте код и попробуйте снова.');
+          setError(t('Не удалось подключить. Проверьте код и попробуйте снова.'));
           setBusy(false);
         });
     };
@@ -115,7 +116,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
         };
         rafRef.current = requestAnimationFrame(tick);
       } catch {
-        setError('Нет доступа к камере. Вставьте код вручную.');
+        setError(t('Нет доступа к камере. Вставьте код вручную.'));
         setTab('paste');
       }
     })();
@@ -145,7 +146,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={mode === 'show' ? 'Код для другого устройства' : 'Подключить устройство'}>
+    <Sheet open={open} onClose={onClose} title={mode === 'show' ? t('Код для другого устройства') : t('Подключить устройство')}>
       {mode === 'show' ? (
         <div className="space-y-4">
           <p className="text-sm text-muted">
@@ -153,13 +154,13 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
           </p>
           {qrUrl && (
             <div className="flex justify-center">
-              <img src={qrUrl} alt="QR-код сопряжения" className="rounded-2xl bg-white p-3" width={260} height={260} />
+              <img src={qrUrl} alt={t('QR-код сопряжения')} className="rounded-2xl bg-white p-3" width={260} height={260} />
             </div>
           )}
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1 inline-flex items-center justify-center gap-2" onClick={copyCode}>
               {copied ? <Check size={18} /> : <Copy size={18} />}
-              {copied ? 'Скопировано' : 'Скопировать код'}
+              {copied ? t('Скопировано') : t('Скопировать код')}
             </Button>
             <Button variant="secondary" className="flex-1 inline-flex items-center justify-center gap-2" onClick={saveKeyFile}>
               <Download size={18} />
@@ -176,20 +177,24 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
         </div>
       ) : (
         <div className="space-y-4">
-          <SegmentedControl options={SCAN_TABS} value={tab} onChange={setTab} />
+          <SegmentedControl
+            options={SCAN_TABS.map((o) => ({ ...o, label: t(o.label) }))}
+            value={tab}
+            onChange={setTab}
+          />
           {tab === 'scan' ? (
             <div className="space-y-2">
               <div className="overflow-hidden rounded-2xl bg-black">
                 <video ref={videoRef} className="aspect-square w-full object-cover" muted playsInline />
               </div>
-              <p className="text-center text-sm text-muted">Наведите камеру на QR-код первого устройства</p>
+              <p className="text-center text-sm text-muted">{t('Наведите камеру на QR-код первого устройства')}</p>
             </div>
           ) : (
             <div className="space-y-2">
               <textarea
                 value={pasteVal}
                 onChange={(e) => setPasteVal(e.target.value)}
-                placeholder="Вставьте код сопряжения"
+                placeholder={t('Вставьте код сопряжения')}
                 rows={4}
                 className="w-full rounded-xl border border-border bg-surface p-3 font-mono text-xs"
               />
@@ -198,7 +203,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
                 disabled={!pasteVal.trim() || busy}
                 onClick={() => connectRef.current(pasteVal)}
               >
-                {busy ? 'Подключаю…' : 'Подключить'}
+                {busy ? t('Подключаю…') : t('Подключить')}
               </Button>
             </div>
           )}

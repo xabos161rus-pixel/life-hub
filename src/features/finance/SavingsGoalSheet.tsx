@@ -4,6 +4,7 @@ import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { Sheet } from '../../components/ui/Sheet';
 import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
+import { t } from '../../lib/i18n';
 import type { SavingsGoal } from '../../db/types';
 
 const COLORS = ['#7c9cff', '#a78bfa', '#f472b6', '#fb923c', '#facc15', '#4ade80', '#22d3ee', '#f87171'];
@@ -16,7 +17,7 @@ interface Props {
 
 export function SavingsGoalSheet({ open, onClose, goal }: Props) {
   return (
-    <Sheet open={open} onClose={onClose} title={goal ? 'Цель накопления' : 'Новая цель'}>
+    <Sheet open={open} onClose={onClose} title={goal ? t('Цель накопления') : t('Новая цель')}>
       <GoalForm key={goal?.id ?? 'new'} goal={goal ?? null} onClose={onClose} />
     </Sheet>
   );
@@ -56,7 +57,7 @@ function GoalForm({ goal, onClose }: { goal: SavingsGoal | null; onClose: () => 
 
   const handleDelete = async () => {
     if (!goal) return;
-    if (!window.confirm('Удалить цель со всеми пополнениями?')) return;
+    if (!window.confirm(t('Удалить цель со всеми пополнениями?'))) return;
     const deps = await db.savingsDeposits.where('goalId').equals(goal.id).toArray();
     for (const d of deps) await remove(db.savingsDeposits, d.id);
     await remove(db.savingsGoals, goal.id);
@@ -65,16 +66,16 @@ function GoalForm({ goal, onClose }: { goal: SavingsGoal | null; onClose: () => 
 
   return (
     <div className="space-y-4 pb-2">
-      <Field label="Название">
+      <Field label={t('Название')}>
         <AutoGrowTextarea
           value={title}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
-          placeholder="Например, «Подушка безопасности»"
+          placeholder={t('Например, «Подушка безопасности»')}
         />
       </Field>
       <div className="flex gap-3">
         <div className="w-24">
-          <Field label="Значок">
+          <Field label={t('Значок')}>
             <Input
               value={emoji}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setEmoji(e.target.value)}
@@ -84,7 +85,7 @@ function GoalForm({ goal, onClose }: { goal: SavingsGoal | null; onClose: () => 
           </Field>
         </div>
         <div className="flex-1">
-          <Field label="Цель, ₽">
+          <Field label={t('Цель, ₽')}>
             <Input
               type="number"
               inputMode="decimal"
@@ -97,14 +98,14 @@ function GoalForm({ goal, onClose }: { goal: SavingsGoal | null; onClose: () => 
         </div>
       </div>
       <div>
-        <span className="mb-1.5 block text-sm font-medium text-muted">Цвет</span>
+        <span className="mb-1.5 block text-sm font-medium text-muted">{t('Цвет')}</span>
         <div className="flex flex-wrap gap-2.5">
           {COLORS.map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => setColor(c)}
-              aria-label={`Цвет ${c}`}
+              aria-label={t('Цвет {c}', { c })}
               className={`size-8 rounded-full transition-transform ${
                 color === c ? 'scale-110 ring-2 ring-white/70' : ''
               }`}
@@ -113,29 +114,29 @@ function GoalForm({ goal, onClose }: { goal: SavingsGoal | null; onClose: () => 
           ))}
         </div>
       </div>
-      <Field label="Срок">
+      <Field label={t('Срок')}>
         <Input
           type="date"
           value={date}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
         />
       </Field>
-      <Field label="Заметка">
+      <Field label={t('Заметка')}>
         <AutoGrowTextarea
           value={note}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)}
-          placeholder="Зачем копим, детали…"
+          placeholder={t('Зачем копим, детали…')}
           className="min-h-[4rem]"
         />
       </Field>
       <div className="flex gap-2 pt-1">
         {goal && (
           <Button variant="danger" onClick={() => void handleDelete()}>
-            Удалить
+            {t('Удалить')}
           </Button>
         )}
         <Button className="flex-1" disabled={!canSave} onClick={() => void handleSave()}>
-          Сохранить
+          {t('Сохранить')}
         </Button>
       </div>
     </div>

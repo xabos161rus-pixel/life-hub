@@ -8,6 +8,7 @@ import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
 import type { ExpenseItem, ExpenseKind, ExpenseRecurrence } from '../../db/types';
 import { EXPENSE_CATEGORY_SUGGESTIONS } from '../../lib/finance';
+import { t } from '../../lib/i18n';
 
 interface Props {
   open: boolean;
@@ -17,7 +18,7 @@ interface Props {
 
 export function ExpenseSheet({ open, onClose, item }: Props) {
   return (
-    <Sheet open={open} onClose={onClose} title={item ? 'Запись' : 'Новая запись'}>
+    <Sheet open={open} onClose={onClose} title={item ? t('Запись') : t('Новая запись')}>
       {/* Sheet при !open возвращает null → форма размонтируется и при
           следующем открытии инициализируется заново из item. */}
       <ExpenseForm key={item?.id ?? 'new'} item={item ?? null} onClose={onClose} />
@@ -72,22 +73,22 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!window.confirm('Удалить запись?')) return;
+    if (!window.confirm(t('Удалить запись?'))) return;
     await remove(db.expenseItems, item.id);
     onClose();
   };
 
   return (
     <div className="space-y-4 pb-2">
-      <Field label="Название">
+      <Field label={t('Название')}>
         <AutoGrowTextarea
           value={title}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setTitle(e.target.value)}
           onClear={() => setTitle('')}
-          placeholder="Например, «Аренда квартиры»"
+          placeholder={t('Например, «Аренда квартиры»')}
         />
       </Field>
-      <Field label="Сумма, ₽">
+      <Field label={t('Сумма, ₽')}>
         <Input
           type="number"
           inputMode="decimal"
@@ -97,11 +98,11 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
           placeholder="0"
         />
       </Field>
-      <Field label="Тип">
+      <Field label={t('Тип')}>
         <SegmentedControl<ExpenseKind>
           options={[
-            { value: 'expense', label: 'Расход' },
-            { value: 'income', label: 'Доход' },
+            { value: 'expense', label: t('Расход') },
+            { value: 'income', label: t('Доход') },
           ]}
           value={kind}
           onChange={setKind}
@@ -109,12 +110,12 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
       </Field>
       {kind === 'expense' && (
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">Категория</span>
+          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Категория')}</span>
           <div className="mb-2">
             <ChipRow>
               {EXPENSE_CATEGORY_SUGGESTIONS.map((c) => (
                 <Chip key={c} active={category === c} onClick={() => setCategory(c)}>
-                  {c}
+                  {t(c)}
                 </Chip>
               ))}
             </ChipRow>
@@ -122,24 +123,24 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
           <Input
             value={category}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setCategory(e.target.value)}
-            placeholder="Категория"
+            placeholder={t('Категория')}
           />
         </div>
       )}
-      <Field label="Периодичность">
+      <Field label={t('Периодичность')}>
         <SegmentedControl<ExpenseRecurrence>
           options={[
-            { value: 'monthly', label: 'Месяц' },
-            { value: 'weekly', label: 'Неделя' },
-            { value: 'yearly', label: 'Год' },
-            { value: 'oneoff', label: 'Разово' },
+            { value: 'monthly', label: t('Месяц') },
+            { value: 'weekly', label: t('Неделя') },
+            { value: 'yearly', label: t('Год') },
+            { value: 'oneoff', label: t('Разово') },
           ]}
           value={recurrence}
           onChange={setRecurrence}
         />
       </Field>
       {recurrence === 'monthly' && (
-        <Field label="День месяца">
+        <Field label={t('День месяца')}>
           <Input
             type="number"
             inputMode="numeric"
@@ -147,15 +148,15 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
             max={31}
             value={dayStr}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setDayStr(e.target.value)}
-            placeholder="Например, 5"
+            placeholder={t('Например, 5')}
           />
         </Field>
       )}
-      <Field label="Заметки">
+      <Field label={t('Заметки')}>
         <AutoGrowTextarea
           value={notes}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
-          placeholder="Детали, способ оплаты…"
+          placeholder={t('Детали, способ оплаты…')}
           className="min-h-[4.5rem]"
         />
       </Field>
@@ -168,16 +169,16 @@ function ExpenseForm({ item, onClose }: { item: ExpenseItem | null; onClose: () 
             : 'border-hairline bg-surface text-muted'
         }`}
       >
-        {active ? 'Учитывается в сводке' : 'Не учитывается в сводке'}
+        {active ? t('Учитывается в сводке') : t('Не учитывается в сводке')}
       </button>
       <div className="flex gap-2 pt-1">
         {item && (
           <Button variant="danger" onClick={() => void handleDelete()}>
-            Удалить
+            {t('Удалить')}
           </Button>
         )}
         <Button className="flex-1" disabled={!canSave} onClick={() => void handleSave()}>
-          Сохранить
+          {t('Сохранить')}
         </Button>
       </div>
     </div>

@@ -8,6 +8,7 @@ import { db } from '../../db/db';
 import { now } from '../../db/repo';
 import { updateSettings } from '../../hooks/useSettings';
 import { REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
+import { t } from '../../lib/i18n';
 import { STROKE_STRONG } from '../../components/ui/icons';
 
 const SLIDES: { icon: LucideIcon; title: string; text: string }[] = [
@@ -87,8 +88,8 @@ export function OnboardingOverlay() {
         <div className="flex size-20 items-center justify-center rounded-3xl bg-accent/15 text-accent shadow-[var(--shadow-accent)]">
           <Icon size={40} strokeWidth={STROKE_STRONG} />
         </div>
-        <h2 className="text-2xl font-bold tracking-tight">{slide.title}</h2>
-        <p className="max-w-sm text-sm leading-relaxed text-muted">{slide.text}</p>
+        <h2 className="text-2xl font-bold tracking-tight">{t(slide.title)}</h2>
+        <p className="max-w-sm text-sm leading-relaxed text-muted">{t(slide.text)}</p>
       </div>
 
       <div className="relative flex items-center justify-center gap-1.5 pb-5">
@@ -96,7 +97,7 @@ export function OnboardingOverlay() {
           <button
             key={i}
             type="button"
-            aria-label={`Шаг ${i + 1}`}
+            aria-label={t('Шаг {n}', { n: i + 1 })}
             onClick={() => setStep(i)}
             className={`h-2 rounded-full transition-all ${
               i === step ? 'w-5 bg-accent' : 'w-2 bg-muted/40'
@@ -111,14 +112,14 @@ export function OnboardingOverlay() {
           onClick={finish}
           className="px-3 py-3 text-sm font-medium text-muted active:opacity-60"
         >
-          Пропустить
+          {t('Пропустить')}
         </button>
         <button
           type="button"
           onClick={last ? finish : () => setStep((s) => s + 1)}
           className="flex flex-1 items-center justify-center gap-1 rounded-2xl bg-accent-fill px-5 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80"
         >
-          {last ? 'Начать' : 'Далее'}
+          {last ? t('Начать') : t('Далее')}
           {!last && <ChevronRight size={18} />}
         </button>
       </div>

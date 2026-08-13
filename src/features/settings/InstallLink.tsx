@@ -5,6 +5,7 @@ import {
 } from '../../components/ui/glyphs';
 import { INSTALL_URL } from '../../lib/appInstall';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { t } from '../../lib/i18n';
 
 /**
  * Постоянный блок «ссылка для установки»: показывает адрес сайта, даёт
@@ -30,7 +31,7 @@ export function InstallLink() {
         <button
           type="button"
           onClick={copy}
-          aria-label="Скопировать ссылку"
+          aria-label={t('Скопировать ссылку')}
           className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-accent active:opacity-60 ${HIT_SLOP_44}`}
         >
           {copied ? <Check size={18} /> : <Copy size={18} />}

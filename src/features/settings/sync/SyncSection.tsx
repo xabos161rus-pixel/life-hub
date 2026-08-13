@@ -6,9 +6,10 @@ import { useToast } from '../../../components/ui/toastContext';
 import { getSyncConfig } from '../../../lib/syncState';
 import { createSyncAccount, disableSync, runSync } from '../../../lib/sync';
 import { PairingSheet } from './PairingSheet';
+import { t } from '../../../lib/i18n';
 
 function formatSyncedAt(iso: string): string {
-  if (!iso) return 'ещё не синхронизировано';
+  if (!iso) return t('ещё не синхронизировано');
   return new Date(iso).toLocaleString('ru-RU', {
     day: 'numeric',
     month: 'short',
@@ -41,7 +42,7 @@ export function SyncSection() {
     setBusy(true);
     try {
       const r = await runSync();
-      if (r) toast(`Синхронизировано · получено ${r.pulled}, отправлено ${r.pushed}`);
+      if (r) toast(t('Синхронизировано · получено {pulled}, отправлено {pushed}', { pulled: r.pulled, pushed: r.pushed }));
     } catch {
       toast('Не удалось синхронизировать. Проверьте связь и попробуйте ещё раз');
     } finally {
@@ -50,7 +51,7 @@ export function SyncSection() {
   }
 
   async function handleDisable() {
-    if (!window.confirm('Отключить синхронизацию на этом устройстве? Локальные данные останутся на месте.')) return;
+    if (!window.confirm(t('Отключить синхронизацию на этом устройстве? Локальные данные останутся на месте.'))) return;
     await disableSync();
     toast('Синхронизация отключена');
   }
@@ -63,14 +64,14 @@ export function SyncSection() {
             <p className="flex items-center gap-2 text-sm">
               <ShieldCheck size={18} className="shrink-0 text-success" />
               <span>
-                <span className="font-medium text-success">Включена</span> · E2E-шифрование
+                <span className="font-medium text-success">{t('Включена')}</span> · {t('E2E-шифрование')}
                 <br />
-                <span className="text-muted">Последняя: {formatSyncedAt(config.lastSyncedAt)}</span>
+                <span className="text-muted">{t('Последняя: {when}', { when: formatSyncedAt(config.lastSyncedAt) })}</span>
               </span>
             </p>
             <Button className="w-full inline-flex items-center justify-center gap-2" disabled={busy} onClick={() => void handleSyncNow()}>
               <RefreshCw size={18} className={busy ? 'animate-spin' : ''} />
-              Синхронизировать сейчас
+              {t('Синхронизировать сейчас')}
             </Button>
             <Button
               variant="secondary"
@@ -78,23 +79,22 @@ export function SyncSection() {
               onClick={() => setSheet('show')}
             >
               <QrCode size={18} />
-              Показать QR для другого устройства
+              {t('Показать QR для другого устройства')}
             </Button>
             <button
               className="w-full pt-1 text-sm text-danger active:opacity-60"
               onClick={() => void handleDisable()}
             >
-              Отключить синхронизацию
+              {t('Отключить синхронизацию')}
             </button>
           </>
         ) : (
           <>
             <p className="text-sm text-muted">
-              Синхронизируйте задачи, заметки, цели и финансы между устройствами. Содержимое
-              шифруется на устройстве (E2E) — на сервере только шифротекст.
+              {t('Синхронизируйте задачи, заметки, цели и финансы между устройствами. Содержимое шифруется на устройстве (E2E) — на сервере только шифротекст.')}
             </p>
             <Button className="w-full" disabled={busy} onClick={() => void handleCreate()}>
-              Включить на этом устройстве
+              {t('Включить на этом устройстве')}
             </Button>
             <Button
               variant="secondary"
@@ -102,7 +102,7 @@ export function SyncSection() {
               onClick={() => setSheet('connect')}
             >
               <Smartphone size={18} className="shrink-0" />
-              Подключить к другому устройству
+              {t('Подключить к другому устройству')}
             </Button>
           </>
         )}

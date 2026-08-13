@@ -11,6 +11,7 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
+import { t } from '../../lib/i18n';
 import {
   compressImage,
   ImageDecodeError,
@@ -22,9 +23,9 @@ import {
  *  Ноль здесь — не значение: рост 0 см не бывает, а сохранённый ноль потом
  *  неотличим от «человек стёр». */
 function parseNumber(raw: string): number | null {
-  const t = raw.replace(',', '.').trim();
-  if (t === '') return null;
-  const v = Number(t);
+  const s = raw.replace(',', '.').trim();
+  if (s === '') return null;
+  const v = Number(s);
   return Number.isFinite(v) && v > 0 ? v : null;
 }
 
@@ -67,7 +68,7 @@ export function ProfilePage() {
         },
       });
       setDraft(null);
-      toast('Сохранено');
+      toast(t('Сохранено'));
     } finally {
       setBusy(false);
     }
@@ -82,11 +83,11 @@ export function ProfilePage() {
       await updateSettings({ profile: { ...p, avatar: dataUrl } });
     } catch (err) {
       if (err instanceof ImageTooLargeError) {
-        toast(`Файл больше ${Math.round(MAX_INPUT_BYTES / 1024 / 1024)} МБ`);
+        toast(t('Файл больше {mb} МБ', { mb: Math.round(MAX_INPUT_BYTES / 1024 / 1024) }));
       } else if (err instanceof ImageDecodeError) {
-        toast('Не удалось открыть фото. Попробуйте другой файл');
+        toast(t('Не удалось открыть фото. Попробуйте другой файл'));
       } else {
-        toast('Не удалось сохранить фото. Попробуйте ещё раз');
+        toast(t('Не удалось сохранить фото. Попробуйте ещё раз'));
       }
     } finally {
       setBusy(false);
@@ -94,7 +95,7 @@ export function ProfilePage() {
   }
 
   return (
-    <Screen title="Профиль" backTo="/home">
+    <Screen title={t('Профиль')} backTo="/home">
       <div className="space-y-5">
         <div className="flex flex-col items-center gap-3">
           {p?.avatar ? (
@@ -126,7 +127,7 @@ export function ProfilePage() {
           <div className="flex flex-col gap-2 min-[380px]:flex-row">
             <Button variant="secondary" disabled={busy} onClick={() => fileRef.current?.click()}>
               <Camera size={16} className="-mt-0.5 mr-1.5 inline" />
-              {p?.avatar ? 'Заменить фото' : 'Добавить фото'}
+              {p?.avatar ? t('Заменить фото') : t('Добавить фото')}
             </Button>
             {p?.avatar && (
               <Button
@@ -136,22 +137,22 @@ export function ProfilePage() {
                 onClick={() => void updateSettings({ profile: { ...p, avatar: null } })}
               >
                 <Trash2 size={16} className="-mt-0.5 mr-1.5 inline" />
-                Удалить фото
+                {t('Удалить фото')}
               </Button>
             )}
           </div>
         </div>
 
         <div className="card space-y-4 p-4">
-          <Field label="Имя">
+          <Field label={t('Имя')}>
             <Input
               value={form.name}
               onChange={(e) => set({ name: e.target.value })}
-              placeholder="Как вас зовут"
+              placeholder={t('Как вас зовут')}
               autoComplete="name"
             />
           </Field>
-          <Field label="Дата рождения">
+          <Field label={t('Дата рождения')}>
             <Input
               type="date"
               value={form.birthDate}
@@ -163,22 +164,22 @@ export function ProfilePage() {
               подписям меньше, чем нужно словам «Дата рождения». */}
           <div className="flex flex-col gap-4 min-[380px]:flex-row">
             <div className="min-w-0 flex-1">
-              <Field label="Рост, см">
+              <Field label={t('Рост, см')}>
                 <Input
                   inputMode="numeric"
                   value={form.heightCm}
                   onChange={(e) => set({ heightCm: e.target.value.replace(/[^\d]/g, '') })}
-                  placeholder="—"
+                  placeholder={t('—')}
                 />
               </Field>
             </div>
             <div className="min-w-0 flex-1">
-              <Field label="Вес, кг">
+              <Field label={t('Вес, кг')}>
                 <Input
                   inputMode="decimal"
                   value={form.weightKg}
                   onChange={(e) => set({ weightKg: e.target.value.replace(/[^\d.,]/g, '') })}
-                  placeholder="—"
+                  placeholder={t('—')}
                 />
               </Field>
             </div>
@@ -189,32 +190,34 @@ export function ProfilePage() {
             приложения (раздел «Женские дни» существует только в женском
             профиле), и отложенное «Сохранить» здесь только запутывало бы. */}
         <div className="card space-y-2 p-4">
-          <Field label="Пол">
+          <Field label={t('Пол')}>
             <SegmentedControl<'female' | 'male'>
               options={[
-                { value: 'female', label: 'Женский' },
-                { value: 'male', label: 'Мужской' },
+                { value: 'female', label: t('Женский') },
+                { value: 'male', label: t('Мужской') },
               ]}
               value={settings?.gender ?? 'female'}
               onChange={(v) => void updateSettings({ gender: v })}
             />
           </Field>
           <p className="text-xs leading-snug text-muted">
-            Определяет набор разделов: «Женские дни» есть только в женском профиле. При смене
-            пола записи раздела не удаляются — он просто скрывается.
+            {t(
+              'Определяет набор разделов: «Женские дни» есть только в женском профиле. При смене пола записи раздела не удаляются — он просто скрывается.',
+            )}
           </p>
         </div>
 
         <Button className="w-full" disabled={busy || draft === null} onClick={() => void save()}>
-          Сохранить
+          {t('Сохранить')}
         </Button>
 
         {/* Профиль хранится там же, где остальные настройки приложения, — на
             устройстве. Человек, заполняющий рост и вес, вправе знать, куда они
             попадут, до того как их напишет. */}
         <p className="px-1 text-xs leading-snug text-muted">
-          Эти данные остаются на устройстве и попадают только в вашу резервную копию. Никуда больше
-          они не отправляются.
+          {t(
+            'Эти данные остаются на устройстве и попадают только в вашу резервную копию. Никуда больше они не отправляются.',
+          )}
         </p>
       </div>
     </Screen>

@@ -21,6 +21,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
+import { t } from '../../lib/i18n';
 
 const PER_SECTION = 8;
 
@@ -52,7 +53,7 @@ function Row({ icon: Icon, hit }: { icon: LucideIcon; hit: Hit }) {
     <Link to={hit.to} className="flex items-start gap-3 px-4 py-3 active:opacity-70">
       <Icon size={18} className="mt-0.5 shrink-0 text-accent" />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{hit.title || 'Без названия'}</p>
+        <p className="truncate font-medium">{hit.title || t('Без названия')}</p>
         {hit.context && <p className="truncate text-sm text-muted">{hit.context}</p>}
       </div>
     </Link>
@@ -84,8 +85,8 @@ export function SearchPage() {
     ): SectionResult => ({ key, label, icon, hits: all.slice(0, PER_SECTION), total: all.length });
 
     const taskHits: Hit[] = alive(tasks ?? [])
-      .filter((t) => `${t.title}\n${t.notes}`.toLowerCase().includes(q))
-      .map((t) => ({ id: t.id, to: '/tasks', title: t.title, context: t.notes }));
+      .filter((task) => `${task.title}\n${task.notes}`.toLowerCase().includes(q))
+      .map((task) => ({ id: task.id, to: '/tasks', title: task.title, context: task.notes }));
 
     const noteHits: Hit[] = alive(notes ?? [])
       .map((n) => ({ note: n, text: htmlToText(n.content) }))
@@ -115,7 +116,7 @@ export function SearchPage() {
 
     const expenseHits: Hit[] = alive(expenses ?? [])
       .filter((x) => `${x.title}\n${x.category}`.toLowerCase().includes(q))
-      .map((x) => ({ id: x.id, to: '/more/finance', title: x.title, context: x.category }));
+      .map((x) => ({ id: x.id, to: '/more/finance', title: x.title, context: t(x.category) }));
 
     // Чат append-only и без другой навигации, кроме скролла, — поиск обязан
     // его видеть. Системные и удалённые сообщения пропускаем.
@@ -134,36 +135,36 @@ export function SearchPage() {
       .map((r) => ({ id: r.id, to: '/', title: r.text, context: '' }));
 
     return [
-      build('tasks', 'Задачи', SECTION_BY_ID.get('tasks')!.icon, taskHits),
-      build('notes', 'Заметки', SECTION_BY_ID.get('notes')!.icon, noteHits),
-      build('goals', 'Цели', SECTION_BY_ID.get('goals')!.icon, goalHits),
-      build('reminders', 'Напоминания', Bell, reminderHits),
-      build('family', 'Семейный чат', MessagesSquare, chatHits),
-      build('places', 'Места', SECTION_BY_ID.get('places')!.icon, placeHits),
-      build('learning', 'Обучение', SECTION_BY_ID.get('learning')!.icon, learningHits),
-      build('energy', 'Энергия', SECTION_BY_ID.get('energy')!.icon, energyHits),
-      build('expenses', 'Финансы', SECTION_BY_ID.get('finance')!.icon, expenseHits),
+      build('tasks', t('Задачи'), SECTION_BY_ID.get('tasks')!.icon, taskHits),
+      build('notes', t('Заметки'), SECTION_BY_ID.get('notes')!.icon, noteHits),
+      build('goals', t('Цели'), SECTION_BY_ID.get('goals')!.icon, goalHits),
+      build('reminders', t('Напоминания'), Bell, reminderHits),
+      build('family', t('Семейный чат'), MessagesSquare, chatHits),
+      build('places', t('Места'), SECTION_BY_ID.get('places')!.icon, placeHits),
+      build('learning', t('Обучение'), SECTION_BY_ID.get('learning')!.icon, learningHits),
+      build('energy', t('Энергия'), SECTION_BY_ID.get('energy')!.icon, energyHits),
+      build('expenses', t('Финансы'), SECTION_BY_ID.get('finance')!.icon, expenseHits),
     ].filter((s) => s.total > 0);
   }, [q, tasks, notes, goals, places, learning, energy, expenses, familyMsgs, reminders]);
 
   return (
-    <Screen title="Поиск" backTo="/">
+    <Screen title={t('Поиск')} backTo="/">
       <SearchField
         autoFocus
         value={query}
         onChange={setQuery}
-        placeholder="Искать везде…"
+        placeholder={t('Искать везде…')}
         className="mb-4"
       />
 
       {!q ? (
         <EmptyState
           icon={Search}
-          title="Поиск по всему"
-          hint="Задачи, заметки, цели, финансы и обучение — всё найдётся здесь"
+          title={t('Поиск по всему')}
+          hint={t('Задачи, заметки, цели, финансы и обучение — всё найдётся здесь')}
         />
       ) : sections.length === 0 ? (
-        <EmptyState icon={SearchX} title="Ничего не найдено" hint="Попробуйте другой запрос" />
+        <EmptyState icon={SearchX} title={t('Ничего не найдено')} hint={t('Попробуйте другой запрос')} />
       ) : (
         <div className="space-y-5">
           {sections.map((s) => (
@@ -178,7 +179,7 @@ export function SearchPage() {
               </div>
               {s.total > s.hits.length && (
                 <p className="mt-1.5 px-1 text-sm text-muted">
-                  и ещё {s.total - s.hits.length}
+                  {t('и ещё {n}', { n: s.total - s.hits.length })}
                 </p>
               )}
             </section>

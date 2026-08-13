@@ -12,6 +12,7 @@ import { alive, update } from '../../db/repo';
 import type { LearningItem, LearningKind, Task } from '../../db/types';
 import { formatRu } from '../../lib/dates';
 import { formatNum } from '../../lib/finance';
+import { t } from '../../lib/i18n';
 import { goalProgress, goalProgressLabel } from '../../lib/progress';
 import { Screen } from '../../components/layout/Screen';
 import { Input } from '../../components/ui/Input';
@@ -81,16 +82,16 @@ export function GoalDetailPage() {
   const [valueDraft, setValueDraft] = useState<string | null>(null);
 
   if (goal === undefined) {
-    return <Screen title="Цель" backTo="/goals">{null}</Screen>;
+    return <Screen title={t('Цель')} backTo="/goals">{null}</Screen>;
   }
 
   if (goal === null || goal.deletedAt) {
     return (
-      <Screen title="Цель" backTo="/goals">
+      <Screen title={t('Цель')} backTo="/goals">
         <div className="py-14 text-center">
-          <p className="font-semibold text-muted">Цель не найдена</p>
+          <p className="font-semibold text-muted">{t('Цель не найдена')}</p>
           <Link to="/goals" className="mt-2 inline-block text-sm font-medium text-accent">
-            К списку целей
+            {t('К списку целей')}
           </Link>
         </div>
       </Screen>
@@ -126,7 +127,7 @@ export function GoalDetailPage() {
       title={goal.title}
       backTo="/goals"
       right={
-        <IconButton icon={Pencil} label="Редактировать" onClick={() => setEditOpen(true)} />
+        <IconButton icon={Pencil} label={t('Редактировать')} onClick={() => setEditOpen(true)} />
       }
     >
       {goal.description && (
@@ -138,20 +139,22 @@ export function GoalDetailPage() {
         <div className="min-w-0">
           <p className="text-lg font-bold">{goalProgressLabel(goal, goalTasks)}</p>
           {goal.targetDate && (
-            <p className="text-sm text-muted">Срок: {formatRu(goal.targetDate, 'd MMMM yyyy')}</p>
+            <p className="text-sm text-muted">
+              {t('Срок: {date}', { date: formatRu(goal.targetDate, 'd MMMM yyyy') })}
+            </p>
           )}
         </div>
       </div>
 
       {goal.status === 'active' && progress >= 100 && (
         <div className="mt-3 rounded-2xl border border-success/40 bg-success/10 p-4">
-          <p className="font-semibold text-success">Цель достигнута?</p>
+          <p className="font-semibold text-success">{t('Цель достигнута?')}</p>
           <button
             type="button"
             onClick={() => update(db.goals, goal.id, { status: 'completed' })}
             className="mt-1 text-sm font-medium text-success underline"
           >
-            Отметить завершённой
+            {t('Отметить завершённой')}
           </button>
         </div>
       )}
@@ -160,7 +163,7 @@ export function GoalDetailPage() {
         {goal.progressMode === 'manual' && (
           <div className="card p-4">
             <p className="mb-2 text-sm font-medium text-muted">
-              Прогресс вручную · {goal.progressManual}%
+              {t('Прогресс вручную · {n}%', { n: goal.progressManual })}
             </p>
             <input
               type="range"
@@ -168,7 +171,7 @@ export function GoalDetailPage() {
               max={100}
               step={1}
               value={goal.progressManual}
-              aria-label="Прогресс вручную, проценты"
+              aria-label={t('Прогресс вручную, проценты')}
               onChange={(e: ChangeEvent<HTMLInputElement>) =>
                 update(db.goals, goal.id, { progressManual: Number(e.target.value) })
               }
@@ -180,13 +183,16 @@ export function GoalDetailPage() {
         {goal.progressMode === 'numeric' && (
           <div className="card p-4">
             <p className="mb-2 text-sm font-medium text-muted">
-              {formatNum(current)} из {formatNum(goal.targetValue ?? 0)}
+              {t('{done} из {total}', {
+                done: formatNum(current),
+                total: formatNum(goal.targetValue ?? 0),
+              })}
               {goal.unitLabel ? ` ${goal.unitLabel}` : ''}
             </p>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                aria-label="Уменьшить прогресс"
+                aria-label={t('Уменьшить прогресс')}
                 onClick={() => {
                   setValueDraft(null);
                   void changeBy(-1);
@@ -211,7 +217,7 @@ export function GoalDetailPage() {
               />
               <button
                 type="button"
-                aria-label="Увеличить прогресс"
+                aria-label={t('Увеличить прогресс')}
                 onClick={() => {
                   setValueDraft(null);
                   void changeBy(1);
@@ -224,21 +230,21 @@ export function GoalDetailPage() {
           </div>
         )}
         {goal.progressMode === 'tasks' && (
-          <p className="px-1 text-sm text-muted">Прогресс считается по задачам ниже.</p>
+          <p className="px-1 text-sm text-muted">{t('Прогресс считается по задачам ниже.')}</p>
         )}
       </div>
 
       <section className="mt-6">
-        <SectionHeader title="Задачи" />
+        <SectionHeader title={t('Задачи')} />
         {sortedTasks.length === 0 && (
-          <p className="px-1 text-sm text-muted">Нет привязанных задач.</p>
+          <p className="px-1 text-sm text-muted">{t('Нет привязанных задач.')}</p>
         )}
         <div className="flex flex-col gap-2">
-          {sortedTasks.map((t) => (
+          {sortedTasks.map((taskItem) => (
             <TaskItem
-              key={t.id}
-              task={t}
-              project={projects.find((p) => p.id === t.projectId) ?? null}
+              key={taskItem.id}
+              task={taskItem}
+              project={projects.find((p) => p.id === taskItem.projectId) ?? null}
               onEdit={(task) => {
                 setEditingTask(task);
                 setTaskSheetOpen(true);
@@ -254,18 +260,18 @@ export function GoalDetailPage() {
           }}
           className="mt-2 flex items-center gap-1.5 px-1 py-2 text-sm font-medium text-accent"
         >
-          <Plus size={16} /> Задача
+          <Plus size={16} /> {t('Задача')}
         </button>
       </section>
 
       <section className="mt-6">
         <SectionHeader
-          title="Обучение"
-          actionLabel="Привязать"
+          title={t('Обучение')}
+          actionLabel={t('Привязать')}
           onAction={() => setLinkLearningOpen(true)}
         />
         {linkedLearning.length === 0 && (
-          <p className="px-1 text-sm text-muted">Нет привязанных материалов.</p>
+          <p className="px-1 text-sm text-muted">{t('Нет привязанных материалов.')}</p>
         )}
         <div className="flex flex-col gap-2">
           {linkedLearning.map((li: LearningItem) => {
@@ -291,7 +297,7 @@ export function GoalDetailPage() {
                 </div>
                 <button
                   type="button"
-                  aria-label="Отвязать"
+                  aria-label={t('Отвязать')}
                   onClick={() => update(db.learningItems, li.id, { goalId: null })}
                   className="p-1.5 text-muted"
                 >
@@ -318,10 +324,10 @@ export function GoalDetailPage() {
       <Sheet
         open={linkLearningOpen}
         onClose={() => setLinkLearningOpen(false)}
-        title="Привязать материал"
+        title={t('Привязать материал')}
       >
         {availableLearning.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">Нет материалов для привязки.</p>
+          <p className="py-6 text-center text-sm text-muted">{t('Нет материалов для привязки.')}</p>
         ) : (
           <div className="flex flex-col gap-2 pb-2">
             {availableLearning.map((li) => {
