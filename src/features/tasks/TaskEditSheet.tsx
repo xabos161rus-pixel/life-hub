@@ -21,6 +21,7 @@ import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { PRESET_COLORS } from '../../lib/colors';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
 import { compressImage } from '../../lib/image';
+import { t } from '../../lib/i18n';
 import { usePomodoro } from '../focus/pomodoro';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -64,8 +65,8 @@ const REMIND_PRESETS = [5, 10, 15, 30, 45, 60, 120, 180, 360, 720, 1440];
 function formatDuration(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
-  if (h === 0) return `${m}\u00A0мин`;
-  return m === 0 ? `${h}\u00A0ч` : `${h}\u00A0ч ${m}\u00A0мин`;
+  if (h === 0) return t('{m}\u00A0мин', { m });
+  return m === 0 ? t('{h}\u00A0ч', { h }) : t('{h}\u00A0ч {m}\u00A0мин', { h, m });
 }
 
 type TaskEditProps = {
@@ -153,9 +154,9 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
     const ids = new Set(projects.map((p) => p.id));
     const tops = projects.filter((p) => !p.parentId || !ids.has(p.parentId));
     const out: { p: Project; depth: number }[] = [];
-    for (const t of tops) {
-      out.push({ p: t, depth: 0 });
-      for (const c of projects.filter((x) => x.parentId === t.id)) out.push({ p: c, depth: 1 });
+    for (const top of tops) {
+      out.push({ p: top, depth: 0 });
+      for (const c of projects.filter((x) => x.parentId === top.id)) out.push({ p: c, depth: 1 });
     }
     return out;
   }, [projects]);
@@ -234,7 +235,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         recurrence: buildRecurrence(),
         tags: tagsText
           .split(',')
-          .map((t) => t.trim())
+          .map((tag) => tag.trim())
           .filter(Boolean),
       };
       let savedId: string;
@@ -261,7 +262,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
   const handleDelete = async () => {
     if (!task) return;
-    if (!window.confirm('Удалить задачу?')) return;
+    if (!window.confirm(t('Удалить задачу?'))) return;
     void cancelReminder(task.id);
     await remove(db.tasks, task.id);
     onClose();
@@ -347,20 +348,20 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
   const copyText = (text: string) => {
     if (!text) return;
     void navigator.clipboard.writeText(text);
-    toast('Скопировано');
+    toast(t('Скопировано'));
   };
 
   const tomorrow = addDaysKey(todayKey(), 1);
 
   return (
-    <Sheet open onClose={onClose} title={task ? 'Задача' : 'Новая задача'}>
+    <Sheet open onClose={onClose} title={task ? t('Задача') : t('Новая задача')}>
       <div className="flex flex-col gap-4 pb-2">
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-sm font-medium text-muted">Название</span>
+            <span className="text-sm font-medium text-muted">{t('Название')}</span>
             <button
               type="button"
-              aria-label="Скопировать название"
+              aria-label={t('Скопировать название')}
               onClick={() => copyText(title)}
               className="-mr-1 p-1 text-muted active:opacity-60"
             >
@@ -376,7 +377,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 ref={titleRef}
                 rows={1}
                 value={title}
-                placeholder="Что нужно сделать?"
+                placeholder={t('Что нужно сделать?')}
                 onChange={(e) => setTitle(e.target.value)}
                 onKeyDown={handleTitleKey}
                 className={`${inputBase} resize-none overflow-hidden`}
@@ -384,17 +385,17 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               />
             </div>
             <MicButton
-              onText={(t) => setTitle((prev) => (prev ? `${prev} ${t}` : t))}
+              onText={(spoken) => setTitle((prev) => (prev ? `${prev} ${spoken}` : spoken))}
             />
           </div>
         </div>
 
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-sm font-medium text-muted">Заметки</span>
+            <span className="text-sm font-medium text-muted">{t('Заметки')}</span>
             <button
               type="button"
-              aria-label="Скопировать заметки"
+              aria-label={t('Скопировать заметки')}
               onClick={() => copyText(notes)}
               className="-mr-1 p-1 text-muted active:opacity-60"
             >
@@ -410,7 +411,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 ref={notesRef}
                 rows={2}
                 value={notes}
-                placeholder="Детали…"
+                placeholder={t('Детали…')}
                 onChange={(e) => setNotes(e.target.value)}
                 onKeyDown={handleNotesKey}
                 className={`${inputBase} resize-none overflow-hidden whitespace-pre-wrap font-mono`}
@@ -418,26 +419,26 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               />
             </div>
             <MicButton
-              onText={(t) => setNotes((prev) => (prev ? `${prev} ${t}` : t))}
+              onText={(spoken) => setNotes((prev) => (prev ? `${prev} ${spoken}` : spoken))}
             />
           </div>
           <Hint
             id="task-notes-tricks"
-            title="Удобный ввод"
+            title={t('Удобный ввод')}
             className="mt-2"
             items={[
-              { icon: ListOrdered, text: <>Начните строку с «1. » — Enter продолжит нумерацию сам</> },
-              { icon: CircleX, text: <>Крестик в начале текста стирает всё поле</> },
+              { icon: ListOrdered, text: <>{t('Начните строку с «1. » — Enter продолжит нумерацию сам')}</> },
+              { icon: CircleX, text: <>{t('Крестик в начале текста стирает всё поле')}</> },
             ]}
           />
         </div>
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">Фото</span>
+          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Фото')}</span>
           <div className="flex flex-wrap gap-2">
             {photos.map((src, i) => (
               <div key={i} className="relative">
-                <button type="button" onClick={() => setViewPhoto(src)} aria-label="Открыть фото">
+                <button type="button" onClick={() => setViewPhoto(src)} aria-label={t('Открыть фото')}>
                   <img
                     src={src}
                     alt=""
@@ -446,7 +447,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 </button>
                 <button
                   type="button"
-                  aria-label="Удалить фото"
+                  aria-label={t('Удалить фото')}
                   onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
                   className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full border border-border bg-elevated text-muted active:opacity-60"
                 >
@@ -456,7 +457,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
             ))}
             <button
               type="button"
-              aria-label="Добавить фото"
+              aria-label={t('Добавить фото')}
               onClick={() => photoInputRef.current?.click()}
               className="flex size-20 items-center justify-center rounded-xl border border-dashed border-border text-muted active:opacity-60"
             >
@@ -476,10 +477,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
           />
         </div>
 
-        <Field label="Теги">
+        <Field label={t('Теги')}>
           <Input
             value={tagsText}
-            placeholder="через запятую: работа, дом"
+            placeholder={t('через запятую: работа, дом')}
             onChange={(e) => setTagsText(e.target.value)}
             onClear={() => setTagsText('')}
           />
@@ -487,14 +488,14 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-sm font-medium text-muted">Проект</span>
+            <span className="text-sm font-medium text-muted">{t('Проект')}</span>
             {!showNewProject && (
               <button
                 type="button"
                 className="text-sm font-medium text-accent"
                 onClick={() => setShowNewProject(true)}
               >
-                + Новый
+                {t('+ Новый')}
               </button>
             )}
           </div>
@@ -509,7 +510,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 />
                 <Input
                   value={newProjectName}
-                  placeholder="Название проекта"
+                  placeholder={t('Название проекта')}
                   autoFocus
                   onChange={(e) => setNewProjectName(e.target.value)}
                   onClear={() => setNewProjectName('')}
@@ -521,7 +522,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                   <button
                     key={c}
                     type="button"
-                    aria-label={`Цвет ${c}`}
+                    aria-label={t('Цвет {c}', { c })}
                     onClick={() => setNewProjectColor(c)}
                     className="size-7 rounded-full transition-transform active:scale-90"
                     style={{
@@ -541,20 +542,20 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                     setNewProjectName('');
                   }}
                 >
-                  Отмена
+                  {t('Отмена')}
                 </Button>
                 <Button
                   className="flex-1"
                   disabled={!newProjectName.trim()}
                   onClick={handleCreateProject}
                 >
-                  Создать
+                  {t('Создать')}
                 </Button>
               </div>
             </div>
           ) : (
             <Select value={projectId ?? ''} onChange={(e) => setProjectId(e.target.value || null)}>
-              <option value="">Без проекта</option>
+              <option value="">{t('Без проекта')}</option>
               {orderedProjects.map(({ p, depth }) => (
                 <option key={p.id} value={p.id}>
                   {depth > 0 ? '   ↳ ' : ''}
@@ -565,9 +566,9 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
           )}
         </div>
 
-        <Field label="Цель">
+        <Field label={t('Цель')}>
           <Select value={goalId ?? ''} onChange={(e) => setGoalId(e.target.value || null)}>
-            <option value="">Без цели</option>
+            <option value="">{t('Без цели')}</option>
             {goals.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.title}
@@ -576,9 +577,9 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
           </Select>
         </Field>
 
-        <Field label="Приоритет">
+        <Field label={t('Приоритет')}>
           <SegmentedControl
-            options={PRIORITY_OPTIONS}
+            options={PRIORITY_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
             value={String(priority) as PriorityStr}
             onChange={(v) => setPriority(Number(v) as Priority)}
           />
@@ -588,7 +589,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
           {/* Период: «сдать с 10 по 25». Начало — отдельным полем над сроком,
               срок остаётся дедлайном (просрочка и напоминание — по нему). */}
           {startDate !== null && (
-            <Field label="Начало" className="mb-3">
+            <Field label={t('Начало')} className="mb-3">
               <Input
                 type="date"
                 value={startDate}
@@ -596,7 +597,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               />
             </Field>
           )}
-          <Field label={startDate !== null ? 'Сдать до' : 'Срок'}>
+          <Field label={startDate !== null ? t('Сдать до') : t('Срок')}>
             <Input
               type="date"
               value={dueDate ?? ''}
@@ -606,10 +607,10 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
           <div className="mt-2">
             <ChipRow>
               <Chip active={dueDate === todayKey()} onClick={() => setDueDate(todayKey())}>
-                Сегодня
+                {t('Сегодня')}
               </Chip>
               <Chip active={dueDate === tomorrow} onClick={() => setDueDate(tomorrow)}>
-                Завтра
+                {t('Завтра')}
               </Chip>
               <Chip
                 active={startDate !== null}
@@ -624,7 +625,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                   setStartDate(todayKey());
                 }}
               >
-                Период
+                {t('Период')}
               </Chip>
               <Chip
                 onClick={() => {
@@ -633,7 +634,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                   setStartDate(null);
                 }}
               >
-                Убрать
+                {t('Убрать')}
               </Chip>
             </ChipRow>
           </div>
@@ -641,7 +642,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
 
         {dueDate && (
           <>
-            <Field label="Время начала">
+            <Field label={t('Время начала')}>
               <div className="flex items-center gap-2">
                 <Input
                   type="time"
@@ -658,17 +659,17 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                     }}
                     className="shrink-0 rounded-xl border border-border px-3.5 py-3 text-sm text-muted active:opacity-60"
                   >
-                    Убрать
+                    {t('Убрать')}
                   </button>
                 )}
               </div>
             </Field>
-            <Field label="Длительность">
+            <Field label={t('Длительность')}>
               <Select
                 value={duration ?? ''}
                 onChange={(e) => setDuration(e.target.value ? Number(e.target.value) : null)}
               >
-                <option value="">Нет</option>
+                <option value="">{t('Нет')}</option>
                 {DURATION_PRESETS.map((m) => (
                   <option key={m} value={m}>
                     {formatDuration(m)}
@@ -677,18 +678,18 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               </Select>
             </Field>
             {dueTime && (
-              <Field label="Напоминание">
+              <Field label={t('Напоминание')}>
                 <Select
                   value={remindBefore ?? ''}
                   onChange={(e) =>
                     setRemindBefore(e.target.value === '' ? null : Number(e.target.value))
                   }
                 >
-                  <option value="">Выкл</option>
-                  <option value="0">Вовремя</option>
+                  <option value="">{t('Выкл')}</option>
+                  <option value="0">{t('Вовремя')}</option>
                   {REMIND_PRESETS.map((m) => (
                     <option key={m} value={m}>
-                      за {formatDuration(m)}
+                      {t('за {d}', { d: formatDuration(m) })}
                     </option>
                   ))}
                 </Select>
@@ -697,12 +698,16 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
           </>
         )}
 
-        <Field label="Повторение">
-          <SegmentedControl options={REC_OPTIONS} value={recType} onChange={setRecType} />
+        <Field label={t('Повторение')}>
+          <SegmentedControl
+            options={REC_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
+            value={recType}
+            onChange={setRecType}
+          />
         </Field>
 
         {recType !== 'none' && (
-          <Field label={REC_INTERVAL_LABELS[recType]}>
+          <Field label={t(REC_INTERVAL_LABELS[recType])}>
             <Input
               type="number"
               min={1}
@@ -728,7 +733,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                     )
                   }
                 >
-                  {label}
+                  {t(label)}
                 </Chip>
               );
             })}
@@ -736,7 +741,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         )}
 
         {recType === 'monthly' && (
-          <Field label="День месяца">
+          <Field label={t('День месяца')}>
             <Input
               type="number"
               min={1}
@@ -749,7 +754,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         )}
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">Чеклист</span>
+          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Чеклист')}</span>
           {checklist.map((item) => (
             <div key={item.id} className="flex items-center gap-2.5 py-1">
               <TaskCheck
@@ -765,7 +770,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 {item.text}
               </span>
               <button
-                aria-label="Удалить пункт"
+                aria-label={t('Удалить пункт')}
                 className="shrink-0 p-1 text-muted"
                 onClick={() => setChecklist((arr) => arr.filter((i) => i.id !== item.id))}
               >
@@ -776,7 +781,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
           <Input
             className="mt-1"
             value={newItem}
-            placeholder="Добавить пункт"
+            placeholder={t('Добавить пункт')}
             onChange={(e) => setNewItem(e.target.value)}
             onKeyDown={handleNewItemKey}
             onClear={() => setNewItem('')}
@@ -789,18 +794,18 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
             className="flex w-full items-center justify-center gap-1.5"
             onClick={handleFocus}
           >
-            <Timer size={16} /> Запустить фокус
+            <Timer size={16} /> {t('Запустить фокус')}
           </Button>
         )}
 
         <div className="mt-1 flex gap-2">
           {task && (
             <Button variant="danger" onClick={handleDelete}>
-              Удалить
+              {t('Удалить')}
             </Button>
           )}
           <Button className="flex-1" disabled={!title.trim()} onClick={handleSave}>
-            Сохранить
+            {t('Сохранить')}
           </Button>
         </div>
       </div>

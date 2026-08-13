@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   GClose as X,
 } from '../../components/ui/glyphs';
+import { t } from '../../lib/i18n';
 
 interface Props {
   open: boolean;
@@ -104,7 +105,7 @@ export function Sheet({ open, onClose, title, children }: Props) {
             <button
               onClick={onClose}
               onPointerDown={(e) => e.stopPropagation()}
-              aria-label="Закрыть"
+              aria-label={t('Закрыть')}
               className="rounded-full bg-surface-2 p-1.5 text-muted transition-transform active:scale-90"
             >
               <X size={18} />

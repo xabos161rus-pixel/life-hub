@@ -11,6 +11,7 @@ import {
   GSearch as Search,
   GClose as X,
 } from '../../components/ui/glyphs';
+import { t } from '../../lib/i18n';
 import { ICON, STROKE_STRONG } from './icons';
 
 const base =
@@ -29,7 +30,7 @@ export function ClearFieldButton({
   return (
     <button
       type="button"
-      aria-label="Очистить поле"
+      aria-label={t('Очистить поле')}
       // Не отдаём фокус из поля: тап по крестику не должен прятать клавиатуру.
       onPointerDown={(e) => e.preventDefault()}
       onMouseDown={(e) => e.preventDefault()}
@@ -172,7 +173,7 @@ export function AutoGrowTextarea({
 export function SearchField({
   value,
   onChange,
-  placeholder = 'Поиск',
+  placeholder,
   autoFocus,
   className = '',
 }: {
@@ -193,13 +194,13 @@ export function SearchField({
         autoFocus={autoFocus}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t('Поиск')}
         className={`${base} ${show ? 'pr-11 pl-10' : 'pl-10'}`}
       />
       {show && (
         <button
           type="button"
-          aria-label="Очистить поиск"
+          aria-label={t('Очистить поиск')}
           // Не отдаём фокус из поля: тап по крестику не должен прятать клавиатуру.
           onPointerDown={(e) => e.preventDefault()}
           onMouseDown={(e) => e.preventDefault()}

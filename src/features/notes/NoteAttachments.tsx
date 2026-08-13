@@ -5,6 +5,7 @@ import { File as FileIcon, FileArchive, FileSpreadsheet, FileText } from 'lucide
 import { GClose } from '../../components/ui/glyphs';
 import type { NoteAttachment } from '../../lib/noteFiles';
 import { fileKindLabel, formatFileSize } from '../../lib/noteFiles';
+import { t } from '../../lib/i18n';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 /** Иконка по короткой подписи из fileKindLabel — та же раскладка, что у
@@ -49,7 +50,7 @@ export function NoteAttachments({
               className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-60"
               onClick={() => download(f)}
               disabled={!ready}
-              aria-label={`Скачать ${f.name}`}
+              aria-label={t('Скачать {name}', { name: f.name })}
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
                 <Icon size={20} />
@@ -59,13 +60,15 @@ export function NoteAttachments({
                 <span className="block text-xs text-muted">
                   {/* Чанки ещё едут синком с другого устройства — честное
                       «получение», а не карточка, притворяющаяся готовой. */}
-                  {ready ? `${kind} · ${formatFileSize(f.size)}` : 'Получение…'}
+                  {/* t(kind): fileKindLabel отдаёт русскую подпись-ключ — по ней
+                      же iconFor выбирает иконку, поэтому переводим на экране. */}
+                  {ready ? `${t(kind)} · ${formatFileSize(f.size)}` : t('Получение…')}
                 </span>
               </span>
             </button>
             <button
               type="button"
-              aria-label={`Удалить ${f.name}`}
+              aria-label={t('Удалить {name}', { name: f.name })}
               className={`shrink-0 rounded-lg p-2 text-muted active:bg-surface-2 ${HIT_SLOP_44}`}
               onClick={() => onDelete(f.fileId)}
             >

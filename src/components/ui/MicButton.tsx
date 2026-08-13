@@ -1,5 +1,6 @@
 import { Mic } from 'lucide-react';
 import { isIOS, useSpeechInput } from '../../hooks/useSpeechInput';
+import { t } from '../../lib/i18n';
 import { useToast } from './toastContext';
 import { IconButton } from './IconButton';
 
@@ -26,11 +27,11 @@ export function MicButton({ onText, className = '' }: Props) {
       return (
         <IconButton
           icon={Mic}
-          label="Голосовой ввод"
+          label={t('Голосовой ввод')}
           tone="muted"
           onClick={() =>
             toast(
-              'Для диктовки нажмите 🎤 на клавиатуре iPhone (рядом с пробелом) и говорите — текст появится в поле.',
+              t('Для диктовки нажмите 🎤 на клавиатуре iPhone (рядом с пробелом) и говорите — текст появится в поле.'),
             )
           }
           className={`active:scale-90 ${className}`}
@@ -43,7 +44,7 @@ export function MicButton({ onText, className = '' }: Props) {
   return (
     <IconButton
       icon={Mic}
-      label={listening ? 'Остановить' : 'Голосовой ввод'}
+      label={listening ? t('Остановить') : t('Голосовой ввод')}
       onClick={listening ? stop : start}
       tone={listening ? 'danger' : 'muted'}
       className={`transition-transform active:scale-90 ${

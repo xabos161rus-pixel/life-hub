@@ -15,6 +15,7 @@ import { formatDueDate } from '../../lib/dates';
 import { formatDueRange } from '../../lib/taskDates';
 import { freezeTasks } from './taskActions';
 import { STROKE } from '../../components/ui/icons';
+import { t } from '../../lib/i18n';
 
 // Строки списка: заголовок группы (проект/подпроект/«Без проекта») или задача.
 type Row =
@@ -50,19 +51,19 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
     const projectIds = new Set(projects.map((p) => p.id));
     // Кандидаты: активные (не выполненные, не замороженные), в порядке раздела.
     const byProject = new Map<string, Task[]>();
-    for (const t of tasks) {
-      if (t.completedAt || t.frozenAt) continue;
+    for (const task of tasks) {
+      if (task.completedAt || task.frozenAt) continue;
       // Проект задачи архивирован (или удалён) — задачу исключаем совсем, а не
       // сваливаем в «Без проекта». На главном экране секции строятся только по
       // живым неархивным проектам, так что такая задача там уже не видна —
       // архивация проекта уже поставила на паузу все его задачи разом. Шит
       // обязан быть консистентен с главным экраном; «Без проекта» — только для
       // настоящего projectId === null.
-      if (t.projectId && !projectIds.has(t.projectId)) continue;
-      const key = t.projectId ?? '';
+      if (task.projectId && !projectIds.has(task.projectId)) continue;
+      const key = task.projectId ?? '';
       const arr = byProject.get(key);
-      if (arr) arr.push(t);
-      else byProject.set(key, [t]);
+      if (arr) arr.push(task);
+      else byProject.set(key, [task]);
     }
     for (const arr of byProject.values()) arr.sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -77,14 +78,14 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
       const kidsHaveTasks = kids.some((k) => (byProject.get(k.id) ?? []).length > 0);
       if (!list.length && !kidsHaveTasks) return;
       out.push({ type: 'header', key: p.id, project: p, depth, count: list.length });
-      for (const t of list) out.push({ type: 'task', task: t, depth });
+      for (const task of list) out.push({ type: 'task', task, depth });
       for (const k of kids) pushGroup(k, 1);
     };
     for (const p of tops) pushGroup(p, 0);
     const none = byProject.get('') ?? [];
     if (none.length) {
       out.push({ type: 'header', key: '', project: null, depth: 0, count: none.length });
-      for (const t of none) out.push({ type: 'task', task: t, depth: 0 });
+      for (const task of none) out.push({ type: 'task', task, depth: 0 });
     }
     return out;
   }, [tasks, projects]);
@@ -108,10 +109,14 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
 
   async function confirm() {
     const ids = new Set(candidateIds.filter((id) => selected.has(id)));
-    const toFreeze = tasks.filter((t) => ids.has(t.id));
+    const toFreeze = tasks.filter((task) => ids.has(task.id));
     if (!toFreeze.length) return;
     await freezeTasks(toFreeze);
-    toast(toFreeze.length === 1 ? 'Задача заморожена' : `Заморожено: ${toFreeze.length}`);
+    toast(
+      toFreeze.length === 1
+        ? t('Задача заморожена')
+        : t('Заморожено: {n}', { n: toFreeze.length }),
+    );
     onClose();
   }
 
@@ -126,18 +131,18 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
         >
           <GroupIcon project={row.project} />
           <span className={`truncate font-semibold ${row.depth ? 'text-xs' : 'text-sm'}`}>
-            {row.project ? row.project.name : 'Без проекта'}
+            {row.project ? row.project.name : t('Без проекта')}
           </span>
           <span className="text-xs text-muted">{row.count}</span>
         </div>
       );
     }
-    const t = row.task;
-    const on = selected.has(t.id);
+    const task = row.task;
+    const on = selected.has(task.id);
     return (
       <button
-        key={t.id}
-        onClick={() => toggle(t.id)}
+        key={task.id}
+        onClick={() => toggle(task.id)}
         className={`flex w-full items-center gap-3 px-3 py-2.5 text-left active:opacity-70 ${
           row.depth ? 'pl-8' : ''
         }`}
@@ -151,14 +156,14 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
         </span>
         <span className="min-w-0 flex-1">
           <span lang="ru" className="block break-words text-pretty hyphens-auto font-medium">
-            {t.title}
+            {task.title}
           </span>
           <span className="block truncate text-xs text-muted">
-            {t.dueDate
-              ? t.startDate
-                ? formatDueRange(t.startDate, t.dueDate)
-                : formatDueDate(t.dueDate)
-              : 'без срока'}
+            {task.dueDate
+              ? task.startDate
+                ? formatDueRange(task.startDate, task.dueDate)
+                : formatDueDate(task.dueDate)
+              : t('без срока')}
           </span>
         </span>
       </button>
@@ -166,15 +171,17 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Заморозить задачи">
+    <Sheet open={open} onClose={onClose} title={t('Заморозить задачи')}>
       <div className="space-y-3">
         <p className="text-sm text-muted">
-          Выберите задачи, чтобы поставить их на паузу. Они исчезнут из списка и статистики и
-          перестанут напоминать — «как будто для них остановилось время». Разморозить можно в любой
-          момент.
+          {t(
+            'Выберите задачи, чтобы поставить их на паузу. Они исчезнут из списка и статистики и перестанут напоминать — «как будто для них остановилось время». Разморозить можно в любой момент.',
+          )}
         </p>
         {candidateIds.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">Нет активных задач для заморозки.</p>
+          <p className="py-6 text-center text-sm text-muted">
+            {t('Нет активных задач для заморозки.')}
+          </p>
         ) : (
           // Скролл — на СВОЁМ узле, отдельном от .card. У .card overflow:hidden
           // задан в index.css вне @layer (клип содержимого ради скруглений), а
@@ -195,7 +202,8 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
           onClick={() => void confirm()}
         >
           <Snowflake size={18} />
-          Заморозить{selected.size > 0 ? ` (${selected.size})` : ''}
+          {t('Заморозить')}
+          {selected.size > 0 ? ` (${selected.size})` : ''}
         </Button>
       </div>
     </Sheet>

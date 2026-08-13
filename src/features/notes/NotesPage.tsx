@@ -16,6 +16,7 @@ import { db } from '../../db/db';
 import { alive, remove, update } from '../../db/repo';
 import type { Note, NoteFolder } from '../../db/types';
 import { formatRu, toKey } from '../../lib/dates';
+import { t } from '../../lib/i18n';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { FolderSheet } from './FolderSheet';
 import { checklistProgress } from './checklist';
@@ -56,7 +57,7 @@ function NoteRow({
   const drag = useRef({ x: 0, dx: 0, moved: false });
 
   const text = useMemo(() => htmlToText(note.content), [note.content]);
-  const title = note.title || text.split('\n')[0] || 'Без названия';
+  const title = note.title || text.split('\n')[0] || t('Без названия');
   const progress = useMemo(() => checklistProgress(note.content), [note.content]);
   const preview = text.split('\n').slice(1).join(' ').trim();
 
@@ -117,7 +118,7 @@ function NoteRow({
           onClick={onDelete}
           className="absolute inset-y-0 right-0 flex w-[88px] items-center justify-center rounded-r-[1.15rem] bg-danger-fill text-sm font-medium text-white"
         >
-          Удалить
+          {t('Удалить')}
         </button>
       )}
       <div
@@ -149,7 +150,7 @@ function NoteRow({
                 ради этого в него и заглядывают из общего списка. */}
             {progress ? (
               <span className="shrink-0 tabular-nums">
-                {progress.done} из {progress.total}
+                {t('{done} из {total}', { done: progress.done, total: progress.total })}
               </span>
             ) : (
               preview && <span className="truncate">{preview}</span>
@@ -242,7 +243,7 @@ export function NotesPage() {
   const rest = filtered.filter((n) => !n.pinned);
 
   function del(note: Note) {
-    if (window.confirm('Удалить заметку?')) void remove(db.notes, note.id);
+    if (window.confirm(t('Удалить заметку?'))) void remove(db.notes, note.id);
   }
 
   const renderList = (items: Note[]) => (
@@ -269,7 +270,7 @@ export function NotesPage() {
     <>
       {pinned.length > 0 && (
         <div className="mb-4">
-          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Закреплённые</h2>
+          <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Закреплённые')}</h2>
           {renderList(pinned)}
         </div>
       )}
@@ -277,7 +278,7 @@ export function NotesPage() {
         <div className="mb-4">
           {!q && (pinned.length > 0 || levelFolders.length > 0) && (
             <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">
-              {!current && levelFolders.length > 0 ? 'Вне папок' : 'Заметки'}
+              {!current && levelFolders.length > 0 ? t('Вне папок') : t('Заметки')}
             </h2>
           )}
           {renderList(rest)}
@@ -297,9 +298,9 @@ export function NotesPage() {
 
   if (moving) {
     return (
-      <Screen title="Куда перенести?" onBack={() => setMoving(null)}>
+      <Screen title={t('Куда перенести?')} onBack={() => setMoving(null)}>
         <p className="mb-3 px-1 text-sm leading-snug text-muted">
-          Заметка «{moving.title || 'Без названия'}» — выберите папку.
+          {t('Заметка «{title}» — выберите папку.', { title: moving.title || t('Без названия') })}
         </p>
         <div className="card divide-y divide-hairline">
           <button
@@ -309,7 +310,7 @@ export function NotesPage() {
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-lg">
               📄
             </span>
-            <span className="min-w-0 flex-1 font-medium">Все заметки</span>
+            <span className="min-w-0 flex-1 font-medium">{t('Все заметки')}</span>
             {!moving.folderId && <Check size={18} className="shrink-0 text-accent" />}
           </button>
           {/* Всё дерево одним списком: вложенность показана отступом, как в
@@ -337,7 +338,7 @@ export function NotesPage() {
           onClick={() => setMoving(null)}
           className="mt-4 w-full py-2 text-sm text-muted active:opacity-60"
         >
-          Отмена
+          {t('Отмена')}
         </button>
       </Screen>
     );
@@ -345,14 +346,14 @@ export function NotesPage() {
 
   return (
     <Screen
-      title={current ? `${current.emoji} ${current.name}` : 'Заметки'}
+      title={current ? `${current.emoji} ${current.name}` : t('Заметки')}
       right={
         <div className="flex items-center gap-1">
           {/* Новая папка создаётся на ТЕКУЩЕМ уровне: в корне — корневая,
               внутри папки — вложенная, как в Apple Notes. */}
           <button
             onClick={() => setFolderSheet('new')}
-            aria-label={current ? 'Новая вложенная папка' : 'Новая папка'}
+            aria-label={current ? t('Новая вложенная папка') : t('Новая папка')}
             className={`p-1 text-accent active:opacity-60 ${HIT_SLOP_44}`}
           >
             <FolderPlus size={20} />
@@ -362,7 +363,7 @@ export function NotesPage() {
               onClick={() => setFolderSheet(current)}
               className="pl-1 text-sm font-medium text-accent active:opacity-60"
             >
-              Изменить
+              {t('Изменить')}
             </button>
           )}
         </div>
@@ -375,7 +376,7 @@ export function NotesPage() {
         >
           {/* Назад — на уровень выше, а не всегда в корень: внутри вложенной
               папки «Все заметки» перепрыгивал бы родителя. */}
-          <ChevronLeft size={16} /> {parent ? `${parent.emoji} ${parent.name}` : 'Все заметки'}
+          <ChevronLeft size={16} /> {parent ? `${parent.emoji} ${parent.name}` : t('Все заметки')}
         </button>
       )}
 
@@ -414,7 +415,7 @@ export function NotesPage() {
           индекса объявляет худшим, что может сделать раздел заметок. */}
       {q ? (
         filtered.length === 0 ? (
-          <EmptyState icon={Search} title="Ничего не найдено" hint="Попробуйте другой запрос" />
+          <EmptyState icon={Search} title={t('Ничего не найдено')} hint={t('Попробуйте другой запрос')} />
         ) : (
           renderFound()
         )
@@ -425,11 +426,11 @@ export function NotesPage() {
         levelFolders.length === 0 && (
           <EmptyState
             icon={NotebookText}
-            title={current ? 'В папке пусто' : 'Пока нет заметок'}
+            title={current ? t('В папке пусто') : t('Пока нет заметок')}
             hint={
               current
-                ? 'Перенесите сюда заметку долгим нажатием на неё в общем списке'
-                : 'Нажмите +, чтобы создать первую'
+                ? t('Перенесите сюда заметку долгим нажатием на неё в общем списке')
+                : t('Нажмите +, чтобы создать первую')
             }
           />
         )

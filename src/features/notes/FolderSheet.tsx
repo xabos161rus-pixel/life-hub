@@ -5,6 +5,7 @@ import { Field, Input } from '../../components/ui/Input';
 import { db } from '../../db/db';
 import { create, update, remove } from '../../db/repo';
 import { PRESET_COLORS } from '../../lib/colors';
+import { t } from '../../lib/i18n';
 import type { NoteFolder } from '../../db/types';
 
 // Эмодзи, а не иконки: папку человек узнаёт с одного взгляда по картинке, а не
@@ -67,7 +68,9 @@ export function FolderSheet({
     // и об этом сказано прямо в вопросе.
     if (
       !window.confirm(
-        `Удалить папку «${folder.name}»? Содержимое останется — заметки и вложенные папки поднимутся на уровень выше.`,
+        t('Удалить папку «{name}»? Содержимое останется — заметки и вложенные папки поднимутся на уровень выше.', {
+          name: folder.name,
+        }),
       )
     )
       return;
@@ -84,25 +87,25 @@ export function FolderSheet({
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title={folder ? 'Папка' : 'Новая папка'}>
+    <Sheet open={open} onClose={onClose} title={folder ? t('Папка') : t('Новая папка')}>
       <div className="flex flex-col gap-4 pb-2">
-        <Field label="Название">
+        <Field label={t('Название')}>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Например, «Работа»"
+            placeholder={t('Например, «Работа»')}
             autoFocus
           />
         </Field>
 
         <div>
-          <p className="mb-2 px-1 text-sm font-semibold text-muted">Значок</p>
+          <p className="mb-2 px-1 text-sm font-semibold text-muted">{t('Значок')}</p>
           <div className="grid grid-cols-6 gap-2">
             {EMOJIS.map((e) => (
               <button
                 key={e}
                 type="button"
-                aria-label={`Значок ${e}`}
+                aria-label={t('Значок {e}', { e })}
                 aria-pressed={emoji === e}
                 onClick={() => setEmoji(e)}
                 className={`flex h-11 items-center justify-center rounded-xl text-lg transition-colors ${
@@ -116,13 +119,13 @@ export function FolderSheet({
         </div>
 
         <div>
-          <p className="mb-2 px-1 text-sm font-semibold text-muted">Цвет</p>
+          <p className="mb-2 px-1 text-sm font-semibold text-muted">{t('Цвет')}</p>
           <div className="flex flex-wrap gap-2">
             {PRESET_COLORS.map((c) => (
               <button
                 key={c}
                 type="button"
-                aria-label={`Цвет ${c}`}
+                aria-label={t('Цвет {c}', { c })}
                 aria-pressed={color === c}
                 onClick={() => setColor(c)}
                 className={`size-11 rounded-full transition-transform ${
@@ -135,14 +138,14 @@ export function FolderSheet({
         </div>
 
         <Button className="w-full" disabled={!name.trim() || busy} onClick={() => void save()}>
-          {folder ? 'Сохранить' : 'Создать папку'}
+          {folder ? t('Сохранить') : t('Создать папку')}
         </Button>
         {folder && (
           <button
             onClick={() => void del()}
             className="w-full py-2 text-sm text-danger active:opacity-60"
           >
-            Удалить папку
+            {t('Удалить папку')}
           </button>
         )}
       </div>

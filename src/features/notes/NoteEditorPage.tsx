@@ -9,7 +9,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks';
 import { format } from 'date-fns';
 import { dateLocale } from '../../lib/dates';
-import { getLang } from '../../lib/i18n';
+import { getLang, t } from '../../lib/i18n';
 import { marked } from 'marked';
 import { Pin, SlidersHorizontal, Type } from 'lucide-react';
 import {
@@ -254,7 +254,7 @@ export function NoteEditorPage() {
       // Заметка из одной фотографии: innerText пуст, но содержимое есть —
       // и сохранить её надо, и в списке ей нужен хоть какой-то заголовок.
       const hasImage = Boolean(el.querySelector('img'));
-      const title = deriveTitle(el.innerText ?? '') || (hasImage ? 'Фото' : '');
+      const title = deriveTitle(el.innerText ?? '') || (hasImage ? t('Фото') : '');
       if (savedIdRef.current) {
         await update(db.notes, savedIdRef.current, {
           title,
@@ -347,8 +347,10 @@ export function NoteEditorPage() {
       } catch (err) {
         toast(
           err instanceof ImageTooLargeError
-            ? `Фото больше ${Math.round(MAX_INPUT_BYTES / 1024 / 1024)} МБ — выберите поменьше`
-            : 'Не удалось открыть фото. Попробуйте другой файл',
+            ? t('Фото больше {mb} МБ — выберите поменьше', {
+                mb: Math.round(MAX_INPUT_BYTES / 1024 / 1024),
+              })
+            : t('Не удалось открыть фото. Попробуйте другой файл'),
         );
         return;
       }
@@ -375,7 +377,7 @@ export function NoteEditorPage() {
   const addFile = useCallback(
     async (file: File) => {
       if (file.size > MAX_FILE_BYTES) {
-        toast(`Файл больше ${formatFileSize(MAX_FILE_BYTES)} — выберите поменьше`);
+        toast(t('Файл больше {size} — выберите поменьше', { size: formatFileSize(MAX_FILE_BYTES) }));
         return;
       }
       const dataUrl = await new Promise<string>((res, rej) => {
@@ -385,7 +387,7 @@ export function NoteEditorPage() {
         fr.readAsDataURL(file);
       }).catch(() => null);
       if (dataUrl === null) {
-        toast('Не удалось прочитать файл. Попробуйте другой');
+        toast(t('Не удалось прочитать файл. Попробуйте другой'));
         return;
       }
       const id = await ensureNote();
@@ -393,7 +395,7 @@ export function NoteEditorPage() {
       const chunks = planNoteFileChunks(
         id,
         uid(),
-        { name: file.name || 'файл', mime: file.type, size: file.size },
+        { name: file.name || t('файл'), mime: file.type, size: file.size },
         dataUrl,
       );
       for (const chunk of chunks) await create(db.noteFiles, chunk);
@@ -404,7 +406,7 @@ export function NoteEditorPage() {
   /** Удалить вложение: мягко, каждый чанк — синк разнесёт удаление по
    *  устройствам так же, как разносил сам файл. */
   const deleteAttachment = useCallback(async (fileId: string) => {
-    if (!window.confirm('Удалить файл из заметки?')) return;
+    if (!window.confirm(t('Удалить файл из заметки?'))) return;
     const rows = await db.noteFiles.where('fileId').equals(fileId).toArray();
     for (const r of rows) await remove(db.noteFiles, r.id);
   }, []);
@@ -609,7 +611,7 @@ export function NoteEditorPage() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Удалить заметку?')) return;
+    if (!window.confirm(t('Удалить заметку?'))) return;
     deletedRef.current = true;
     clearTimeout(timerRef.current);
     if (savedIdRef.current) await remove(db.notes, savedIdRef.current);
@@ -627,23 +629,23 @@ export function NoteEditorPage() {
     <Screen
       title=""
       backTo="/notes"
-      backLabel="Заметки"
+      backLabel={t('Заметки')}
       right={
         <div className="flex items-center gap-1">
           <MicButton onText={appendVoice} />
           <IconButton
             icon={Pin}
-            label={pinned ? 'Открепить' : 'Закрепить'}
+            label={pinned ? t('Открепить') : t('Закрепить')}
             onClick={togglePin}
             tone={pinned ? 'accent' : 'muted'}
             filled={pinned}
           />
-          <IconButton icon={Trash2} label="Удалить" onClick={() => void handleDelete()} tone="danger" />
+          <IconButton icon={Trash2} label={t('Удалить')} onClick={() => void handleDelete()} tone="danger" />
           <button
             onClick={() => void handleDone()}
             className="pl-1 pr-1 font-semibold text-accent active:opacity-60"
           >
-            Готово
+            {t('Готово')}
           </button>
         </div>
       }
@@ -662,12 +664,12 @@ export function NoteEditorPage() {
 
       <Hint
         id="note-editor-tricks"
-        title="Редактор заметок"
+        title={t('Редактор заметок')}
         className="mb-3"
         items={[
-          { icon: Type, text: <>Первая строка — заголовок заметки</> },
-          { icon: ListOrdered, text: <>Начните строку с «1. » — Enter продолжит нумерацию сам</> },
-          { icon: SlidersHorizontal, text: <>«Aa» внизу — стили текста; рядом чек-лист, фото и файл</> },
+          { icon: Type, text: <>{t('Первая строка — заголовок заметки')}</> },
+          { icon: ListOrdered, text: <>{t('Начните строку с «1. » — Enter продолжит нумерацию сам')}</> },
+          { icon: SlidersHorizontal, text: <>{t('«Aa» внизу — стили текста; рядом чек-лист, фото и файл')}</> },
         ]}
       />
 
@@ -679,7 +681,7 @@ export function NoteEditorPage() {
         autoCapitalize="sentences"
         autoCorrect="on"
         spellCheck
-        data-placeholder="Заголовок"
+        data-placeholder={t('Заголовок')}
         onPaste={(e) => {
           // Чистим вставку ДО попадания в DOM: иначе <img onerror>/скрипт из
           // буфера может сработать раньше санитайза-на-сохранении (XSS).
@@ -776,7 +778,7 @@ export function NoteEditorPage() {
             <div className="flex gap-1 rounded-2xl bg-surface-2 p-1">
               <button
                 type="button"
-                aria-label="Подзаголовок"
+                aria-label={t('Подзаголовок')}
                 aria-pressed={active.h2}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => exec('formatBlock', 'h2')}
@@ -784,11 +786,11 @@ export function NoteEditorPage() {
                   active.h2 ? 'bg-accent/15 text-accent' : 'text-text active:bg-elevated'
                 }`}
               >
-                Заголовок
+                {t('Заголовок')}
               </button>
               <button
                 type="button"
-                aria-label="Обычный текст"
+                aria-label={t('Обычный текст')}
                 aria-pressed={!active.h2 && !active.quote}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => exec('formatBlock', 'div')}
@@ -796,11 +798,11 @@ export function NoteEditorPage() {
                   !active.h2 && !active.quote ? 'bg-accent/15 text-accent' : 'text-text active:bg-elevated'
                 }`}
               >
-                Обычный
+                {t('Обычный')}
               </button>
               <button
                 type="button"
-                aria-label="Цитата"
+                aria-label={t('Цитата')}
                 aria-pressed={active.quote}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => exec('formatBlock', 'blockquote')}
@@ -808,24 +810,24 @@ export function NoteEditorPage() {
                   active.quote ? 'bg-accent/15 text-accent' : 'text-text active:bg-elevated'
                 }`}
               >
-                Цитата
+                {t('Цитата')}
               </button>
             </div>
             <div className="flex items-center justify-between gap-1">
-              <ToolBtn onClick={() => exec('bold')} label="Жирный" active={active.bold} className="flex-1">
+              <ToolBtn onClick={() => exec('bold')} label={t('Жирный')} active={active.bold} className="flex-1">
                 <GBold size={ICON.header} strokeWidth={STROKE_STRONG} />
               </ToolBtn>
-              <ToolBtn onClick={() => exec('italic')} label="Курсив" active={active.italic} className="flex-1">
+              <ToolBtn onClick={() => exec('italic')} label={t('Курсив')} active={active.italic} className="flex-1">
                 <GItalic size={ICON.header} strokeWidth={STROKE_STRONG} />
               </ToolBtn>
-              <ToolBtn onClick={() => exec('strikeThrough')} label="Зачёркнутый" active={active.strike} className="flex-1">
+              <ToolBtn onClick={() => exec('strikeThrough')} label={t('Зачёркнутый')} active={active.strike} className="flex-1">
                 <GStrike size={ICON.header} strokeWidth={STROKE_STRONG} />
               </ToolBtn>
               <span aria-hidden className="mx-1 h-6 w-px shrink-0 bg-hairline" />
-              <ToolBtn onClick={() => exec('insertUnorderedList')} label="Маркированный список" active={active.ul} className="flex-1">
+              <ToolBtn onClick={() => exec('insertUnorderedList')} label={t('Маркированный список')} active={active.ul} className="flex-1">
                 <List size={ICON.header} strokeWidth={STROKE_STRONG} />
               </ToolBtn>
-              <ToolBtn onClick={() => exec('insertOrderedList')} label="Нумерованный список" active={active.ol} className="flex-1">
+              <ToolBtn onClick={() => exec('insertOrderedList')} label={t('Нумерованный список')} active={active.ol} className="flex-1">
                 <ListOrdered size={ICON.header} strokeWidth={STROKE_STRONG} />
               </ToolBtn>
             </div>
@@ -837,7 +839,7 @@ export function NoteEditorPage() {
         <div className="mx-auto flex w-full max-w-lg items-center justify-around">
           <ToolBtn
             onClick={() => setFormatOpen((v) => !v)}
-            label="Формат"
+            label={t('Формат')}
             active={formatOpen}
             bare
           >
@@ -853,7 +855,7 @@ export function NoteEditorPage() {
                 }
               })
             }
-            label="Список задач"
+            label={t('Список задач')}
             active={active.checklist}
             bare
           >
@@ -866,15 +868,15 @@ export function NoteEditorPage() {
               caretBeforePickRef.current = editorRef.current ? caretOffset(editorRef.current) : null;
               photoInputRef.current?.click();
             }}
-            label="Фото"
+            label={t('Фото')}
             bare
           >
             <GPhoto size={ICON.header} strokeWidth={STROKE_STRONG} />
           </ToolBtn>
-          <ToolBtn onClick={() => fileInputRef.current?.click()} label="Файл" bare>
+          <ToolBtn onClick={() => fileInputRef.current?.click()} label={t('Файл')} bare>
             <GAttach size={ICON.header} strokeWidth={STROKE_STRONG} />
           </ToolBtn>
-          <ToolBtn onClick={() => exec('undo')} label="Отменить" bare>
+          <ToolBtn onClick={() => exec('undo')} label={t('Отменить')} bare>
             <Undo2 size={ICON.header} strokeWidth={STROKE_STRONG} />
           </ToolBtn>
         </div>
@@ -883,7 +885,7 @@ export function NoteEditorPage() {
             saved ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          Сохранено
+          {t('Сохранено')}
         </span>
       </div>
     </Screen>

@@ -8,6 +8,7 @@ import { MicButton } from '../../components/ui/MicButton';
 import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { Hint } from '../../components/ui/Hint';
 import { describeParsed, parseQuickTask } from '../../lib/nlDate';
+import { t } from '../../lib/i18n';
 
 /**
  * Быстрый ввод задачи в стиле TickTick: одна строка без открытия формы.
@@ -76,18 +77,18 @@ export function QuickAddBar({
             onChange={(e: ChangeEvent<HTMLInputElement>) => setText(e.target.value)}
             onKeyDown={onKeyDown}
             onClear={() => setText('')}
-            placeholder="Что нужно сделать?"
+            placeholder={t('Что нужно сделать?')}
             className="border-0 bg-transparent px-1 py-2 focus:ring-0"
           />
           <MicButton
-            onText={(t) => setText((cur) => (cur ? `${cur} ${t}` : t))}
+            onText={(spoken) => setText((cur) => (cur ? `${cur} ${spoken}` : spoken))}
             className={HIT_SLOP_44}
           />
           <button
             type="button"
             onClick={() => void submit()}
             disabled={!canSend}
-            aria-label="Добавить задачу"
+            aria-label={t('Добавить задачу')}
             className={`shrink-0 rounded-full p-2 transition-transform active:scale-90 ${HIT_SLOP_44} ${
               canSend ? 'text-accent' : 'text-muted opacity-40'
             }`}
@@ -99,14 +100,14 @@ export function QuickAddBar({
       </div>
       <Hint
         id="tasks-quick-add"
-        title="Быстрое добавление"
+        title={t('Быстрое добавление')}
         className="mt-2"
         items={[
-          { icon: Sparkles, text: <>Пишите естественно: «завтра в 10 позвонить маме» — дата и время подставятся сами</> },
+          { icon: Sparkles, text: <>{t('Пишите естественно: «завтра в 10 позвонить маме» — дата и время подставятся сами')}</> },
           isTouch
-            ? { icon: Send, text: <>Стрелка справа — добавить задачу</> }
-            : { icon: CornerDownLeft, text: <>Enter — добавить задачу</> },
-          { icon: CircleX, text: <>Крестик слева стирает всё написанное</> },
+            ? { icon: Send, text: <>{t('Стрелка справа — добавить задачу')}</> }
+            : { icon: CornerDownLeft, text: <>{t('Enter — добавить задачу')}</> },
+          { icon: CircleX, text: <>{t('Крестик слева стирает всё написанное')}</> },
         ]}
       />
     </div>

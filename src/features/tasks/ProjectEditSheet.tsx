@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input, Select } from '../../components/ui/Input';
 import { PRESET_COLORS } from '../../lib/colors';
 import { ICON, STROKE } from '../../components/ui/icons';
+import { t } from '../../lib/i18n';
 
 /** Шит создания/редактирования проекта. project=null → создание.
  *  defaults.parentId — предзаполненный родитель («+ Подпроект» из секции). */
@@ -83,11 +84,11 @@ function ProjectEditForm({
 
   const handleDelete = async () => {
     if (!project) return;
-    if (!window.confirm('Удалить проект? Его задачи останутся без проекта, а подпроекты поднимутся на верхний уровень.')) return;
+    if (!window.confirm(t('Удалить проект? Его задачи останутся без проекта, а подпроекты поднимутся на верхний уровень.'))) return;
     // Задачи не удаляем — отвязываем от проекта.
     const tasks = alive(await db.tasks.where('projectId').equals(project.id).toArray());
-    for (const t of tasks) {
-      await update(db.tasks, t.id, { projectId: null });
+    for (const task of tasks) {
+      await update(db.tasks, task.id, { projectId: null });
     }
     // Подпроекты не удаляем — поднимаем на верхний уровень.
     const children = alive(await db.projects.toArray()).filter((p) => p.parentId === project.id);
@@ -99,30 +100,30 @@ function ProjectEditForm({
   };
 
   return (
-    <Sheet open onClose={onClose} title={project ? 'Проект' : 'Новый проект'}>
+    <Sheet open onClose={onClose} title={project ? t('Проект') : t('Новый проект')}>
       <div className="flex flex-col gap-4 pb-2">
-        <Field label="Название">
+        <Field label={t('Название')}>
           <AutoGrowTextarea
             value={name}
-            placeholder="Например, «Ремонт»"
+            placeholder={t('Например, «Ремонт»')}
             onChange={(e) => setName(e.target.value)}
             onClear={() => setName('')}
           />
         </Field>
 
-        <Field label="Эмодзи">
+        <Field label={t('Эмодзи')}>
           <Input value={emoji} onChange={(e) => setEmoji(e.target.value)} />
         </Field>
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">Внутри проекта</span>
+          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Внутри проекта')}</span>
           {hasChildren ? (
             <p className="rounded-xl bg-surface-2 px-3.5 py-3 text-sm text-muted">
-              У этого проекта есть подпроекты — его нельзя вложить в другой.
+              {t('У этого проекта есть подпроекты — его нельзя вложить в другой.')}
             </p>
           ) : (
             <Select value={parentId ?? ''} onChange={(e) => setParentId(e.target.value || null)}>
-              <option value="">Верхний уровень</option>
+              <option value="">{t('Верхний уровень')}</option>
               {parentOptions.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.emoji} {p.name}
@@ -133,12 +134,12 @@ function ProjectEditForm({
         </div>
 
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">Цвет</span>
+          <span className="mb-1.5 block text-sm font-medium text-muted">{t('Цвет')}</span>
           <div className="flex flex-wrap gap-2.5">
             {PRESET_COLORS.map((c) => (
               <button
                 key={c}
-                aria-label={`Цвет ${c}`}
+                aria-label={t('Цвет {c}', { c })}
                 onClick={() => setColor(c)}
                 className={`size-9 rounded-full border-2 transition-colors ${
                   color === c ? 'border-text' : 'border-transparent'
@@ -156,20 +157,20 @@ function ProjectEditForm({
               <Folder size={ICON.base} aria-hidden strokeWidth={STROKE} style={{ color, fill: color }} />
             )}
             <span className="min-w-0 truncate text-sm font-bold tracking-tight">
-              {name.trim() || 'Проект'}
+              {name.trim() || t('Проект')}
             </span>
-            <span className="ml-auto text-xs text-muted">так будет в списке</span>
+            <span className="ml-auto text-xs text-muted">{t('так будет в списке')}</span>
           </div>
         </div>
 
         <div className="mt-1 flex gap-2">
           {project && (
             <Button variant="danger" onClick={handleDelete}>
-              Удалить
+              {t('Удалить')}
             </Button>
           )}
           <Button className="flex-1" disabled={!name.trim()} onClick={handleSave}>
-            Сохранить
+            {t('Сохранить')}
           </Button>
         </div>
       </div>

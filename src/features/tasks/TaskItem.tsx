@@ -10,6 +10,7 @@ import { cancelReminder, scheduleReminder } from '../../lib/push';
 import { addDaysKey, formatDueDate, todayKey } from '../../lib/dates';
 import { formatDueRange } from '../../lib/taskDates';
 import { describeRecurrence } from '../../lib/recurrence';
+import { t } from '../../lib/i18n';
 import { skipTask, toggleTask } from './taskActions';
 
 const PRIORITY_BAR: Record<number, string> = {
@@ -114,7 +115,7 @@ export function TaskItem({
   const handleToggle = async () => {
     setDx(0);
     const next = await toggleTask(task);
-    if (next) toast(`Повторится ${formatDueDate(next)}`);
+    if (next) toast(t('Повторится {date}', { date: formatDueDate(next) }));
   };
 
   const handleTomorrow = () => {
@@ -127,17 +128,21 @@ export function TaskItem({
     // Переносим и пуш-напоминание (иначе оно осталось бы на сегодня, а завтра
     // не сработало бы). scheduleReminder сам снимет пуш, если времени нет.
     void scheduleReminder({ ...task, dueDate });
-    toast('Перенесено на завтра');
+    toast(t('Перенесено на завтра'));
   };
 
   const handleSkip = async () => {
     setDx(0);
     await skipTask(task);
-    toast(task.recurrence ? 'Пропущено · к следующему повтору' : 'Пропущено · перенесено на сегодня');
+    toast(
+      task.recurrence
+        ? t('Пропущено · к следующему повтору')
+        : t('Пропущено · перенесено на сегодня'),
+    );
   };
 
   const handleDelete = () => {
-    if (window.confirm('Удалить задачу?')) {
+    if (window.confirm(t('Удалить задачу?'))) {
       void cancelReminder(task.id);
       void remove(db.tasks, task.id);
     } else setDx(0);
@@ -147,7 +152,7 @@ export function TaskItem({
     e.stopPropagation();
     const text = task.title + (task.notes ? `\n\n${task.notes}` : '');
     void navigator.clipboard.writeText(text);
-    toast('Скопировано');
+    toast(t('Скопировано'));
   };
 
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
@@ -241,14 +246,14 @@ export function TaskItem({
             onClick={handleTomorrow}
             className="flex w-[76px] items-center justify-center bg-surface-2 text-sm font-medium text-accent"
           >
-            Завтра
+            {t('Завтра')}
           </button>
           <button
             type="button"
             onClick={handleDelete}
             className="flex w-[76px] items-center justify-center bg-danger-fill text-sm font-medium text-white"
           >
-            Удалить
+            {t('Удалить')}
           </button>
         </div>
       )}
@@ -277,7 +282,7 @@ export function TaskItem({
               e.stopPropagation();
               void handleSkip();
             }}
-            aria-label="Пропущено — не выполнено"
+            aria-label={t('Пропущено — не выполнено')}
             // Хит-зона перекрывается с зоной чекбокса (между ними всего 12.75px):
             // в спорной полосе выигрывает чекбокс — он ниже по DOM и он же
             // основное действие строки.
@@ -324,7 +329,7 @@ export function TaskItem({
               {frozen && (
                 <span className="flex items-center gap-0.5 text-frost">
                   <Snowflake size={14} />
-                  заморожено
+                  {t('заморожено')}
                 </span>
               )}
               {task.dueDate && (
@@ -341,11 +346,12 @@ export function TaskItem({
               )}
               {task.skippedCount ? (
                 <span className="text-warning">
-                  пропущено{task.skippedCount > 1 ? ` ×${task.skippedCount}` : ''}
+                  {t('пропущено')}
+                  {task.skippedCount > 1 ? ` ×${task.skippedCount}` : ''}
                 </span>
               ) : null}
               {task.remindBefore != null && task.dueTime && (
-                <span className="flex items-center" aria-label="Напоминание включено">
+                <span className="flex items-center" aria-label={t('Напоминание включено')}>
                   <Bell size={14} />
                 </span>
               )}
@@ -388,7 +394,7 @@ export function TaskItem({
         </div>
         <button
           type="button"
-          aria-label="Скопировать задачу"
+          aria-label={t('Скопировать задачу')}
           onClick={handleCopy}
           className={`-mr-1 mt-0.5 shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
         >

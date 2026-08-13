@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import {
   GChevronLeft as ChevronLeft,
 } from '../../components/ui/glyphs';
+import { t } from '../../lib/i18n';
 import { IconButton } from '../ui/IconButton';
 import { ICON, STROKE_STRONG } from '../ui/icons';
 
@@ -60,7 +61,7 @@ function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void
     return (
       <IconButton
         icon={ChevronLeft}
-        label="Назад"
+        label={t('Назад')}
         {...(onClick ? { onClick } : { to })}
         size={ICON.accent}
         strokeWidth={STROKE_STRONG}
@@ -79,11 +80,11 @@ function BackControl({ to, onClick, label }: { to?: string; onClick?: () => void
     </>
   );
   return onClick ? (
-    <button type="button" aria-label={`Назад: ${label}`} onClick={onClick} className={cls}>
+    <button type="button" aria-label={t('Назад: {label}', { label })} onClick={onClick} className={cls}>
       {inner}
     </button>
   ) : (
-    <Link to={to!} aria-label={`Назад: ${label}`} className={cls}>
+    <Link to={to!} aria-label={t('Назад: {label}', { label })} className={cls}>
       {inner}
     </Link>
   );

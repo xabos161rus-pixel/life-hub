@@ -3,6 +3,7 @@ import { Lightbulb } from 'lucide-react';
 import {
   GClose as X,
 } from '../../components/ui/glyphs';
+import { t } from '../../lib/i18n';
 import { useHint } from '../../hooks/useHint';
 import { HIT_SLOP_44 } from './Checkbox';
 import { ICON } from './icons';
@@ -51,13 +52,13 @@ export function Hint({
           <Lightbulb size={ICON.inline} />
         </span>
         <span className="min-w-0 flex-1 font-semibold tracking-tight text-text">
-          {title ?? 'Подсказка'}
+          {title ?? t('Подсказка')}
         </span>
         <button
           type="button"
           onClick={() => setAsking((v) => !v)}
           aria-expanded={asking}
-          aria-label={asking ? 'Отменить скрытие' : 'Скрыть подсказку'}
+          aria-label={asking ? t('Отменить скрытие') : t('Скрыть подсказку')}
           // Крестик оставляем визуально мелким (15px иконка, итог 23.5px) —
           // крупная кнопка спорила бы с заголовком подсказки. Промах лечим
           // невидимой зоной 44x44: она вылезает на 10.25px в стороны, но у

@@ -32,6 +32,7 @@ import { Hint } from '../../components/ui/Hint';
 import { useHint } from '../../hooks/useHint';
 import { updateSettings } from '../../hooks/useSettings';
 import { useToast } from '../../components/ui/toastContext';
+import { t } from '../../lib/i18n';
 import { formatDueDate } from '../../lib/dates';
 import { describeRecurrence } from '../../lib/recurrence';
 import { ProjectEditSheet } from './ProjectEditSheet';
@@ -259,7 +260,7 @@ function SubSection({
         </button>
         <button
           onClick={onEdit}
-          aria-label="Редактировать подпроект"
+          aria-label={t('Редактировать подпроект')}
           className="p-1.5 text-muted active:opacity-60"
         >
           <Pencil size={14} />
@@ -334,7 +335,7 @@ function Section({
         {onEdit && (
           <button
             onClick={onEdit}
-            aria-label="Редактировать проект"
+            aria-label={t('Редактировать проект')}
             // Карандаш в шапке секции — 26.75px: растить его нельзя, шапка
             // потеряет плотность. Добираем до минимума 44x44 невидимой зоной —
             // у section нет overflow:hidden, а до правого края колонки 21px,
@@ -368,10 +369,10 @@ function TaskCard({
 }: {
   tasks: Task[];
   projectById: Map<string, Project>;
-  onEdit: (t: Task) => void;
+  onEdit: (task: Task) => void;
   muted?: boolean;
   /** Передаётся только в активных секциях — включает drag переноса. */
-  onDragStart?: (t: Task, at: { x: number; y: number }) => void;
+  onDragStart?: (task: Task, at: { x: number; y: number }) => void;
   /** id перетаскиваемой задачи для визуального сигнала источника. */
   draggingId?: string | null;
   /** Зазор вставки перетаскиваемой задачи (0..N) — рисуем линию. null — нет. */
@@ -381,15 +382,15 @@ function TaskCard({
     <div
       className={`card divide-y divide-hairline px-4 ${muted ? 'opacity-60' : ''}`}
     >
-      {tasks.map((t, i) => (
-        <Fragment key={t.id}>
+      {tasks.map((task, i) => (
+        <Fragment key={task.id}>
           {dropIndex === i && <TaskDropLine />}
           <TaskItem
-            task={t}
-            project={t.projectId ? (projectById.get(t.projectId) ?? null) : null}
+            task={task}
+            project={task.projectId ? (projectById.get(task.projectId) ?? null) : null}
             onEdit={onEdit}
             onDragStart={onDragStart}
-            isDragSource={draggingId === t.id}
+            isDragSource={draggingId === task.id}
             hideProject
           />
         </Fragment>
@@ -409,7 +410,7 @@ function CompletedSubsection({
 }: {
   tasks: Task[];
   projectById: Map<string, Project>;
-  onEdit: (t: Task) => void;
+  onEdit: (task: Task) => void;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -423,7 +424,7 @@ function CompletedSubsection({
           size={14}
           className={`shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
         />
-        <span>Выполненные</span>
+        <span>{t('Выполненные')}</span>
         <span className="text-xs">{tasks.length}</span>
       </button>
       {expanded && (
@@ -447,7 +448,7 @@ function FrozenSection({
   projectById: Map<string, Project>;
   collapsed: boolean;
   onToggle: () => void;
-  onEdit: (t: Task) => void;
+  onEdit: (task: Task) => void;
 }) {
   const toast = useToast();
   return (
@@ -459,35 +460,35 @@ function FrozenSection({
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
           <Snowflake size={16} className="shrink-0 text-frost" />
-          <h2 className="text-lg font-bold tracking-tight">Заморожено</h2>
+          <h2 className="text-lg font-bold tracking-tight">{t('Заморожено')}</h2>
           <span className="text-sm text-muted">{tasks.length}</span>
         </button>
         <button
-          onClick={() => void unfreezeAll().then(() => toast('Все задачи разморожены'))}
+          onClick={() => void unfreezeAll().then(() => toast(t('Все задачи разморожены')))}
           className="shrink-0 px-2 py-1 text-sm font-medium text-frost active:opacity-60"
         >
-          Разморозить всё
+          {t('Разморозить всё')}
         </button>
       </div>
       {!collapsed && (
         <div className="card divide-y divide-hairline px-4">
-          {tasks.map((t) => {
-            const project = t.projectId ? projectById.get(t.projectId) : null;
+          {tasks.map((task) => {
+            const project = task.projectId ? projectById.get(task.projectId) : null;
             return (
-              <div key={t.id} className="flex items-center gap-3 py-3">
-                <button onClick={() => onEdit(t)} className="min-w-0 flex-1 text-left active:opacity-70">
-                  <p lang="ru" className="break-words text-pretty hyphens-auto font-medium">{t.title}</p>
+              <div key={task.id} className="flex items-center gap-3 py-3">
+                <button onClick={() => onEdit(task)} className="min-w-0 flex-1 text-left active:opacity-70">
+                  <p lang="ru" className="break-words text-pretty hyphens-auto font-medium">{task.title}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
-                    {t.dueDate && (
+                    {task.dueDate && (
                       <span>
-                        {formatDueDate(t.dueDate)}
-                        {t.dueTime ? `, ${t.dueTime}` : ''}
+                        {formatDueDate(task.dueDate)}
+                        {task.dueTime ? `, ${task.dueTime}` : ''}
                       </span>
                     )}
-                    {t.recurrence && (
+                    {task.recurrence && (
                       <span className="flex items-center gap-0.5">
                         <Repeat size={14} />
-                        {describeRecurrence(t.recurrence)}
+                        {describeRecurrence(task.recurrence)}
                       </span>
                     )}
                     {project && (
@@ -498,8 +499,8 @@ function FrozenSection({
                   </div>
                 </button>
                 <button
-                  onClick={() => void unfreezeTask(t).then(() => toast('Разморожено'))}
-                  aria-label="Разморозить задачу"
+                  onClick={() => void unfreezeTask(task).then(() => toast(t('Разморожено')))}
+                  aria-label={t('Разморозить задачу')}
                   // Тёплое солнце-«разморозка» — контраст к голубой теме секции.
                   className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning active:opacity-70"
                 >
@@ -529,18 +530,18 @@ function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; onAddSu
     <div className="mt-1.5 flex items-center gap-4">
       <button
         onClick={onClick}
-        aria-label="Добавить задачу"
+        aria-label={t('Добавить задачу')}
         className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
       >
-        <Plus size={14} /> Задача
+        <Plus size={14} /> {t('Задача')}
       </button>
       {onAddSubproject && (
         <button
           onClick={onAddSubproject}
-          aria-label="Добавить подпроект"
+          aria-label={t('Добавить подпроект')}
           className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-muted active:opacity-60"
         >
-          <FolderPlus size={14} /> Подпроект
+          <FolderPlus size={14} /> {t('Подпроект')}
         </button>
       )}
     </div>
@@ -637,12 +638,12 @@ export function TasksPage() {
     return best;
   }, []);
 
-  const onDragStart = useCallback((t: Task, at: { x: number; y: number }) => {
-    const key = t.projectId ?? NONE;
+  const onDragStart = useCallback((task: Task, at: { x: number; y: number }) => {
+    const key = task.projectId ?? NONE;
     dropKeyRef.current = key;
     pointerRef.current = at; // стартовая позиция пальца — иначе «призрак» из угла
     setPointer(at);
-    setDraggingTask(t);
+    setDraggingTask(task);
     setDropKey(key);
   }, []);
 
@@ -787,7 +788,7 @@ export function TasksPage() {
         const nextProjectId = target === NONE ? null : target;
         // Новый порядок активных задач проекта-цели с задачей на позиции idx.
         const targetTasks = activeByProjectRef.current.get(target) ?? [];
-        const current = targetTasks.map((t) => t.id);
+        const current = targetTasks.map((task) => task.id);
         const from = current.indexOf(task.id);
         let order: string[];
         if (from === -1) {
@@ -803,7 +804,7 @@ export function TasksPage() {
         // Dexie тогда нечего: лишний updatedAt расходится синком на другие
         // устройства и выглядит как перестановка, которой не было.
         if (orderChanged) {
-          const prevSortOrder = new Map(targetTasks.map((t) => [t.id, t.sortOrder]));
+          const prevSortOrder = new Map(targetTasks.map((task) => [task.id, task.sortOrder]));
           order.forEach((id, i) => {
             const sortOrder = (i + 1) * 1000;
             if (id === task.id) {
@@ -816,8 +817,8 @@ export function TasksPage() {
           });
           if (changedProject) {
             const name =
-              nextProjectId === null ? 'Без проекта' : (projectNamesRef.current.get(target) ?? 'проект');
-            toast(`Перенесено в ${name}`);
+              nextProjectId === null ? t('Без проекта') : (projectNamesRef.current.get(target) ?? t('проект'));
+            toast(t('Перенесено в {name}', { name }));
           }
         }
       }
@@ -960,7 +961,11 @@ export function TasksPage() {
         const name = parent
           ? projectsRef.current.find((x) => x.id === parent)?.name
           : null;
-        toast(name ? `«${dp.name}» теперь внутри «${name}»` : `«${dp.name}» стал отдельным проектом`);
+        toast(
+          name
+            ? t('«{project}» теперь внутри «{parent}»', { project: dp.name, parent: name })
+            : t('«{project}» стал отдельным проектом', { project: dp.name }),
+        );
       } else if (!was) {
         // Уровень тот же и он верхний — обычное переупорядочивание.
         const ids = projectsRef.current.map((p) => p.id);
@@ -975,7 +980,7 @@ export function TasksPage() {
               const order = (i + 1) * 1000;
               if (cur && cur.sortOrder !== order) void update(db.projects, id, { sortOrder: order });
             });
-            toast('Порядок проектов обновлён');
+            toast(t('Порядок проектов обновлён'));
           }
         }
       }
@@ -1039,10 +1044,10 @@ export function TasksPage() {
   const allTasks = alive(tasksRaw ?? []);
   // Уникальные теги из живых задач для фильтра.
   const tagOptions = useMemo(
-    () => [...new Set(allTasks.flatMap((t) => t.tags))].sort((a, b) => a.localeCompare(b)),
+    () => [...new Set(allTasks.flatMap((task) => task.tags))].sort((a, b) => a.localeCompare(b)),
     [allTasks],
   );
-  const tasks = activeTag ? allTasks.filter((t) => t.tags.includes(activeTag)) : allTasks;
+  const tasks = activeTag ? allTasks.filter((task) => task.tags.includes(activeTag)) : allTasks;
   // Проекты сверху вниз в порядке создания (sortOrder растёт → новые ниже).
   const projects = alive(projectsRaw ?? [])
     .filter((p) => !p.archivedAt)
@@ -1063,10 +1068,10 @@ export function TasksPage() {
   const dropHint = useMemo(() => {
     if (!draggingProject) return '';
     const was = draggingProject.parentId ?? null;
-    if (dropParent === was) return was ? 'Останется здесь' : 'Поменяет порядок';
-    if (!dropParent) return 'Станет отдельным проектом';
+    if (dropParent === was) return was ? t('Останется здесь') : t('Поменяет порядок');
+    if (!dropParent) return t('Станет отдельным проектом');
     const name = projects.find((x) => x.id === dropParent)?.name ?? '';
-    return `Внутрь «${name}»`;
+    return t('Внутрь «{name}»', { name });
   }, [draggingProject, dropParent, projects]);
 
   const childrenByParent = useMemo(() => {
@@ -1099,12 +1104,12 @@ export function TasksPage() {
 
   const activeByProject = useMemo(() => {
     const map = new Map<string, Task[]>();
-    for (const t of tasks) {
-      if (t.completedAt || t.frozenAt) continue; // замороженные — в отдельной секции
-      const key = t.projectId ?? NONE;
+    for (const task of tasks) {
+      if (task.completedAt || task.frozenAt) continue; // замороженные — в отдельной секции
+      const key = task.projectId ?? NONE;
       const arr = map.get(key);
-      if (arr) arr.push(t);
-      else map.set(key, [t]);
+      if (arr) arr.push(task);
+      else map.set(key, [task]);
     }
     // Ручной порядок: по sortOrder (перетаскивание задаёт позицию).
     for (const arr of map.values()) arr.sort((a, b) => a.sortOrder - b.sortOrder);
@@ -1119,12 +1124,12 @@ export function TasksPage() {
   // внутри группы — по completedAt убыв.
   const completedByProject = useMemo(() => {
     const map = new Map<string, Task[]>();
-    for (const t of tasks) {
-      if (!t.completedAt) continue;
-      const key = t.projectId ?? NONE;
+    for (const task of tasks) {
+      if (!task.completedAt) continue;
+      const key = task.projectId ?? NONE;
       const arr = map.get(key);
-      if (arr) arr.push(t);
-      else map.set(key, [t]);
+      if (arr) arr.push(task);
+      else map.set(key, [task]);
     }
     for (const arr of map.values()) {
       arr.sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
@@ -1139,7 +1144,7 @@ export function TasksPage() {
   const frozenTasks = useMemo(
     () =>
       tasks
-        .filter((t) => t.frozenAt && !t.completedAt)
+        .filter((task) => task.frozenAt && !task.completedAt)
         .sort((a, b) => (b.frozenAt ?? '').localeCompare(a.frozenAt ?? '')),
     [tasks],
   );
@@ -1176,13 +1181,13 @@ export function TasksPage() {
 
   return (
     <Screen
-      title="Задачи"
+      title={t('Задачи')}
       right={
         // Голубой «морозный» кружок со свечением — видно, что это кнопка.
         // Метрика и зона касания 44×44 — из IconButton; здесь только заливка.
         <IconButton
           icon={Snowflake}
-          label="Заморозить задачи"
+          label={t('Заморозить задачи')}
           onClick={() => setFreezeSheetOpen(true)}
           tone="frost"
           strokeWidth={STROKE_STRONG}
@@ -1200,7 +1205,7 @@ export function TasksPage() {
         <div className="mb-4">
           <ChipRow>
             <Chip active={activeTag === null} onClick={() => setActiveTag(null)}>
-              Все теги
+              {t('Все теги')}
             </Chip>
             {tagOptions.map((tag) => (
               <Chip
@@ -1218,29 +1223,29 @@ export function TasksPage() {
       {empty ? (
         <EmptyState
           icon={ListChecks}
-          title="Пока нет задач"
-          hint="Нажмите «+», чтобы добавить первую задачу"
+          title={t('Пока нет задач')}
+          hint={t('Нажмите «+», чтобы добавить первую задачу')}
         />
       ) : (
         <>
           {allTasks.length > 0 && !quickAddHint.visible && (
             <Hint
               id="tasks-gestures"
-              title="Жесты списка"
+              title={t('Жесты списка')}
               className="mb-4"
               items={
                 isTouch
                   ? [
-                      { icon: ArrowRight, text: <>Свайп по задаче вправо — выполнить</> },
-                      { icon: ArrowLeft, text: <>Свайп влево — «Завтра» или «Удалить»</> },
-                      { icon: Hand, text: <>Удержание задачи — перенести в другую папку</> },
-                      { icon: GripVertical, text: <>Удержание заголовка папки — перенести её; влево — вынести наружу</> },
+                      { icon: ArrowRight, text: <>{t('Свайп по задаче вправо — выполнить')}</> },
+                      { icon: ArrowLeft, text: <>{t('Свайп влево — «Завтра» или «Удалить»')}</> },
+                      { icon: Hand, text: <>{t('Удержание задачи — перенести в другую папку')}</> },
+                      { icon: GripVertical, text: <>{t('Удержание заголовка папки — перенести её; влево — вынести наружу')}</> },
                     ]
                   : [
-                      { icon: ArrowRight, text: <>Потяните задачу мышью вправо — выполнить</> },
-                      { icon: ArrowLeft, text: <>Влево — «Завтра» или «Удалить»</> },
-                      { icon: Hand, text: <>Зажмите задачу — перенести в другую папку</> },
-                      { icon: GripVertical, text: <>Зажмите заголовок папки — перенести; влево — вынести наружу</> },
+                      { icon: ArrowRight, text: <>{t('Потяните задачу мышью вправо — выполнить')}</> },
+                      { icon: ArrowLeft, text: <>{t('Влево — «Завтра» или «Удалить»')}</> },
+                      { icon: Hand, text: <>{t('Зажмите задачу — перенести в другую папку')}</> },
+                      { icon: GripVertical, text: <>{t('Зажмите заголовок папки — перенести; влево — вынести наружу')}</> },
                     ]
               }
             />
@@ -1278,7 +1283,7 @@ export function TasksPage() {
                     <CompletedSubsection
                       tasks={doneList}
                       projectById={projectById}
-                      onEdit={(t) => openTask(t, t.projectId)}
+                      onEdit={(task) => openTask(task, task.projectId)}
                       expanded={expandedCompleted.has(p.id)}
                       onToggle={() => toggleCompleted(p.id)}
                     />
@@ -1287,7 +1292,7 @@ export function TasksPage() {
                     <TaskCard
                       tasks={list}
                       projectById={projectById}
-                      onEdit={(t) => openTask(t, t.projectId)}
+                      onEdit={(task) => openTask(task, task.projectId)}
                       onDragStart={onDragStart}
                       draggingId={draggingTask?.id ?? null}
                       dropIndex={draggingTask && dropKey === p.id ? taskDropIndex : null}
@@ -1317,7 +1322,7 @@ export function TasksPage() {
                           <CompletedSubsection
                             tasks={subDone}
                             projectById={projectById}
-                            onEdit={(t) => openTask(t, t.projectId)}
+                            onEdit={(task) => openTask(task, task.projectId)}
                             expanded={expandedCompleted.has(sub.id)}
                             onToggle={() => toggleCompleted(sub.id)}
                           />
@@ -1326,7 +1331,7 @@ export function TasksPage() {
                           <TaskCard
                             tasks={subList}
                             projectById={projectById}
-                            onEdit={(t) => openTask(t, t.projectId)}
+                            onEdit={(task) => openTask(task, task.projectId)}
                             onDragStart={onDragStart}
                             draggingId={draggingTask?.id ?? null}
                             dropIndex={
@@ -1346,7 +1351,7 @@ export function TasksPage() {
 
           {(noProjectTasks.length > 0 || noProjectCompleted.length > 0) && (
             <Section
-              title="Без проекта"
+              title={t('Без проекта')}
               count={noProjectTasks.length}
               collapsed={collapsed.has(NONE)}
               onToggle={() => toggle(NONE)}
@@ -1358,7 +1363,7 @@ export function TasksPage() {
                 <CompletedSubsection
                   tasks={noProjectCompleted}
                   projectById={projectById}
-                  onEdit={(t) => openTask(t, null)}
+                  onEdit={(task) => openTask(task, null)}
                   expanded={expandedCompleted.has(NONE)}
                   onToggle={() => toggleCompleted(NONE)}
                 />
@@ -1367,7 +1372,7 @@ export function TasksPage() {
                 <TaskCard
                   tasks={noProjectTasks}
                   projectById={projectById}
-                  onEdit={(t) => openTask(t, null)}
+                  onEdit={(task) => openTask(task, null)}
                   onDragStart={onDragStart}
                   draggingId={draggingTask?.id ?? null}
                   dropIndex={draggingTask && dropKey === NONE ? taskDropIndex : null}
@@ -1381,7 +1386,7 @@ export function TasksPage() {
             onClick={() => openProject(null)}
             className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-muted active:opacity-70"
           >
-            <FolderPlus size={16} /> Новый проект
+            <FolderPlus size={16} /> {t('Новый проект')}
           </button>
 
           {frozenTasks.length > 0 && (
@@ -1391,7 +1396,7 @@ export function TasksPage() {
                 projectById={projectById}
                 collapsed={collapsed.has(FROZEN)}
                 onToggle={() => toggle(FROZEN)}
-                onEdit={(t) => openTask(t, t.projectId)}
+                onEdit={(task) => openTask(task, task.projectId)}
               />
             </div>
           )}

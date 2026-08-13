@@ -9,6 +9,7 @@ import { fromKey } from '../../lib/dates';
 import { goalProgress } from '../../lib/progress';
 import { compareAhead, deadlineLabel, remainingLabel } from '../../lib/goalsAhead';
 import { GCheck } from '../../components/ui/glyphs';
+import { t } from '../../lib/i18n';
 
 /**
  * Приближение к целям — лентой над списком задач.
@@ -77,11 +78,11 @@ export function GoalsProgress() {
   // бы при любой правке любой задачи.
   const byGoal = useMemo(() => {
     const map = new Map<string, Task[]>();
-    for (const t of alive(taskRows ?? [])) {
-      if (!t.goalId) continue;
-      const arr = map.get(t.goalId);
-      if (arr) arr.push(t);
-      else map.set(t.goalId, [t]);
+    for (const task of alive(taskRows ?? [])) {
+      if (!task.goalId) continue;
+      const arr = map.get(task.goalId);
+      if (arr) arr.push(task);
+      else map.set(task.goalId, [task]);
     }
     return map;
   }, [taskRows]);
@@ -103,7 +104,7 @@ export function GoalsProgress() {
   if (items.length === 0) return null;
 
   return (
-    <section className="mb-4" aria-label="Приближение к целям">
+    <section className="mb-4" aria-label={t('Приближение к целям')}>
       <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex gap-2.5">
           {items.map(({ goal, linked, value, days }) => {

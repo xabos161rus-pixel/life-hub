@@ -5,6 +5,7 @@ import {
 import { usePomodoro } from '../../features/focus/pomodoro';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { useScrollDirection } from '../../hooks/useScrollDirection';
+import { t } from '../../lib/i18n';
 import { ICON, STROKE_HEAVY } from '../ui/icons';
 
 interface Props {
@@ -55,7 +56,7 @@ let mounted = 0;
  *  прокрутке вверх, кнопка встаёт на то же место. Вторую половину закрыл
  *  переезд install-баннера в ленту — без него кнопка стоит в углу, а не в
  *  середине экрана. */
-export function Fab({ onClick, label = 'Добавить' }: Props) {
+export function Fab({ onClick, label }: Props) {
   const { active } = usePomodoro();
   const settings = useSettings();
   const saved = settings.fabPosition ?? null;
@@ -229,7 +230,7 @@ export function Fab({ onClick, label = 'Добавить' }: Props) {
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onClick={handleClick}
-      aria-label={label}
+      aria-label={label ?? t('Добавить')}
       // Спрятанная кнопка полностью выключена: pointer-events-none снимает
       // перехват тапов (одного увода вниз мало — своя позиция может быть где
       // угодно, и кнопка осталась бы под пальцем), tabIndex убирает её из

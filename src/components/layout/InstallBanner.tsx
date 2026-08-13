@@ -4,6 +4,7 @@ import {
   GClose as X,
 } from '../../components/ui/glyphs';
 import { dismissInstallBanner, useInstallBannerVisible } from '../../hooks/useInstallBanner';
+import { t } from '../../lib/i18n';
 import { HIT_SLOP_44 } from '../ui/Checkbox';
 
 /**
@@ -33,13 +34,13 @@ export function InstallBanner() {
         <Share size={18} />
       </span>
       <Link to="/more/settings/install" className="min-w-0 flex-1 text-sm">
-        <span className="font-semibold">Установите на экран «Домой»</span>
+        <span className="font-semibold">{t('Установите на экран «Домой»')}</span>
         <span className="block text-muted">
-          Иначе данные могут не сохраниться. Как это сделать →
+          {t('Иначе данные могут не сохраниться. Как это сделать →')}
         </span>
       </Link>
       <button
-        aria-label="Скрыть"
+        aria-label={t('Скрыть')}
         // Хит-зона 44px выступает на 8.75px в стороны — меньше и p-3 карточки
         // (12.75px, значит overflow:hidden у .card её не срежет), и зазора
         // gap-3 до ссылки слева, так что промах не уводит на страницу установки.
