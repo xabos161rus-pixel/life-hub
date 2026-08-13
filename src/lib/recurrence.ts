@@ -13,6 +13,7 @@ import {
 } from 'date-fns';
 import type { Recurrence } from '../db/types';
 import { fromKey, toKey, WEEKDAY_LABELS } from './dates';
+import { getLang, t } from './i18n';
 import { plural } from './plural';
 
 /**
@@ -77,29 +78,36 @@ export function nextOccurrence(rec: Recurrence, dueKey: string | null): string {
   }
 }
 
-/** Краткое описание для UI: «Каждый день», «По Пн, Ср», «5-го числа». */
+/** Краткое описание для UI: «Каждый день», «По Пн, Ср», «5-го числа».
+ *  Русские конструкции согласуют род («Каждый/Каждые») — словарным ключом их
+ *  не выразить, поэтому английская фраза строится своей веткой по getLang(). */
 export function describeRecurrence(rec: Recurrence): string {
+  const en = getLang() === 'en';
   switch (rec.type) {
     case 'daily':
-      return rec.interval === 1
-        ? 'Каждый день'
-        : `${plural(rec.interval, ['Каждый', 'Каждые', 'Каждые'])} ${rec.interval} ${plural(rec.interval, ['день', 'дня', 'дней'])}`;
+      if (rec.interval === 1) return t('Каждый день');
+      if (en) return `Every ${rec.interval} days`;
+      return `${plural(rec.interval, ['Каждый', 'Каждые', 'Каждые'])} ${rec.interval} ${plural(rec.interval, ['день', 'дня', 'дней'])}`;
     case 'weekly': {
-      const days = [...rec.weekdays].sort((a, b) => a - b).map((d) => WEEKDAY_LABELS[d - 1]);
+      const days = [...rec.weekdays].sort((a, b) => a - b).map((d) => t(WEEKDAY_LABELS[d - 1]));
       const prefix =
         rec.interval === 1
           ? ''
-          : `${plural(rec.interval, ['Каждую', 'Каждые', 'Каждые'])} ${rec.interval} ${plural(rec.interval, ['неделю', 'недели', 'недель'])} `;
-      return days.length ? `${prefix}По ${days.join(', ')}` : `${prefix}Еженедельно`;
+          : en
+            ? `Every ${rec.interval} weeks `
+            : `${plural(rec.interval, ['Каждую', 'Каждые', 'Каждые'])} ${rec.interval} ${plural(rec.interval, ['неделю', 'недели', 'недель'])} `;
+      return days.length
+        ? `${prefix}${t('По {days}', { days: days.join(', ') })}`
+        : `${prefix}${t('Еженедельно')}`;
     }
     case 'monthly':
       return rec.interval === 1
-        ? `${rec.dayOfMonth}-го числа`
-        : `${rec.dayOfMonth}-го числа, раз в ${rec.interval} мес.`;
+        ? t('{d}-го числа', { d: rec.dayOfMonth })
+        : t('{d}-го числа, раз в {n} мес.', { d: rec.dayOfMonth, n: rec.interval });
     case 'yearly':
-      return rec.interval === 1
-        ? 'Каждый год'
-        : `${plural(rec.interval, ['Каждый', 'Каждые', 'Каждые'])} ${rec.interval} ${plural(rec.interval, ['год', 'года', 'лет'])}`;
+      if (rec.interval === 1) return t('Каждый год');
+      if (en) return `Every ${rec.interval} years`;
+      return `${plural(rec.interval, ['Каждый', 'Каждые', 'Каждые'])} ${rec.interval} ${plural(rec.interval, ['год', 'года', 'лет'])}`;
   }
 }
 

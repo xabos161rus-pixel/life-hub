@@ -93,4 +93,28 @@ export const EN: Record<string, string> = {
   'Что нового': "What's new",
   'Версия {v} · данные хранятся только на этом устройстве':
     'Version {v} · your data stays on this device',
+
+  // === Даты ===
+  'Пн': 'Mon',
+  'Вт': 'Tue',
+  'Ср': 'Wed',
+  'Чт': 'Thu',
+  'Пт': 'Fri',
+  'Сб': 'Sat',
+  'Вс': 'Sun',
+
+  // === Повторение задач ===
+  'Каждый год': 'Every year',
+  'По {days}': 'On {days}',
+  'Еженедельно': 'Weekly',
+  '{d}-го числа': 'On day {d}',
+  '{d}-го числа, раз в {n} мес.': 'On day {d}, every {n} mo.',
+
+  // === Цели над списком задач ===
+  'Цель достигнута': 'Goal achieved',
+  'Привяжите задачи': 'Link tasks to it',
+  'Осталось {n}': '{n} left',
+  'Пройдено {v}%': '{v}% done',
+  'Срок прошёл': 'Past due',
+  'Срок сегодня': 'Due today',
 };

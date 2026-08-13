@@ -24,7 +24,7 @@ export function taskOnDay(
 export function formatDueRange(startKey: string, dueKey: string): string {
   if (startKey === dueKey) return formatDueDate(dueKey);
   const due = formatDueDate(dueKey);
-  const wordDue = /[А-Яа-я]/.test(due[0]) && !/^\d/.test(due);
+  const wordDue = /^\p{L}/u.test(due); // «Сегодня», «Today» — любой алфавит
   const sameMonth = startKey.slice(0, 7) === dueKey.slice(0, 7);
   if (!wordDue && sameMonth) return `${formatRu(startKey, 'd')}–${due}`;
   return `${formatRu(startKey)} — ${due}`;

@@ -1,6 +1,6 @@
 import { addDays, format, getISODay, parse, startOfDay, startOfWeek } from 'date-fns';
 import { enUS, ru } from 'date-fns/locale';
-import { getLang } from './i18n';
+import { getLang, t } from './i18n';
 
 /** Локаль дат следует за языком интерфейса. Единственная точка выбора. */
 export function dateLocale() {
@@ -53,8 +53,8 @@ export const WEEKDAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', '
 /** Человекочитаемая дата срока: Сегодня / Завтра / Вчера / «18 июня». */
 export function formatDueDate(key: string): string {
   const today = todayKey();
-  if (key === today) return 'Сегодня';
-  if (key === addDaysKey(today, 1)) return 'Завтра';
-  if (key === addDaysKey(today, -1)) return 'Вчера';
+  if (key === today) return t('Сегодня');
+  if (key === addDaysKey(today, 1)) return t('Завтра');
+  if (key === addDaysKey(today, -1)) return t('Вчера');
   return formatRu(key);
 }

@@ -7,6 +7,7 @@
 // не всегда.
 
 import type { Goal, Task } from '../db/types';
+import { getLang, t, tPlur } from './i18n';
 import { plur, plural } from './plural';
 
 /** Что осталось до цели — в единицах самой цели, а не в процентах.
@@ -14,19 +15,21 @@ import { plur, plural } from './plural';
  *  Процент абстрактен: 62% выглядит так же, как 58%. «Осталось 3 задачи» —
  *  дистанция, которую видно и можно пройти сегодня. */
 export function remainingLabel(goal: Goal, linked: Task[], value: number): string {
-  if (value >= 100) return 'Цель достигнута';
+  if (value >= 100) return t('Цель достигнута');
   switch (goal.progressMode) {
     case 'tasks': {
-      if (linked.length === 0) return 'Привяжите задачи';
-      const left = linked.filter((t) => !t.completedAt).length;
-      return `Осталось ${plur(left, ['задача', 'задачи', 'задач'])}`;
+      if (linked.length === 0) return t('Привяжите задачи');
+      const left = linked.filter((task) => !task.completedAt).length;
+      return t('Осталось {n}', { n: tPlur(left, ['задача', 'задачи', 'задач']) });
     }
     case 'numeric': {
       const left = Math.max(0, (goal.targetValue ?? 0) - (goal.currentValue ?? 0));
-      return `Осталось ${Math.round(left)}${goal.unitLabel ? ` ${goal.unitLabel}` : ''}`;
+      return t('Осталось {n}', {
+        n: `${Math.round(left)}${goal.unitLabel ? ` ${goal.unitLabel}` : ''}`,
+      });
     }
     case 'manual':
-      return `Пройдено ${value}%`;
+      return t('Пройдено {v}%', { v: value });
   }
 }
 
@@ -36,11 +39,16 @@ export function remainingLabel(goal: Goal, linked: Task[], value: number): strin
  *  случаи, где он действительно значит «пора». */
 export function deadlineLabel(days: number | null): { text: string; tone: 'warning' | 'danger' } | null {
   if (days === null) return null;
-  if (days < 0) return { text: 'Срок прошёл', tone: 'danger' };
-  if (days === 0) return { text: 'Срок сегодня', tone: 'warning' };
+  if (days < 0) return { text: t('Срок прошёл'), tone: 'danger' };
+  if (days === 0) return { text: t('Срок сегодня'), tone: 'warning' };
   if (days >= 7) return null;
+  // Русское «Остался/Осталось» согласует род с числом — словарный ключ этого
+  // не выразит, английская фраза строится своей веткой.
   return {
-    text: `${plural(days, ['Остался', 'Осталось', 'Осталось'])} ${plur(days, ['день', 'дня', 'дней'])}`,
+    text:
+      getLang() === 'en'
+        ? `${tPlur(days, ['день', 'дня', 'дней'])} left`
+        : `${plural(days, ['Остался', 'Осталось', 'Осталось'])} ${plur(days, ['день', 'дня', 'дней'])}`,
     tone: 'warning',
   };
 }
