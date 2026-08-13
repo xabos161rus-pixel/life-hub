@@ -26,6 +26,7 @@ import { taskOnDay } from '../../lib/taskDates';
 import { cycleAllowed } from '../../lib/sections';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
+import { t } from '../../lib/i18n';
 
 /** Дни менструации из раздела «Женские дни» — но только если человек включил
  *  отметки в настройках раздела. Отдельный хук, чтобы запрос к таблицам цикла
@@ -133,7 +134,7 @@ export function CalendarPage() {
 
   return (
     <Screen
-      title="Календарь"
+      title={t('Календарь')}
       backTo="/tasks"
       // «Сегодня» переехала сюда из строки месяца. Втроём с двумя стрелками она
       // забирала 170px из 252px, доступных внутри карточки на 320px, и на
@@ -167,7 +168,7 @@ export function CalendarPage() {
                 сильнее, поэтому добираем невидимой хит-зоной. */}
             <button
               type="button"
-              aria-label="Предыдущий месяц"
+              aria-label={t('Предыдущий месяц')}
               onClick={() => shiftMonth(-1)}
               className={`shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
@@ -179,7 +180,7 @@ export function CalendarPage() {
                 8.5 + 4.25 = 12.75px, запас 1.5px. */}
             <button
               type="button"
-              aria-label="Следующий месяц"
+              aria-label={t('Следующий месяц')}
               onClick={() => shiftMonth(1)}
               className={`ml-1 shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
@@ -203,9 +204,9 @@ export function CalendarPage() {
                 key={day.key}
                 type="button"
                 aria-label={`${format(day.date, 'd MMMM yyyy', { locale: dateLocale() })}${
-                  isSelected ? ', выбрано' : ''
-                }${stat ? `, задач: ${stat.count}${stat.overdue ? ', есть просроченные' : ''}` : ''}${
-                  cycleMarks.has(day.key) ? ', менструация' : ''
+                  isSelected ? t(', выбрано') : ''
+                }${stat ? `${t(', задач: {n}', { n: stat.count })}${stat.overdue ? t(', есть просроченные') : ''}` : ''}${
+                  cycleMarks.has(day.key) ? t(', менструация') : ''
                 }`}
                 aria-pressed={isSelected}
                 onClick={() => setSelectedDate(day.key)}
@@ -266,7 +267,7 @@ export function CalendarPage() {
             ))}
           </div>
         ) : (
-          <p className="px-1 py-3 text-sm text-muted">На этот день задач нет</p>
+          <p className="px-1 py-3 text-sm text-muted">{t('На этот день задач нет')}</p>
         )}
         <button
           type="button"

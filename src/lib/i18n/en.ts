@@ -407,6 +407,133 @@ export const EN: Record<string, string> = {
   'В {heavy} циклах из {total} было три и больше дней подряд с обильными выделениями. Если это мешает обычным делам или есть слабость — стоит проверить железо.':
     "In {heavy} of {total} cycles there were three or more days in a row of heavy bleeding. If it gets in the way of daily life or you feel weak, it's worth checking your iron.",
 
+  // === Главная, места, энергия, обучение, настройка разделов ===
+  '{n} см': '{n} cm',
+  '{n} кг': '{n} kg',
+  'Заполнить профиль': 'Fill in your profile',
+  'Имя, фото, рост и вес': 'Name, photo, height and weight',
+  'Данные синхронизируются': 'Data is syncing',
+  'Только на этом устройстве': 'On this device only',
+  'Копия: {date}': 'Backup: {date}',
+  'Резервную копию ещё не делали': 'No backup made yet',
+  'Разделы': 'Sections',
+  '{n} в процессе': '{n} in progress',
+  'Пора сделать резервную копию': 'Time to make a backup',
+  'Вещи': 'Things',
+  'Советы': 'Tips',
+  'Путешествия': 'Travel',
+  'Идея': 'Idea',
+  'Хочу': 'Want',
+  'Был': 'Been',
+  'Открыть на карте': 'Open on the map',
+  'Сохраняйте места, вещи и советы, чтобы не забыть.': 'Save places, things and tips so you don’t forget.',
+  'Ничего не найдено. Попробуйте другой запрос или фильтр.':
+    'Nothing found. Try a different search or filter.',
+  'Помогает на {n} из 5': 'Helps {n} out of 5',
+  'Что восстанавливает': 'What restores you',
+  'Все': 'All',
+  'Мало сил': 'Low energy',
+  'Средне': 'Medium',
+  'Много сил': 'High energy',
+  'Много': 'High',
+  'Пока нет способов': 'Nothing here yet',
+  'Нажмите +, чтобы добавить то, что возвращает вам силы.':
+    'Tap + to add what brings your energy back.',
+  'без изменений': 'no change',
+  '{delta} к прошлой неделе': '{delta} vs last week',
+  ' из 5': ' of 5',
+  'не с чем сравнить': 'nothing to compare with',
+  'В дни 1–2 против дней 4–5': 'On days 1–2 vs days 4–5',
+  'Привычек выполнено': 'Habits completed',
+  'Задач закрыто за день': 'Tasks closed per day',
+  'стр. {a} из {b}': 'p. {a} of {b}',
+  'уроков {a} из {b}': 'lessons {a} of {b}',
+  'В процессе': 'In progress',
+  'В планах': 'Planned',
+  'Завершено': 'Finished',
+  'Пока ничего нет': 'Nothing here yet',
+  'Нажмите + и добавьте книгу, курс или статью.': 'Tap + to add a book, course or article.',
+  'Сюда попадает то, что вы планируете изучить.': 'Things you plan to study end up here.',
+  'Завершённые материалы появятся здесь.': 'Finished materials will appear here.',
+  'Загрузка…': 'Loading…',
+  'всегда': 'always',
+  'Включить раздел {name}': 'Turn on {name}',
+  'Выключить раздел {name}': 'Turn off {name}',
+  'Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Главной») — задержите строку пальцем и перетащите.':
+    'A tap on the toggle turns a section on or off. To reorder, or move a section across the line into the bottom bar (up to {n} slots, not counting Home) — press and hold a row, then drag.',
+  'Выключено': 'Off',
+  'Сбросить по умолчанию': 'Reset to defaults',
+  'Как будет выглядеть панель': 'How the bar will look',
+
+  // === Установка и переустановка ===
+  'Откройте этот сайт в Safari': 'Open this site in Safari',
+  'Нажмите «Поделиться»': 'Tap “Share”',
+  'Выберите «На экран „Домой“»': 'Choose “Add to Home Screen”',
+  'Откройте LifeHearth с экрана «Домой»': 'Open LifeHearth from your Home Screen',
+  'Установка и данные': 'Install and data',
+  'Ссылка для установки': 'Install link',
+  'Открывайте её в Safari, чтобы установить или переустановить приложение, или поделитесь ссылкой. Она всегда есть и в «Настройках».':
+    'Open it in Safari to install or reinstall the app, or share the link. It always lives in Settings too.',
+  'Установка на экран «Домой»': 'Adding to the Home Screen',
+  'Приложение установлено ✓': 'App installed ✓',
+  'Данные Safari и установленного приложения хранятся раздельно. Сначала установите приложение, и только потом вводите данные — иначе они останутся во вкладке Safari. Перенести уже введённые данные можно через «Экспорт/Импорт резервной копии» ниже.':
+    'Safari and the installed app store data separately. Install the app first and only then enter your data — otherwise it stays in the Safari tab. Data you already entered can be moved with Export/Import backup below.',
+  'Данные: сохранить и вернуть': 'Data: saving and restoring',
+  'Перед удалением или переустановкой сохраните копию.': 'Back up before deleting or reinstalling.',
+  'Приложение хранит задачи, заметки, цели и финансы на самом устройстве. Если удалить значок, iOS может стереть эти данные. Сохранённая копия возвращает всё обратно — ровно с той же точки.':
+    'The app keeps tasks, notes, goals and finance on the device itself. Deleting the icon may make iOS wipe that data. A saved backup brings everything back — from exactly the same point.',
+  'Как сохранить (любой из способов):': 'How to save (either way works):',
+  'Резервная копия в файл.': 'Backup to a file.',
+  '«Настройки → Данные → Экспортировать резервную копию». Файл сохранится в «Файлы» (или iCloud Drive) и переживёт удаление приложения.':
+    'Settings → Data → Export a backup. The file lands in Files (or iCloud Drive) and survives deleting the app.',
+  'Синхронизация (облако).': 'Sync (cloud).',
+  '«Настройки → Синхронизация → Включить». Зашифрованная копия ложится в облако под вашим ключом. Если у вас одно устройство — сохраните ключ: «Показать QR → Сохранить ключ», иначе после удаления восстановить облако будет нечем.':
+    'Settings → Sync → Enable. An encrypted copy goes to the cloud under your key. If you only have one device, save the key: “Show QR → Save key”, otherwise there will be nothing to restore the cloud with after deleting.',
+  'Как вернуть после переустановки:': 'How to restore after reinstalling:',
+  'Из файла.': 'From a file.',
+  'Откройте приложение → «Настройки → Данные → Импортировать резервную копию» → выберите сохранённый файл.':
+    'Open the app → Settings → Data → Import a backup → pick the saved file.',
+  'Из синхронизации.': 'From sync.',
+  '«Настройки → Синхронизация → Подключить к другому устройству» → отсканируйте QR со второго устройства или вставьте сохранённый ключ.':
+    'Settings → Sync → Connect another device → scan the QR from your other device or paste the saved key.',
+  'После восстановления данные снова на месте, а если оставить синхронизацию включённой — новые изменения будут сами уходить в облако.':
+    'After restoring, your data is back in place, and with sync left on, new changes upload to the cloud on their own.',
+  'Новое имя и значок': 'New name and icon',
+  'Теперь приложение называется LifeHearth': 'The app is now called LifeHearth',
+  'У приложения новое название и значок. Внутри всё обновилось само, но на экране «Домой» iPhone показывает старую иконку — систему не переубедить, она запоминает значок при установке. Чтобы увидеть новый вид — переустановите приложение.':
+    'The app has a new name and icon. Everything inside updated by itself, but the iPhone Home Screen still shows the old icon — the system remembers it at install time and won’t be talked out of it. To see the new look, reinstall the app.',
+  'Сначала сохраните данные.': 'Save your data first.',
+  'При удалении приложения задачи, заметки и всё остальное стираются с телефона. Сохраните копию — и вернёте всё за минуту, ровно с той же точки.':
+    'Deleting the app wipes tasks, notes and everything else from the phone. Save a backup — and you’ll bring it all back in a minute, from exactly the same point.',
+  'Сохраните данные': 'Save your data',
+  'Надёжнее всего — выгрузить файл: «Главная → Настройки → Данные → Экспортировать резервную копию» (ляжет в «Файлы»). Синхронизация тоже держит копию в облаке, но':
+    'The safest way is to export a file: Home → Settings → Data → Export a backup (it lands in Files). Sync also keeps a copy in the cloud, but',
+  'ключ хранится только на телефоне': 'the key is stored only on the phone',
+  'и сотрётся вместе с приложением. Если устройство одно — обязательно сохраните ключ: «Синхронизация → Показать QR → Сохранить ключ». Без ключа и без файла облако не восстановить.':
+    'and gets wiped together with the app. If this is your only device, be sure to save the key: Sync → Show QR → Save key. Without the key and without a file the cloud cannot be restored.',
+  '«Главная → Настройки → Данные → Экспортировать резервную копию». Файл ляжет в «Файлы» и переживёт удаление приложения.':
+    'Home → Settings → Data → Export a backup. The file lands in Files and survives deleting the app.',
+  'Переустановите': 'Reinstall',
+  'Удалите старый значок с экрана «Домой». Откройте сайт в Safari, нажмите «Поделиться» → «На экран „Домой“».':
+    'Remove the old icon from the Home Screen. Open the site in Safari, tap Share → Add to Home Screen.',
+  'Верните данные': 'Restore your data',
+  'Откройте приложение → «Импортировать резервную копию» (файл) или «Синхронизация → Подключить» и вставьте сохранённый ключ / QR со второго устройства. Всё продолжится с той же точки.':
+    'Open the app → Import a backup (file), or Sync → Connect and paste the saved key / scan the QR from your other device. Everything continues from the same point.',
+  'Откройте приложение → «Настройки → Данные → Импортировать резервную копию» и выберите сохранённый файл. Всё продолжится с той же точки.':
+    'Open the app → Settings → Data → Import a backup and pick the saved file. Everything continues from the same point.',
+  'Откройте эту ссылку в Safari:': 'Open this link in Safari:',
+  'Скопировать ссылку': 'Copy link',
+  'Не срочно — приложение работает и со старым значком. Это только чтобы обновить имя и иконку на экране «Домой».':
+    'No rush — the app works with the old icon too. This is only to refresh the name and icon on the Home Screen.',
+  'Подробная инструкция и восстановление данных': 'Full guide and data recovery',
+  'Открыть сайт установки': 'Open the install site',
+  'Это не файл резервной копии LifeHearth': 'This is not a LifeHearth backup file',
+  'Резервная копия создана более новой версией приложения':
+    'This backup was made by a newer version of the app',
+  'Файл резервной копии повреждён: нет данных': 'The backup file is damaged: no data',
+  'Файл резервной копии повреждён: неверная структура данных':
+    'The backup file is damaged: invalid data structure',
+
   // === Даты ===
   'Пн': 'Mon',
   'Вт': 'Tue',

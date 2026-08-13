@@ -14,6 +14,7 @@ import { alive } from '../../db/repo';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import { formatRu } from '../../lib/dates';
 import { SECTION_BY_ID } from '../../lib/sections';
+import { getLang, t } from '../../lib/i18n';
 
 const BACKUP_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -69,8 +70,10 @@ function ProfileCard() {
   const hasAny = Boolean(p?.name || p?.avatar || p?.heightCm || p?.weightKg);
 
   const facts = [
-    p?.heightCm ? `${p.heightCm}\u00A0см` : null,
-    p?.weightKg ? `${String(p.weightKg).replace('.', ',')}\u00A0кг` : null,
+    p?.heightCm ? t('{n}\u00A0см', { n: p.heightCm }) : null,
+    p?.weightKg
+      ? t('{n}\u00A0кг', { n: getLang() === 'en' ? String(p.weightKg) : String(p.weightKg).replace('.', ',') })
+      : null,
     p?.birthDate ? formatRu(p.birthDate, 'd MMMM yyyy') : null,
   ].filter(Boolean);
 
@@ -94,10 +97,10 @@ function ProfileCard() {
       )}
       <div className="min-w-0 flex-1">
         <p className={`text-lg font-semibold ${p?.name?.trim() ? 'truncate' : 'leading-tight'}`}>
-          {p?.name?.trim() || (hasAny ? 'Без имени' : 'Заполнить профиль')}
+          {p?.name?.trim() || (hasAny ? t('Без имени') : t('Заполнить профиль'))}
         </p>
         <p className="text-sm leading-snug text-muted">
-          {facts.length > 0 ? facts.join(' · ') : 'Имя, фото, рост и вес'}
+          {facts.length > 0 ? facts.join(' · ') : t('Имя, фото, рост и вес')}
         </p>
       </div>
       <ChevronRight size={20} className="shrink-0 text-muted" />
@@ -142,12 +145,12 @@ function DataStatusCard() {
         {syncOn ? <Cloud size={20} /> : <CloudOff size={20} />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-semibold">{syncOn ? 'Данные синхронизируются' : 'Только на этом устройстве'}</p>
+        <p className="font-semibold">{syncOn ? t('Данные синхронизируются') : t('Только на этом устройстве')}</p>
         {/* Без truncate по той же причине, что и в MenuCard: «Копию ещё не
             делали» на 320px не влезает в 158px и обрывалось на «не дел…» —
             ровно то предупреждение, которое обязано читаться целиком. */}
         <p className={`text-sm leading-snug ${stale ? 'text-warning' : 'text-muted'}`}>
-          {last ? `Копия: ${formatRu(last.slice(0, 10), 'd MMMM')}` : 'Резервную копию ещё не делали'}
+          {last ? t('Копия: {date}', { date: formatRu(last.slice(0, 10), 'd MMMM') }) : t('Резервную копию ещё не делали')}
         </p>
       </div>
       <ChevronRight size={20} className="shrink-0 text-muted" />
@@ -178,7 +181,7 @@ export function HomePage() {
   const settingsSection = SECTION_BY_ID.get('settings');
 
   return (
-    <Screen title="Главная">
+    <Screen title={t('Главная')}>
       <div className="space-y-5">
         <div className="space-y-3">
           <ProfileCard />
@@ -187,7 +190,7 @@ export function HomePage() {
 
         {sections.length > 0 && (
           <section>
-            <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Разделы</h2>
+            <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Разделы')}</h2>
             <div className="space-y-3">
               {sections.map((s) => (
                 <MenuCard
@@ -195,7 +198,7 @@ export function HomePage() {
                   to={s.to}
                   icon={s.icon}
                   title={s.label}
-                  subtitle={s.id === 'learning' ? `${learningCount} в процессе` : s.subtitle}
+                  subtitle={s.id === 'learning' ? t('{n} в процессе', { n: learningCount }) : s.subtitle && t(s.subtitle)}
                 />
               ))}
             </div>
@@ -208,7 +211,7 @@ export function HomePage() {
               to={settingsSection.to}
               icon={SettingsIcon}
               title={settingsSection.label}
-              subtitle={backupDue ? 'Пора сделать резервную копию' : settingsSection.subtitle}
+              subtitle={backupDue ? t('Пора сделать резервную копию') : settingsSection.subtitle && t(settingsSection.subtitle)}
               subtitleWarning={backupDue}
               badge={backupDue}
             />

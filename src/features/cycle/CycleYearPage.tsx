@@ -1,7 +1,7 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import { Screen } from '../../components/layout/Screen';
 import { formatRu } from '../../lib/dates';
-import { plur } from '../../lib/plural';
+import { t, tPlur } from '../../lib/i18n';
 import { buildYearOverview, type YearDayCell } from '../../lib/cycle/yearView';
 import { useCycleData } from './useCycleData';
 import { CycleLock } from './CycleLock';
@@ -31,7 +31,7 @@ export function CycleYearPage() {
   );
 
   return (
-    <Screen title="Год" backTo="/more/cycle">
+    <Screen title={t('Год')} backTo="/more/cycle">
       {locked ? (
         <CycleLock settings={settings} onUnlock={() => undefined} />
       ) : (
@@ -67,7 +67,7 @@ export function CycleYearPage() {
           </div>
 
           <section>
-            <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Циклы за период</h2>
+            <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Циклы за период')}</h2>
             {view.cycles.length === 0 ? (
               <p className="px-1 text-sm text-muted">
                 За эти 12 месяцев ещё нет ни одного завершённого цикла.
@@ -79,14 +79,14 @@ export function CycleYearPage() {
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="font-medium">{formatRu(c.startDate)}</span>
                       <span className="shrink-0 text-sm tabular-nums text-muted">
-                        {plur(c.lengthDays, ['день', 'дня', 'дней'])}
+                        {tPlur(c.lengthDays, ['день', 'дня', 'дней'])}
                         {c.periodLengthDays !== undefined &&
-                          `, менструация ${plur(c.periodLengthDays, ['день', 'дня', 'дней'])}`}
+                          t(', менструация {n}', { n: tPlur(c.periodLengthDays, ['день', 'дня', 'дней']) })}
                       </span>
                     </div>
                     {/* Не скрываем исключённые циклы — прячем только их вклад
                         в статистику, а не сам факт, что цикл был. */}
-                    {c.excluded && <p className="mt-0.5 text-xs text-muted">не учитывается</p>}
+                    {c.excluded && <p className="mt-0.5 text-xs text-muted">{t('не учитывается')}</p>}
                   </div>
                 ))}
               </div>

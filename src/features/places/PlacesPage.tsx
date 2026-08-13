@@ -18,6 +18,7 @@ import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { PlaceItem, PlaceKind, PlaceStatus } from '../../db/types';
 import { PlaceSheet } from './PlaceSheet';
+import { t } from '../../lib/i18n';
 
 const KIND_ICONS: Record<PlaceKind, LucideIcon> = {
   place: MapPin,
@@ -62,7 +63,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
         {item.location ? (
           <button
             type="button"
-            aria-label="Открыть на карте"
+            aria-label={t('Открыть на карте')}
             onClick={(e) => {
               e.stopPropagation();
               openMaps(item.location);
@@ -84,7 +85,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
                 item.status === 'done' ? 'text-success' : 'text-muted'
               }`}
             >
-              {STATUS_LABELS[item.status]}
+              {t(STATUS_LABELS[item.status])}
             </span>
           </div>
           {item.description && (
@@ -163,7 +164,7 @@ export function PlacesPage() {
   };
 
   return (
-    <Screen title="Места" backTo="/home">
+    <Screen title={t('Места')} backTo="/home">
       <div className="space-y-3">
         <ChipRow>
           <Chip active={kindFilter === 'all'} onClick={() => setKindFilter('all')}>
@@ -171,7 +172,7 @@ export function PlacesPage() {
           </Chip>
           {KIND_ORDER.map((k) => (
             <Chip key={k} active={kindFilter === k} onClick={() => setKindFilter(k)}>
-              {KIND_LABELS[k]}
+              {t(KIND_LABELS[k])}
             </Chip>
           ))}
         </ChipRow>
@@ -181,11 +182,11 @@ export function PlacesPage() {
         {items.length === 0 ? (
           <EmptyState
             icon={MapPin}
-            title="Пока ничего нет"
+            title={t('Пока ничего нет')}
             hint={
               all.length === 0
-                ? 'Сохраняйте места, вещи и советы, чтобы не забыть.'
-                : 'Ничего не найдено. Попробуйте другой запрос или фильтр.'
+                ? t('Сохраняйте места, вещи и советы, чтобы не забыть.')
+                : t('Ничего не найдено. Попробуйте другой запрос или фильтр.')
             }
           />
         ) : (

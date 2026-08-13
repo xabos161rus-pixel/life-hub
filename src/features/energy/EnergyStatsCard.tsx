@@ -16,6 +16,7 @@ import {
 } from '../../lib/energy';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import type { EnergyLevel } from '../../db/types';
+import { getLang, t } from '../../lib/i18n';
 
 /** Окно, по которому считаются спарклайн, дни недели и связки. */
 const WINDOW_DAYS = 28;
@@ -143,25 +144,25 @@ export function EnergyStatsCard() {
     trend.delta === null
       ? null
       : trend.delta === 0
-        ? 'без изменений'
-        : `${trend.delta > 0 ? '+' : '−'}${Math.abs(trend.delta).toFixed(1)} к прошлой неделе`;
+        ? t('без изменений')
+        : t('{delta} к прошлой неделе', { delta: `${trend.delta > 0 ? '+' : '−'}${Math.abs(trend.delta).toFixed(1)}` });
 
   const maxWeekday = Math.max(...weekdays.map((w) => w.avg ?? 0), 1);
 
   return (
-    <StatCard title="Энергия">
+    <StatCard title={t('Энергия')}>
       <div className="mb-4 flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-lg font-bold leading-tight">
             {fmt(trend.current.avg)}
-            <span className="text-sm font-normal text-muted"> из 5</span>
+            <span className="text-sm font-normal text-muted">{t(' из 5')}</span>
           </p>
           <p className="text-xs text-muted">
             в среднем за 7 дней · отмечено {trend.current.n} из 7
           </p>
         </div>
         <p className="shrink-0 text-xs text-muted">
-          {deltaText ?? 'не с чем сравнить'}
+          {deltaText ?? t('не с чем сравнить')}
         </p>
       </div>
 
@@ -174,7 +175,9 @@ export function EnergyStatsCard() {
       <p className="mb-4 text-2xs text-muted">4 недели · отмечено {byDate.size} дн.</p>
 
       <div className="mb-4">
-        <p className="mb-2 text-xs font-medium text-muted">По дням недели</p>
+        {/* «По дням недели» — омоним ключа из расписания привычек (Specific days),
+            здесь смысл другой — явная ветка языка. */}
+        <p className="mb-2 text-xs font-medium text-muted">{getLang() === 'en' ? 'By weekday' : 'По дням недели'}</p>
         <div className="flex items-end justify-between gap-2">
           {weekdays.map((w) => (
             <div key={w.weekday} className="flex min-w-0 flex-1 flex-col items-center gap-1">
@@ -203,15 +206,15 @@ export function EnergyStatsCard() {
       {(habitSplit.low.n > 0 && habitSplit.high.n > 0) ||
       (taskSplit.low.n > 0 && taskSplit.high.n > 0) ? (
         <div className="border-t border-hairline pt-2">
-          <p className="mb-1 text-xs font-medium text-muted">В дни 1–2 против дней 4–5</p>
+          <p className="mb-1 text-xs font-medium text-muted">{t('В дни 1–2 против дней 4–5')}</p>
           <LinkRow
-            label="Привычек выполнено"
+            label={t('Привычек выполнено')}
             low={habitSplit.low}
             high={habitSplit.high}
             format={pct}
           />
           <LinkRow
-            label="Задач закрыто за день"
+            label={t('Задач закрыто за день')}
             low={taskSplit.low}
             high={taskSplit.high}
             format={(v) => fmt(v)}

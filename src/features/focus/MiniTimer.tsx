@@ -5,6 +5,7 @@ import {
   GClose as X,
 } from '../../components/ui/glyphs';
 import { formatClock, usePomodoro } from './pomodoro';
+import { t } from '../../lib/i18n';
 
 /** Полоска-таймер над таб-баром, пока идёт помодоро. Тап — открыть «Фокус». */
 export function MiniTimer() {
@@ -33,7 +34,7 @@ export function MiniTimer() {
     <div
       role="button"
       tabIndex={0}
-      aria-label="Открыть Фокус"
+      aria-label={t('Открыть Фокус')}
       onClick={() => nav('/more/focus')}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -48,11 +49,11 @@ export function MiniTimer() {
         {formatClock(p.remainingMs)}
       </span>
       <span className="min-w-0 flex-1 truncate text-sm text-muted">
-        {p.phase === 'work' ? p.taskTitle || 'Фокус' : 'Перерыв'}
+        {p.phase === 'work' ? p.taskTitle || t('Фокус') : t('Перерыв')}
       </span>
       <button
         type="button"
-        aria-label={p.running ? 'Пауза' : 'Продолжить'}
+        aria-label={p.running ? t('Пауза') : t('Продолжить')}
         onClick={(e) => {
           e.stopPropagation();
           p.toggle();
@@ -63,7 +64,7 @@ export function MiniTimer() {
       </button>
       <button
         type="button"
-        aria-label="Сбросить помодоро"
+        aria-label={t('Сбросить помодоро')}
         onClick={(e) => {
           e.stopPropagation();
           p.reset();
@@ -74,7 +75,7 @@ export function MiniTimer() {
       </button>
       <button
         type="button"
-        aria-label="Убрать таймер"
+        aria-label={t('Убрать таймер')}
         onClick={(e) => {
           e.stopPropagation();
           setDismissed(true);

@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import type { Cycle } from '../../db/cycleTypes';
 import { buildHabitsByCycle, type HabitsCycleWindow } from '../../lib/cycle/habitsByCycle';
-import { plural } from '../../lib/plural';
+import { t, tPlur } from '../../lib/i18n';
 
 /** Ретроспектива «привычки по дням цикла» — только её числа с количеством
  *  наблюдений, никаких интерпретаций и советов. Компонент монтируется лишь
@@ -27,7 +27,7 @@ export function CycleHabitsCard({ cycles }: { cycles: Cycle[] }) {
 
   return (
     <section>
-      <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">Привычки по циклу</h2>
+      <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Привычки по циклу')}</h2>
       {view === undefined ? (
         <div className="card p-4">
           <p className="text-sm leading-snug text-muted">
@@ -41,7 +41,7 @@ export function CycleHabitsCard({ cycles }: { cycles: Cycle[] }) {
             {view.rows.map((r) => (
               <div key={r.window} className="flex items-baseline justify-between gap-3 py-3">
                 <span className="min-w-[6rem] flex-1 text-sm text-muted">
-                  {WINDOW_LABEL[r.window]}
+                  {t(WINDOW_LABEL[r.window])}
                 </span>
                 <span className="shrink-0 font-semibold tabular-nums">
                   {Math.round(r.share * 100)}%{' '}
@@ -56,9 +56,9 @@ export function CycleHabitsCard({ cycles }: { cycles: Cycle[] }) {
               циклах и на двенадцати — это разные по весу наблюдения, и решать,
               верить ли им, можно только зная n. */}
           <p className="mt-2 px-1 text-xs leading-snug text-muted">
-            Доля выполненных привычек за {view.cyclesUsed}{' '}
-            {plural(view.cyclesUsed, ['завершённый цикл', 'завершённых цикла', 'завершённых циклов'])}.
-            Это ваши отметки, а не вывод о работоспособности.
+            {t('Доля выполненных привычек за {n}. Это ваши отметки, а не вывод о работоспособности.', {
+              n: tPlur(view.cyclesUsed, ['завершённый цикл', 'завершённых цикла', 'завершённых циклов']),
+            })}
           </p>
         </>
       )}

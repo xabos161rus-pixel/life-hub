@@ -4,6 +4,7 @@ import { db } from '../../db/db';
 import { useFamilyUnread } from '../../hooks/useFamilyUnread';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import { ICON, STROKE, STROKE_STRONG } from '../ui/icons';
+import { t } from '../../lib/i18n';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -80,7 +81,7 @@ export function TabBar() {
                       isActive ? 'text-accent' : 'text-muted'
                     }`}
                   >
-                    {label}
+                    {t(label)}
                   </span>
                 </>
               )}

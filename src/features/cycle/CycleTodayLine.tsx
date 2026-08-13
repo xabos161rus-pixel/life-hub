@@ -9,6 +9,7 @@ import { formatRu } from '../../lib/dates';
 import { cycleDayFor } from '../../lib/cycle/derive';
 import { predictNextPeriod } from '../../lib/cycle/predict';
 import { cycleAllowed } from '../../lib/sections';
+import { t } from '../../lib/i18n';
 
 /** Строка раздела на экране «Сегодня».
  *
@@ -55,9 +56,9 @@ export function CycleTodayLine() {
   return (
     <Link to="/more/cycle" className="card mb-5 flex items-center gap-3 p-4 active:opacity-80">
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold">День цикла {day}</span>
+        <span className="block font-semibold">{t('День цикла {day}', { day })}</span>
         {range && (
-          <span className="mt-0.5 block text-sm text-muted">Следующая менструация {range}</span>
+          <span className="mt-0.5 block text-sm text-muted">{t('Следующая менструация {range}', { range })}</span>
         )}
       </span>
       <ChevronRight size={18} className="shrink-0 text-muted" />

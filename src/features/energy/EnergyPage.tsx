@@ -12,6 +12,7 @@ import { levelByDate } from '../../lib/energy';
 import type { EnergyEffort, EnergyItem } from '../../db/types';
 import { EnergyJournal } from './EnergyJournal';
 import { EnergySheet } from './EnergySheet';
+import { t } from '../../lib/i18n';
 
 type Filter = 'all' | EnergyEffort;
 
@@ -29,7 +30,7 @@ const EFFORT_CLASS: Record<EnergyEffort, string> = {
 
 function EffectivenessDots({ value }: { value: number }) {
   return (
-    <div className="flex items-center gap-1" aria-label={`Помогает на ${value} из 5`}>
+    <div className="flex items-center gap-1" aria-label={t('Помогает на {n} из 5', { n: value })}>
       {[1, 2, 3, 4, 5].map((n) => (
         <span
           key={n}
@@ -49,7 +50,7 @@ function EnergyCard({ item, onOpen }: { item: EnergyItem; onOpen: () => void }) 
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 flex-1 truncate font-semibold">{item.title}</p>
         <span className={`shrink-0 text-xs font-medium ${EFFORT_CLASS[item.effort]}`}>
-          {EFFORT_LABEL[item.effort]}
+          {t(EFFORT_LABEL[item.effort])}
         </span>
       </div>
       {item.description && (
@@ -93,13 +94,13 @@ export function EnergyPage() {
   };
 
   return (
-    <Screen title="Энергия" backTo="/home">
+    <Screen title={t('Энергия')} backTo="/home">
       <div className="mb-5">
         <EnergyJournal byDate={byDate} />
       </div>
 
       <div className="space-y-3">
-        <h2 className="px-1 text-sm font-semibold text-muted">Что восстанавливает</h2>
+        <h2 className="px-1 text-sm font-semibold text-muted">{t('Что восстанавливает')}</h2>
         <div className="card p-4">
           <p className="text-sm leading-relaxed text-muted">
             Когда ничего не хочется — выберите способ под свои силы.
@@ -107,10 +108,10 @@ export function EnergyPage() {
         </div>
         <SegmentedControl<Filter>
           options={[
-            { value: 'all', label: 'Все' },
-            { value: 'low', label: 'Мало сил' },
-            { value: 'medium', label: 'Средне' },
-            { value: 'high', label: 'Много' },
+            { value: 'all', label: t('Все') },
+            { value: 'low', label: t('Мало сил') },
+            { value: 'medium', label: t('Средне') },
+            { value: 'high', label: t('Много') },
           ]}
           value={filter}
           onChange={setFilter}
@@ -119,8 +120,8 @@ export function EnergyPage() {
           loaded && (
             <EmptyState
               icon={BatteryCharging}
-              title="Пока нет способов"
-              hint="Нажмите +, чтобы добавить то, что возвращает вам силы."
+              title={t('Пока нет способов')}
+              hint={t('Нажмите +, чтобы добавить то, что возвращает вам силы.')}
             />
           )
         ) : (

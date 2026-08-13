@@ -5,6 +5,7 @@ import { Input } from '../../components/ui/Input';
 import { verifyPin } from '../../lib/crypto';
 import type { CycleSettings } from '../../db/cycleTypes';
 import { unlockCycleSection } from './lockState';
+import { t } from '../../lib/i18n';
 
 /** Экран ввода кода перед разделом.
  *
@@ -70,8 +71,8 @@ export function CycleLock({
     setNow(Date.now());
     setError(
       delay > 0
-        ? `Неверный код. Подождите ${Math.ceil(delay / 1000)}\u00A0с`
-        : 'Неверный код. Попробуйте ещё раз',
+        ? t('Неверный код. Подождите {s}\u00A0с', { s: Math.ceil(delay / 1000) })
+        : t('Неверный код. Попробуйте ещё раз'),
     );
   }
 
@@ -81,8 +82,8 @@ export function CycleLock({
         <Lock size={24} />
       </span>
       <div>
-        <p className="text-lg font-semibold">Раздел закрыт</p>
-        <p className="mt-1 text-sm text-muted">Введи код, чтобы открыть.</p>
+        <p className="text-lg font-semibold">{t('Раздел закрыт')}</p>
+        <p className="mt-1 text-sm text-muted">{t('Введи код, чтобы открыть.')}</p>
       </div>
 
       <div className="w-full max-w-56">
@@ -100,7 +101,7 @@ export function CycleLock({
             if (e.key === 'Enter') void check();
           }}
           className="text-center text-2xl tracking-[0.4em]"
-          aria-label="Код доступа"
+          aria-label={t('Код доступа')}
           aria-invalid={error !== null}
         />
       </div>
@@ -108,7 +109,7 @@ export function CycleLock({
       {error && (
         <p className="text-sm text-danger" role="alert">
           {error}
-          {left > 0 && ` — подождите ${left}\u00A0с`}
+          {left > 0 && t(' — подождите {s}\u00A0с', { s: left })}
         </p>
       )}
 

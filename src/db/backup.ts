@@ -1,5 +1,6 @@
 import { db, SCHEMA_VERSION } from './db';
 import { now } from './repo';
+import { t } from '../lib/i18n';
 
 const TABLES = [
   'projects',
@@ -124,17 +125,17 @@ export interface ImportPreview {
 export function validateBackup(parsed: unknown): BackupFile {
   const b = parsed as BackupFile;
   if (!b || typeof b !== 'object' || b.app !== 'life-hub') {
-    throw new Error('Это не файл резервной копии LifeHearth');
+    throw new Error(t('Это не файл резервной копии LifeHearth'));
   }
   if (typeof b.schemaVersion !== 'number' || b.schemaVersion > SCHEMA_VERSION) {
-    throw new Error('Резервная копия создана более новой версией приложения');
+    throw new Error(t('Резервная копия создана более новой версией приложения'));
   }
   if (!b.data || typeof b.data !== 'object') {
-    throw new Error('Файл резервной копии повреждён: нет данных');
+    throw new Error(t('Файл резервной копии повреждён: нет данных'));
   }
   for (const name of TABLES) {
     if (b.data[name] !== undefined && !Array.isArray(b.data[name])) {
-      throw new Error('Файл резервной копии повреждён: неверная структура данных');
+      throw new Error(t('Файл резервной копии повреждён: неверная структура данных'));
     }
   }
   return b;

@@ -12,6 +12,7 @@ import { updateSettings } from '../../hooks/useSettings';
 import { useCall } from '../../lib/family/familyCall';
 import { INSTALL_URL, REINSTALL_NOTICE_VERSION } from '../../lib/appInstall';
 import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { t } from '../../lib/i18n';
 
 /**
  * Одноразовое окно о смене имени и значка (Life Hub → LifeHearth).
@@ -58,7 +59,7 @@ export function ReinstallNotice() {
     <div className="fixed inset-0 z-[85] flex items-end justify-center sm:items-center">
       <button
         type="button"
-        aria-label="Закрыть"
+        aria-label={t('Закрыть')}
         onClick={dismiss}
         className="absolute inset-0 bg-black/55 backdrop-blur-sm"
       />
@@ -69,12 +70,12 @@ export function ReinstallNotice() {
             <Sparkles size={ICON.accent} strokeWidth={STROKE_STRONG} />
           </div>
           <div className="min-w-0 pr-7">
-            <h2 className="text-lg font-bold leading-tight">Новое имя и значок</h2>
-            <p className="text-sm text-muted">Теперь приложение называется LifeHearth</p>
+            <h2 className="text-lg font-bold leading-tight">{t('Новое имя и значок')}</h2>
+            <p className="text-sm text-muted">{t('Теперь приложение называется LifeHearth')}</p>
           </div>
           <button
             type="button"
-            aria-label="Скрыть"
+            aria-label={t('Скрыть')}
             onClick={dismiss}
             className="absolute top-3.5 right-3.5 flex size-8 items-center justify-center rounded-full text-muted active:opacity-60"
           >
@@ -86,18 +87,15 @@ export function ReinstallNotice() {
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-2">
           {/* Зачем — коротко */}
           <p className="text-sm leading-relaxed">
-            У приложения новое название и значок. Внутри всё обновилось само, но на экране
-            «Домой» iPhone показывает старую иконку — систему не переубедить, она запоминает
-            значок при установке. Чтобы увидеть новый вид — переустановите приложение.
+            {t('У приложения новое название и значок. Внутри всё обновилось само, но на экране «Домой» iPhone показывает старую иконку — систему не переубедить, она запоминает значок при установке. Чтобы увидеть новый вид — переустановите приложение.')}
           </p>
 
           {/* Главное предупреждение — данные */}
           <div className="flex gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-3.5">
             <ShieldAlert size={20} className="mt-0.5 shrink-0 text-warning" />
             <p className="text-sm leading-relaxed">
-              <span className="font-semibold">Сначала сохраните данные.</span> При удалении
-              приложения задачи, заметки и всё остальное стираются с телефона. Сохраните копию —
-              и вернёте всё за минуту, ровно с той же точки.
+              <span className="font-semibold">{t('Сначала сохраните данные.')}</span>{' '}
+              {t('При удалении приложения задачи, заметки и всё остальное стираются с телефона. Сохраните копию — и вернёте всё за минуту, ровно с той же точки.')}
             </p>
           </div>
 
@@ -108,20 +106,16 @@ export function ReinstallNotice() {
                 1
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
-                <p className="font-semibold">Сохраните данные</p>
+                <p className="font-semibold">{t('Сохраните данные')}</p>
                 {syncOn ? (
                   <p className="text-muted">
-                    Надёжнее всего — выгрузить файл: «Главная → Настройки → Данные → Экспортировать
-                    резервную копию» (ляжет в «Файлы»). Синхронизация тоже держит копию в облаке,
-                    но <span className="font-semibold text-text">ключ хранится только на телефоне</span>{' '}
-                    и сотрётся вместе с приложением. Если устройство одно — обязательно сохраните
-                    ключ: «Синхронизация → Показать QR → Сохранить ключ». Без ключа и без файла
-                    облако не восстановить.
+                    {t('Надёжнее всего — выгрузить файл: «Главная → Настройки → Данные → Экспортировать резервную копию» (ляжет в «Файлы»). Синхронизация тоже держит копию в облаке, но')}{' '}
+                    <span className="font-semibold text-text">{t('ключ хранится только на телефоне')}</span>{' '}
+                    {t('и сотрётся вместе с приложением. Если устройство одно — обязательно сохраните ключ: «Синхронизация → Показать QR → Сохранить ключ». Без ключа и без файла облако не восстановить.')}
                   </p>
                 ) : (
                   <p className="text-muted">
-                    «Главная → Настройки → Данные → Экспортировать резервную копию». Файл ляжет в
-                    «Файлы» и переживёт удаление приложения.
+                    {t('«Главная → Настройки → Данные → Экспортировать резервную копию». Файл ляжет в «Файлы» и переживёт удаление приложения.')}
                   </p>
                 )}
               </div>
@@ -131,10 +125,9 @@ export function ReinstallNotice() {
                 2
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
-                <p className="font-semibold">Переустановите</p>
+                <p className="font-semibold">{t('Переустановите')}</p>
                 <p className="text-muted">
-                  Удалите старый значок с экрана «Домой». Откройте сайт в Safari, нажмите
-                  «Поделиться» → «На экран „Домой“».
+                  {t('Удалите старый значок с экрана «Домой». Откройте сайт в Safari, нажмите «Поделиться» → «На экран „Домой“».')}
                 </p>
               </div>
             </li>
@@ -143,11 +136,11 @@ export function ReinstallNotice() {
                 3
               </span>
               <div className="min-w-0 text-sm leading-relaxed">
-                <p className="font-semibold">Верните данные</p>
+                <p className="font-semibold">{t('Верните данные')}</p>
                 <p className="text-muted">
                   {syncOn
-                    ? 'Откройте приложение → «Импортировать резервную копию» (файл) или «Синхронизация → Подключить» и вставьте сохранённый ключ / QR со второго устройства. Всё продолжится с той же точки.'
-                    : 'Откройте приложение → «Настройки → Данные → Импортировать резервную копию» и выберите сохранённый файл. Всё продолжится с той же точки.'}
+                    ? t('Откройте приложение → «Импортировать резервную копию» (файл) или «Синхронизация → Подключить» и вставьте сохранённый ключ / QR со второго устройства. Всё продолжится с той же точки.')
+                    : t('Откройте приложение → «Настройки → Данные → Импортировать резервную копию» и выберите сохранённый файл. Всё продолжится с той же точки.')}
                 </p>
               </div>
             </li>
@@ -157,7 +150,7 @@ export function ReinstallNotice() {
           <div className="card p-3.5">
             <div className="mb-2 flex items-center gap-2 text-sm text-muted">
               <Share size={16} className="shrink-0" />
-              <span>Откройте эту ссылку в Safari:</span>
+              <span>{t('Откройте эту ссылку в Safari:')}</span>
             </div>
             <div className="flex items-center gap-2">
               <code className="min-w-0 flex-1 truncate rounded-lg bg-surface-2 px-2.5 py-2 font-mono text-xs">
@@ -166,7 +159,7 @@ export function ReinstallNotice() {
               <button
                 type="button"
                 onClick={copyLink}
-                aria-label="Скопировать ссылку"
+                aria-label={t('Скопировать ссылку')}
                 className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-accent active:opacity-60"
               >
                 {copied ? <Check size={18} /> : <Copy size={18} />}
@@ -175,8 +168,7 @@ export function ReinstallNotice() {
           </div>
 
           <p className="text-xs leading-relaxed text-muted">
-            Не срочно — приложение работает и со старым значком. Это только чтобы обновить имя и
-            иконку на экране «Домой».
+            {t('Не срочно — приложение работает и со старым значком. Это только чтобы обновить имя и иконку на экране «Домой».')}
           </p>
 
           <Link
@@ -184,7 +176,7 @@ export function ReinstallNotice() {
             onClick={dismiss}
             className="inline-flex items-center gap-1 text-sm font-semibold text-accent active:opacity-70"
           >
-            Подробная инструкция и восстановление данных
+            {t('Подробная инструкция и восстановление данных')}
             <ChevronRight size={16} />
           </Link>
         </div>
@@ -196,7 +188,7 @@ export function ReinstallNotice() {
             onClick={dismiss}
             className="px-3 py-3 text-sm font-medium text-muted active:opacity-60"
           >
-            Скрыть
+            {t('Скрыть')}
           </button>
           <a
             href={INSTALL_URL}
@@ -205,7 +197,7 @@ export function ReinstallNotice() {
             className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-accent-fill to-accent-2-fill px-5 py-3.5 font-semibold text-white shadow-[0_6px_20px_-9px_var(--app-accent-fill)] active:opacity-90"
           >
             <ExternalLink size={18} />
-            Открыть сайт установки
+            {t('Открыть сайт установки')}
           </a>
         </div>
       </div>
