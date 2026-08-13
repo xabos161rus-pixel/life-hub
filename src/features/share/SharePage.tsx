@@ -8,6 +8,7 @@ import { useToast } from '../../components/ui/toastContext';
 import { db } from '../../db/db';
 import { create } from '../../db/repo';
 import { parseQuickTask } from '../../lib/nlDate';
+import { t } from '../../lib/i18n';
 
 /** Экранирование текста перед вставкой в HTML-заметку. */
 function esc(s: string): string {
@@ -49,12 +50,12 @@ export function SharePage() {
     try {
       const text = await navigator.clipboard.readText();
       if (!text.trim()) {
-        toast('Буфер обмена пуст');
+        toast(t('Буфер обмена пуст'));
         return;
       }
       setValue((cur) => (cur.trim() ? `${cur}\n${text}` : text));
     } catch {
-      toast('Не удалось прочитать буфер обмена. Вставьте текст вручную');
+      toast(t('Не удалось прочитать буфер обмена. Вставьте текст вручную'));
     }
   }
 
@@ -80,7 +81,7 @@ export function SharePage() {
         tags: p.tags,
         sortOrder: Date.now(),
       });
-      toast('Задача создана');
+      toast(t('Задача создана'));
       navigate('/tasks');
     } finally {
       setBusy(false);
@@ -98,7 +99,7 @@ export function SharePage() {
         tags: [],
         pinned: false,
       });
-      toast('Заметка создана');
+      toast(t('Заметка создана'));
       navigate(`/notes/${note.id}`);
     } finally {
       setBusy(false);
@@ -106,7 +107,7 @@ export function SharePage() {
   }
 
   return (
-    <Screen title="Захват" backTo="/">
+    <Screen title={t('Захват')} backTo="/">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted">
           Вставьте или отредактируйте текст и сохраните его задачей или заметкой. Для задачи дата и
@@ -116,7 +117,7 @@ export function SharePage() {
         <AutoGrowTextarea
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Что сохранить?"
+          placeholder={t('Что сохранить?')}
           className="min-h-[7rem]"
           autoFocus={!initial}
         />

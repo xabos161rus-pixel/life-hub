@@ -1,3 +1,5 @@
+import { getLang, t } from './i18n';
+
 // Состояние локального хранилища.
 //
 // Всё приложение живёт в IndexedDB на устройстве, и браузер имеет право её
@@ -53,7 +55,7 @@ export async function ensurePersistentStorage(): Promise<StorageState> {
 
 /** «12,4 МБ» — для строки о занятом месте. */
 export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} Б`;
+  if (bytes < 1024) return `${bytes} ${t('Б')}`;
   const units = ['КБ', 'МБ', 'ГБ'];
   let v = bytes / 1024;
   let i = 0;
@@ -61,5 +63,7 @@ export function formatBytes(bytes: number): string {
     v /= 1024;
     i += 1;
   }
-  return `${v.toFixed(v >= 10 ? 0 : 1).replace('.', ',')} ${units[i]}`;
+  const num = v.toFixed(v >= 10 ? 0 : 1);
+  // Десятичный разделитель следует за языком: 12,4 по-русски, 12.4 по-английски.
+  return `${getLang() === 'en' ? num : num.replace('.', ',')} ${t(units[i])}`;
 }

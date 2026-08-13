@@ -13,6 +13,7 @@ import { Fab } from '../../components/layout/Fab';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { GoalCard } from './GoalCard';
 import { GoalEditSheet } from './GoalEditSheet';
+import { t } from '../../lib/i18n';
 
 function bySortOrder(a: Goal, b: Goal): number {
   return a.sortOrder - b.sortOrder;
@@ -58,13 +59,13 @@ export function GoalsPage() {
     .sort(bySortOrder);
 
   return (
-    <Screen title="Цели">
+    <Screen title={t('Цели')}>
       {goals !== undefined &&
         (goals.length === 0 ? (
           <EmptyState
             icon={Target}
-            title="Пока нет целей"
-            hint="Создайте цель и привяжите к ней задачи и привычки — прогресс будет считаться сам"
+            title={t('Пока нет целей')}
+            hint={t('Создайте цель и привяжите к ней задачи и привычки — прогресс будет считаться сам')}
           />
         ) : (
           <>
@@ -73,11 +74,11 @@ export function GoalsPage() {
                 <GoalCard key={g.id} goal={g} />
               ))}
             </div>
-            <CollapsibleSection title="На паузе" goals={paused} />
-            <CollapsibleSection title="Завершённые" goals={finished} />
+            <CollapsibleSection title={t('На паузе')} goals={paused} />
+            <CollapsibleSection title={t('Завершённые')} goals={finished} />
           </>
         ))}
-      <Fab onClick={() => setCreateOpen(true)} label="Новая цель" />
+      <Fab onClick={() => setCreateOpen(true)} label={t('Новая цель')} />
       <GoalEditSheet open={createOpen} onClose={() => setCreateOpen(false)} goal={null} />
     </Screen>
   );

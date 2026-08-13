@@ -18,6 +18,8 @@ import type { Task } from '../../db/types';
 import type { CycleSettings, LocalDate } from '../../db/cycleTypes';
 import { addDaysKey } from '../dates';
 import type { CyclePredictionResult } from './predict';
+import { t } from '../i18n';
+import { EN } from '../i18n/en';
 
 export type AutoTaskKey = 'supplies' | 'checkup';
 
@@ -76,15 +78,23 @@ export interface PlanInput {
   neutralTitles?: boolean;
 }
 
-const titleFor = (t: AutoTaskTemplate, neutral: boolean): string =>
-  neutral ? t.title : t.directTitle;
+const titleFor = (tpl: AutoTaskTemplate, neutral: boolean): string =>
+  neutral ? t(tpl.title) : t(tpl.directTitle);
 
 /** Задачу редактировали руками? Тогда она больше не наша.
  *
  *  Проверяем по заголовку, а не по updatedAt: отметка «выполнено» тоже меняет
  *  updatedAt, и по нему любая закрытая задача выглядела бы отредактированной. */
 function isUntouched(task: Task, template: AutoTaskTemplate): boolean {
-  return task.title === template.title || task.title === template.directTitle;
+  // Заголовок хранится в задаче на языке, действовавшем при создании, — после
+  // смены языка задача не должна считаться «переименованной». Сверяем со всеми
+  // известными формами шаблона: русскими и их словарными переводами.
+  return [
+    template.title,
+    template.directTitle,
+    EN[template.title] ?? template.title,
+    EN[template.directTitle] ?? template.directTitle,
+  ].includes(task.title);
 }
 
 export function planAutoTasks(input: PlanInput): AutoTaskPlan {

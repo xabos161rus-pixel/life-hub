@@ -19,6 +19,7 @@ import {
 } from '../../lib/sections';
 import { computeNavLayout } from '../../lib/navLayout';
 import { freezeAllForSection, unfreezeSectionFrozen } from '../habits/habitRepo';
+import { t } from '../../lib/i18n';
 
 const LAYOUT_OPTS = { maxBottom: MAX_BOTTOM, defaultBottom: DEFAULT_BOTTOM, anchorId: ANCHOR_ID };
 
@@ -244,8 +245,8 @@ export function SectionsSettingsPage() {
 
   if (!state) {
     return (
-      <Screen title="Настроить разделы" backTo="/more/settings">
-        <div className="py-10 text-center text-sm text-muted">Загрузка…</div>
+      <Screen title={t('Настроить разделы')} backTo="/more/settings">
+        <div className="py-10 text-center text-sm text-muted">{t('Загрузка…')}</div>
       </Screen>
     );
   }
@@ -293,7 +294,7 @@ export function SectionsSettingsPage() {
             паддинг, к тумблеру. Теперь недостачу целиком берёт на себя название
             (min-w-0 + truncate), а бейдж остаётся целым. */}
         <div className="min-w-0 grow basis-auto">
-          <p className="truncate font-semibold">{sec.label}</p>
+          <p className="truncate font-semibold">{t(sec.label)}</p>
           {sec.subtitle && <p className="truncate text-xs text-muted">{sec.subtitle}</p>}
         </div>
         {locked ? (
@@ -303,7 +304,7 @@ export function SectionsSettingsPage() {
           // несёт смысл само, а замок здесь лишь украшение. Плюс 4.25px на
           // сжатии боковых полей — этого хватает, чтобы «Настройки» влезли.
           <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
-            <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
+            <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>{t('всегда')}</span>
           </span>
         ) : (
           <button
@@ -312,7 +313,7 @@ export function SectionsSettingsPage() {
             // иначе pointerdown по нему же запускал бы таймер переноса строки.
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => toggle(id)}
-            aria-label={hidden ? `Включить раздел ${sec.label}` : `Выключить раздел ${sec.label}`}
+            aria-label={hidden ? t('Включить раздел {name}', { name: t(sec.label) }) : t('Выключить раздел {name}', { name: t(sec.label) })}
             className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${
               hidden ? 'border-border bg-surface-2' : 'border-transparent bg-accent'
             }`}
@@ -337,9 +338,9 @@ export function SectionsSettingsPage() {
       <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
         <anchor.icon size={20} />
       </div>
-      <span className="min-w-0 grow basis-auto truncate font-semibold">{anchor.label}</span>
+      <span className="min-w-0 grow basis-auto truncate font-semibold">{t(anchor.label)}</span>
       <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
-        <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>всегда</span>
+        <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>{t('всегда')}</span>
       </span>
     </div>
   );
@@ -359,11 +360,9 @@ export function SectionsSettingsPage() {
   );
 
   return (
-    <Screen title="Настроить разделы" backTo="/more/settings">
+    <Screen title={t('Настроить разделы')} backTo="/more/settings">
       <p className="mb-4 px-1 text-sm leading-relaxed text-muted">
-        Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел
-        через черту в нижнюю панель (до {MAX_BOTTOM} мест, не считая «Главной») — задержите строку
-        пальцем и перетащите.
+        {t('Тумблер включает и выключает раздел нажатием. Чтобы поменять порядок или перенести раздел через черту в нижнюю панель (до {n} мест, не считая «Главной») — задержите строку пальцем и перетащите.', { n: MAX_BOTTOM })}
       </p>
 
       <div data-zone="enabled" className="mb-6 space-y-2">
@@ -391,7 +390,7 @@ export function SectionsSettingsPage() {
       {state.hidden.length > 0 && (
         <>
           <div className="mb-1.5 px-1 text-xs font-bold uppercase tracking-wide text-muted">
-            Выключено
+            {t('Выключено')}
           </div>
           <div data-zone="hidden" className="mb-6 space-y-2">
             {state.hidden.map((id) => row(id, { hidden: true }))}
@@ -404,12 +403,12 @@ export function SectionsSettingsPage() {
         onClick={reset}
         className="mb-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border py-3.5 text-sm font-semibold text-muted active:opacity-70"
       >
-        <RotateCcw size={16} /> Сбросить по умолчанию
+        <RotateCcw size={16} /> {t('Сбросить по умолчанию')}
       </button>
 
       {/* Превью панели */}
       <div className="mb-2 px-1 text-xs font-bold uppercase tracking-wide text-muted">
-        Как будет выглядеть панель
+        {t('Как будет выглядеть панель')}
       </div>
       <div className="flex overflow-hidden rounded-2xl border border-hairline bg-elevated">
         {previewBottom.map((s) =>
@@ -425,7 +424,7 @@ export function SectionsSettingsPage() {
                   запас 2.76px, а с 393px кегль упирается в прежние 10px.
                   Боковых полей нет: 4.25px в такой колонке дороже, чем воздух. */}
               <span className="max-w-full truncate text-2xs font-semibold text-muted">
-                {s.label}
+                {t(s.label)}
               </span>
             </div>
           ) : null,

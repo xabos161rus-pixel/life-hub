@@ -4,7 +4,7 @@ import type { Task } from '../db/types';
 import { todayKey, formatRu } from './dates';
 import { financeSummary, formatRub } from './finance';
 import { goalProgress, goalProgressLabel } from './progress';
-import { plur } from './plural';
+import { t, tPlur } from './i18n';
 
 // Человекочитаемый markdown-отчёт по всем разделам. Для экспорта/печати.
 
@@ -40,19 +40,19 @@ export async function buildReport(): Promise<string> {
   const doneTotal = tasks.filter((t) => t.completedAt).length;
 
   const L: string[] = [];
-  L.push(`# LifeHearth — отчёт`);
+  L.push(`# ${t('LifeHearth — отчёт')}`);
   L.push(`_${formatRu(today, 'd MMMM yyyy')}_`);
   L.push('');
 
-  L.push(`## Задачи`);
-  L.push(`- Открыто: **${open.length}**`);
-  L.push(`- Просрочено: **${overdue.length}**`);
-  L.push(`- Выполнено всего: **${doneTotal}**`);
+  L.push(`## ${t('Задачи')}`);
+  L.push(`- ${t('Открыто')}: **${open.length}**`);
+  L.push(`- ${t('Просрочено')}: **${overdue.length}**`);
+  L.push(`- ${t('Выполнено всего')}: **${doneTotal}**`);
   L.push('');
 
   const activeGoals = goals.filter((g) => g.status === 'active');
   if (activeGoals.length) {
-    L.push(`## Цели (${plur(activeGoals.length, ['активная цель', 'активные цели', 'активных целей'])})`);
+    L.push(`## ${t('Цели')} (${tPlur(activeGoals.length, ['активная цель', 'активные цели', 'активных целей'])})`);
     for (const g of activeGoals) {
       const linked = tasksByGoal.get(g.id) ?? [];
       L.push(`- **${g.title}** — ${goalProgressLabel(g, linked)} (${goalProgress(g, linked)}%)`);
@@ -62,12 +62,12 @@ export async function buildReport(): Promise<string> {
 
   if (expenses.length) {
     const s = financeSummary(expenses);
-    L.push(`## Финансы (в месяц)`);
-    L.push(`- Расходы: **${formatRub(s.expense)}**`);
-    if (s.income > 0) L.push(`- Доходы: **${formatRub(s.income)}**`);
-    L.push(`- Баланс: **${formatRub(s.balance)}**`);
+    L.push(`## ${t('Финансы (в месяц)')}`);
+    L.push(`- ${t('Расходы')}: **${formatRub(s.expense)}**`);
+    if (s.income > 0) L.push(`- ${t('Доходы')}: **${formatRub(s.income)}**`);
+    L.push(`- ${t('Баланс')}: **${formatRub(s.balance)}**`);
     if (s.byCategory.length) {
-      L.push(`- По категориям:`);
+      L.push(`- ${t('По категориям')}:`);
       for (const c of s.byCategory) L.push(`  - ${c.category}: ${formatRub(c.amount)}`);
     }
     L.push('');
@@ -76,18 +76,18 @@ export async function buildReport(): Promise<string> {
   if (learning.length) {
     const done = learning.filter((i) => i.status === 'done').length;
     const inProgress = learning.filter((i) => i.status === 'inProgress').length;
-    L.push(`## Развитие`);
-    L.push(`- Обучение: завершено ${done}, в процессе ${inProgress}, всего ${learning.length}`);
+    L.push(`## ${t('Развитие')}`);
+    L.push(`- ${t('Обучение: завершено {done}, в процессе {inProgress}, всего {total}', { done, inProgress, total: learning.length })}`);
     for (const i of learning) {
-      L.push(`  - ${i.title}${i.author ? ` — ${i.author}` : ''} (${STATUS_RU[i.status] ?? i.status})`);
+      L.push(`  - ${i.title}${i.author ? ` — ${i.author}` : ''} (${t(STATUS_RU[i.status] ?? i.status)})`);
     }
     L.push('');
   }
 
   if (energy.length || places.length) {
-    L.push(`## Прочее`);
-    if (energy.length) L.push(`- Способов восстановления энергии: ${energy.length}`);
-    if (places.length) L.push(`- Мест и рекомендаций: ${places.length}`);
+    L.push(`## ${t('Прочее')}`);
+    if (energy.length) L.push(`- ${t('Способов восстановления энергии')}: ${energy.length}`);
+    if (places.length) L.push(`- ${t('Мест и рекомендаций')}: ${places.length}`);
     L.push('');
   }
 
@@ -95,5 +95,5 @@ export async function buildReport(): Promise<string> {
 }
 
 export function reportFilename(): string {
-  return `life-hub-отчёт-${new Date().toISOString().slice(0, 10)}.md`;
+  return `${t('life-hub-отчёт')}-${new Date().toISOString().slice(0, 10)}.md`;
 }

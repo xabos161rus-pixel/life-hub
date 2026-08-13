@@ -5,6 +5,8 @@
 // Чистый WebCrypto, без зависимостей — работает и в браузере, и в Node 20+.
 
 // === base64url (без паддинга) ↔ байты; одинаково в браузере и Node ===
+import { t } from './i18n';
+
 function bytesToB64url(bytes: Uint8Array): string {
   let bin = '';
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
@@ -91,7 +93,7 @@ export function decodePairing(code: string): PairingData {
   const json = new TextDecoder().decode(b64urlToBytes(code.trim()));
   const d = JSON.parse(json) as PairingData;
   if (d.v !== 1 || !d.accountId || !d.authToken || !d.key) {
-    throw new Error('Некорректный код сопряжения');
+    throw new Error(t('Некорректный код сопряжения'));
   }
   return d;
 }
@@ -115,7 +117,7 @@ export function decodeFamilyPairing(code: string): FamilyPairingData {
   const json = new TextDecoder().decode(b64urlToBytes(code.trim()));
   const d = JSON.parse(json) as FamilyPairingData;
   if (d.v !== 2 || !d.familyId || !d.familyToken || !d.key) {
-    throw new Error('Некорректный код приглашения в семью');
+    throw new Error(t('Некорректный код приглашения в семью'));
   }
   return d;
 }
@@ -283,21 +285,21 @@ export async function sealInvite(
 
 export class InviteExpiredError extends Error {
   constructor() {
-    super('Срок действия приглашения истёк');
+    super(t('Срок действия приглашения истёк'));
     this.name = 'InviteExpiredError';
   }
 }
 
 export class InviteDamagedError extends Error {
   constructor() {
-    super('Код приглашения неполный или повреждён');
+    super(t('Код приглашения неполный или повреждён'));
     this.name = 'InviteDamagedError';
   }
 }
 
 export class InviteWordError extends Error {
   constructor() {
-    super('Неверное кодовое слово');
+    super(t('Неверное кодовое слово'));
     this.name = 'InviteWordError';
   }
 }

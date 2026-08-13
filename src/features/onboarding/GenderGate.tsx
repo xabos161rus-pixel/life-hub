@@ -4,6 +4,7 @@ import { UserRound } from 'lucide-react';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { STROKE_STRONG } from '../../components/ui/icons';
+import { t } from '../../lib/i18n';
 
 /**
  * Обязательный выбор пола при первом запуске — раньше вводного тура и всего
@@ -26,8 +27,8 @@ export function GenderGate() {
   if (!settings || settings.gender) return null;
 
   const OPTIONS = [
-    { value: 'female' as const, label: 'Женский' },
-    { value: 'male' as const, label: 'Мужской' },
+    { value: 'female' as const, label: t('Женский') },
+    { value: 'male' as const, label: t('Мужской') },
   ];
 
   return (
@@ -40,13 +41,12 @@ export function GenderGate() {
         <div className="flex size-20 items-center justify-center rounded-3xl bg-accent/15 text-accent shadow-[var(--shadow-accent)]">
           <UserRound size={40} strokeWidth={STROKE_STRONG} />
         </div>
-        <h2 className="text-2xl font-bold tracking-tight">Ваш пол</h2>
+        <h2 className="text-2xl font-bold tracking-tight">{t('Ваш пол')}</h2>
         <p className="max-w-sm text-sm leading-relaxed text-muted">
-          От ответа зависит набор разделов: например, «Женские дни» — календарь цикла и
-          самочувствия — есть только в женском профиле. Изменить выбор можно потом в профиле.
+          {t('От ответа зависит набор разделов: например, «Женские дни» — календарь цикла и самочувствия — есть только в женском профиле. Изменить выбор можно потом в профиле.')}
         </p>
 
-        <div role="radiogroup" aria-label="Пол" className="mt-2 flex w-full max-w-sm gap-3">
+        <div role="radiogroup" aria-label={t('Пол')} className="mt-2 flex w-full max-w-sm gap-3">
           {OPTIONS.map((o) => (
             <button
               key={o.value}

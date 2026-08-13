@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { todayKey } from '../../lib/dates';
 import { schedulePush, cancelPush } from '../../lib/push';
 import { Ctx, type Phase, type PomodoroCtx, type SoundType } from './pomodoro';
+import { t } from '../../lib/i18n';
 
 // Помодоро-таймер на основе timestamp (endsAt) — корректно показывает остаток
 // после сворачивания приложения и навигации. Состояние глобальное (контекст),
@@ -45,8 +46,8 @@ const POMO_PUSH_ID = 'pomodoro-end';
 /** Текст уведомления по фазе, которая заканчивается. */
 function phaseEndText(phase: Phase): { title: string; body: string } {
   return phase === 'work'
-    ? { title: '🍅 Фокус завершён', body: 'Время для перерыва' }
-    : { title: 'Перерыв окончен', body: 'Возвращайтесь к фокусу' };
+    ? { title: t('🍅 Фокус завершён'), body: t('Время для перерыва') }
+    : { title: t('Перерыв окончен'), body: t('Возвращайтесь к фокусу') };
 }
 
 /** Локальное системное уведомление о конце фазы (когда приложение активно). */

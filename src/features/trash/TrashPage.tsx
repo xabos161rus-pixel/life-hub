@@ -17,6 +17,7 @@ import { db } from '../../db/db';
 import { update } from '../../db/repo';
 import { formatRu } from '../../lib/dates';
 import type { BaseEntity } from '../../db/types';
+import { t } from '../../lib/i18n';
 
 interface TrashEntry {
   table: Table<BaseEntity, string>;
@@ -62,7 +63,7 @@ export function TrashPage() {
 
     return [
       ...collect(db.tasks, 'tasks', SECTION_BY_ID.get('tasks')!.icon, tasks, (r) => str(r.title)),
-      ...collect(db.notes, 'notes', SECTION_BY_ID.get('notes')!.icon, notes, (r) => str(r.title) || 'Без названия'),
+      ...collect(db.notes, 'notes', SECTION_BY_ID.get('notes')!.icon, notes, (r) => str(r.title) || t('Без названия')),
       ...collect(db.goals, 'goals', SECTION_BY_ID.get('goals')!.icon, goals, (r) => str(r.title)),
       ...collect(db.projects, 'projects', FolderKanban, projects, (r) => str(r.name)),
       ...collect(db.learningItems, 'learningItems', SECTION_BY_ID.get('learning')!.icon, learning, (r) => str(r.title)),
@@ -80,7 +81,7 @@ export function TrashPage() {
     busyRef.current = true;
     try {
       await update(entry.table, entry.id, { deletedAt: null });
-      toast('Восстановлено');
+      toast(t('Восстановлено'));
     } finally {
       busyRef.current = false;
     }
@@ -88,7 +89,7 @@ export function TrashPage() {
 
   async function handlePurge(entry: TrashEntry) {
     if (busyRef.current) return;
-    if (!window.confirm('Удалить навсегда?')) return;
+    if (!window.confirm(t('Удалить навсегда?'))) return;
     busyRef.current = true;
     try {
       // Каскадно убираем дочерние логи, иначе они остаются мусором в БД и бэкапе.
@@ -101,19 +102,19 @@ export function TrashPage() {
         await db.noteFiles.where('noteId').equals(entry.id).delete();
       }
       await db.table(entry.tableName).delete(entry.id);
-      toast('Удалено навсегда');
+      toast(t('Удалено навсегда'));
     } finally {
       busyRef.current = false;
     }
   }
 
   return (
-    <Screen title="Корзина" backTo="/more/settings">
+    <Screen title={t('Корзина')} backTo="/more/settings">
       {entries.length === 0 ? (
         <EmptyState
           icon={Trash2}
-          title="Корзина пуста"
-          hint="Удалённые записи появляются здесь и хранятся до окончательного удаления."
+          title={t('Корзина пуста')}
+          hint={t('Удалённые записи появляются здесь и хранятся до окончательного удаления.')}
         />
       ) : (
         <div className="space-y-4">
@@ -127,7 +128,7 @@ export function TrashPage() {
                 <div key={`${entry.tableName}-${entry.id}`} className="flex items-center gap-3 px-4 py-3">
                   <Icon size={18} className="mt-0.5 shrink-0 self-start text-muted" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{entry.title || 'Без названия'}</p>
+                    <p className="truncate font-medium">{entry.title || t('Без названия')}</p>
                     <p className="text-sm text-muted">
                       удалено {formatRu(entry.deletedAt.slice(0, 10))}
                     </p>
@@ -143,7 +144,7 @@ export function TrashPage() {
                     </span>
                   </Button>
                   <button
-                    aria-label="Удалить навсегда"
+                    aria-label={t('Удалить навсегда')}
                     className="shrink-0 p-2 text-muted active:opacity-60"
                     onClick={() => void handlePurge(entry)}
                   >

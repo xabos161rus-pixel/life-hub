@@ -18,6 +18,7 @@ import type {
 } from '../../db/cycleTypes';
 import { addMonths } from 'date-fns';
 import { fromKey, toKey } from '../dates';
+import { getLang, t } from '../i18n';
 import type { Anomaly } from './anomalies';
 import { cycleStats, type CycleStats } from './stats';
 
@@ -153,7 +154,7 @@ export function buildDoctorReport(input: DoctorReportInput): DoctorReport {
     excluded: c.excluded === 1,
     excludeReasonLabel:
       c.excluded === 1 && c.excludeReason !== undefined
-        ? EXCLUDE_REASON_LABELS[c.excludeReason]
+        ? t(EXCLUDE_REASON_LABELS[c.excludeReason])
         : undefined,
   }));
 
@@ -172,15 +173,16 @@ export function buildDoctorReport(input: DoctorReportInput): DoctorReport {
       symptomCounts.set(key, (symptomCounts.get(key) ?? 0) + 1);
     }
   }
+  // t(): встроенные лейблы — ключи словаря, кастомные честно остаются как есть.
   const symptomLabel = (key: string): string =>
-    symptoms.find((s) => s.key === key)?.label ?? key;
+    t(symptoms.find((s) => s.key === key)?.label ?? key);
   const symptomFrequency: DoctorReportSymptomRow[] = [...symptomCounts.entries()]
     .map(([key, count]) => ({ key, label: symptomLabel(key), days: count }))
-    .sort((a, b) => b.days - a.days || a.label.localeCompare(b.label, 'ru'));
+    .sort((a, b) => b.days - a.days || a.label.localeCompare(b.label, getLang() === 'ru' ? 'ru' : 'en'));
 
   const bleedingDays: DoctorReportBleedingRow[] = BLEEDING_LEVELS_FOR_REPORT.map((level) => ({
     level,
-    label: BLEEDING_LEVEL_LABELS[level],
+    label: t(BLEEDING_LEVEL_LABELS[level]),
     days: daysInPeriod.filter((d) => d.bleeding === level).length,
   }));
 
@@ -192,7 +194,7 @@ export function buildDoctorReport(input: DoctorReportInput): DoctorReport {
     .sort((a, b) => (a.startDate < b.startDate ? 1 : -1))
     .map((e) => ({
       kind: e.kind,
-      label: EPISODE_KIND_LABELS[e.kind],
+      label: t(EPISODE_KIND_LABELS[e.kind]),
       startDate: e.startDate,
       endDate: e.endDate,
     }));

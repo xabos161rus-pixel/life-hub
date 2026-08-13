@@ -15,6 +15,7 @@
 
 import type { BleedingLevel, Cycle, LocalDate } from '../../db/cycleTypes';
 import { formatRu } from '../dates';
+import { t } from '../i18n';
 
 /** Источник дневных данных, нужный этому модулю — не весь CycleDayLog:
  *  структурная типизация всё равно принимает полный объект из useCycleData,
@@ -100,7 +101,7 @@ function describeDay(
   bleeding: YearBleedingLevel | undefined,
   isCycleStart: boolean,
 ): string {
-  return [date && formatRu(date), bleeding ? BLEEDING_LABEL[bleeding] : null, isCycleStart ? 'начало цикла' : null]
+  return [date && formatRu(date), bleeding ? t(BLEEDING_LABEL[bleeding]) : null, isCycleStart ? t('начало цикла') : null]
     .filter(Boolean)
     .join(', ');
 }

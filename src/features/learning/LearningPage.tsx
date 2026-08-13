@@ -14,6 +14,7 @@ import type { LearningItem, LearningKind } from '../../db/types';
 import { formatNum } from '../../lib/finance';
 import { LearningItemSheet } from './LearningItemSheet';
 import { ProgressStepper } from './ProgressStepper';
+import { t } from '../../lib/i18n';
 
 type Filter = 'inProgress' | 'planned' | 'done';
 
@@ -35,9 +36,9 @@ const EMPTY_HINTS: Record<Filter, string> = {
 function progressLabel(item: LearningItem): string {
   switch (item.progressUnit) {
     case 'pages':
-      return `стр. ${formatNum(item.progressCurrent)} из ${formatNum(item.progressTarget)}`;
+      return t('стр. {a} из {b}', { a: formatNum(item.progressCurrent), b: formatNum(item.progressTarget) });
     case 'lessons':
-      return `уроков ${formatNum(item.progressCurrent)} из ${formatNum(item.progressTarget)}`;
+      return t('уроков {a} из {b}', { a: formatNum(item.progressCurrent), b: formatNum(item.progressTarget) });
     case 'percent':
       return `${item.progressCurrent}%`;
   }
@@ -105,13 +106,13 @@ export function LearningPage() {
   };
 
   return (
-    <Screen title="Обучение" backTo="/home">
+    <Screen title={t('Обучение')} backTo="/home">
       <div className="space-y-3">
         <SegmentedControl<Filter>
           options={[
-            { value: 'inProgress', label: 'В процессе' },
-            { value: 'planned', label: 'В планах' },
-            { value: 'done', label: 'Завершено' },
+            { value: 'inProgress', label: t('В процессе') },
+            { value: 'planned', label: t('В планах') },
+            { value: 'done', label: t('Завершено') },
           ]}
           value={filter}
           onChange={setFilter}
@@ -120,8 +121,8 @@ export function LearningPage() {
           loaded && (
             <EmptyState
               icon={GraduationCap}
-              title="Пока ничего нет"
-              hint={EMPTY_HINTS[filter]}
+              title={t('Пока ничего нет')}
+              hint={t(EMPTY_HINTS[filter])}
             />
           )
         ) : (

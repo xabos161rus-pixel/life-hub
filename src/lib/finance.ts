@@ -1,4 +1,5 @@
 import type { ExpenseItem, ExpenseRecurrence } from '../db/types';
+import { getLang, t } from './i18n';
 
 /** Множитель приведения суммы к одному месяцу. oneoff не входит в регулярную нагрузку. */
 const MONTHLY_FACTOR: Record<ExpenseRecurrence, number> = {
@@ -33,7 +34,7 @@ export function financeSummary(items: ExpenseItem[]): FinanceSummary {
       income += m;
     } else {
       expense += m;
-      const cat = item.category || 'Прочее';
+      const cat = item.category || t('Прочее');
       cats.set(cat, (cats.get(cat) ?? 0) + m);
     }
   }
@@ -49,7 +50,9 @@ export function financeSummary(items: ExpenseItem[]): FinanceSummary {
  *  перед знаком валюты (сумма не разрывается переносом строки). */
 export function formatRub(amount: number): string {
   const rounded = Math.round(amount);
-  return `${rounded.toLocaleString('ru-RU')}\u00A0₽`;
+  // Валюта данных — рубли, знак остаётся ₽ на любом языке; локаль только
+  // группирует разряды (12 345 против 12,345).
+  return `${rounded.toLocaleString(getLang() === 'ru' ? 'ru-RU' : 'en-US')}\u00A0₽`;
 }
 
 /** Та же сумма, но с обычными пробелами вместо неразрывных.
