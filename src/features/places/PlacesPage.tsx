@@ -92,7 +92,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
             <p className="mt-0.5 line-clamp-2 text-sm text-muted">{item.description}</p>
           )}
           {item.source && (
-            <p className="mt-1 text-xs text-muted">от {item.source}</p>
+            <p className="mt-1 text-xs text-muted">{t('от')} {item.source}</p>
           )}
           {item.location && (
             <p className="mt-1 flex items-center gap-1 text-xs text-muted">
@@ -121,7 +121,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
               className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent active:opacity-60"
             >
               <ExternalLink size={14} />
-              Открыть ссылку
+              {t('Открыть ссылку')}
             </a>
           )}
         </div>
@@ -168,7 +168,7 @@ export function PlacesPage() {
       <div className="space-y-3">
         <ChipRow>
           <Chip active={kindFilter === 'all'} onClick={() => setKindFilter('all')}>
-            Все
+            {t('Все')}
           </Chip>
           {KIND_ORDER.map((k) => (
             <Chip key={k} active={kindFilter === k} onClick={() => setKindFilter(k)}>

@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { todayKey } from '../../lib/dates';
+import { t } from '../../lib/i18n';
 import { ENERGY_LABEL, ENERGY_LEVELS, levelByDate } from '../../lib/energy';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import { toggleEnergyLevel } from './energyRepo';
@@ -24,9 +25,9 @@ export function EnergyTodayLine() {
   return (
     <section className="mb-5">
       <h2 className="mb-2 flex items-center justify-between px-1 text-sm font-semibold text-muted">
-        <span>Энергия</span>
+        <span>{t('Энергия')}</span>
         <span className="text-xs font-normal">
-          {current ? ENERGY_LABEL[current] : 'не отмечено'}
+          {current ? t(ENERGY_LABEL[current]) : t('не отмечено')}
         </span>
       </h2>
       <div className="card flex items-center gap-1 px-2 py-2">
@@ -36,7 +37,7 @@ export function EnergyTodayLine() {
             <button
               key={n}
               type="button"
-              aria-label={`${n} — ${ENERGY_LABEL[n]}`}
+              aria-label={`${n} — ${t(ENERGY_LABEL[n])}`}
               aria-pressed={active}
               onClick={() => void toggleEnergyLevel(today, n as EnergyLevel, current)}
               className="flex h-11 flex-1 items-center justify-center active:opacity-70"
@@ -59,7 +60,7 @@ export function EnergyTodayLine() {
           После отметки подпись уровня уже стоит в заголовке — дубль убираем. */}
       {!current && (
         <p className="mt-1.5 px-1 text-2xs text-muted">
-          1 — еле держусь · 3 — рабочий режим · 5 — прёт
+          {t('1 — еле держусь · 3 — рабочий режим · 5 — прёт')}
         </p>
       )}
     </section>

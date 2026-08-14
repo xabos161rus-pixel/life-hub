@@ -71,7 +71,7 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
             onClick={() => setAssigneeId(null)}
             className={`rounded-full px-3 py-1.5 text-sm ${assigneeId === null ? 'bg-accent-fill text-white' : 'bg-surface-2 text-muted'}`}
           >
-            Всем
+            {t('Всем')}
           </button>
           {alive.map((m) => (
             <button
@@ -107,11 +107,11 @@ function FamilyTaskForm({ familyId, task, members, onClose }: { familyId: string
       <div className="flex gap-2 pt-1">
         {task && (
           <Button variant="danger" onClick={() => void remove()}>
-            Удалить
+            {t('Удалить')}
           </Button>
         )}
         <Button className="flex-1" disabled={!title.trim()} onClick={() => void save()}>
-          Сохранить
+          {t('Сохранить')}
         </Button>
       </div>
     </div>

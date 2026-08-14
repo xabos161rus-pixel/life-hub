@@ -114,7 +114,7 @@ export function CycleLock({
       )}
 
       <Button onClick={() => void check()} disabled={pin.length < 4 || left > 0} className="w-full max-w-56">
-        Открыть
+        {t('Открыть')}
       </Button>
     </div>
   );

@@ -2,6 +2,8 @@
 // на Worker. Реальные пуши приходят только в установленном PWA на iOS 16.4+.
 
 import type { Task } from '../db/types';
+// Алиас: в этом файле t — общепринятое имя задачи в параметрах.
+import { t as tr } from './i18n';
 
 const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
 // Публичный VAPID-ключ (пара к секрету воркера). Безопасно держать в коде.
@@ -133,7 +135,9 @@ export async function scheduleReminder(t: ReminderTask): Promise<void> {
   }
   // Тон уведомлений: без эмодзи, коротко и по делу (title — название задачи).
   const body =
-    t.remindBefore && t.remindBefore > 0 ? `Через ${t.remindBefore}\u00A0мин · ${t.dueTime}` : `Уже пора · ${t.dueTime}`;
+    t.remindBefore && t.remindBefore > 0
+      ? tr('Через {n}\u00A0мин · {time}', { n: t.remindBefore, time: t.dueTime ?? '' })
+      : tr('Уже пора · {time}', { time: t.dueTime ?? '' });
   try {
     await fetch(`${WORKER_URL}/schedule`, {
       method: 'POST',

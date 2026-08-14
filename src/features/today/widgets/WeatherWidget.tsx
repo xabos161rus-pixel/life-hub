@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { getWeather, weatherLabel, type Weather } from '../../../lib/weather';
 import { ICON, STROKE_STRONG } from '../../../components/ui/icons';
+import { t } from '../../../lib/i18n';
 
 // Возвращаем готовый JSX-элемент (а не тип компонента) — иначе eslint-правило
 // react-hooks/static-components ругается на динамический <Icon/> в рендере.
@@ -61,7 +62,7 @@ export function WeatherWidget() {
           <span className="truncate text-sm font-medium text-muted">{weatherLabel(w.code)}</span>
         </div>
         <p className="mt-1.5 text-xs text-muted">
-          Ощущается {w.feelsC}° · день ↑{w.maxC}° ночь ↓{w.minC}°
+          {t('Ощущается {feels}° · день ↑{max}° ночь ↓{min}°', { feels: w.feelsC, max: w.maxC, min: w.minC })}
         </p>
       </div>
     </section>

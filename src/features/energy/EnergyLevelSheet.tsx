@@ -3,6 +3,7 @@ import { formatDueDate } from '../../lib/dates';
 import { ENERGY_LABEL, ENERGY_LEVELS } from '../../lib/energy';
 import { clearEnergyLevel, setEnergyLevel } from './energyRepo';
 import type { EnergyLevel } from '../../db/types';
+import { t } from '../../lib/i18n';
 
 interface Props {
   open: boolean;
@@ -49,7 +50,7 @@ export function EnergyLevelSheet({ open, onClose, date, current }: Props) {
               >
                 {n}
               </span>
-              <span className={active ? 'font-medium' : ''}>{ENERGY_LABEL[n]}</span>
+              <span className={active ? 'font-medium' : ''}>{t(ENERGY_LABEL[n])}</span>
             </button>
           );
         })}
@@ -59,7 +60,7 @@ export function EnergyLevelSheet({ open, onClose, date, current }: Props) {
             onClick={() => void clear()}
             className="min-h-11 w-full rounded-xl px-3 py-2.5 text-sm text-muted active:opacity-70"
           >
-            Снять отметку
+            {t('Снять отметку')}
           </button>
         )}
       </div>

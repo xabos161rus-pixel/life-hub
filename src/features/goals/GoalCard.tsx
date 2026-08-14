@@ -7,6 +7,7 @@ import type { Goal, Task } from '../../db/types';
 import { fromKey } from '../../lib/dates';
 import { goalProgress, goalProgressLabel } from '../../lib/progress';
 import { plur, plural } from '../../lib/plural';
+import { getLang, t, tPlur } from '../../lib/i18n';
 import { ProgressRing } from '../../components/ui/ProgressRing';
 
 /** Карточка цели — ссылка на детальную страницу, с кольцом прогресса и сроком. */
@@ -29,9 +30,15 @@ export function GoalCard({ goal }: { goal: Goal }) {
     const days = differenceInCalendarDays(fromKey(goal.targetDate), new Date());
     deadline =
       days < 0
-        ? { text: 'Просрочена', danger: true }
+        ? { text: t('Просрочена'), danger: true }
         : {
-            text: `${plural(days, ['Остался', 'Осталось', 'Осталось'])} ${plur(days, ['день', 'дня', 'дней'])}`,
+            // Русское «Остался/Осталось» согласует род с числом — словарный ключ
+            // этого не выразит, английская фраза строится своей веткой (как
+            // deadlineLabel в lib/goalsAhead.ts).
+            text:
+              getLang() === 'en'
+                ? `${tPlur(days, ['день', 'дня', 'дней'])} left`
+                : `${plural(days, ['Остался', 'Осталось', 'Осталось'])} ${plur(days, ['день', 'дня', 'дней'])}`,
             danger: days < 7,
           };
   }

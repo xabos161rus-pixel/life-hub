@@ -5,6 +5,7 @@ import {
 } from '../../components/ui/glyphs';
 import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
+import { getLang, t } from '../../lib/i18n';
 import type { CycleData } from './useCycleData';
 
 /** Сетка месяца с отметками цикла.
@@ -29,7 +30,8 @@ const BLEEDING_DOTS: Record<string, number> = { spotting: 1, light: 1, medium: 2
 
 function monthLabel(month: string): string {
   const d = new Date(month + 'T00:00:00Z');
-  const name = new Intl.DateTimeFormat('ru-RU', { month: 'long', timeZone: 'UTC' }).format(d);
+  const locale = getLang() === 'en' ? 'en-US' : 'ru-RU';
+  const name = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(d);
   return name.charAt(0).toUpperCase() + name.slice(1) + ' ' + d.getUTCFullYear();
 }
 
@@ -80,7 +82,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
           <button
             type="button"
             onClick={() => onMonth(shiftMonth(month, -1))}
-            aria-label="Предыдущий месяц"
+            aria-label={t('Предыдущий месяц')}
             className={`shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
           >
             <ChevronLeft size={20} />
@@ -91,7 +93,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
           <button
             type="button"
             onClick={() => onMonth(shiftMonth(month, 1))}
-            aria-label="Следующий месяц"
+            aria-label={t('Следующий месяц')}
             className={`ml-1 shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
           >
             <ChevronRight size={20} />
@@ -102,7 +104,7 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
       <div className="grid grid-cols-7 gap-1">
         {WEEKDAY_LABELS.map((l) => (
           <div key={l} className="pb-1 text-center text-2xs font-medium text-muted">
-            {l}
+            {t(l)}
           </div>
         ))}
 
@@ -119,12 +121,12 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
           // Подпись для скринридера собирается словами: точки и пунктир для
           // него не существуют.
           const label = [
-            new Date(date + 'T00:00:00Z').getUTCDate() + ' число',
-            dots > 0 && !isSpotting ? 'менструация' : null,
-            isSpotting ? 'мажущие выделения' : null,
-            predicted ? 'ожидается менструация' : null,
-            fertileP > 0.15 ? 'вероятны фертильные дни' : null,
-            hasSymptoms ? 'есть отметки' : null,
+            t('{d} число', { d: new Date(date + 'T00:00:00Z').getUTCDate() }),
+            dots > 0 && !isSpotting ? t('менструация') : null,
+            isSpotting ? t('мажущие выделения') : null,
+            predicted ? t('ожидается менструация') : null,
+            fertileP > 0.15 ? t('вероятны фертильные дни') : null,
+            hasSymptoms ? t('есть отметки') : null,
           ]
             .filter(Boolean)
             .join(', ');
@@ -182,17 +184,17 @@ export function CycleCalendar({ data, month, onMonth, onPick }: Props) {
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-2xs text-muted">
         <span className="flex items-center gap-1">
-          <span className="size-1.5 rounded-full bg-danger" /> менструация
+          <span className="size-1.5 rounded-full bg-danger" /> {t('менструация')}
         </span>
         <span className="flex items-center gap-1">
-          <span className="size-1.5 rounded-full border border-danger/70" /> мазня
+          <span className="size-1.5 rounded-full border border-danger/70" /> {t('мазня')}
         </span>
         <span className="flex items-center gap-1">
-          <span className="size-2.5 rounded border border-dashed border-danger/50" /> ожидается
+          <span className="size-2.5 rounded border border-dashed border-danger/50" /> {t('ожидается')}
         </span>
         {settings.fertilityDisplay !== 'off' && (
           <span className="flex items-center gap-1">
-            <span className="h-0.5 w-3 rounded-full bg-success" /> фертильные дни
+            <span className="h-0.5 w-3 rounded-full bg-success" /> {t('фертильные дни')}
           </span>
         )}
       </div>

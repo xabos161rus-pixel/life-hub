@@ -12,7 +12,7 @@ import { MembersTab } from './MembersTab';
 import { ChatTab } from './ChatTab';
 import { FamilyTasksTab } from './FamilyTasksTab';
 import { useToast } from '../../components/ui/toastContext';
-import { t } from '../../lib/i18n';
+import { getLang, t } from '../../lib/i18n';
 
 type Tab = 'chat' | 'tasks' | 'members';
 const TABS = [
@@ -73,8 +73,7 @@ export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: strin
           // которой больше нет. Переписку оставляем — она его, и стирать её
           // вдогонку к исключению незачем.
           <div className="rounded-xl bg-danger/10 p-3 text-sm leading-snug text-danger">
-            Вас исключили из этой группы. Переписка на этом устройстве осталась, но новые
-            сообщения приходить не будут.
+            {t('Вас исключили из этой группы. Переписка на этом устройстве осталась, но новые сообщения приходить не будут.')}
           </div>
         ) : null}
         {/* Статус соединения здесь больше не рендерится — он ушёл в подзаголовок
@@ -87,7 +86,9 @@ export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: strin
                 три строки и вместе с остальной шапкой выталкивала чат за экран. */}
             <span className="min-w-0 flex-1">{t('Уведомления')}</span>
             <button onClick={() => void enableFamilyPush()} className="shrink-0 font-semibold text-accent active:opacity-60">
-              Включить
+              {/* «Включить» в словаре занято звуком чата ('Unmute') — здесь смысл
+                  «разрешить уведомления», английская ветка явная. */}
+              {getLang() === 'en' ? 'Turn on' : 'Включить'}
             </button>
             <button onClick={() => setPushHidden(true)} aria-label={t('Скрыть')} className="shrink-0 p-0.5 text-muted active:opacity-60">
               <X size={16} />

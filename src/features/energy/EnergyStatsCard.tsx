@@ -68,10 +68,10 @@ function LinkRow({
       <span className="min-w-0 flex-1 text-xs text-muted">{label}</span>
       <span className="shrink-0 text-xs">
         <span className="font-semibold">{format(low.avg)}</span>
-        <span className="text-muted"> ({low.n} дн.)</span>
+        <span className="text-muted"> {t('({n} дн.)', { n: low.n })}</span>
         <span className="text-muted"> → </span>
         <span className="font-semibold">{format(high.avg)}</span>
-        <span className="text-muted"> ({high.n} дн.)</span>
+        <span className="text-muted"> {t('({n} дн.)', { n: high.n })}</span>
       </span>
     </div>
   );
@@ -158,7 +158,7 @@ export function EnergyStatsCard() {
             <span className="text-sm font-normal text-muted">{t(' из 5')}</span>
           </p>
           <p className="text-xs text-muted">
-            в среднем за 7 дней · отмечено {trend.current.n} из 7
+            {t('в среднем за 7 дней · отмечено {n} из 7', { n: trend.current.n })}
           </p>
         </div>
         <p className="shrink-0 text-xs text-muted">
@@ -172,7 +172,9 @@ export function EnergyStatsCard() {
           <LevelBar key={p.date} level={p.level} width={`${100 / WINDOW_DAYS}%`} />
         ))}
       </div>
-      <p className="mb-4 text-2xs text-muted">4 недели · отмечено {byDate.size} дн.</p>
+      <p className="mb-4 text-2xs text-muted">
+        {t('4 недели · отмечено {n} дн.', { n: byDate.size })}
+      </p>
 
       <div className="mb-4">
         {/* «По дням недели» — омоним ключа из расписания привычек (Specific days),

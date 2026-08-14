@@ -7,6 +7,7 @@ import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { APP_VERSION, RELEASES } from '../../lib/changelog';
 import { formatRu } from '../../lib/dates';
+import { t } from '../../lib/i18n';
 
 /** «Что нового» после обновления.
  *
@@ -65,7 +66,7 @@ export function WhatsNew() {
   if (!open) return null;
 
   return (
-    <Sheet open onClose={close} title="Что нового">
+    <Sheet open onClose={close} title={t('Что нового')}>
       <div className="flex flex-col gap-4 pb-2">
         {list.map((r) => (
           <section key={r.version}>
@@ -74,7 +75,7 @@ export function WhatsNew() {
                 <Sparkles size={14} />
               </span>
               {/* min-w-0 у левой части: без него дата ужимает версию до буквы. */}
-              <span className="min-w-0 flex-1 font-semibold">Версия {r.version}</span>
+              <span className="min-w-0 flex-1 font-semibold">{t('Версия')} {r.version}</span>
               <span className="shrink-0 text-xs text-muted">{formatRu(r.date, 'd MMMM')}</span>
             </div>
             <ul className="space-y-2">
@@ -88,7 +89,7 @@ export function WhatsNew() {
           </section>
         ))}
         <Button className="w-full" onClick={close}>
-          Понятно
+          {t('Понятно')}
         </Button>
       </div>
     </Sheet>

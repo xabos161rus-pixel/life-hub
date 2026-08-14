@@ -150,7 +150,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
       {mode === 'show' ? (
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            Отсканируйте этот QR на втором устройстве (Настройки → Синхронизация → Подключить).
+            {t('Отсканируйте этот QR на втором устройстве (Настройки → Синхронизация → Подключить).')}
           </p>
           {qrUrl && (
             <div className="flex justify-center">
@@ -164,14 +164,13 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
             </Button>
             <Button variant="secondary" className="flex-1 inline-flex items-center justify-center gap-2" onClick={saveKeyFile}>
               <Download size={18} />
-              Сохранить ключ
+              {t('Сохранить ключ')}
             </Button>
           </div>
           <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
             <AlertTriangle size={18} className="mt-0.5 shrink-0" />
             <span>
-              Любой, у кого есть этот код, получит доступ к данным и сможет их расшифровать. Не
-              передавайте его и сохраните резервную копию — без ключа облачные данные не восстановить.
+              {t('Любой, у кого есть этот код, получит доступ к данным и сможет их расшифровать. Не передавайте его и сохраните резервную копию — без ключа облачные данные не восстановить.')}
             </span>
           </div>
         </div>

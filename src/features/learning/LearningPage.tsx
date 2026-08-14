@@ -62,7 +62,7 @@ function LearningCard({ item, onOpen }: { item: LearningItem; onOpen: () => void
             <p className="truncate font-semibold">{item.title}</p>
             {item.status === 'dropped' && (
               <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-2xs text-muted">
-                Брошено
+                {t('Брошено')}
               </span>
             )}
           </div>

@@ -15,7 +15,7 @@
 
 import type { BleedingLevel, Cycle, LocalDate } from '../../db/cycleTypes';
 import { formatRu } from '../dates';
-import { t } from '../i18n';
+import { getLang, t } from '../i18n';
 
 /** Источник дневных данных, нужный этому модулю — не весь CycleDayLog:
  *  структурная типизация всё равно принимает полный объект из useCycleData,
@@ -85,7 +85,8 @@ function daysInMonth(year: number, month1: number): number {
 
 function monthLabel(year: number, month1: number): string {
   const d = new Date(Date.UTC(year, month1 - 1, 1));
-  const name = new Intl.DateTimeFormat('ru-RU', { month: 'long', timeZone: 'UTC' }).format(d);
+  const locale = getLang() === 'en' ? 'en-US' : 'ru-RU';
+  const name = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(d);
   return name.charAt(0).toUpperCase() + name.slice(1) + ' ' + year;
 }
 

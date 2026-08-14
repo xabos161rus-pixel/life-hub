@@ -29,7 +29,7 @@ export function ProfileNameSheet({ familyId, open, currentName, onClose }: Props
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Например, Влад')} autoFocus />
         </Field>
         <Button className="w-full" disabled={!name.trim()} onClick={() => void save()}>
-          Сохранить
+          {t('Сохранить')}
         </Button>
       </div>
     </Sheet>

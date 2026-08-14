@@ -87,7 +87,7 @@ export function Hint({
 
       {asking && (
         <div className="mt-3 border-t border-accent/15 pt-2.5">
-          <p className="text-xs text-muted">Скрыть подсказку:</p>
+          <p className="text-xs text-muted">{t('Скрыть подсказку')}:</p>
           {/* Столбиком на узких экранах: два варианта в ряд на 320px дают по
               123px, а «Только до перезагрузки» требует заметно больше — текст
               обрезался бы ровно там, где различие между вариантами. */}
@@ -97,14 +97,14 @@ export function Hint({
               onClick={() => dismiss('forever')}
               className="min-h-11 flex-1 rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-medium text-accent active:opacity-70"
             >
-              Больше не показывать
+              {t('Больше не показывать')}
             </button>
             <button
               type="button"
               onClick={() => dismiss('session')}
               className="min-h-11 flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2 text-xs text-muted active:opacity-70"
             >
-              Только сейчас
+              {t('Только сейчас')}
             </button>
           </div>
         </div>

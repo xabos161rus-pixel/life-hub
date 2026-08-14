@@ -59,7 +59,7 @@ function EnergyCard({ item, onOpen }: { item: EnergyItem; onOpen: () => void }) 
       <div className="mt-3 flex items-center justify-between gap-3">
         {item.category ? (
           <span className="shrink-0 rounded-full bg-surface-2 px-2.5 py-0.5 text-2xs text-muted">
-            {item.category}
+            {t(item.category)}
           </span>
         ) : (
           <span />
@@ -103,7 +103,7 @@ export function EnergyPage() {
         <h2 className="px-1 text-sm font-semibold text-muted">{t('Что восстанавливает')}</h2>
         <div className="card p-4">
           <p className="text-sm leading-relaxed text-muted">
-            Когда ничего не хочется — выберите способ под свои силы.
+            {t('Когда ничего не хочется — выберите способ под свои силы.')}
           </p>
         </div>
         <SegmentedControl<Filter>

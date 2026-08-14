@@ -100,7 +100,7 @@ export function ManageGroupsSheet({
     <Sheet open={open} onClose={onClose} title={t('Управление группами')}>
       <div className="space-y-2 pb-2">
         <p className="px-1 text-sm text-muted">
-          Перетащите за ручку, чтобы изменить порядок. Нажмите на название — переименовать.
+          {t('Перетащите за ручку, чтобы изменить порядок. Нажмите на название — переименовать.')}
         </p>
         {order.map((id) => {
           const name = nameById[id] ?? t('Семья');

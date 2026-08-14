@@ -4,7 +4,7 @@ import { UserRound } from 'lucide-react';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { STROKE_STRONG } from '../../components/ui/icons';
-import { t } from '../../lib/i18n';
+import { getLang, t } from '../../lib/i18n';
 
 /**
  * Обязательный выбор пола при первом запуске — раньше вводного тура и всего
@@ -73,7 +73,9 @@ export function GenderGate() {
           onClick={() => picked && void updateSettings({ gender: picked })}
           className="flex w-full items-center justify-center rounded-2xl bg-accent-fill px-5 py-3.5 font-semibold text-white shadow-[var(--shadow-accent)] active:opacity-80 disabled:opacity-40"
         >
-          Продолжить
+          {/* Ключ «Продолжить» в словаре занят таймером ('Resume') — здесь смысл
+              «дальше», а не «возобновить», поэтому английская ветка явная. */}
+          {getLang() === 'en' ? 'Continue' : 'Продолжить'}
         </button>
       </div>
     </div>

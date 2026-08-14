@@ -295,7 +295,7 @@ export function SectionsSettingsPage() {
             (min-w-0 + truncate), а бейдж остаётся целым. */}
         <div className="min-w-0 grow basis-auto">
           <p className="truncate font-semibold">{t(sec.label)}</p>
-          {sec.subtitle && <p className="truncate text-xs text-muted">{sec.subtitle}</p>}
+          {sec.subtitle && <p className="truncate text-xs text-muted">{t(sec.subtitle)}</p>}
         </div>
         {locked ? (
           // shrink-0: бейдж короткий и осмысленный только целиком — «вс…» и тем
@@ -353,7 +353,7 @@ export function SectionsSettingsPage() {
     <div className="my-1 flex items-center gap-2 px-1" aria-hidden={false}>
       <span className="h-px flex-1 bg-border" />
       <span className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-muted">
-        выше — панель · ниже — «Главная»
+        {t('выше — панель · ниже — «Главная»')}
       </span>
       <span className="h-px flex-1 bg-border" />
     </div>

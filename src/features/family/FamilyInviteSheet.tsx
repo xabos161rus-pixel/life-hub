@@ -59,9 +59,7 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
     <Sheet open={open} onClose={onClose} title={t('Пригласить в группу')}>
       <div className="space-y-4">
         <p className="text-sm leading-snug text-muted">
-          Покажите QR участнику: у него — «Главная → Семья → ＋ → Войти по приглашению». После
-          сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с
-          кодом.
+          {t('Покажите QR участнику: у него — «Главная → Семья → ＋ → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.')}
         </p>
         {qrUrl && (
           <div className="flex justify-center">
@@ -75,7 +73,7 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
           </Button>
           <Button variant="secondary" className="flex-1 inline-flex items-center justify-center gap-2" onClick={saveFile}>
             <Download size={18} />
-            Сохранить
+            {t('Сохранить')}
           </Button>
         </div>
         {/* Кодовое слово — второй фактор. Оно и есть то, что делает
@@ -86,15 +84,14 @@ export function FamilyInviteSheet({ familyId, open, onClose }: Props) {
             {word ? formatInviteWord(word) : '········'}
           </p>
           <p className="mt-1.5 text-xs leading-snug text-muted">
-            Назовите его вслух. Без слова код не откроется.
+            {t('Назовите его вслух. Без слова код не откроется.')}
           </p>
         </div>
 
         <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
           <AlertTriangle size={18} className="mt-0.5 shrink-0" />
           <span className="min-w-0 leading-snug">
-            Кто войдёт по этому приглашению, увидит и прошлую переписку тоже, а отозвать доступ
-            обратно пока нельзя.{' '}
+            {t('Кто войдёт по этому приглашению, увидит и прошлую переписку тоже, а отозвать доступ обратно пока нельзя.')}{' '}
             {expiresAt && t('Приглашение действует до {date}.', { date: formatRu(expiresAt.slice(0, 10), 'd MMMM') })}
           </span>
         </div>

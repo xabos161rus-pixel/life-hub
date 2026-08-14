@@ -31,8 +31,9 @@ export function CycleHabitsCard({ cycles }: { cycles: Cycle[] }) {
       {view === undefined ? (
         <div className="card p-4">
           <p className="text-sm leading-snug text-muted">
-            Пока мало данных. Сравнение появится, когда наберутся два завершённых цикла и
-            регулярные отметки привычек.
+            {t(
+              'Пока мало данных. Сравнение появится, когда наберутся два завершённых цикла и регулярные отметки привычек.',
+            )}
           </p>
         </div>
       ) : (
@@ -46,7 +47,7 @@ export function CycleHabitsCard({ cycles }: { cycles: Cycle[] }) {
                 <span className="shrink-0 font-semibold tabular-nums">
                   {Math.round(r.share * 100)}%{' '}
                   <span className="font-normal text-muted">
-                    ({r.done} из {r.planned})
+                    ({t('{done} из {total}', { done: r.done, total: r.planned })})
                   </span>
                 </span>
               </div>

@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { useLiveQuery } from 'dexie-react-hooks';
 import { LucideProvider } from 'lucide-react';
 import { db } from './db/db';
+import { t } from './lib/i18n';
 import { cycleAllowed } from './lib/sections';
 import { STROKE } from './components/ui/icons';
 import { InstallBanner } from './components/layout/InstallBanner';
@@ -105,15 +106,15 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
     if (this.state.hasError) {
       return (
         <div className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
-          <p className="text-lg font-semibold">Что-то пошло не так</p>
+          <p className="text-lg font-semibold">{t('Что-то пошло не так')}</p>
           <p className="text-sm text-muted">
-            Перезагрузите приложение — данные сохранены на устройстве.
+            {t('Перезагрузите приложение — данные сохранены на устройстве.')}
           </p>
           <button
             onClick={() => window.location.reload()}
             className="rounded-xl bg-accent-fill px-5 py-3 font-semibold text-white active:opacity-80"
           >
-            Перезагрузить
+            {t('Перезагрузить')}
           </button>
         </div>
       );

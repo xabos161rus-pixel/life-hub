@@ -13,6 +13,7 @@ import type { SavingsGoal } from '../../db/types';
 import { formatRub } from '../../lib/finance';
 import { goalSaved } from '../../lib/savings';
 import { formatRu, todayKey } from '../../lib/dates';
+import { t } from '../../lib/i18n';
 
 interface Props {
   open: boolean;
@@ -22,7 +23,7 @@ interface Props {
 
 export function DepositSheet({ open, onClose, goal }: Props) {
   return (
-    <Sheet open={open} onClose={onClose} title={goal ? `Пополнить · ${goal.title}` : 'Пополнить'}>
+    <Sheet open={open} onClose={onClose} title={goal ? t('Пополнить · {title}', { title: goal.title }) : t('Пополнить')}>
       {goal && <DepositForm key={goal.id} goal={goal} onClose={onClose} />}
     </Sheet>
   );
@@ -68,24 +69,24 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
   return (
     <div className="space-y-4 pb-2">
       <div className="rounded-2xl bg-surface-2 p-4 text-center">
-        <p className="text-sm text-muted">Накоплено</p>
+        <p className="text-sm text-muted">{t('Накоплено')}</p>
         <p className="text-2xl font-bold tabular-nums" style={{ color: goal.color }}>
           {formatRub(saved)}
         </p>
-        <p className="text-sm text-muted">из {formatRub(goal.targetAmount)}</p>
+        <p className="text-sm text-muted">{t('из')} {formatRub(goal.targetAmount)}</p>
       </div>
 
-      <Field label="Тип">
+      <Field label={t('Тип')}>
         <SegmentedControl<'in' | 'out'>
           options={[
-            { value: 'in', label: 'Пополнить' },
-            { value: 'out', label: 'Снять' },
+            { value: 'in', label: t('Пополнить') },
+            { value: 'out', label: t('Снять') },
           ]}
           value={mode}
           onChange={setMode}
         />
       </Field>
-      <Field label="Сумма, ₽">
+      <Field label={t('Сумма, ₽')}>
         <Input
           type="number"
           inputMode="decimal"
@@ -95,27 +96,27 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
           placeholder="0"
         />
       </Field>
-      <Field label="Дата">
+      <Field label={t('Дата')}>
         <Input
           type="date"
           value={date}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setDate(e.target.value)}
         />
       </Field>
-      <Field label="Заметка">
+      <Field label={t('Заметка')}>
         <Input
           value={note}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setNote(e.target.value)}
-          placeholder="Например, «премия»"
+          placeholder={t('Например, «премия»')}
         />
       </Field>
       <Button className="w-full" disabled={!canSave} onClick={() => void handleAdd()}>
-        {mode === 'in' ? 'Пополнить' : 'Снять'}
+        {mode === 'in' ? t('Пополнить') : t('Снять')}
       </Button>
 
       {deposits.length > 0 && (
         <div>
-          <span className="mb-1.5 block text-sm font-medium text-muted">История</span>
+          <span className="mb-1.5 block text-sm font-medium text-muted">{t('История')}</span>
           <div className="card divide-y divide-hairline px-4">
             {deposits.map((d) => (
               <div key={d.id} className="flex items-center gap-3 py-2.5">

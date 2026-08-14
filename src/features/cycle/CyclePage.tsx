@@ -30,8 +30,14 @@ import { IconButton } from '../../components/ui/IconButton';
 function predictionText(p: CyclePredictionResult): { title: string; note?: string } | null {
   if (p.confidence === 'none' || p.lo80 === undefined || p.hi80 === undefined) return null;
 
-  const range = (from: string, to: string) =>
-    from === to ? formatRu(from) : `${formatRu(from, 'd')}–${formatRu(to)}`;
+  // Начало диапазона сжимается до голого числа только внутри одного месяца:
+  // «26–7 сентября» через границу месяца читается как опечатка — месяц начала
+  // обязан прозвучать («26 августа – 7 сентября»).
+  const range = (from: string, to: string) => {
+    if (from === to) return formatRu(from);
+    if (from.slice(0, 7) === to.slice(0, 7)) return `${formatRu(from, 'd')}–${formatRu(to)}`;
+    return `${formatRu(from)} – ${formatRu(to)}`;
+  };
 
   if (p.confidence === 'population_prior') {
     return {

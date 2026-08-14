@@ -1006,7 +1006,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             <div className="flex flex-1 items-center gap-2 text-sm">
               <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-danger" />
               <span className="font-mono tabular-nums">{fmtDur(rec.elapsed)}</span>
-              <span className="text-muted">запись…</span>
+              <span className="text-muted">{t('запись…')}</span>
             </div>
             <button
               onClick={rec.stop}
@@ -1109,7 +1109,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
           >
             <ImageIcon size={18} className="text-accent" />
-            Фото
+            {t('Фото')}
           </button>
           <button
             onClick={() => {
@@ -1119,7 +1119,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
           >
             <FileIcon size={18} className="text-accent" />
-            Файл
+            {t('Файл')}
           </button>
         </div>
       </Sheet>

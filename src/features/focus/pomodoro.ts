@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import { t } from '../../lib/i18n';
 
 // Контекст, хук и форматтеры помодоро вынесены из PomodoroProvider.tsx:
 // файл с компонентом должен экспортировать только компоненты,
@@ -53,6 +54,6 @@ export function formatClock(ms: number): string {
 export function formatFocusTime(min: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
-  if (h === 0) return `${m}\u00A0мин`;
-  return m === 0 ? `${h}\u00A0ч` : `${h}\u00A0ч ${m}\u00A0мин`;
+  if (h === 0) return `${m}\u00A0${t('мин')}`;
+  return m === 0 ? `${h}\u00A0${t('ч')}` : `${h}\u00A0${t('ч')} ${m}\u00A0${t('мин')}`;
 }

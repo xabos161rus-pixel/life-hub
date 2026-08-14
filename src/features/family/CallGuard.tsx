@@ -56,7 +56,7 @@ export function CallGuard({
           <Lock size={24} />
         </span>
         <p className="text-lg font-semibold">{peerName}</p>
-        <p className="text-sm text-muted">На связи · {elapsed}</p>
+        <p className="text-sm text-muted">{t('На связи')} · {elapsed}</p>
         <p className="mt-1 text-sm text-muted">{t('Экран заблокирован, чтобы не нажать щекой')}</p>
       </div>
 
@@ -66,7 +66,7 @@ export function CallGuard({
         className="relative h-14 w-full max-w-xs touch-none overflow-hidden rounded-full bg-surface-2"
       >
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center pr-6 text-sm font-medium text-muted">
-          Проведите, чтобы разблокировать
+          {t('Проведите, чтобы разблокировать')}
         </span>
         <button
           type="button"

@@ -3,6 +3,7 @@ import { formatRu, todayKey } from '../../lib/dates';
 import { ENERGY_LABEL, windowDates } from '../../lib/energy';
 import { EnergyLevelSheet } from './EnergyLevelSheet';
 import type { EnergyLevel } from '../../db/types';
+import { t } from '../../lib/i18n';
 
 /** Сколько дней показывает дневник. Две недели — столько, сколько человек
  *  реально помнит про свои силы; дальше отметка задним числом уже выдумка. */
@@ -24,9 +25,9 @@ export function EnergyJournal({ byDate }: Props) {
   return (
     <section>
       <h2 className="mb-2 flex items-center justify-between px-1 text-sm font-semibold text-muted">
-        <span>Последние две недели</span>
+        <span>{t('Последние две недели')}</span>
         <span className="text-xs font-normal">
-          {marked} из {JOURNAL_DAYS}
+          {t('{done} из {total}', { done: marked, total: JOURNAL_DAYS })}
         </span>
       </h2>
       <div className="card grid grid-cols-7 gap-1 p-3">
@@ -37,7 +38,7 @@ export function EnergyJournal({ byDate }: Props) {
             <button
               key={date}
               type="button"
-              aria-label={`${formatRu(date)} — ${level ? ENERGY_LABEL[level] : 'нет отметки'}`}
+              aria-label={`${formatRu(date)} — ${level ? t(ENERGY_LABEL[level]) : t('нет отметки')}`}
               onClick={() => setEditing(date)}
               className="flex min-h-11 flex-col items-center gap-1 py-1 active:opacity-70"
             >

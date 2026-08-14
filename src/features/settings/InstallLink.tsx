@@ -44,7 +44,7 @@ export function InstallLink() {
         className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-accent active:opacity-70"
       >
         <ExternalLink size={16} />
-        Открыть сайт установки
+        {t('Открыть сайт установки')}
       </a>
     </div>
   );

@@ -9,6 +9,10 @@ import { addDaysKey, todayKey } from '../src/lib/dates';
 
 const OUT = process.env.EN_SHOTS_DIR || 'en-shots';
 
+// Скриншот-туры длинные: один тест обходит до десятка экранов с двумя кадрами
+// на каждом — штатных 30 секунд на медленном контейнере не хватает.
+test.setTimeout(90_000);
+
 async function shot(page: Page, name: string, opts: { full?: boolean } = {}) {
   await page.waitForTimeout(350); // дать анимациям шитов/переходов осесть
   await page.screenshot({ path: `${OUT}/${name}.png` });

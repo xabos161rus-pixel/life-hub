@@ -117,7 +117,7 @@ export const EN: Record<string, string> = {
   'Назад: {label}': 'Back: {label}',
   'Установите на экран «Домой»': 'Add to Home Screen',
   'Иначе данные могут не сохраниться. Как это сделать →':
-    'Otherwise your data may not persist. How to do it →',
+    'Otherwise your data may be lost. Learn how →',
 
   // === Семья: звонок (внутренние коды причин из familyCall) ===
   'Не удалось соединиться — сеть не пропускает звонок':
@@ -172,7 +172,7 @@ export const EN: Record<string, string> = {
   'Свайп по сообщению вправо — ответить': 'Swipe a message right to reply',
   'Двойной тап — быстрое ❤️': 'Double-tap for a quick ❤️',
   'Тап или удержание — меню: реакции, копировать, править':
-    'Tap or hold — menu: reactions, copy, edit',
+    'Press and hold a message for reactions, copy, and edit',
   'Потяните сообщение мышью вправо — ответить': 'Drag a message right to reply',
   'Двойной клик — быстрое ❤️': 'Double-click for a quick ❤️',
   'Клик — меню: реакции, копировать, править': 'Click — menu: reactions, copy, edit',
@@ -376,7 +376,7 @@ export const EN: Record<string, string> = {
   'Сюда попадают привычки, убранные в архив.': 'Habits you archive end up here.',
   'Нажмите +, чтобы добавить привычку и вести серию.': 'Tap + to add a habit and start a streak.',
   'Заморожена с {date}': 'Frozen since {date}',
-  'рекорд {n}': 'record {n}',
+  'рекорд {n}': 'best {n}',
   'в серии заморозка': 'streak includes',
   'не сегодня': 'not today',
   'Ввести значение': 'Enter value',
@@ -474,7 +474,7 @@ export const EN: Record<string, string> = {
   'Доля выполненных привычек за {n}. Это ваши отметки, а не вывод о работоспособности.':
     'Share of habits completed over {n}. These are your check-ins, not a verdict on what works.',
   'Год': 'Year',
-  'Циклы за период': 'Cycles in the period',
+  'Циклы за период': 'Cycles in this range',
   ', менструация {n}': ', period {n}',
   'не учитывается': 'not counted',
 
@@ -555,7 +555,7 @@ export const EN: Record<string, string> = {
   'Фертильные дни': 'Fertile days',
   'Оценка окна зачатия. По календарю она приблизительная — интервал около двух недель, поэтому для предохранения не годится.':
     "An estimate of the conception window. Based on the calendar it's approximate — a span of about two weeks, so it's not reliable for contraception.",
-  'Связь с приложением': 'Integration with the app',
+  'Связь с приложением': 'App integration',
   'Задачи по циклу': 'Cycle tasks',
   'Приложение само поставит «{title}» перед ожидаемой менструацией и напомнит о плановом визите к врачу. Не больше {n} задач одновременно.':
     'The app will schedule "{title}" before your expected period and remind you about your annual checkup. No more than {n} tasks at a time.',
@@ -729,7 +729,7 @@ export const EN: Record<string, string> = {
   '12 месяцев': '12 months',
   'Составлено {date}': 'Generated {date}',
   'Период: {period}': 'Range: {period}',
-  'Циклы периода': 'Cycles in the period',
+  'Циклы периода': 'Cycles in this range',
   'За выбранный период отметок нет.': 'No entries for the selected period.',
   'Текущий': 'Current',
   'Менструация: {days}': 'Period: {days}',
@@ -752,8 +752,8 @@ export const EN: Record<string, string> = {
     "The printout and saved file aren't protected by the section lock.",
 
   // === Главная, места, энергия, обучение, настройка разделов ===
-  '{n} см': '{n} cm',
-  '{n} кг': '{n} kg',
+  '{n}\u00A0см': '{n}\u00A0cm',
+  '{n}\u00A0кг': '{n}\u00A0kg',
   'Заполнить профиль': 'Fill in your profile',
   'Имя, фото, рост и вес': 'Name, photo, height and weight',
   'Данные синхронизируются': 'Data is syncing',
@@ -886,7 +886,7 @@ export const EN: Record<string, string> = {
     'Add tasks, goals or other entries — a productivity overview will appear here',
   'Поделиться отчётом': 'Share report',
   'Эффективность': 'Efficiency',
-  'Выполнено из всех': 'Completed of all',
+  'Выполнено из всех': 'Completion rate',
   'всего активных': 'total active',
   'выполнено': 'completed',
   'не выполнено': 'not done',
@@ -1401,7 +1401,7 @@ export const EN: Record<string, string> = {
   'Быстрое добавление': 'Quick add',
   'Пишите естественно: «завтра в 10 позвонить маме» — дата и время подставятся сами':
     'Write naturally: “tomorrow at 10 call mom” — date and time fill in automatically',
-  'Стрелка справа — добавить задачу': 'Arrow on the right — add task',
+  'Стрелка справа — добавить задачу': 'Tap the arrow on the right to add the task',
   'Enter — добавить задачу': 'Enter — add task',
   'Крестик слева стирает всё написанное': 'X on the left clears everything typed',
   'Приближение к целям': 'Progress toward goals',
@@ -1413,4 +1413,98 @@ export const EN: Record<string, string> = {
   'Пройдено {v}%': '{v}% done',
   'Срок прошёл': 'Past due',
   'Срок сегодня': 'Due today',
+
+  // === Добор EN-скриншот-ревью (2026-08-14): экраны и файлы, не попавшие в волны ===
+  // Ошибка рендера (ErrorBoundary)
+  'Что-то пошло не так': 'Something went wrong',
+  'Перезагрузите приложение — данные сохранены на устройстве.':
+    'Reload the app — your data is safe on this device.',
+  'Перезагрузить': 'Reload',
+  // Подсказки (Hint)
+  'Больше не показывать': "Don't show again",
+  'Только сейчас': 'Just for now',
+  // Календарь
+  'Задачи на {date}': 'Tasks for {date}',
+  'Задача на этот день': 'Task for this day',
+  // Корзина
+  'Здесь удалённые записи. Их можно восстановить или удалить навсегда.':
+    'Deleted items live here. You can restore them or delete them forever.',
+  'удалено {date}': 'deleted {date}',
+  // Захват. EN-текст не обещает разбор дат: парсер естественного ввода пока
+  // понимает только русский — обещание вернётся вместе с EN-парсером.
+  'Вставьте или отредактируйте текст и сохраните его задачей или заметкой. Для задачи дата и время из текста подставятся сами — например «завтра в 10 позвонить маме».':
+    'Paste or edit text and save it as a task or a note.',
+  'Вставить из буфера': 'Paste from clipboard',
+  'В задачи': 'To Tasks',
+  'В заметки': 'To Notes',
+  // Цели
+  'Просрочена': 'Overdue',
+  // Цикл
+  'Пока мало данных. Сравнение появится, когда наберутся два завершённых цикла и регулярные отметки привычек.':
+    'Not enough data yet. The comparison will appear once you have two completed cycles and regular habit check-ins.',
+  'За эти 12 месяцев ещё нет ни одного завершённого цикла.':
+    'No completed cycles in these 12 months yet.',
+  'Открыть': 'Open',
+  // Энергия
+  'Последние две недели': 'Last two weeks',
+  'не отмечено': 'not logged',
+  'нет отметки': 'no entry',
+  'Когда ничего не хочется — выберите способ под свои силы.':
+    "When you don't feel like doing anything, pick an option that matches your energy.",
+  '1 — еле держусь · 3 — рабочий режим · 5 — прёт':
+    '1 — barely holding on · 3 — working mode · 5 — on fire',
+  '({n} дн.)': '({n} d)',
+  'в среднем за 7 дней · отмечено {n} из 7': '7-day average · {n} of 7 logged',
+  '4 недели · отмечено {n} дн.': '4 weeks · {n} days logged',
+  // Накопления
+  'цель': 'goal',
+  'по {sum}/мес': '{sum}/mo',
+  'Забрать': 'Claim',
+  'Накопления': 'Savings',
+  'Всего накоплено': 'Total saved',
+  'из': 'of',
+  // Места
+  'от': 'from',
+  'Открыть ссылку': 'Open link',
+  // Семья
+  'Вас исключили из этой группы. Переписка на этом устройстве осталась, но новые сообщения приходить не будут.':
+    'You were removed from this group. The chat history stays on this device, but new messages will not arrive.',
+  'Пригласить участника': 'Invite a member',
+  'Вместе с ним группу потеряют: {names}. У них старая версия приложения — новый ключ передать нечем. Попросите их открыть приложение и повторите.':
+    'These members would lose the group too: {names}. They are on an older app version, so the new key cannot reach them. Ask them to open the app and try again.',
+  'Всем': 'Everyone',
+  'Покажите QR участнику: у него — «Главная → Семья → ＋ → Войти по приглашению». После сканирования он спросит кодовое слово — назовите его голосом, не пересылайте вместе с кодом.':
+    'Show this QR to the new member: on their phone it is Home → Family → ＋ → Join with an invitation. After scanning it asks for the code word — say it out loud, never send it along with the code.',
+  'Назовите его вслух. Без слова код не откроется.':
+    'Say it out loud. The code will not open without the word.',
+  'Кто войдёт по этому приглашению, увидит и прошлую переписку тоже, а отозвать доступ обратно пока нельзя.':
+    'Anyone who joins with this invitation will see the past conversation too, and access cannot be revoked yet.',
+  'Проведите, чтобы разблокировать': 'Slide to unlock',
+  'запись…': 'recording…',
+  'Перетащите за ручку, чтобы изменить порядок. Нажмите на название — переименовать.':
+    'Drag by the handle to reorder. Tap a name to rename it.',
+  // Синхронизация
+  'Отсканируйте этот QR на втором устройстве (Настройки → Синхронизация → Подключить).':
+    'Scan this QR on your second device (Settings → Sync → Connect).',
+  'Сохранить ключ': 'Save the key',
+  'Любой, у кого есть этот код, получит доступ к данным и сможет их расшифровать. Не передавайте его и сохраните резервную копию — без ключа облачные данные не восстановить.':
+    'Anyone with this code can access and decrypt your data. Keep it to yourself and store a backup — cloud data cannot be recovered without the key.',
+  'Синхронизация включена': 'Sync is on',
+  'Не удалось синхронизировать. Проверьте связь и попробуйте ещё раз':
+    'Could not sync. Check your connection and try again',
+  'Синхронизация отключена': 'Sync is off',
+  'Устройство подключено': 'Device connected',
+  // Настройки и системное
+  'выше — панель · ниже — «Главная»': 'above — the bottom bar · below — Home',
+  'Версия': 'Version',
+  'Понятно': 'Got it',
+  'Брошено': 'Dropped',
+  'Плюс десять страниц': 'Plus ten pages',
+  // Фокус, погода, пуши
+  'мин': 'min',
+  'ч': 'h',
+  'Ощущается {feels}° · день ↑{max}° ночь ↓{min}°':
+    'Feels like {feels}° · day ↑{max}° night ↓{min}°',
+  'Через {n} мин · {time}': 'In {n} min · {time}',
+  'Уже пора · {time}': 'Due now · {time}',
 };

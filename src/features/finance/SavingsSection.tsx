@@ -12,6 +12,7 @@ import { formatRub, wrapRub } from '../../lib/finance';
 import { goalSaved, isReached, monthlyNeeded, progressPct, remaining } from '../../lib/savings';
 import { todayKey } from '../../lib/dates';
 import { SavingsGoalSheet } from './SavingsGoalSheet';
+import { getLang, t } from '../../lib/i18n';
 import { DepositSheet } from './DepositSheet';
 
 function GoalCard({
@@ -75,14 +76,14 @@ function GoalCard({
           {wrapRub(saved)}
         </span>
         <span className="min-w-0 text-sm text-muted tabular-nums">
-          цель {wrapRub(goal.targetAmount)}
+          {t('цель')} {wrapRub(goal.targetAmount)}
         </span>
       </div>
 
       <div className="mt-2.5 flex items-center justify-between gap-3">
         {reached ? (
           <span className="flex items-center gap-1.5 text-sm font-semibold text-success">
-            <Check size={16} /> Цель достигнута
+            <Check size={16} /> {t('Цель достигнута')}
           </span>
         ) : (
           // Та же болезнь в узком боксе: рядом стоит shrink-0-кнопка, строке
@@ -90,8 +91,17 @@ function GoalCard({
           // пробелами — неразбиваемый кусок под 120px. Обычные пробелы дают
           // строке точки переноса, иначе хвост уходит под overflow:hidden.
           <span className="min-w-0 text-sm text-muted">
-            осталось <b className="text-text tabular-nums">{wrapRub(rem)}</b>
-            {monthly ? ` · по ${wrapRub(monthly)}/мес` : ''}
+            {/* Порядок слов различается («осталось X» / «X left») — ветка, не словарь. */}
+            {getLang() === 'en' ? (
+              <>
+                <b className="text-text tabular-nums">{wrapRub(rem)}</b> left
+              </>
+            ) : (
+              <>
+                осталось <b className="text-text tabular-nums">{wrapRub(rem)}</b>
+              </>
+            )}
+            {monthly ? ` · ${t('по {sum}/мес', { sum: wrapRub(monthly) })}` : ''}
           </span>
         )}
         {reached ? (
@@ -103,7 +113,7 @@ function GoalCard({
             }}
             className="shrink-0 rounded-xl bg-surface-2 px-4 py-2 text-sm font-semibold active:opacity-70"
           >
-            Забрать
+            {t('Забрать')}
           </button>
         ) : (
           <button
@@ -115,7 +125,7 @@ function GoalCard({
             className="shrink-0 rounded-xl px-4 py-2 text-sm font-bold text-white active:opacity-80"
             style={{ background: `linear-gradient(140deg, ${goal.color}, var(--app-accent-2))` }}
           >
-            Пополнить
+            {t('Пополнить')}
           </button>
         )}
       </div>
@@ -158,11 +168,11 @@ export function SavingsSection() {
       <div className="mb-2 flex items-end justify-between gap-2 px-1">
         <h2 className="flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
           <PiggyBank size={14} className="shrink-0" />
-          Накопления
+          {t('Накопления')}
         </h2>
         {goals.length > 0 && (
           <div className="text-right">
-            <p className="text-2xs font-medium text-muted">Всего накоплено</p>
+            <p className="text-2xs font-medium text-muted">{t('Всего накоплено')}</p>
             <p className="font-bold tabular-nums tracking-tight">{formatRub(total)}</p>
           </div>
         )}
@@ -185,7 +195,7 @@ export function SavingsSection() {
           onClick={openNew}
           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border py-3.5 text-sm font-semibold text-muted active:opacity-70"
         >
-          <Plus size={16} /> {goals.length === 0 ? 'Цель накопления' : 'Новая цель'}
+          <Plus size={16} /> {goals.length === 0 ? t('Цель накопления') : t('Новая цель')}
         </button>
       </div>
 

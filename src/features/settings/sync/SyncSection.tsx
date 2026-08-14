@@ -30,7 +30,7 @@ export function SyncSection() {
     try {
       await createSyncAccount();
       await runSync().catch(() => {});
-      toast('Синхронизация включена');
+      toast(t('Синхронизация включена'));
       setSheet('show'); // сразу показываем QR для второго устройства
     } finally {
       setBusy(false);
@@ -44,7 +44,7 @@ export function SyncSection() {
       const r = await runSync();
       if (r) toast(t('Синхронизировано · получено {pulled}, отправлено {pushed}', { pulled: r.pulled, pushed: r.pushed }));
     } catch {
-      toast('Не удалось синхронизировать. Проверьте связь и попробуйте ещё раз');
+      toast(t('Не удалось синхронизировать. Проверьте связь и попробуйте ещё раз'));
     } finally {
       setBusy(false);
     }
@@ -53,7 +53,7 @@ export function SyncSection() {
   async function handleDisable() {
     if (!window.confirm(t('Отключить синхронизацию на этом устройстве? Локальные данные останутся на месте.'))) return;
     await disableSync();
-    toast('Синхронизация отключена');
+    toast(t('Синхронизация отключена'));
   }
 
   return (
@@ -112,7 +112,7 @@ export function SyncSection() {
         open={sheet !== null}
         mode={sheet === 'connect' ? 'connect' : 'show'}
         onClose={() => setSheet(null)}
-        onConnected={() => toast('Устройство подключено')}
+        onConnected={() => toast(t('Устройство подключено'))}
       />
     </>
   );

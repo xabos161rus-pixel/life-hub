@@ -110,8 +110,9 @@ export function SharePage() {
     <Screen title={t('Захват')} backTo="/">
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted">
-          Вставьте или отредактируйте текст и сохраните его задачей или заметкой. Для задачи дата и
-          время из текста подставятся сами — например «завтра в 10 позвонить маме».
+          {t(
+            'Вставьте или отредактируйте текст и сохраните его задачей или заметкой. Для задачи дата и время из текста подставятся сами — например «завтра в 10 позвонить маме».',
+          )}
         </p>
 
         <AutoGrowTextarea
@@ -124,13 +125,13 @@ export function SharePage() {
 
         <Button variant="secondary" onClick={() => void pasteFromClipboard()}>
           <ClipboardPaste size={18} className="mr-2 inline" />
-          Вставить из буфера
+          {t('Вставить из буфера')}
         </Button>
 
         <div className="mt-1 flex gap-2">
           <Button className="flex-1" disabled={!canCreate || busy} onClick={() => void createTask()}>
             <ListTodo size={18} className="mr-2 inline" />
-            В задачи
+            {t('В задачи')}
           </Button>
           <Button
             variant="secondary"
@@ -139,7 +140,7 @@ export function SharePage() {
             onClick={() => void createNote()}
           >
             <NotebookPen size={18} className="mr-2 inline" />
-            В заметки
+            {t('В заметки')}
           </Button>
         </div>
       </div>

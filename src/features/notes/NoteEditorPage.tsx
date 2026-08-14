@@ -673,6 +673,8 @@ export function NoteEditorPage() {
         ]}
       />
 
+      {/* data-placeholder: ключ «Заголовок» занят стилем текста ('Heading') —
+          плейсхолдер первой строки по-английски зовётся 'Title', ветка явная. */}
       <div
         ref={editorRef}
         className="note-editor"
@@ -681,7 +683,7 @@ export function NoteEditorPage() {
         autoCapitalize="sentences"
         autoCorrect="on"
         spellCheck
-        data-placeholder={t('Заголовок')}
+        data-placeholder={getLang() === 'en' ? 'Title' : 'Заголовок'}
         onPaste={(e) => {
           // Чистим вставку ДО попадания в DOM: иначе <img onerror>/скрипт из
           // буфера может сработать раньше санитайза-на-сохранении (XSS).

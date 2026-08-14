@@ -55,13 +55,14 @@ export function CycleYearPage() {
                 тому, кто открыл экран впервые. */}
             <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-2xs text-muted">
               <span className="flex items-center gap-1">
-                <span className="h-3 w-1.5 rounded-[2px] bg-danger" /> менструация
+                <span className="h-3 w-1.5 rounded-[2px] bg-danger" /> {t('менструация')}
               </span>
               <span className="flex items-center gap-1">
-                <span className="size-1.5 rounded-full border border-danger" /> мазня
+                <span className="size-1.5 rounded-full border border-danger" /> {t('мазня')}
               </span>
               <span className="flex items-center gap-1">
-                <span className="size-2.5 rounded-[2px] ring-1 ring-inset ring-accent" /> начало цикла
+                <span className="size-2.5 rounded-[2px] ring-1 ring-inset ring-accent" />{' '}
+                {t('начало цикла')}
               </span>
             </div>
           </div>
@@ -70,7 +71,7 @@ export function CycleYearPage() {
             <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Циклы за период')}</h2>
             {view.cycles.length === 0 ? (
               <p className="px-1 text-sm text-muted">
-                За эти 12 месяцев ещё нет ни одного завершённого цикла.
+                {t('За эти 12 месяцев ещё нет ни одного завершённого цикла.')}
               </p>
             ) : (
               <div className="card divide-y divide-hairline px-4">

@@ -119,7 +119,7 @@ export function TrashPage() {
       ) : (
         <div className="space-y-4">
           <div className="card p-4 text-sm leading-relaxed text-muted">
-            Здесь удалённые записи. Их можно восстановить или удалить навсегда.
+            {t('Здесь удалённые записи. Их можно восстановить или удалить навсегда.')}
           </div>
           <div className="card divide-y divide-hairline">
             {entries.map((entry) => {
@@ -130,7 +130,7 @@ export function TrashPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{entry.title || t('Без названия')}</p>
                     <p className="text-sm text-muted">
-                      удалено {formatRu(entry.deletedAt.slice(0, 10))}
+                      {t('удалено {date}', { date: formatRu(entry.deletedAt.slice(0, 10)) })}
                     </p>
                   </div>
                   <Button
@@ -140,7 +140,7 @@ export function TrashPage() {
                   >
                     <span className="flex items-center gap-1.5">
                       <RotateCcw size={16} />
-                      Восстановить
+                      {t('Восстановить')}
                     </span>
                   </Button>
                   <button

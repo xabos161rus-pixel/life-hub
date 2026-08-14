@@ -8,6 +8,7 @@ import { create, now, update } from '../../db/repo';
 import type { LearningItem } from '../../db/types';
 import { todayKey } from '../../lib/dates';
 import { formatNum } from '../../lib/finance';
+import { t } from '../../lib/i18n';
 
 const BTN_CLASS =
   'flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-text active:opacity-70 disabled:opacity-40';
@@ -34,7 +35,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
     >
       <button
         className={BTN_CLASS}
-        aria-label="Уменьшить прогресс"
+        aria-label={t('Уменьшить прогресс')}
         disabled={item.progressCurrent <= 0}
         onClick={() => void setValue(item.progressCurrent - step)}
       >
@@ -46,7 +47,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
       </span>
       <button
         className={BTN_CLASS}
-        aria-label="Увеличить прогресс"
+        aria-label={t('Увеличить прогресс')}
         disabled={item.progressCurrent >= item.progressTarget}
         onClick={() => void setValue(item.progressCurrent + step)}
       >
@@ -55,7 +56,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
       {item.progressUnit === 'pages' && (
         <button
           className={`${BTN_CLASS} w-auto px-3 text-sm font-semibold`}
-          aria-label="Плюс десять страниц"
+          aria-label={t('Плюс десять страниц')}
           disabled={item.progressCurrent >= item.progressTarget}
           onClick={() => void setValue(item.progressCurrent + 10)}
         >

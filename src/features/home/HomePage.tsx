@@ -197,7 +197,7 @@ export function HomePage() {
                   key={s.id}
                   to={s.to}
                   icon={s.icon}
-                  title={s.label}
+                  title={t(s.label)}
                   subtitle={s.id === 'learning' ? t('{n} в процессе', { n: learningCount }) : s.subtitle && t(s.subtitle)}
                 />
               ))}
@@ -210,7 +210,7 @@ export function HomePage() {
             <MenuCard
               to={settingsSection.to}
               icon={SettingsIcon}
-              title={settingsSection.label}
+              title={t(settingsSection.label)}
               subtitle={backupDue ? t('Пора сделать резервную копию') : settingsSection.subtitle && t(settingsSection.subtitle)}
               subtitleWarning={backupDue}
               badge={backupDue}

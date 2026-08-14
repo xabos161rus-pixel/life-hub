@@ -91,7 +91,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
 
       <Button onClick={() => setInvite(true)} className="w-full inline-flex items-center justify-center gap-2">
         <UserPlus size={18} />
-        Пригласить участника
+        {t('Пригласить участника')}
       </Button>
 
       <div className="divide-y divide-hairline overflow-hidden card">
@@ -256,8 +256,7 @@ function RemoveMemberSheet({
           <div className="rounded-2xl border border-warning/40 bg-warning/10 p-3 text-sm leading-snug">
             {/* Не обновившиеся участники не получат новый ключ: передать его
                 нечем. Молча выкинуть их вместе с исключённым нельзя. */}
-            Вместе с ним группу потеряют: {stranded.map((m) => m.displayName).join(', ')}. У них старая
-            версия приложения — новый ключ передать нечем. Попросите их открыть приложение и повторите.
+            {t('Вместе с ним группу потеряют: {names}. У них старая версия приложения — новый ключ передать нечем. Попросите их открыть приложение и повторите.', { names: stranded.map((m) => m.displayName).join(', ') })}
           </div>
         )}
 
@@ -271,7 +270,7 @@ function RemoveMemberSheet({
           {busy ? t('Исключаем…') : t('Исключить')}
         </Button>
         <button onClick={onClose} className="w-full py-2 text-sm text-muted active:opacity-60">
-          Отмена
+          {t('Отмена')}
         </button>
       </div>
     </Sheet>
