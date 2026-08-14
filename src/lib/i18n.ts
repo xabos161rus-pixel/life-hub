@@ -44,7 +44,10 @@ export function getLang(): Lang {
 export function t(key: string, vars?: Record<string, string | number>): string {
   let s = current === 'ru' ? key : (EN[key] ?? key);
   if (vars) {
-    for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
+    // Замена — функцией: строковый второй аргумент replaceAll трактует
+    // $$ / $& / $' / $` как спецпаттерны, и имя участника «Ba$$» в
+    // подстановке исказилось бы. Функция вставляет значение дословно.
+    for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, () => String(v));
   }
   return s;
 }
