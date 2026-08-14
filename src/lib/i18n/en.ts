@@ -1430,10 +1430,9 @@ export const EN: Record<string, string> = {
   'Здесь удалённые записи. Их можно восстановить или удалить навсегда.':
     'Deleted items live here. You can restore them or delete them forever.',
   'удалено {date}': 'deleted {date}',
-  // Захват. EN-текст не обещает разбор дат: парсер естественного ввода пока
-  // понимает только русский — обещание вернётся вместе с EN-парсером.
+  // Захват
   'Вставьте или отредактируйте текст и сохраните его задачей или заметкой. Для задачи дата и время из текста подставятся сами — например «завтра в 10 позвонить маме».':
-    'Paste or edit text and save it as a task or a note.',
+    'Paste or edit text and save it as a task or a note. For a task, date and time fill in from the text — e.g. “tomorrow at 10 call mom”.',
   'Вставить из буфера': 'Paste from clipboard',
   'В задачи': 'To Tasks',
   'В заметки': 'To Notes',
@@ -1507,4 +1506,10 @@ export const EN: Record<string, string> = {
     'Feels like {feels}° · day ↑{max}° night ↓{min}°',
   'Через {n} мин · {time}': 'In {n} min · {time}',
   'Уже пора · {time}': 'Due now · {time}',
+
+  // === Быстрый ввод задач: подсказка разбора (nlDate) ===
+  'в {time}': 'at {time}',
+  '!низкий': '!low',
+  '!!средний': '!!medium',
+  '!!!высокий': '!!!high',
 };

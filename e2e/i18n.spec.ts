@@ -20,6 +20,20 @@ test('английский: раздел задач — экран, быстры
   await expect(page.getByText('Repeat', { exact: true })).toBeVisible();
 });
 
+test('английский: быстрый ввод понимает естественные даты', async ({ page }) => {
+  await openApp(page, '/tasks', { language: 'en' });
+  const input = page.getByPlaceholder('What needs to be done?');
+  // Фраза из подсказки Hint — обещание интерфейса, проверяем его дословно.
+  await input.fill('call mom tomorrow at 10');
+  // Живая подсказка разбора: дата, время.
+  await expect(page.getByText('tomorrow · at 10:00')).toBeVisible();
+  await input.press('Enter');
+  // Задача создана: заголовок очищен от токенов, срок виден строкой задачи.
+  const row = page.getByText('call mom', { exact: true });
+  await expect(row).toBeVisible();
+  await expect(page.getByText('Tomorrow, 10:00')).toBeVisible();
+});
+
 test('английский: раздел заметок — список, папки, редактор', async ({ page }) => {
   await openApp(page, '/notes', { language: 'en' });
   await expect(page.getByRole('heading', { name: 'Notes' })).toBeVisible();
