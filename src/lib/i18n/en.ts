@@ -1512,4 +1512,9 @@ export const EN: Record<string, string> = {
   '!низкий': '!low',
   '!!средний': '!!medium',
   '!!!высокий': '!!!high',
+
+  // === Системные сообщения семейного чата (typed, рендер per-viewer) ===
+  '{name} присоединился': '{name} joined',
+  '📞 Аудиозвонок · {dur}': '📞 Audio call · {dur}',
+  '📵 Пропущенный аудиозвонок': '📵 Missed audio call',
 };

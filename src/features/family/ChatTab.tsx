@@ -43,6 +43,7 @@ import {
 import { fileKindLabel, formatFileSize, MAX_FILE_BYTES } from '../../lib/family/fileTransfer';
 import { isTouch } from '../../lib/platform';
 import { getFamilyConfig } from '../../lib/family/familyState';
+import { systemMessageText } from '../../lib/family/systemMessage';
 import {
   sendMessage,
   sendImage,
@@ -905,7 +906,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                       {/* Полупрозрачная плашка: служебные события не должны
                           весить столько же, сколько живые сообщения. */}
                       <div className="py-0.5 text-center">
-                        <span className="inline-block rounded-full bg-surface-2/70 px-3 py-1 text-xs text-muted">{m.text}</span>
+                        <span className="inline-block rounded-full bg-surface-2/70 px-3 py-1 text-xs text-muted">{systemMessageText(m)}</span>
                       </div>
                     </div>
                   );

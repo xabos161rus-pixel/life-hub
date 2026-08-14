@@ -101,7 +101,12 @@ export async function joinFamily(
   connectFamily(p.familyId);
   // Системное сообщение всем участникам: кто-то присоединился (уйдёт из outbox
   // при подключении; офлайн-участникам прилетит пушем как обычное сообщение).
-  void sendSystemMessage(p.familyId, `${displayName.trim() || 'Участник'} присоединился`);
+  // Без name при пустом имени: заглушка «Участник» локализуется у зрителя,
+  // а не запекается языком присоединившегося.
+  void sendSystemMessage(
+    p.familyId,
+    displayName.trim() ? { kind: 'join', name: displayName.trim() } : { kind: 'join' },
+  );
   return p.familyId;
 }
 

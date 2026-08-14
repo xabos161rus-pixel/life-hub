@@ -34,6 +34,40 @@ test('английский: быстрый ввод понимает естес�
   await expect(page.getByText('Tomorrow, 10:00')).toBeVisible();
 });
 
+test('английский: системные сообщения чата локализуются у зрителя', async ({ page }) => {
+  await openApp(page, '/more/family', { language: 'en' });
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const { generateKey } = await import('/src/lib/crypto.ts');
+    const key = await generateKey();
+    await db.family.put({
+      id: 'f1', familyId: 'f1', familyToken: 't', familyKey: key, familyName: 'Family',
+      selfMemberId: 'me', lastSeq: 0, lastReadSeq: 0, enabled: true,
+      joinedAt: new Date().toISOString(), keyEpoch: 0, keyRing: { '0': key },
+    });
+    await db.familyMembers.bulkPut([
+      { id: 'me', familyId: 'f1', seq: 1, displayName: 'Anna', color: '#5b7cfa', joinedAt: new Date().toISOString(), leftAt: null, removedAt: null },
+    ]);
+    const msg = (id: string, seq: number, text: string, over: Record<string, unknown> = {}) => ({
+      clientMsgId: id, familyId: 'f1', seq, senderMemberId: 'me',
+      createdAt: new Date(Date.now() - (10 - seq) * 60000).toISOString(),
+      text, system: true, status: 'acked', deletedAt: null, ...over,
+    });
+    await db.familyMessages.bulkPut([
+      // Типизированные события с русским text (язык отправителя): зритель с
+      // английским интерфейсом обязан увидеть их по-английски.
+      msg('sm1', 1, 'Вася присоединился', { sys: { kind: 'join', name: 'Вася' } }),
+      msg('sm2', 2, '📞 Аудиозвонок · 3:07', { sys: { kind: 'call', sec: 187 } }),
+      // Старая история — строка без события: показывается дословно.
+      msg('sm3', 3, 'Мама присоединилась'),
+    ]);
+  });
+  await page.goto('/more/family?g=f1');
+  await expect(page.getByText('Вася joined')).toBeVisible();
+  await expect(page.getByText('📞 Audio call · 3:07')).toBeVisible();
+  await expect(page.getByText('Мама присоединилась')).toBeVisible();
+});
+
 test('английский: раздел заметок — список, папки, редактор', async ({ page }) => {
   await openApp(page, '/notes', { language: 'en' });
   await expect(page.getByRole('heading', { name: 'Notes' })).toBeVisible();

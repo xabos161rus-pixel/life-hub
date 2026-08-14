@@ -467,6 +467,16 @@ export interface FamilyTask {
   pendingNotify?: 'done';
 }
 
+// Типизированное системное событие чата: смысл (kind + params) вместо готовой
+// строки, чтобы каждый участник видел его на своём языке. Новые kind
+// добавляются свободно: клиент, не знающий kind, показывает text.
+export type FamilySystemEvent =
+  // «{name} присоединился»; без name («имя не заполнено») подпись-заглушка
+  // тоже локализуется у зрителя, а не запекается языком отправителя.
+  | { kind: 'join'; name?: string }
+  | { kind: 'call'; sec: number } // состоявшийся аудиозвонок, длительность в секундах
+  | { kind: 'callMissed' }; // пропущенный аудиозвонок
+
 // Сообщение чата. append-only, дедуп по clientMsgId; порядок по серверному seq.
 export interface FamilyMessage {
   clientMsgId: string; // uuid, первичный ключ
@@ -479,6 +489,11 @@ export interface FamilyMessage {
   audio?: string | null; // аудио dataURL (голосовое сообщение)
   audioDur?: number; // длительность голосового, сек
   system?: boolean; // системное сообщение («X присоединился») — без пузыря
+  /** Типизированное системное событие: локализуется у зрителя по kind+params.
+   *  text при этом заполнен строкой на языке отправителя — fallback для
+   *  старых клиентов (их applyBatch отбрасывает незнакомые поля payload),
+   *  для старой истории и для kind, которых этот клиент ещё не знает. */
+  sys?: FamilySystemEvent | null;
   // Ответ: сниппет оригинала внутри payload (E2E). Тап по цитате скроллит к id.
   replyTo?: { id: string; name: string; text: string } | null;
   // Сообщение-реакция: не рендерится пузырём, агрегируется по targetId.

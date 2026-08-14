@@ -1,0 +1,63 @@
+import { describe, expect, it } from 'vitest';
+import { msgPayload, msgRowFromWire } from './familyChat';
+import type { FamilyMessage } from '../../db/types';
+
+// Контракт двух концов провода сообщений: msgPayload (отправка) и
+// msgRowFromWire (приём). Шифрование здесь ни при чём — оно прозрачно для
+// формы payload, поэтому «провод» имитируется честной JSON-сериализацией.
+
+const wire = (p: object) => JSON.parse(JSON.stringify(p)) as Record<string, unknown>;
+
+const meta = { itemId: 'c1', seq: 7, senderMemberId: 'm1', createdAt: '2026-08-14T10:00:00.000Z' };
+
+function row(over: Partial<FamilyMessage>): FamilyMessage {
+  return {
+    clientMsgId: 'c1',
+    familyId: 'f1',
+    seq: null,
+    senderMemberId: 'm1',
+    createdAt: '2026-08-14T10:00:00.000Z',
+    text: '',
+    status: 'pending',
+    deletedAt: null,
+    ...over,
+  };
+}
+
+describe('провод сообщений чата: payload ↔ строка', () => {
+  it('типизированное системное событие переживает провод вместе с text', () => {
+    const sent = row({ text: 'Вася присоединился', system: true, sys: { kind: 'join', name: 'Вася' } });
+    const got = msgRowFromWire('f1', meta, wire(msgPayload(sent)), null);
+    expect(got.sys).toEqual({ kind: 'join', name: 'Вася' });
+    expect(got.text).toBe('Вася присоединился'); // fallback старых клиентов
+    expect(got.system).toBe(true);
+    expect(got.seq).toBe(7);
+    expect(got.status).toBe('acked');
+  });
+
+  it('payload старого клиента (без sys) даёт строку с fallback-текстом', () => {
+    const legacy = wire(msgPayload(row({ text: 'Мама присоединилась', system: true })));
+    delete legacy.sys; // старый клиент этого поля не шлёт вовсе
+    const got = msgRowFromWire('f1', meta, legacy, null);
+    expect(got.sys).toBeNull();
+    expect(got.text).toBe('Мама присоединилась');
+  });
+
+  it('незнакомое поле будущей версии отбрасывается белым списком', () => {
+    const future = { ...wire(msgPayload(row({ text: 'hi' }))), futureField: { anything: 1 } };
+    const got = msgRowFromWire('f1', meta, future, null);
+    expect('futureField' in got).toBe(false);
+  });
+
+  it('fileData не едет в payload, но своё локальное значение сохраняется', () => {
+    const manifest = row({
+      file: { fileId: 'f', name: 'a.txt', mime: 'text/plain', size: 3, chunksTotal: 1 },
+      fileData: 'data:text/plain;base64,AAA',
+    });
+    const p = wire(msgPayload(manifest));
+    expect('fileData' in p).toBe(false);
+    const got = msgRowFromWire('f1', meta, p, 'data:text/plain;base64,AAA');
+    expect(got.fileData).toBe('data:text/plain;base64,AAA');
+    expect(got.file?.fileId).toBe('f');
+  });
+});

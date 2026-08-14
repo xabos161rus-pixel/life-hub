@@ -667,12 +667,9 @@ class CallManager {
     // его прикрывает missed-пуш от alarm'а.
     if (this.role === 'caller' && this.familyId && reason !== 'Нет доступа к микрофону') {
       const dur = this.snap.startedAt ? Date.now() - this.snap.startedAt : null;
-      const s = dur ? Math.max(1, Math.floor(dur / 1000)) : 0;
       void sendSystemMessage(
         this.familyId,
-        dur
-          ? `📞 Аудиозвонок · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
-          : '📵 Пропущенный аудиозвонок',
+        dur ? { kind: 'call', sec: Math.max(1, Math.floor(dur / 1000)) } : { kind: 'callMissed' },
       );
     }
     this.gen++; // инвалидирует любой in-flight setup (getMic/createPc/waitIce)

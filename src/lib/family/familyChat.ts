@@ -8,10 +8,11 @@
 // живыми одновременно — две группы синкаются и шлют пуши параллельно.
 
 import { db } from '../../db/db';
-import type { FamilyConfig, FamilyMessage, FamilyTask, FamilyMember } from '../../db/types';
+import type { FamilyConfig, FamilyMessage, FamilySystemEvent, FamilyTask, FamilyMember } from '../../db/types';
 import { getPushSubscription } from '../push';
 import { getFamilyConfig, patchFamilyConfig, listFamilyConfigs } from './familyState';
 import { assembleFile, splitDataUrl } from './fileTransfer';
+import { systemEventText } from './systemMessage';
 import {
   WORKER_URL,
   adoptSealedKey,
@@ -49,6 +50,60 @@ function stripMeta<T extends { id: string; seq: number; familyId?: string; pendi
   void familyId;
   void pendingNotify; // локальный флаг доставки, чужим устройствам он не нужен
   return rest;
+}
+
+/** E2E-payload сообщения из строки Dexie — отправляющий конец провода. */
+export function msgPayload(m: FamilyMessage): object {
+  return {
+    text: m.text,
+    deletedAt: m.deletedAt ?? null,
+    image: m.image ?? null,
+    audio: m.audio ?? null,
+    audioDur: m.audioDur,
+    system: m.system ?? false,
+    sys: m.sys ?? null,
+    replyTo: m.replyTo ?? null,
+    reaction: m.reaction ?? null,
+    editedAt: m.editedAt ?? null,
+    file: m.file ?? null,
+    fileChunk: m.fileChunk ?? null,
+    // fileData сюда сознательно НЕ входит: манифест едет лёгким сообщением,
+    // содержимое — отдельными чанками, каждый по себе укладывается в 1 МиБ.
+  };
+}
+
+/** Строка Dexie из расшифрованного payload — принимающий конец провода.
+ *  Жёсткий белый список полей: незнакомое поле от нового клиента молча
+ *  отбрасывается (поэтому у типизированных сообщений text всегда заполнен).
+ *  localFileData — своё собранное содержимое файла: put() заменяет строку
+ *  целиком, и echo собственного манифеста иначе стёрло бы его в гонке с ack. */
+export function msgRowFromWire(
+  familyId: string,
+  it: { itemId: string; seq: number; senderMemberId: string | null; createdAt: string },
+  p: Record<string, unknown>,
+  localFileData: string | null,
+): FamilyMessage {
+  return {
+    clientMsgId: it.itemId,
+    familyId,
+    seq: it.seq,
+    senderMemberId: it.senderMemberId ?? '',
+    createdAt: it.createdAt,
+    text: String(p.text ?? ''),
+    image: (p.image as string | null) ?? null,
+    audio: (p.audio as string | null) ?? null,
+    audioDur: typeof p.audioDur === 'number' ? p.audioDur : undefined,
+    system: Boolean(p.system),
+    sys: (p.sys as FamilyMessage['sys']) ?? null,
+    replyTo: (p.replyTo as FamilyMessage['replyTo']) ?? null,
+    reaction: (p.reaction as FamilyMessage['reaction']) ?? null,
+    editedAt: (p.editedAt as string | null) ?? null,
+    status: 'acked',
+    deletedAt: (p.deletedAt as string | null) ?? null,
+    file: (p.file as FamilyMessage['file']) ?? null,
+    fileChunk: (p.fileChunk as FamilyMessage['fileChunk']) ?? null,
+    fileData: localFileData,
+  };
 }
 
 // === Один экземпляр на семью ===
@@ -232,34 +287,10 @@ class FamilyEngine {
         if (it.channel === 'msg') {
           const local = await db.familyMessages.get(it.itemId);
           if (local && local.seq != null && it.seq <= local.seq) continue;
-          const file = (p.file as FamilyMessage['file']) ?? null;
-          const fileChunk = (p.fileChunk as FamilyMessage['fileChunk']) ?? null;
-          if (file) touchedFileIds.add(file.fileId);
-          if (fileChunk) touchedFileIds.add(fileChunk.fileId);
-          await db.familyMessages.put({
-            clientMsgId: it.itemId,
-            familyId: this.familyId,
-            seq: it.seq,
-            senderMemberId: it.senderMemberId ?? '',
-            createdAt: it.createdAt,
-            text: String(p.text ?? ''),
-            image: (p.image as string | null) ?? null,
-            audio: (p.audio as string | null) ?? null,
-            audioDur: typeof p.audioDur === 'number' ? p.audioDur : undefined,
-            system: Boolean(p.system),
-            replyTo: (p.replyTo as FamilyMessage['replyTo']) ?? null,
-            reaction: (p.reaction as FamilyMessage['reaction']) ?? null,
-            editedAt: (p.editedAt as string | null) ?? null,
-            status: 'acked',
-            deletedAt: (p.deletedAt as string | null) ?? null,
-            file,
-            fileChunk,
-            // fileData манифеста НЕ едет в payload (манифест лёгкий) — своё
-            // (уже собранное или изначально своё же, у отправителя) значение
-            // сохраняем, иначе echo собственного файла стёр бы его в гонке
-            // с ack: put() ниже полностью заменяет строку, а не патчит.
-            fileData: local?.fileData ?? null,
-          });
+          const row = msgRowFromWire(this.familyId, it, p, local?.fileData ?? null);
+          if (row.file) touchedFileIds.add(row.file.fileId);
+          if (row.fileChunk) touchedFileIds.add(row.fileChunk.fileId);
+          await db.familyMessages.put(row);
         } else if (it.channel === 'task') {
           const local = await db.familyTasks.get(it.itemId);
           if (!local || it.seq > local.seq) await db.familyTasks.put({ ...(p as unknown as FamilyTask), id: it.itemId, familyId: this.familyId, seq: it.seq });
@@ -343,7 +374,7 @@ class FamilyEngine {
         createdAt: m.createdAt,
         edit: true, // при реконнекте могут быть правки/удаления — пропускаем дедуп
         silent: (m.system ?? false) || Boolean(m.reaction) || Boolean(m.fileChunk),
-        ciphertext: await encFamily(c, this.msgPayload(m)),
+        ciphertext: await encFamily(c, msgPayload(m)),
       }));
     }
     for (const t of (await db.familyTasks.where('familyId').equals(this.familyId).toArray()).filter((x) => x.seq === 0)) {
@@ -546,25 +577,12 @@ class FamilyEngine {
     return false; // оставляем в БД — уйдёт на ближайшем ready через resendOutbox
   }
 
-  // Полный E2E-payload сообщения — ЕДИНСТВЕННОЕ место сборки: sendMessage /
-  // edit / delete / resendOutbox шифруют одно и то же, поля не теряются.
-  private msgPayload(m: FamilyMessage): object {
-    return {
-      text: m.text,
-      deletedAt: m.deletedAt ?? null,
-      image: m.image ?? null,
-      audio: m.audio ?? null,
-      audioDur: m.audioDur,
-      system: m.system ?? false,
-      replyTo: m.replyTo ?? null,
-      reaction: m.reaction ?? null,
-      editedAt: m.editedAt ?? null,
-      file: m.file ?? null,
-      fileChunk: m.fileChunk ?? null,
-      // fileData сюда сознательно НЕ входит: манифест едет лёгким сообщением,
-      // содержимое — отдельными чанками, каждый по себе укладывается в 1 МиБ.
-    };
-  }
+  // Полный E2E-payload сообщения — единая точка сборки (msgPayload) на все
+  // пути отправки: sendMessage / edit / delete / resendOutbox шифруют одно и
+  // то же, поля не теряются. Вынесена из класса чистой функцией — вместе с
+  // зеркальной msgRowFromWire это ОБА конца провода, и их контракт держит
+  // юнит-тест (см. systemMessage.test.ts): поле, забытое на любом конце,
+  // молча потерялось бы у получателя.
 
   async sendMessage(text: string, replyTo?: FamilyMessage['replyTo']): Promise<void> {
     const body = text.trim();
@@ -575,7 +593,7 @@ class FamilyEngine {
     const createdAt = new Date().toISOString();
     const row: FamilyMessage = { clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: body, replyTo: replyTo ?? null, status: 'pending', deletedAt: null };
     await db.familyMessages.put(row);
-    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encFamily(c, this.msgPayload(row)) });
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, ciphertext: await encFamily(c, msgPayload(row)) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -589,7 +607,7 @@ class FamilyEngine {
     const createdAt = new Date().toISOString();
     const row: FamilyMessage = { clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: '', reaction: { targetId, emoji }, status: 'pending', deletedAt: null };
     await db.familyMessages.put(row);
-    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, silent: true, ciphertext: await encFamily(c, this.msgPayload(row)) });
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, silent: true, ciphertext: await encFamily(c, msgPayload(row)) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -602,7 +620,7 @@ class FamilyEngine {
     if (!m) return;
     const editedAt = new Date().toISOString();
     await db.familyMessages.update(clientMsgId, { text, editedAt, status: 'pending', seq: null });
-    const ciphertext = await encFamily(c, this.msgPayload({ ...m, text, editedAt }));
+    const ciphertext = await encFamily(c, msgPayload({ ...m, text, editedAt }));
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
@@ -614,7 +632,7 @@ class FamilyEngine {
     if (!m) return;
     const deletedAt = new Date().toISOString();
     await db.familyMessages.update(clientMsgId, { deletedAt, status: 'pending', seq: null });
-    const ciphertext = await encFamily(c, this.msgPayload({ ...m, deletedAt }));
+    const ciphertext = await encFamily(c, msgPayload({ ...m, deletedAt }));
     this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: m.senderMemberId, createdAt: m.createdAt, edit: true, ciphertext });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
@@ -677,7 +695,7 @@ class FamilyEngine {
         senderMemberId: c.selfMemberId,
         createdAt,
         silent: true,
-        ciphertext: await encFamily(c, this.msgPayload(row)),
+        ciphertext: await encFamily(c, msgPayload(row)),
       });
     }
     const manifestId = crypto.randomUUID();
@@ -701,23 +719,25 @@ class FamilyEngine {
       clientMsgId: manifestId,
       senderMemberId: c.selfMemberId,
       createdAt: manifestCreatedAt,
-      ciphertext: await encFamily(c, this.msgPayload(manifestRow)),
+      ciphertext: await encFamily(c, msgPayload(manifestRow)),
     });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
   /** Системное сообщение (например, «X присоединился») — по центру, без пузыря.
+   *  Принимает типизированное событие: kind+params уезжают в payload и
+   *  раскрываются в строку у каждого зрителя на его языке; text заполняется
+   *  на языке отправителя — fallback для старых клиентов и старой истории.
    *  silent: сервер не шлёт пуш «Новое сообщение» (журнал звонков и прочая
    *  служебка не должны дублировать собственные пуши звонка). */
-  async sendSystemMessage(text: string): Promise<void> {
-    const body = text.trim();
-    if (!body) return;
+  async sendSystemMessage(sys: FamilySystemEvent): Promise<void> {
     const c = await this.cfg();
     if (!c) return;
     const clientMsgId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
-    await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: body, system: true, status: 'pending', deletedAt: null });
-    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, silent: true, ciphertext: await encFamily(c, { text: body, deletedAt: null, system: true }) });
+    const row: FamilyMessage = { clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: systemEventText(sys), sys, system: true, status: 'pending', deletedAt: null };
+    await db.familyMessages.put(row);
+    this.trySendFrame({ type: 'send', channel: 'msg', clientMsgId, senderMemberId: c.selfMemberId, createdAt, silent: true, ciphertext: await encFamily(c, msgPayload(row)) });
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) void this.connect();
   }
 
@@ -847,8 +867,8 @@ export function sendAudio(familyId: string, dataUrl: string, durationSec: number
 export function sendFile(familyId: string, file: { name: string; mime: string; size: number; dataUrl: string }): Promise<void> {
   return getEngine(familyId).sendFile(file);
 }
-export function sendSystemMessage(familyId: string, text: string): Promise<void> {
-  return getEngine(familyId).sendSystemMessage(text);
+export function sendSystemMessage(familyId: string, sys: FamilySystemEvent): Promise<void> {
+  return getEngine(familyId).sendSystemMessage(sys);
 }
 export function editMessage(familyId: string, clientMsgId: string, newText: string): Promise<void> {
   return getEngine(familyId).editMessage(clientMsgId, newText);
