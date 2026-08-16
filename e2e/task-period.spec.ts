@@ -19,6 +19,9 @@ test('задача с периодом: создание, подпись диа�
   await page.getByLabel('Начало').fill(start);
   await page.getByLabel('Сдать до').fill(due);
   await page.getByRole('button', { name: 'Сохранить' }).click();
+  // Дождаться закрытия шита: пока он в DOM (анимация), «последний div с
+  // текстом» — это шит, и его innerText пуст (текст живёт в value textarea).
+  await expect(page.locator('textarea[placeholder="Что нужно сделать?"]')).toHaveCount(0);
 
   // Подпись — диапазон, а не одна дата (дедлайн «через 3 дня» — датой).
   const row = page.getByText('Сдать лист в кадры');
@@ -49,6 +52,21 @@ test('задача с периодом: создание, подпись диа�
   await page.reload();
   await openApp(page, '/tasks');
   await expect(page.getByText('Сдать лист в кадры')).toBeVisible();
+});
+
+test('период из быстрой строки: «с 10 по 25 сентября» — подсказка и диапазон', async ({ page }) => {
+  // Быстрая строка раньше понимала только точечную дату; период приходилось
+  // выставлять в полной форме. Теперь «с 10 по 25 сентября» — сразу окно.
+  await openApp(page, '/tasks');
+  const input = page.getByPlaceholder('Что нужно сделать?');
+  await input.fill('ремонт с 10 по 25 сентября');
+  // Подсказка под полем показывает разобранный диапазон до создания.
+  await expect(page.getByText('10–25 сентября')).toBeVisible();
+  await input.press('Enter');
+
+  // Задача создана с окном: заголовок чист, подпись — диапазон.
+  await expect(page.getByText('ремонт', { exact: true })).toBeVisible();
+  await expect(page.getByText('10–25 сентября')).toBeVisible();
 });
 
 test('чип «Период» выключается — задача сохраняется обычной датой', async ({ page }) => {

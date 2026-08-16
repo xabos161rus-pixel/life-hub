@@ -117,6 +117,47 @@ describe('быстрый ввод: русская грамматика', () => {
     // оставлено как было и закреплено, чтобы смена контракта была видимой.
     expect(parseQuickTask('встреча 8:70').dueTime).toBe('08:59');
   });
+
+  it('период «с 10 по 25 августа»: месяц правой границы достаётся левой', () => {
+    const p = parseQuickTask('отпуск с 10 по 25 августа');
+    expect(p).toMatchObject({
+      title: 'отпуск',
+      startDate: '2026-08-10',
+      dueDate: '2026-08-25',
+    });
+  });
+
+  it('голая пара «с 10 по 25» — ближайшее окно, даже если оно уже идёт', () => {
+    // Сегодня 12-е: дедлайн 25-го ещё впереди, старт 10-го уже позади — это
+    // текущее окно, а не следующий месяц.
+    const p = parseQuickTask('отчёт с 10 по 25');
+    expect(p.startDate).toBe('2026-08-10');
+    expect(p.dueDate).toBe('2026-08-25');
+  });
+
+  it('«с 28 по 3 сентября» — старт в предыдущем месяце', () => {
+    const p = parseQuickTask('сдача с 28 по 3 сентября');
+    expect(p.startDate).toBe('2026-08-28');
+    expect(p.dueDate).toBe('2026-09-03');
+  });
+
+  it('«с 28 декабря по 3 января» переживает смену года', () => {
+    const p = parseQuickTask('каникулы с 28 декабря по 3 января');
+    expect(p.startDate).toBe('2026-12-28');
+    expect(p.dueDate).toBe('2027-01-03');
+  });
+
+  it('вывернутое окно в одном явном месяце — не период, текст цел', () => {
+    const p = parseQuickTask('проект с 25 июня по 10 июня');
+    expect(p.startDate).toBeNull();
+    expect(p.title).toContain('с 25 июня');
+  });
+
+  it('числовой период «с 10.09 по 25.09»', () => {
+    const p = parseQuickTask('ремонт с 10.09 по 25.09');
+    expect(p.startDate).toBe('2026-09-10');
+    expect(p.dueDate).toBe('2026-09-25');
+  });
 });
 
 describe('быстрый ввод: английская грамматика', () => {
@@ -288,6 +329,38 @@ describe('быстрый ввод: английская грамматика', (
   it('русская грамматика в английском интерфейсе не работает', () => {
     expect(parseQuickTask('позвонить маме завтра').dueDate).toBeNull();
   });
+
+  it('период «from 10 to 25 august» и «from june 10 to june 15»', () => {
+    const p = parseQuickTask('vacation from 10 to 25 august');
+    expect(p).toMatchObject({
+      title: 'vacation',
+      startDate: '2026-08-10',
+      dueDate: '2026-08-25',
+    });
+    // Июнь прошёл — окно целиком уезжает на следующий год, как одиночная дата.
+    const q = parseQuickTask('trip from june 10 to june 15');
+    expect(q.startDate).toBe('2027-06-10');
+    expect(q.dueDate).toBe('2027-06-15');
+  });
+
+  it('«from 28 to 3 september» — старт в предыдущем месяце', () => {
+    const p = parseQuickTask('report from 28 to 3 september');
+    expect(p.startDate).toBe('2026-08-28');
+    expect(p.dueDate).toBe('2026-09-03');
+  });
+
+  it('«from 9 to 5» без месяца — рабочие часы, а не окно дат', () => {
+    const p = parseQuickTask('shift from 9 to 5');
+    expect(p.startDate).toBeNull();
+    expect(p.dueDate).toBeNull();
+    expect(p.title).toBe('shift from 9 to 5');
+  });
+
+  it('«from dec 28 to jan 3» переживает смену года', () => {
+    const p = parseQuickTask('holidays from dec 28 to jan 3');
+    expect(p.startDate).toBe('2026-12-28');
+    expect(p.dueDate).toBe('2027-01-03');
+  });
 });
 
 describe('подсказка разбора (describeParsed)', () => {
@@ -304,5 +377,10 @@ describe('подсказка разбора (describeParsed)', () => {
 
   it('нечего показать — null', () => {
     expect(describeParsed(parseQuickTask('просто текст'))).toBeNull();
+  });
+
+  it('период показывается диапазоном', () => {
+    const hint = describeParsed(parseQuickTask('отпуск с 10 по 25 сентября'));
+    expect(hint).toBe('10–25 сентября');
   });
 });

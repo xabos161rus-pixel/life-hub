@@ -39,6 +39,7 @@ export function QuickAddBar({
       goalId: null,
       priority: p.priority,
       dueDate: p.dueDate ?? defaultDueDate ?? null,
+      startDate: p.startDate,
       dueTime: p.dueTime,
       duration: null,
       remindBefore: null,

@@ -1,5 +1,6 @@
 import { addDays, addMonths, addWeeks, getISODay, startOfDay, startOfWeek } from 'date-fns';
 import { formatDueDate, toKey, todayKey } from './dates';
+import { formatDueRange } from './taskDates';
 import { getLang, t } from './i18n';
 import type { Priority } from '../db/types';
 
@@ -17,6 +18,8 @@ import type { Priority } from '../db/types';
 export interface ParsedTask {
   title: string;
   dueDate: string | null;
+  /** Начало срока-периода («с 10 по 25»); только вместе с dueDate. */
+  startDate: string | null;
   dueTime: string | null;
   priority: Priority;
   tags: string[];
@@ -76,6 +79,51 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
 
+/** Ближайший будущий день месяца с этим числом (сегодня подходит) — для
+ *  правой границы голой пары «с 10 по 25»: месяц не назван, значит ближайшее
+ *  окно, чей дедлайн ещё не прошёл. */
+function nearestFutureDay(day: number): string | null {
+  if (day < 1 || day > 31) return null;
+  const today = startOfDay(new Date());
+  let d = new Date(today.getFullYear(), today.getMonth(), day);
+  if (d.getDate() !== day) return null; // 31-е в коротком месяце
+  if (d < today) {
+    d = new Date(today.getFullYear(), today.getMonth() + 1, day);
+    if (d.getDate() !== day) return null;
+  }
+  return toKey(d);
+}
+
+/** Окно срока-периода. Правая граница — полноценная дата (прошедшая без года
+ *  уезжает на следующий год, как одиночная) или ближайший будущий день.
+ *  Левая подтягивается к правой снизу: тот же месяц и год, а при «переполнении»
+ *  — месяц назад (голое число: «с 28 по 3 сентября» начинается в августе) или
+ *  год назад (явный месяц: «с 28 декабря по 3 января» переживает смену года).
+ *  Непредставимое — 31-е короткого месяца, «с 25 по 10 августа» в одном явном
+ *  месяце, вырожденное «с 10 по 10» — не окно: null, текст остаётся цел. */
+function windowFrom(
+  ld: number,
+  lMon: number | null,
+  rd: number,
+  rMon: number | null,
+): { start: string; due: string } | null {
+  if (lMon != null && (lMon < 0 || lMon > 11)) return null;
+  const due = rMon != null ? explicitDate(rd, rMon, null) : nearestFutureDay(rd);
+  if (!due) return null;
+  const dy = +due.slice(0, 4);
+  const dm = +due.slice(5, 7) - 1;
+  let start: Date;
+  if (lMon != null) {
+    if (lMon === dm && ld > rd) return null; // «с 25 по 10 августа» — опечатка
+    start = new Date(lMon > dm ? dy - 1 : dy, lMon, ld);
+  } else {
+    start = ld <= rd ? new Date(dy, dm, ld) : new Date(dy, dm - 1, ld);
+  }
+  if (start.getDate() !== ld) return null;
+  const startKey = toKey(start);
+  return startKey === due ? null : { start: startKey, due };
+}
+
 /** Единая точка разбора: грамматика выбирается по языку интерфейса. */
 export function parseQuickTask(raw: string): ParsedTask {
   return getLang() === 'en' ? parseQuickTaskEn(raw) : parseQuickTaskRu(raw);
@@ -84,6 +132,7 @@ export function parseQuickTask(raw: string): ParsedTask {
 function parseQuickTaskRu(raw: string): ParsedTask {
   let text = ` ${raw} `;
   let dueDate: string | null = null;
+  let startDate: string | null = null;
   let dueTime: string | null = null;
   let priority: Priority = 0;
   const tags: string[] = [];
@@ -138,9 +187,37 @@ function parseQuickTaskRu(raw: string): ParsedTask {
     else dueDate = toKey(addMonths(today(), n));
   }
 
+  // Период «с 10 по 25 [августа | .08]»: правая граница может нести месяц —
+  // левая наследует его через windowFrom. Голая пара «с 3 по 5» — тоже период:
+  // в планировщике «по» говорят про даты (часы — «до»); риск фраз вроде
+  // «с 3 по 5 страницу» осознан — разбор виден в подсказке под полем.
+  // Год в периоде не разбираем: годовые окна — в полной форме задачи.
+  // Сматчившаяся, но невалидная конструкция («с 25 июня по 10 июня») блокирует
+  // одиночный разбор дат: иначе он выгрыз бы «25 июня» из середины и оставил
+  // в заголовке обрубок «с по 10 июня».
+  let periodRejected = false;
+  if (!dueDate) {
+    const MON = '(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)';
+    const m = text.match(
+      new RegExp(`\\sс\\s(\\d{1,2})(?:\\s${MON}|\\.(\\d{1,2}))?\\sпо\\s(\\d{1,2})(?:\\s${MON}|\\.(\\d{1,2}))?(?=\\s)`, 'i'),
+    );
+    if (m) {
+      const lMon = m[2] ? MONTHS[m[2].toLowerCase()] : m[3] ? parseInt(m[3], 10) - 1 : null;
+      const rMon = m[5] ? MONTHS[m[5].toLowerCase()] : m[6] ? parseInt(m[6], 10) - 1 : null;
+      const w = windowFrom(parseInt(m[1], 10), lMon, parseInt(m[4], 10), rMon);
+      if (w) {
+        startDate = w.start;
+        dueDate = w.due;
+        text = text.replace(m[0], ' ');
+      } else {
+        periodRejected = true;
+      }
+    }
+  }
+
   // Конкретные даты: «15 июня [2027]», «15.06[.2027]». Вырезаем из текста
   // ТОЛЬКО валидную дату — иначе «2.50 кг» потерял бы «2.50» из заголовка.
-  if (!dueDate) {
+  if (!dueDate && !periodRejected) {
     const m = text.match(/\s(\d{1,2})\s(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(?:\s(\d{4}))?(?=\s)/i);
     if (m) {
       const d = explicitDate(parseInt(m[1], 10), MONTHS[m[2].toLowerCase()], m[3] ? parseInt(m[3], 10) : null);
@@ -150,7 +227,7 @@ function parseQuickTaskRu(raw: string): ParsedTask {
       }
     }
   }
-  if (!dueDate) {
+  if (!dueDate && !periodRejected) {
     const m = text.match(/\s(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?(?=\s)/);
     if (m) {
       const d = explicitDate(parseInt(m[1], 10), parseInt(m[2], 10) - 1, m[3] ? parseInt(m[3], 10) : null);
@@ -215,6 +292,7 @@ function parseQuickTaskRu(raw: string): ParsedTask {
   return {
     title: title || raw.trim(),
     dueDate,
+    startDate,
     dueTime: dueDate ? dueTime : null,
     priority,
     tags,
@@ -276,6 +354,7 @@ function from12h(h: number, suffix: string): number | null {
 function parseQuickTaskEn(raw: string): ParsedTask {
   let text = ` ${raw} `;
   let dueDate: string | null = null;
+  let startDate: string | null = null;
   let dueTime: string | null = null;
   let priority: Priority = 0;
   const tags: string[] = [];
@@ -370,11 +449,39 @@ function parseQuickTaskEn(raw: string): ParsedTask {
     else dueDate = toKey(addMonths(today(), n));
   }
 
+  // Период «from 10 to 25 June» / «from June 10 to June 25». Правая граница
+  // ОБЯЗАНА нести месяц: голое «from 9 to 5» — рабочие часы и живые обороты,
+  // а не даты. Левая может быть голой — месяц наследует от правой (через
+  // границу месяца/года — назад, см. windowFrom). Слэш-даты «from 10/06…»
+  // не разбираем: «from 1/2 to 3/4» — imperial-дроби, а не окно.
+  // Сматчившаяся, но невалидная конструкция блокирует одиночный разбор
+  // месячных дат — как в русской ветке, чтобы не выгрызть кусок из середины.
+  let periodRejected = false;
+  if (!dueDate) {
+    const tok = `(?:(${MONTH_ALT})\\s)?(\\d{1,2})(?:st|nd|rd|th)?(?:\\s(${MONTH_ALT}))?`;
+    const m = text.match(new RegExp(`\\sfrom\\s${tok}\\sto\\s${tok}(?=\\s)`, 'i'));
+    if (m) {
+      const mon = (pre?: string, post?: string) =>
+        pre ? MONTHS_EN[pre.toLowerCase()] : post ? MONTHS_EN[post.toLowerCase()] : null;
+      const rMon = mon(m[4], m[6]);
+      if (rMon != null) {
+        const w = windowFrom(parseInt(m[2], 10), mon(m[1], m[3]), parseInt(m[5], 10), rMon);
+        if (w) {
+          startDate = w.start;
+          dueDate = w.due;
+          text = text.replace(m[0], ' ');
+        } else {
+          periodRejected = true;
+        }
+      }
+    }
+  }
+
   // Конкретные даты: «15 June [2027]», «June 15[, 2027]» (порядковые st/nd/rd/th
   // допустимы), «15/06[/2027]». Вырезается только валидная дата — правило то же.
   // Запятая допустима перед годом («June 15, 2027») и хвостом после даты
   // («June 15, prep docs») — вырезается вместе с датой, чтобы не сиротела.
-  if (!dueDate) {
+  if (!dueDate && !periodRejected) {
     const m = text.match(
       new RegExp(`\\s(\\d{1,2})(?:st|nd|rd|th)?\\s(${MONTH_ALT})(?:,?\\s(\\d{4}))?,?(?=\\s)`, 'i'),
     );
@@ -386,7 +493,7 @@ function parseQuickTaskEn(raw: string): ParsedTask {
       }
     }
   }
-  if (!dueDate) {
+  if (!dueDate && !periodRejected) {
     const m = text.match(
       new RegExp(`\\s(${MONTH_ALT})\\s(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s(\\d{4}))?,?(?=\\s)`, 'i'),
     );
@@ -469,6 +576,7 @@ function parseQuickTaskEn(raw: string): ParsedTask {
   return {
     title: title || raw.trim(),
     dueDate,
+    startDate,
     dueTime: dueDate ? dueTime : null,
     priority,
     tags,
@@ -483,7 +591,9 @@ const PRIORITY_HINT: Record<Priority, string> = { 0: '', 1: '!низкий', 2: 
 export function describeParsed(p: ParsedTask): string | null {
   const parts: string[] = [];
   if (p.dueDate) {
-    const label = formatDueDate(p.dueDate);
+    const label = p.startDate
+      ? formatDueRange(p.startDate, p.dueDate)
+      : formatDueDate(p.dueDate);
     parts.push(label.charAt(0).toLowerCase() + label.slice(1));
     if (p.dueTime) parts.push(t('в {time}', { time: p.dueTime }));
   }
