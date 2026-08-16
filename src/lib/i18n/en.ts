@@ -1180,6 +1180,8 @@ export const EN: Record<string, string> = {
   'ещё не синхронизировано': 'not synced yet',
   'Синхронизировано · получено {pulled}, отправлено {pushed}':
     'Synced · {pulled} received, {pushed} sent',
+  'Синхронизировано · получено {pulled}, отправлено {pushed}, пропущено {skipped}':
+    'Synced · {pulled} received, {pushed} sent, {skipped} skipped',
   'Отключить синхронизацию на этом устройстве? Локальные данные останутся на месте.':
     'Turn off sync on this device? Local data stays in place.',
   'Включена': 'On',

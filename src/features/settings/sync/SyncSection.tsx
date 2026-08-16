@@ -42,7 +42,10 @@ export function SyncSection() {
     setBusy(true);
     try {
       const r = await runSync();
-      if (r) toast(t('Синхронизировано · получено {pulled}, отправлено {pushed}', { pulled: r.pulled, pushed: r.pushed }));
+      // Пропущенные — «ядовитые» записи (битый шифротекст): цикл жив, но о
+      // проблеме надо сказать, иначе потерю данных не заметить.
+      if (r && r.skipped > 0) toast(t('Синхронизировано · получено {pulled}, отправлено {pushed}, пропущено {skipped}', { pulled: r.pulled, pushed: r.pushed, skipped: r.skipped }));
+      else if (r) toast(t('Синхронизировано · получено {pulled}, отправлено {pushed}', { pulled: r.pulled, pushed: r.pushed }));
     } catch {
       toast(t('Не удалось синхронизировать. Проверьте связь и попробуйте ещё раз'));
     } finally {
