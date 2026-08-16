@@ -654,6 +654,40 @@ test.describe('вложенные папки', () => {
     await page.getByRole('button', { name: /Глубина/ }).click();
     await expect(page.getByText('Кочующая заметка')).toBeVisible();
   });
+
+  test('перенос папки в другую: содержимое едет с ней, себя в целях нет', async ({ page }) => {
+    // Путь человека: два корневых раздела, один решил вложить в другой.
+    // Раньше это было невозможно — только создать новую на месте.
+    await openApp(page, '/notes');
+    await makeFolder(page, 'Архив');
+    await makeFolder(page, 'Работа');
+    await page.getByRole('button', { name: /Работа/ }).click();
+    // Заметка внутри переносимой папки — поедет вместе с ней.
+    await page.getByRole('button', { name: 'Добавить' }).click();
+    await page.locator('.note-editor').click();
+    await page.keyboard.type('Договор аренды');
+    await page.waitForTimeout(900);
+    await page.getByRole('link', { name: /Назад/ }).click();
+
+    await page.getByRole('button', { name: 'Изменить' }).click();
+    await page.getByRole('button', { name: 'Переместить папку' }).click();
+    await expect(page.getByRole('heading', { name: 'Куда перенести?' })).toBeVisible();
+    // Сама «Работа» целью не предлагается — вложить папку в себя нельзя.
+    await expect(page.getByRole('button', { name: /Работа/ })).toHaveCount(0);
+    await page.getByRole('button', { name: /Архив/ }).click();
+
+    // Экран остался на «Работе», но назад теперь ведёт в «Архив».
+    await page.getByRole('button', { name: /Архив/ }).click();
+    await expect(page.getByRole('button', { name: /Работа/ })).toBeVisible();
+    await page.getByRole('button', { name: /Работа/ }).click();
+    await expect(page.getByText('Договор аренды')).toBeVisible();
+
+    // В корне «Работы» больше нет, счётчик «Архива» видит заметку в глубине.
+    await page.getByRole('button', { name: /Архив/ }).click(); // назад из «Работы»
+    await page.getByRole('button', { name: /Все заметки/ }).click();
+    await expect(page.getByRole('button', { name: /Работа/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Архив/ })).toContainText('1');
+  });
 });
 
 // Полоса редактора — как в Apple Notes: пять входов без горизонтального

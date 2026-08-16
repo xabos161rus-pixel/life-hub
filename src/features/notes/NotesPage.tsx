@@ -20,7 +20,7 @@ import { t } from '../../lib/i18n';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { FolderSheet } from './FolderSheet';
 import { checklistProgress } from './checklist';
-import { countNotesDeep, flattenTree } from './folderTree';
+import { countNotesDeep, flattenTree, folderMoveTargets } from './folderTree';
 
 /** HTML заметки → плоский текст для превью/поиска (с переносами на блоках). */
 function htmlToText(html: string): string {
@@ -180,8 +180,12 @@ export function NotesPage() {
     setOpenFolderState(id);
   };
   const [folderSheet, setFolderSheet] = useState<NoteFolder | 'new' | null>(null);
-  // Режим переноса: выбрана заметка, дальше человек тыкает в папку.
-  const [moving, setMoving] = useState<Note | null>(null);
+  // Режим переноса: выбрана заметка или папка, дальше человек тыкает в цель.
+  // Один экран на обоих — «Куда перенести?» не должен выглядеть по-разному
+  // в зависимости от того, что именно несут.
+  const [moving, setMoving] = useState<
+    { kind: 'note'; note: Note } | { kind: 'folder'; folder: NoteFolder } | null
+  >(null);
 
   const rows = useLiveQuery(() => db.notes.toArray(), []);
   const folderRows = useLiveQuery(() => db.noteFolders.toArray(), []);
@@ -254,7 +258,7 @@ export function NotesPage() {
           note={n}
           onOpen={() => navigate(`/notes/${n.id}`)}
           onDelete={() => del(n)}
-          onMoveToFolder={() => setMoving(n)}
+          onMoveToFolder={() => setMoving({ kind: 'note', note: n })}
         />
       ))}
     </div>
@@ -287,20 +291,32 @@ export function NotesPage() {
     </>
   );
 
-  // Перенос заметки. Отдельный режим, а не перетаскивание: тащить строку
-  // пальцем через весь список к нужной папке на телефоне мучительно, а свайп
-  // по строке уже занят удалением.
+  // Перенос заметки или папки. Отдельный режим, а не перетаскивание: тащить
+  // строку пальцем через весь список к нужной папке на телефоне мучительно,
+  // а свайп по строке уже занят удалением.
   async function moveTo(folderId: string | null) {
     if (!moving) return;
-    await update(db.notes, moving.id, { folderId });
+    if (moving.kind === 'note') await update(db.notes, moving.note.id, { folderId });
+    else await update(db.noteFolders, moving.folder.id, { parentId: folderId });
     setMoving(null);
   }
 
   if (moving) {
+    // Куда сейчас положено то, что несут, — у этой цели рисуем галочку.
+    const movingParent =
+      moving.kind === 'note' ? moving.note.folderId : (moving.folder.parentId ?? null);
+    // Папку нельзя положить в себя или своего потомка — таких целей в списке
+    // просто нет; для заметки годится любая папка.
+    const targets =
+      moving.kind === 'note' ? flattenTree(folders) : folderMoveTargets(folders, moving.folder.id);
     return (
       <Screen title={t('Куда перенести?')} onBack={() => setMoving(null)}>
         <p className="mb-3 px-1 text-sm leading-snug text-muted">
-          {t('Заметка «{title}» — выберите папку.', { title: moving.title || t('Без названия') })}
+          {moving.kind === 'note'
+            ? t('Заметка «{title}» — выберите папку.', {
+                title: moving.note.title || t('Без названия'),
+              })
+            : t('Папка «{name}» — выберите, куда её вложить.', { name: moving.folder.name })}
         </p>
         <div className="card divide-y divide-hairline">
           <button
@@ -311,12 +327,12 @@ export function NotesPage() {
               📄
             </span>
             <span className="min-w-0 flex-1 font-medium">{t('Все заметки')}</span>
-            {!moving.folderId && <Check size={18} className="shrink-0 text-accent" />}
+            {movingParent === null && <Check size={18} className="shrink-0 text-accent" />}
           </button>
           {/* Всё дерево одним списком: вложенность показана отступом, как в
               «Куда перенести?» Apple Notes, — переносить можно на любой
               уровень, не проваливаясь по папкам. */}
-          {flattenTree(folders).map(({ folder: f, depth }) => (
+          {targets.map(({ folder: f, depth }) => (
             <button
               key={f.id}
               onClick={() => void moveTo(f.id)}
@@ -330,7 +346,7 @@ export function NotesPage() {
                 {f.emoji}
               </span>
               <span className="min-w-0 flex-1 truncate font-medium">{f.name}</span>
-              {moving.folderId === f.id && <Check size={18} className="shrink-0 text-accent" />}
+              {movingParent === f.id && <Check size={18} className="shrink-0 text-accent" />}
             </button>
           ))}
         </div>
@@ -451,6 +467,10 @@ export function NotesPage() {
           // навигацию вовсе: раньше любой выход из «Изменить» выкидывал в
           // корень.
           setOpenFolder(current?.parentId ?? null);
+        }}
+        onMove={(f) => {
+          setFolderSheet(null);
+          setMoving({ kind: 'folder', folder: f });
         }}
       />
     </Screen>

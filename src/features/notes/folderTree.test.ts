@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Note, NoteFolder } from '../../db/types';
-import { childrenByParent, countNotesDeep, flattenTree, withDescendants } from './folderTree';
+import {
+  childrenByParent,
+  countNotesDeep,
+  flattenTree,
+  folderMoveTargets,
+  withDescendants,
+} from './folderTree';
 
 const F = (id: string, parentId: string | null, sortOrder = 0): NoteFolder => ({
   id,
@@ -69,5 +75,16 @@ describe('дерево папок', () => {
     const rows = [F('x', 'y'), F('y', 'x')];
     expect(flattenTree(rows)).toHaveLength(2);
     expect(withDescendants(rows, 'x').size).toBe(2);
+  });
+
+  it('цели переноса папки — без неё самой и её потомков', () => {
+    // 'work' нельзя ни в себя, ни в 'proj'/'rte' (свои потомки) — только 'home'.
+    expect(folderMoveTargets(TREE, 'work').map((x) => x.folder.id)).toEqual(['home']);
+    // Листовой 'rte' можно куда угодно, кроме себя; порядок — как в дереве.
+    expect(folderMoveTargets(TREE, 'rte').map((x) => x.folder.id)).toEqual([
+      'work',
+      'proj',
+      'home',
+    ]);
   });
 });

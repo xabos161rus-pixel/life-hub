@@ -1222,6 +1222,7 @@ export const EN: Record<string, string> = {
   'Вне папок': 'No folder',
   'Куда перенести?': 'Move to…',
   'Заметка «{title}» — выберите папку.': 'Choose a folder for “{title}”.',
+  'Папка «{name}» — выберите, куда её вложить.': 'Choose where to put the “{name}” folder.',
   'Все заметки': 'All notes',
   'Новая вложенная папка': 'New subfolder',
   'Новая папка': 'New folder',
@@ -1242,6 +1243,7 @@ export const EN: Record<string, string> = {
   'Цвет': 'Color',
   'Цвет {c}': 'Color {c}',
   'Создать папку': 'Create folder',
+  'Переместить папку': 'Move folder',
   'Удалить папку': 'Delete folder',
 
   // === Заметки: вложения ===

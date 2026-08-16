@@ -73,3 +73,14 @@ export function flattenTree(folders: NoteFolder[]): Array<{ folder: NoteFolder; 
   }
   return out;
 }
+
+/** Куда можно перенести папку: всё дерево без неё самой и её потомков.
+ *  Перенос в себя зациклил бы дерево, перенос в потомка — оторвал бы ветку
+ *  от корня; оба хода просто не показываются как цели. */
+export function folderMoveTargets(
+  folders: NoteFolder[],
+  folderId: string,
+): Array<{ folder: NoteFolder; depth: number }> {
+  const banned = withDescendants(folders, folderId);
+  return flattenTree(folders).filter(({ folder }) => !banned.has(folder.id));
+}

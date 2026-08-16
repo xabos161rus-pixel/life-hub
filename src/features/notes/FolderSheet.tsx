@@ -21,6 +21,7 @@ export function FolderSheet({
   parentId = null,
   onClose,
   onDeleted,
+  onMove,
 }: {
   open: boolean;
   folder?: NoteFolder | null;
@@ -32,6 +33,10 @@ export function FolderSheet({
   /** Папка удалена (а не просто закрыли шит) — вызывающему экрану надо уйти
    *  с неё, остальные закрытия оставляют человека где он был. */
   onDeleted?: () => void;
+  /** Человек хочет перенести папку в другое место — экран сам открывает
+   *  «Куда перенести?», шит при этом закрывается. Кнопки нет, пока проп не
+   *  передан или папка только создаётся: новой некуда «переезжать». */
+  onMove?: (folder: NoteFolder) => void;
 }) {
   const [name, setName] = useState(folder?.name ?? '');
   const [emoji, setEmoji] = useState(folder?.emoji ?? EMOJIS[0]);
@@ -140,6 +145,14 @@ export function FolderSheet({
         <Button className="w-full" disabled={!name.trim() || busy} onClick={() => void save()}>
           {folder ? t('Сохранить') : t('Создать папку')}
         </Button>
+        {folder && onMove && (
+          <button
+            onClick={() => onMove(folder)}
+            className="w-full py-2 text-sm font-medium text-accent active:opacity-60"
+          >
+            {t('Переместить папку')}
+          </button>
+        )}
         {folder && (
           <button
             onClick={() => void del()}
