@@ -104,76 +104,130 @@ function authHeaders(c: SyncConfig): Record<string, string> {
 }
 
 // === PULL ===
+
+/**
+ * Сбой ОТНОСИТСЯ К САМОЙ ЗАПИСИ (её можно пропустить и идти дальше), а не к
+ * хранилищу? Битый шифротекст, не-JSON внутри, испорченный base64 — запись
+ * «ядовитая», следующие к ней отношения не имеют. А вот QuotaExceededError,
+ * DatabaseClosedError и прочие сбои IndexedDB означают, что не применится
+ * НИЧЕГО: их надо пробросить, чтобы цикл упал и курсор не уехал вперёд по
+ * записям, которые на самом деле не записаны.
+ */
+function isPoisonRecord(e: unknown): boolean {
+  const name = (e as { name?: string } | null)?.name ?? '';
+  return name === 'OperationError' || name === 'SyntaxError' || name === 'InvalidCharacterError' || name === 'DataError';
+}
+
+/**
+ * У habitLogs уникальный составной индекс &[habitId+date] (db.ts), а id
+ * генерируются случайно на каждом устройстве. Отметил привычку за один день
+ * на маке и на телефоне до обмена — получаются две строки с разными id и
+ * одинаковой парой [habitId+date], и put входящей падает с ConstraintError.
+ * Разрешаем как везде в синке — по LWW, оставляя более свежую отметку.
+ * Возвращает false, если побеждает локальная запись и писать не нужно.
+ */
+async function resolveHabitLogConflict(obj: Row): Promise<boolean> {
+  const habitId = obj.habitId as string | undefined;
+  const date = obj.date as string | undefined;
+  if (!habitId || !date) return true;
+  const dup = await db.habitLogs.where('[habitId+date]').equals([habitId, date]).first();
+  if (!dup || dup.id === obj.id) return true;
+  if (obj.updatedAt > (dup.updatedAt ?? '')) {
+    await db.habitLogs.delete(dup.id); // входящая свежее — снимаем локальный дубль
+    return true;
+  }
+  return false; // локальная отметка свежее — входящую игнорируем
+}
+
+/** Применить одну входящую запись. true — если что-то записано локально. */
+async function applyRecord(c: SyncConfig, r: RemoteRecord): Promise<boolean> {
+  // Семейное подключение с другого МОЕГО устройства: восстанавливаем конфиг
+  // (ключ/токен зашифрованы аккаунтным ключом). Курсоры чтения — свои,
+  // с нуля: бэкфилл комнаты доберёт историю. FamilyRunner увидит новую
+  // группу через liveQuery и сам поднимет соединение.
+  if (r.table === 'familyShare') {
+    const p = await decryptJSON<FamilySharePayload>(c.key, r.ciphertext);
+    const local = await db.family.get(p.familyId);
+    const key = await importKeyRaw(p.keyRaw);
+    if (!local) {
+      await db.family.put({
+        id: p.familyId,
+        familyId: p.familyId,
+        familyToken: p.familyToken,
+        familyKey: key,
+        familyName: p.familyName,
+        selfMemberId: p.selfMemberId,
+        lastSeq: 0,
+        lastReadSeq: 0,
+        enabled: p.enabled,
+        joinedAt: p.joinedAt,
+        updatedAt: p.updatedAt,
+        keyEpoch: p.keyEpoch ?? 0,
+        keyRing: await keyRingFrom(p, key),
+        boxPub: p.boxPub,
+        boxPriv: p.boxPriv,
+        ownerSecret: p.ownerSecret,
+        ownerMemberId: p.ownerMemberId,
+      });
+      return true;
+    }
+    if (shouldApply(local.updatedAt, p.updatedAt)) {
+      await db.family.update(p.familyId, {
+        familyToken: p.familyToken,
+        familyName: p.familyName,
+        enabled: p.enabled,
+        updatedAt: p.updatedAt,
+        // Ключ забираем, только если пришла эпоха новее: два устройства
+        // одного человека могут разойтись, и откат на прежний ключ сделал бы
+        // свежую переписку нечитаемой.
+        ...((p.keyEpoch ?? 0) > (local.keyEpoch ?? 0)
+          ? { familyKey: key, keyEpoch: p.keyEpoch ?? 0, keyRing: { ...(local.keyRing ?? {}), ...(await keyRingFrom(p, key)) } }
+          : {}),
+        ...(local.ownerSecret ? {} : { ownerSecret: p.ownerSecret }),
+        ...(local.ownerMemberId ? {} : { ownerMemberId: p.ownerMemberId }),
+      });
+      return true;
+    }
+    return false;
+  }
+  if (!isSynced(r.table)) return false; // незнакомая таблица — пропускаем
+  const table = db.table<Row>(r.table);
+  const local = await table.get(r.id);
+  if (!shouldApply(local?.updatedAt, r.updatedAt)) return false;
+  const obj = await decryptJSON<Row>(c.key, r.ciphertext);
+  if (r.table === 'habitLogs' && !(await resolveHabitLogConflict(obj))) return false;
+  // Пишем НАПРЯМУЮ (минуя repo) — сохраняем серверный updatedAt, иначе синк
+  // зациклится (repo проставил бы новый updatedAt → бесконечный пинг-понг).
+  await table.put(obj);
+  return true;
+}
+
 async function pullPage(
   c: SyncConfig,
   since: string,
-): Promise<{ applied: number; nextSince: string; hasMore: boolean }> {
+): Promise<{ applied: number; skipped: number; nextSince: string; hasMore: boolean }> {
   const res = await fetch(`${WORKER_URL}/sync/pull?since=${encodeURIComponent(since)}`, {
     headers: authHeaders(c),
   });
   if (!res.ok) throw new Error(`pull ${res.status}`);
   const data = (await res.json()) as { records: RemoteRecord[]; hasMore: boolean; nextSince: string };
   let applied = 0;
+  let skipped = 0;
   for (const r of data.records) {
-    // Семейное подключение с другого МОЕГО устройства: восстанавливаем конфиг
-    // (ключ/токен зашифрованы аккаунтным ключом). Курсоры чтения — свои,
-    // с нуля: бэкфилл комнаты доберёт историю. FamilyRunner увидит новую
-    // группу через liveQuery и сам поднимет соединение.
-    if (r.table === 'familyShare') {
-      const p = await decryptJSON<FamilySharePayload>(c.key, r.ciphertext);
-      const local = await db.family.get(p.familyId);
-      const key = await importKeyRaw(p.keyRaw);
-      if (!local) {
-        await db.family.put({
-          id: p.familyId,
-          familyId: p.familyId,
-          familyToken: p.familyToken,
-          familyKey: key,
-          familyName: p.familyName,
-          selfMemberId: p.selfMemberId,
-          lastSeq: 0,
-          lastReadSeq: 0,
-          enabled: p.enabled,
-          joinedAt: p.joinedAt,
-          updatedAt: p.updatedAt,
-          keyEpoch: p.keyEpoch ?? 0,
-          keyRing: await keyRingFrom(p, key),
-          boxPub: p.boxPub,
-          boxPriv: p.boxPriv,
-          ownerSecret: p.ownerSecret,
-          ownerMemberId: p.ownerMemberId,
-        });
-        applied++;
-      } else if (shouldApply(local.updatedAt, p.updatedAt)) {
-        await db.family.update(p.familyId, {
-          familyToken: p.familyToken,
-          familyName: p.familyName,
-          enabled: p.enabled,
-          updatedAt: p.updatedAt,
-          // Ключ забираем, только если пришла эпоха новее: два устройства
-          // одного человека могут разойтись, и откат на прежний ключ сделал бы
-          // свежую переписку нечитаемой.
-          ...((p.keyEpoch ?? 0) > (local.keyEpoch ?? 0)
-            ? { familyKey: key, keyEpoch: p.keyEpoch ?? 0, keyRing: { ...(local.keyRing ?? {}), ...(await keyRingFrom(p, key)) } }
-            : {}),
-          ...(local.ownerSecret ? {} : { ownerSecret: p.ownerSecret }),
-          ...(local.ownerMemberId ? {} : { ownerMemberId: p.ownerMemberId }),
-        });
-        applied++;
-      }
-      continue;
+    // Сбой на ОДНОЙ «ядовитой» записи (битый шифротекст, не-JSON внутри) не
+    // должен ронять весь цикл: иначе курсор lastPullAt не сдвинется и синк
+    // встанет навсегда — перестанут приходить и задачи, и заметки, и семья.
+    // Но сбой ХРАНИЛИЩА пропускать нельзя: там не применится ничего, и
+    // сдвинутый курсор увёл бы за собой записи, которые не записаны.
+    try {
+      if (await applyRecord(c, r)) applied++;
+    } catch (e) {
+      if (!isPoisonRecord(e)) throw e;
+      skipped++;
+      console.warn(`sync: пропущена запись ${r.table}/${r.id}`, e);
     }
-    if (!isSynced(r.table)) continue; // незнакомая таблица — пропускаем
-    const table = db.table<Row>(r.table);
-    const local = await table.get(r.id);
-    if (!shouldApply(local?.updatedAt, r.updatedAt)) continue;
-    const obj = await decryptJSON<Row>(c.key, r.ciphertext);
-    // Пишем НАПРЯМУЮ (минуя repo) — сохраняем серверный updatedAt, иначе синк
-    // зациклится (repo проставил бы новый updatedAt → бесконечный пинг-понг).
-    await table.put(obj);
-    applied++;
   }
-  return { applied, nextSince: data.nextSince, hasMore: data.hasMore };
+  return { applied, skipped, nextSince: data.nextSince, hasMore: data.hasMore };
 }
 
 /** Курсор pull двигается по времени, а сервер отдаёт только updated_at > since.
@@ -205,33 +259,45 @@ async function rewindIfTablesGrew(c: SyncConfig): Promise<string> {
   return '';
 }
 
-async function pull(c: SyncConfig): Promise<number> {
-  let total = 0;
+async function pull(c: SyncConfig): Promise<{ applied: number; skipped: number }> {
+  let applied = 0;
+  let skipped = 0;
   let since = await rewindIfTablesGrew(c);
   for (;;) {
-    const { applied, nextSince, hasMore } = await pullPage(c, since);
-    total += applied;
-    since = nextSince;
-    if (!hasMore) break;
+    const page = await pullPage(c, since);
+    applied += page.applied;
+    skipped += page.skipped;
+    since = page.nextSince;
+    if (!page.hasMore) break;
   }
   await patchSyncConfig({ lastPullAt: since });
-  return total;
+  return { applied, skipped };
 }
 
 // === PUSH ===
-// Полный скан таблиц + фильтр по updatedAt > курсора. Для личного объёма данных
-// (сотни записей) это миллисекунды; при росте можно перейти на outbox/индекс.
+// Полный скан таблиц + фильтр по updatedAt в окне [lastPushAt, cutoff). Для
+// личного объёма данных (сотни записей) это миллисекунды; при росте можно
+// перейти на outbox/индекс.
 async function push(c: SyncConfig): Promise<number> {
-  let maxUpdatedAt = c.lastPushAt;
+  // Курсор снимаем ДО скана и двигаем ровно на него — а НЕ на максимум
+  // updatedAt среди найденных строк. Иначе правка, сделанная во время скана в
+  // уже прочитанную таблицу, получает штамп МЕНЬШЕ нового курсора и не уедет
+  // в облако никогда (фильтр следующего цикла её отбросит). Верхняя граница
+  // окна отсекает всё, что записано после снятия курсора, — оно уедет
+  // следующим циклом.
+  const cutoff = new Date().toISOString();
+  // Окно ПОЛУОТКРЫТОЕ: [lastPushAt, cutoff). Верхняя граница строгая, иначе
+  // запись, созданная в ту же миллисекунду, что и cutoff, но уже после его
+  // снятия, не попадёт ни в это окно (её ещё нет в базе), ни в следующее
+  // (фильтр там строго больше cutoff). Нижняя граница включающая — она лишь
+  // переотправит одну пограничную запись, что безвредно: на сервере стоит
+  // ON CONFLICT ... WHERE excluded.updated_at > records.updated_at.
+  const inWindow = (u: unknown): u is string =>
+    typeof u === 'string' && u >= c.lastPushAt && u < cutoff;
   const fresh: { name: string; row: Row }[] = [];
   for (const name of SYNCED_TABLES) {
-    const rows = (await db.table<Row>(name).toArray()).filter(
-      (r) => typeof r.updatedAt === 'string' && r.updatedAt > c.lastPushAt,
-    );
-    for (const row of rows) {
-      fresh.push({ name, row });
-      if (row.updatedAt > maxUpdatedAt) maxUpdatedAt = row.updatedAt;
-    }
+    const rows = (await db.table<Row>(name).toArray()).filter((r) => inWindow(r.updatedAt));
+    for (const row of rows) fresh.push({ name, row });
   }
   // Шифруем параллельно (Promise.all), а не последовательно await в цикле —
   // не блокирует main-thread при правке задачи с большим набором изменений.
@@ -246,9 +312,7 @@ async function push(c: SyncConfig): Promise<number> {
   );
   // Семейные подключения — на другие МОИ устройства (ключ семьи внутри
   // шифротекста аккаунтного ключа; серверу, как и всё остальное, не виден).
-  const famFresh = (await db.family.toArray()).filter(
-    (f) => typeof f.updatedAt === 'string' && f.updatedAt > c.lastPushAt,
-  );
+  const famFresh = (await db.family.toArray()).filter((f) => inWindow(f.updatedAt));
   for (const f of famFresh) {
     const keysRaw: Record<string, string> = {};
     for (const [e, k] of Object.entries(f.keyRing ?? {})) keysRaw[e] = await exportKeyRaw(k);
@@ -275,7 +339,6 @@ async function push(c: SyncConfig): Promise<number> {
       deletedAt: null,
       ciphertext: await encryptJSON(c.key, payload),
     });
-    if (f.updatedAt! > maxUpdatedAt) maxUpdatedAt = f.updatedAt!;
   }
   for (let i = 0; i < out.length; i += PUSH_CHUNK) {
     const res = await fetch(`${WORKER_URL}/sync/push`, {
@@ -285,7 +348,7 @@ async function push(c: SyncConfig): Promise<number> {
     });
     if (!res.ok) throw new Error(`push ${res.status}`);
   }
-  await patchSyncConfig({ lastPushAt: maxUpdatedAt });
+  await patchSyncConfig({ lastPushAt: cutoff });
   return out.length;
 }
 
@@ -294,18 +357,24 @@ let running = false;
 let lastError: string | null = null;
 
 /** Один цикл: pull → push. Возвращает null, если синк выключен или уже идёт. */
-export async function runSync(): Promise<{ pulled: number; pushed: number } | null> {
+export async function runSync(): Promise<{ pulled: number; pushed: number; skipped: number } | null> {
+  // Флаг — СРАЗУ после синхронной проверки, до первого await: если между
+  // проверкой и установкой оказывается await-разрыв (раньше здесь стоял
+  // getSyncConfig), второй конкурентный вызов (visibilitychange + интервал,
+  // дебаунс + ручной запуск) успевает пройти проверку, и два цикла гоняют
+  // курсоры lastPullAt/lastPushAt наперегонки — последний завершившийся молча
+  // перезаписывает более ранний.
   if (running) return null;
-  const c = await getSyncConfig();
-  if (!c || !c.enabled) return null;
   running = true;
   lastError = null;
   try {
-    const pulled = await pull(c);
+    const c = await getSyncConfig();
+    if (!c || !c.enabled) return null;
+    const { applied: pulled, skipped } = await pull(c);
     const fresh = await getSyncConfig(); // курсор pull обновился
     const pushed = fresh ? await push(fresh) : 0;
     await patchSyncConfig({ lastSyncedAt: new Date().toISOString() });
-    return { pulled, pushed };
+    return { pulled, pushed, skipped };
   } catch (e) {
     lastError = String(e);
     throw e;
