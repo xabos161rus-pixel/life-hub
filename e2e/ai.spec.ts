@@ -60,6 +60,35 @@ test('без настроенной синхронизации отправка 
   await expect(page.getByText('Включите синхронизацию в Настройках — она нужна для авторизации.')).toBeVisible();
 });
 
+test('живой провайдер: SSE-стрим печатается, usage превращается в цену, обрыв по length виден', async ({ page }) => {
+  // Мок SSE-ответа воркера: формат OpenAI chat completions + include_usage.
+  const sse = [
+    'data: {"choices":[{"delta":{"content":"Стрим "},"finish_reason":null}]}',
+    'data: {"choices":[{"delta":{"content":"работает"},"finish_reason":null}]}',
+    'data: {"choices":[{"delta":{},"finish_reason":"length"}]}',
+    'data: {"choices":[],"usage":{"prompt_tokens":40,"completion_tokens":9}}',
+    'data: [DONE]',
+    '',
+  ].join('\n\n');
+  await page.route('**/ai/chat', (route) =>
+    route.fulfill({ contentType: 'text/event-stream', body: sse }),
+  );
+  await openApp(page, '/more/ai');
+  await seedSyncAccount(page);
+  // Живая модель выбирается в композере и запоминается в чате.
+  await page.getByLabel('Модель').selectOption({ label: 'Claude Sonnet' });
+
+  await page.getByPlaceholder('Сообщение…').fill('стримни');
+  await page.getByRole('button', { name: 'Отправить' }).click();
+
+  await expect(page.getByText('Стрим работает')).toBeVisible();
+  await expect(page.getByText('40→9')).toBeVisible();
+  // Ответ упёрся в max_tokens — приписка об обрыве обязана быть видимой.
+  await expect(page.getByText('Ответ обрезан лимитом токенов — попросите продолжить.')).toBeVisible();
+  // Цена в шапке: сумма чата из usage и прайса модели.
+  await expect(page.getByText(/за чат: /)).toBeVisible();
+});
+
 test('сквозной тракт: вопрос → эхо-ответ с ценой → история переживает перезагрузку', async ({ page }) => {
   // Мок воркера: тот же формат, что отдаёт echoReply в worker/src/index.js.
   await page.route('**/ai/chat', (route) =>

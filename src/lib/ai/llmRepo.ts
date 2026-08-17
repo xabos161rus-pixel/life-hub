@@ -99,6 +99,7 @@ export async function addAssistantMessage(chatId: string, reply: AiReply): Promi
     costRub: costRub(reply.model, reply.usage.in, reply.usage.out),
     status: 'done',
     error: null,
+    finishReason: reply.finishReason ?? null,
   });
 }
 
