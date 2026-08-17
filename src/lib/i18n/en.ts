@@ -1538,6 +1538,9 @@ export const EN: Record<string, string> = {
   'Пока отвечает заглушка — провайдер подключается на следующем шаге.':
     'A stub is answering for now — the provider is wired up in the next step.',
   'думает…': 'thinking…',
+  'читаю: {tool}…': 'reading: {tool}…',
+  'Доступ к данным': 'Data access',
+  'Поиск заметок': 'Note search',
   'Скопировать': 'Copy',
   'Повторить': 'Retry',
   'Не удалось скопировать': 'Could not copy',

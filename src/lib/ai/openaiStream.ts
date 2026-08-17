@@ -13,9 +13,18 @@
 // Остальные поля события игнорируются. Событий `event:`/`id:` у completions
 // не бывает, но строки без `data:` на всякий случай просто пропускаются.
 
+/** Вызов инструмента, собранный из дельт: id и name приходят первым чанком,
+ *  arguments — JSON-строка, накапливаемая кусками произвольного размера. */
+export interface StreamToolCall {
+  id: string;
+  name: string;
+  arguments: string;
+}
+
 export interface StreamState {
   buffer: string;
   content: string;
+  toolCalls: StreamToolCall[];
   finishReason: string | null;
   tokensIn: number | null;
   tokensOut: number | null;
@@ -23,12 +32,28 @@ export interface StreamState {
 }
 
 export function newStreamState(): StreamState {
-  return { buffer: '', content: '', finishReason: null, tokensIn: null, tokensOut: null, done: false };
+  return {
+    buffer: '',
+    content: '',
+    toolCalls: [],
+    finishReason: null,
+    tokensIn: null,
+    tokensOut: null,
+    done: false,
+  };
 }
 
 interface OpenAiChunk {
   choices?: {
-    delta?: { content?: string | null };
+    delta?: {
+      content?: string | null;
+      // Дельты вызовов: index сшивает куски одного вызова между событиями.
+      tool_calls?: {
+        index?: number;
+        id?: string;
+        function?: { name?: string; arguments?: string };
+      }[];
+    };
     finish_reason?: string | null;
   }[];
   usage?: { prompt_tokens?: number; completion_tokens?: number } | null;
@@ -65,6 +90,14 @@ export function feedStream(st: StreamState, chunk: string): string {
     if (typeof delta === 'string' && delta) {
       st.content += delta;
       added += delta;
+    }
+    for (const tc of choice?.delta?.tool_calls ?? []) {
+      const i = typeof tc.index === 'number' ? tc.index : 0;
+      while (st.toolCalls.length <= i) st.toolCalls.push({ id: '', name: '', arguments: '' });
+      const slot = st.toolCalls[i];
+      if (tc.id) slot.id = tc.id;
+      if (tc.function?.name) slot.name = tc.function.name;
+      if (typeof tc.function?.arguments === 'string') slot.arguments += tc.function.arguments;
     }
     if (choice?.finish_reason) st.finishReason = choice.finish_reason;
     // usage приходит финальным чанком при stream_options.include_usage —

@@ -544,6 +544,9 @@ export interface LlmChat extends BaseEntity {
   model: string; // id модели, которой отвечаем в этом чате
   systemPrompt: string; // '' — без системного промпта
   lastMessageAt: string | null; // для сортировки списка чатов
+  // Доступ модели к данным приложения (этап 3). undefined — включён: доступ к
+  // своим данным и есть смысл раздела; выключение — осознанный выбор по чату.
+  dataTools?: boolean;
 }
 
 export type LlmRole = 'user' | 'assistant';
@@ -567,6 +570,9 @@ export interface LlmMessage extends BaseEntity {
   // обрезан, 'content_filter' — модель отклонила запрос (§4.5-4.6 плана).
   // Поле не индексируется — старые записи без него читаются как undefined.
   finishReason?: string | null;
+  // След вызовов инструментов (этап 3): что модель читала и сколько нашла.
+  // Машинные имена — подпись локализуется при показе, а не при записи.
+  toolTrace?: { tool: string; count: number }[] | null;
 }
 
 // Конфиг E2E-синхронизации. НЕ синкается и НЕ входит в бэкап (содержит ключ

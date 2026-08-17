@@ -271,10 +271,35 @@ export default {
           return json({ error: 'bad_request', message: 'тело не JSON' }, 400, origin);
         }
         const messages = Array.isArray(body?.messages) ? body.messages : [];
-        const clean = messages.filter(
-          (m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim(),
-        );
-        if (!clean.length) return json({ error: 'bad_request', message: 'нет сообщений' }, 400, origin);
+        // Пересборка в чистые объекты: наружу уходят только известные поля.
+        // Кроме user/assistant-текста тут ходят участники tool use (этап 3):
+        // ответ модели с tool_calls и результат инструмента (role: 'tool') —
+        // без них follow-up запрос цикла не свяжется с вызовом.
+        const clean = [];
+        for (const m of messages) {
+          if (!m || typeof m !== 'object') continue;
+          if (m.role === 'tool' && typeof m.tool_call_id === 'string' && typeof m.content === 'string') {
+            clean.push({ role: 'tool', tool_call_id: m.tool_call_id, content: m.content });
+          } else if (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length) {
+            const calls = m.tool_calls
+              .filter((c) => c && typeof c.id === 'string' && c.function
+                && typeof c.function.name === 'string' && typeof c.function.arguments === 'string')
+              .map((c) => ({ id: c.id, type: 'function', function: { name: c.function.name, arguments: c.function.arguments } }));
+            if (calls.length) {
+              clean.push({ role: 'assistant', content: typeof m.content === 'string' && m.content ? m.content : null, tool_calls: calls });
+            }
+          } else if ((m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim()) {
+            clean.push({ role: m.role, content: m.content });
+          }
+        }
+        // Хотя бы одна обычная реплика: история из одних служебных сообщений —
+        // признак сломанного клиента, провайдеру такое не шлём.
+        if (!clean.some((m) => m.role === 'user')) {
+          return json({ error: 'bad_request', message: 'нет сообщений' }, 400, origin);
+        }
+        // Определения инструментов пробрасываются как есть: их состав — дело
+        // клиента, воркер не знает и не должен знать, что у модели за руки.
+        const tools = Array.isArray(body?.tools) && body.tools.length ? body.tools : undefined;
 
         const model = typeof body?.model === 'string' ? body.model : 'echo';
         if (model === 'echo' || !env.AI_PROVIDER_KEY) {
@@ -308,6 +333,7 @@ export default {
               // Общий потолок на размышления И текст (§4.5): с дефолтными 4096
               // ответы регулярно рвались бы посреди генерации.
               max_tokens: 32000,
+              ...(tools ? { tools } : {}),
             }),
           });
         } catch {

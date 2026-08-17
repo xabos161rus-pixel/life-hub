@@ -56,4 +56,41 @@ describe('feedStream', () => {
     feedStream(st, 'data: {оборвано посереди\n' + delta('живой'));
     expect(st.content).toBe('живой');
   });
+
+  // tool use (этап 3): id и имя приходят первым чанком вызова, аргументы —
+  // JSON-строкой кусками произвольного размера, сшиваются по index.
+  it('вызов инструмента собирается из рваных дельт аргументов', () => {
+    const st = newStreamState();
+    const c1 = ev({
+      choices: [{ delta: { tool_calls: [{ index: 0, id: 'call_1', function: { name: 'list_tasks', arguments: '' } }] } }],
+    });
+    const c2 = ev({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '{"status":' } }] } }] });
+    const c3 = ev({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '"active"}' } }] } }] });
+    const fin = ev({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+    // Худшая нарезка — по символу: границы чанков не совпадают с событиями.
+    for (const ch of c1 + c2 + c3 + fin) feedStream(st, ch);
+    expect(st.toolCalls).toEqual([{ id: 'call_1', name: 'list_tasks', arguments: '{"status":"active"}' }]);
+    expect(st.finishReason).toBe('tool_calls');
+  });
+
+  it('два параллельных вызова не перемешиваются между index', () => {
+    const st = newStreamState();
+    feedStream(
+      st,
+      ev({
+        choices: [{
+          delta: {
+            tool_calls: [
+              { index: 0, id: 'a', function: { name: 'list_tasks', arguments: '{}' } },
+              { index: 1, id: 'b', function: { name: 'list_goals', arguments: '' } },
+            ],
+          },
+        }],
+      }) + ev({ choices: [{ delta: { tool_calls: [{ index: 1, function: { arguments: '{}' } }] } }] }),
+    );
+    expect(st.toolCalls).toEqual([
+      { id: 'a', name: 'list_tasks', arguments: '{}' },
+      { id: 'b', name: 'list_goals', arguments: '{}' },
+    ]);
+  });
 });

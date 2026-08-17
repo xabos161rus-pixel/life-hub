@@ -88,7 +88,10 @@ export async function addUserMessage(chat: LlmChat, content: string): Promise<Ll
   });
 }
 
-export async function addAssistantMessage(chatId: string, reply: AiReply): Promise<LlmMessage> {
+export async function addAssistantMessage(
+  chatId: string,
+  reply: AiReply & { toolTrace?: { tool: string; count: number }[] },
+): Promise<LlmMessage> {
   return addMessage({
     chatId,
     role: 'assistant',
@@ -100,6 +103,7 @@ export async function addAssistantMessage(chatId: string, reply: AiReply): Promi
     status: 'done',
     error: null,
     finishReason: reply.finishReason ?? null,
+    toolTrace: reply.toolTrace?.length ? reply.toolTrace : null,
   });
 }
 

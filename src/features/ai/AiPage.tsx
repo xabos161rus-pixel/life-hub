@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowUp, Copy, MessageSquarePlus, PanelsTopLeft, RotateCcw, Sparkles, Square } from 'lucide-react';
+import { ArrowUp, Copy, Database, MessageSquarePlus, PanelsTopLeft, RotateCcw, Sparkles, Square } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { useToast } from '../../components/ui/toastContext';
 import { EmptyState } from '../../components/ui/EmptyState';
 import type { LlmMessage } from '../../db/types';
-import { requestChat, aiErrorText } from '../../lib/ai/aiClient';
+import { aiErrorText } from '../../lib/ai/aiClient';
+import { runAgent } from '../../lib/ai/agentLoop';
+import { TOOL_LABELS } from '../../lib/ai/tools';
 import { MODELS, formatCost, modelLabel } from '../../lib/ai/models';
 import { Select } from '../../components/ui/Input';
 import {
@@ -39,6 +41,8 @@ export function AiPage() {
   // запись чанков в наблюдаемую таблицу перечитывала бы весь чат дважды в
   // секунду (§4.1 плана). null — стрима нет; '' — ждём первый токен.
   const [streamText, setStreamText] = useState<string | null>(null);
+  // Имя инструмента, который исполняется прямо сейчас, — строка «читаю…».
+  const [toolLabel, setToolLabel] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -92,12 +96,17 @@ export function AiPage() {
     try {
       await addUserMessage(chat, text);
       const history = toContext(await chatMessages(chat.id));
-      const reply = await requestChat({
+      const reply = await runAgent({
         messages: history,
         systemPrompt: chat.systemPrompt,
         model: chat.model,
         signal: ac.signal,
-        onDelta: (piece) => setStreamText((prev) => (prev ?? '') + piece),
+        dataTools: chat.dataTools !== false,
+        onDelta: (piece) => {
+          setToolLabel(null);
+          setStreamText((prev) => (prev ?? '') + piece);
+        },
+        onTool: (label) => setToolLabel(label),
       });
       await addAssistantMessage(chat.id, reply);
     } catch (e) {
@@ -106,6 +115,7 @@ export function AiPage() {
       abortRef.current = null;
       setBusy(false);
       setStreamText(null);
+      setToolLabel(null);
       inputRef.current?.focus();
     }
   }
@@ -120,12 +130,17 @@ export function AiPage() {
     try {
       await removeMessage(m.id);
       const history = toContext(await chatMessages(chat.id));
-      const reply = await requestChat({
+      const reply = await runAgent({
         messages: history,
         systemPrompt: chat.systemPrompt,
         model: chat.model,
         signal: ac.signal,
-        onDelta: (piece) => setStreamText((prev) => (prev ?? '') + piece),
+        dataTools: chat.dataTools !== false,
+        onDelta: (piece) => {
+          setToolLabel(null);
+          setStreamText((prev) => (prev ?? '') + piece);
+        },
+        onTool: (label) => setToolLabel(label),
       });
       await addAssistantMessage(chat.id, reply);
     } catch (e) {
@@ -134,6 +149,7 @@ export function AiPage() {
       abortRef.current = null;
       setBusy(false);
       setStreamText(null);
+      setToolLabel(null);
     }
   }
 
@@ -204,7 +220,12 @@ export function AiPage() {
                 />
               ),
             )}
-            {busy && streamText ? <StreamingBlock text={streamText} /> : busy ? <Thinking /> : null}
+            {busy && streamText ? <StreamingBlock text={streamText} /> : null}
+            {busy && toolLabel ? (
+              <ToolLine label={toolLabel} />
+            ) : busy && !streamText ? (
+              <Thinking />
+            ) : null}
             <div ref={bottomRef} />
           </div>
 
@@ -213,7 +234,9 @@ export function AiPage() {
             value={draft}
             busy={busy}
             model={chat?.model ?? ''}
+            dataTools={chat?.dataTools !== false}
             onModel={(m) => chat && void patchChat(chat.id, { model: m })}
+            onDataTools={(v) => chat && void patchChat(chat.id, { dataTools: v })}
             onChange={setDraft}
             onSend={() => void handleSend()}
             onStop={() => abortRef.current?.abort()}
@@ -276,6 +299,20 @@ function AssistantBlock({
         ) : (
           <Markdown text={message.content} />
         )}
+        {!failed && !!message.toolTrace?.length && (
+          // След вызовов: что модель читала для этого ответа. Прозрачность —
+          // часть фичи: видно, на каких данных построен ответ.
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {message.toolTrace.map((tr, i) => (
+              <span
+                key={i}
+                className="rounded-md bg-accent/10 px-1.5 py-0.5 font-mono text-[0.68rem] text-accent"
+              >
+                {t(TOOL_LABELS[tr.tool] ?? tr.tool)} · {tr.count}
+              </span>
+            ))}
+          </div>
+        )}
         {!failed && message.finishReason === 'length' && (
           <p className="mt-1 text-xs text-warning">
             {t('Ответ обрезан лимитом токенов — попросите продолжить.')}
@@ -328,36 +365,65 @@ function Thinking() {
   );
 }
 
+/** Исполняется инструмент: «читаю Задачи…» вместо безликого «думает». */
+function ToolLine({ label }: { label: string }) {
+  return (
+    <div className="grid grid-cols-[1.25rem_1fr] gap-x-1">
+      <div aria-hidden className="pt-2">
+        <span className="block size-1.5 animate-pulse rounded-full bg-accent" />
+      </div>
+      <p className="font-mono text-xs text-muted">{t('читаю: {tool}…', { tool: t(label) })}</p>
+    </div>
+  );
+}
+
 interface ComposerProps {
   value: string;
   busy: boolean;
   model: string;
+  dataTools: boolean;
   onModel: (id: string) => void;
+  onDataTools: (v: boolean) => void;
   onChange: (v: string) => void;
   onSend: () => void;
   onStop: () => void;
   ref?: React.Ref<HTMLTextAreaElement>;
 }
 
-function Composer({ value, busy, model, onModel, onChange, onSend, onStop, ref }: ComposerProps) {
+function Composer({ value, busy, model, dataTools, onModel, onDataTools, onChange, onSend, onStop, ref }: ComposerProps) {
   return (
     <div className="shrink-0 border-t border-hairline pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
       {/* Модель — у поля ввода, а не в настройках: смена посреди диалога
           законна (дальше отвечает новая) и запоминается в самом чате. */}
-      <div className="mb-2">
-        <Select
-          compact
-          aria-label={t('Модель')}
-          value={model}
+      <div className="mb-2 flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <Select
+            compact
+            aria-label={t('Модель')}
+            value={model}
+            disabled={busy}
+            onChange={(e) => onModel(e.target.value)}
+          >
+            {MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {t(m.label)}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {/* Доступ модели к данным приложения. Включён по умолчанию — это и
+            есть смысл раздела; выключатель — для разговоров «не о своём». */}
+        <button
+          aria-label={t('Доступ к данным')}
+          aria-pressed={dataTools}
           disabled={busy}
-          onChange={(e) => onModel(e.target.value)}
+          className={`grid size-9 shrink-0 place-items-center rounded-xl transition-colors ${
+            dataTools ? 'bg-accent/15 text-accent' : 'text-muted'
+          }`}
+          onClick={() => onDataTools(!dataTools)}
         >
-          {MODELS.map((m) => (
-            <option key={m.id} value={m.id}>
-              {t(m.label)}
-            </option>
-          ))}
-        </Select>
+          <Database size={17} />
+        </button>
       </div>
       <div className="flex items-end gap-2">
         <textarea

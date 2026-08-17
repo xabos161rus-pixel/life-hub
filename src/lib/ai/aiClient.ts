@@ -22,12 +22,27 @@ export interface AiReply {
   // Причина остановки провайдера: 'length' — упёрлись в max_tokens (ответ
   // обрезан), 'content_filter' — модель отклонила запрос. У заглушки её нет.
   finishReason?: string | null;
+  // Запрошенные моделью вызовы инструментов (finish_reason === 'tool_calls').
+  // Исполняет их цикл в agentLoop.ts — клиентский, у воркера данных нет.
+  toolCalls?: WireToolCall[];
 }
 
-export interface AiChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
+/** Вызов инструмента в wire-формате OpenAI (arguments — JSON-строкой). */
+export interface WireToolCall {
+  id: string;
+  type: 'function';
+  function: { name: string; arguments: string };
 }
+
+/** Сообщение в формате провода. Ответ-с-вызовами и результат инструмента —
+ *  полноправные участники истории запроса: без них модель не свяжет свой
+ *  вызов с данными и попросит их заново по кругу. */
+export type WireMessage =
+  | { role: 'user' | 'assistant'; content: string }
+  | { role: 'assistant'; content: string | null; tool_calls: WireToolCall[] }
+  | { role: 'tool'; tool_call_id: string; content: string };
+
+export type AiChatMessage = WireMessage;
 
 export type AiErrorCode =
   | 'no_account' // синхронизация не настроена — нечем авторизоваться
@@ -80,6 +95,9 @@ export async function requestChat(params: {
   systemPrompt?: string;
   model?: string;
   signal?: AbortSignal;
+  /** Определения инструментов (wire-формат OpenAI). Воркер пробрасывает их
+   *  провайдеру как есть; заглушка-эхо игнорирует. */
+  tools?: unknown[];
   /** Живой стрим: дельты текста по мере генерации. Заглушка отвечает разом. */
   onDelta?: (text: string) => void;
 }): Promise<AiReply> {
@@ -99,6 +117,7 @@ export async function requestChat(params: {
         messages: params.messages,
         systemPrompt: params.systemPrompt || '',
         model: params.model,
+        ...(params.tools?.length ? { tools: params.tools } : {}),
       }),
       signal: params.signal,
     });
@@ -165,11 +184,22 @@ async function readStream(
     }
     throw new AiError('network', 'поток оборвался');
   }
-  if (!st.content && !st.done) throw new AiError('provider', 'пустой ответ');
+  if (!st.content && !st.toolCalls.length && !st.done) throw new AiError('provider', 'пустой ответ');
+  // Слоты без id/name — оборванные дельты вызова: исполнять нечего.
+  const calls = st.toolCalls.filter((c) => c.id && c.name);
   return {
     content: st.content,
     model: model ?? 'unknown',
     usage: { in: st.tokensIn ?? 0, out: st.tokensOut ?? 0 },
     finishReason: st.finishReason,
+    ...(calls.length
+      ? {
+          toolCalls: calls.map((c) => ({
+            id: c.id,
+            type: 'function' as const,
+            function: { name: c.name, arguments: c.arguments },
+          })),
+        }
+      : {}),
   };
 }
