@@ -1521,4 +1521,39 @@ export const EN: Record<string, string> = {
   '{name} присоединился': '{name} joined',
   '📞 Аудиозвонок · {dur}': '📞 Audio call · {dur}',
   '📵 Пропущенный аудиозвонок': '📵 Missed audio call',
+
+  // === Раздел ИИ ===
+  'ИИ': 'AI',
+  'Чат с языковой моделью': 'Chat with a language model',
+  'Раздел «ИИ»': '"AI" section',
+  'Чат с языковой моделью. Нужна включённая синхронизация — ею идёт авторизация.':
+    'Chat with a language model. Requires sync to be on — it handles authorization.',
+  'Скрыт': 'Hidden',
+  'Список чатов': 'Chat list',
+  'Новый чат': 'New chat',
+  'Чаты': 'Chats',
+  'Удалить чат': 'Delete chat',
+  'Удалить чат «{title}» со всей перепиской?': 'Delete chat "{title}" with all its messages?',
+  'Спросите что угодно': 'Ask anything',
+  'Пока отвечает заглушка — провайдер подключается на следующем шаге.':
+    'A stub is answering for now — the provider is wired up in the next step.',
+  'думает…': 'thinking…',
+  'Скопировать': 'Copy',
+  'Повторить': 'Retry',
+  'Не удалось скопировать': 'Could not copy',
+  'Заглушка (бесплатно)': 'Stub (free)',
+  'бесплатно': 'free',
+  'Включите синхронизацию в Настройках — она нужна для авторизации.':
+    'Turn on sync in Settings — it is required for authorization.',
+  'Сервер не признал аккаунт. Проверьте синхронизацию.':
+    'The server did not recognize the account. Check sync.',
+  'Аккаунт не в списке разрешённых на сервере.': 'The account is not on the server allowlist.',
+  'Слишком часто. Подождите немного.': 'Too many requests. Wait a moment.',
+  'Провайдер отказал: {msg}': 'Provider refused: {msg}',
+  'Нет связи с сервером.': 'No connection to the server.',
+  'Запрос отменён.': 'Request cancelled.',
+  'Неизвестная ошибка.': 'Unknown error.',
+  'ID аккаунта': 'Account ID',
+  'ID аккаунта скопирован': 'Account ID copied',
+  'ID аккаунта — скопируйте вручную:': 'Account ID — copy it manually:',
 };
