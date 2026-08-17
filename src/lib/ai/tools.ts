@@ -5,9 +5,12 @@
 // вызова (компактный JSON), поэтому объём каждого ответа ограничен: полная
 // выгрузка раздела в контекст — это и деньги за токены, и потолок окна.
 //
-// Семья и «Женские дни» в инструменты не входят намеренно: переписка и
-// медицинские записи — данные повышенной приватности, их в чужой API не
-// отдаём вовсе (не «пока», а решением).
+// Семья в инструменты не входит: переписка — не только твои данные.
+// «Женские дни» входят по явному решению владельца (17.08), с двумя
+// оговорками: замок раздела (код доступа) закрывает и доступ ИИ — фоновая
+// выдача в API не должна обходить PIN; интимный слой (в типах прямо помечен
+// как специальная категория 152-ФЗ) не отдаётся никогда — для ответов о
+// цикле он не нужен.
 
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
@@ -104,6 +107,15 @@ export const TOOL_DEFS = [
       parameters: { type: 'object', properties: {} },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'cycle_summary',
+      description:
+        'Женские дни: день и фаза текущего цикла, длины прошлых циклов, прогноз следующего, отметки за 35 дней (кровотечение, симптомы, БТТ).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
 ];
 
 /** Русские подписи инструментов — для чипов следа и строки «читаю…».
@@ -117,6 +129,7 @@ export const TOOL_LABELS: Record<string, string> = {
   list_goals: 'Цели',
   list_learning: 'Обучение',
   energy_summary: 'Энергия',
+  cycle_summary: 'Женские дни',
 };
 
 // Потолки объёма ответа. Не конфигурируются: это защита контекста и кошелька,
@@ -387,6 +400,70 @@ async function runEnergySummary(): Promise<ToolResult> {
   };
 }
 
+async function runCycleSummary(): Promise<ToolResult> {
+  const settings = await db.cycleSettings.get('app');
+  if (!settings) return { text: JSON.stringify({ error: 'раздел «Женские дни» не настроен' }), count: 0 };
+  // Замок раздела закрывает и этот путь: PIN означает «не показывать без
+  // кода», и фоновая выдача данных в API обошла бы его молча.
+  if (settings.lock !== 'none') {
+    return { text: JSON.stringify({ error: 'раздел под кодом доступа — доступ ИИ закрыт' }), count: 0 };
+  }
+
+  const today = todayKey();
+  const [cycles, predictions, days, defs] = await Promise.all([
+    db.cycles.toArray(),
+    db.cyclePredictions.toArray(),
+    db.cycleDays.where('date').aboveOrEqual(dayKeyShift(-35)).toArray(),
+    db.cycleSymptoms.toArray(),
+  ]);
+  const label = new Map(defs.map((d) => [d.key, d.label]));
+
+  const current = cycles.find((c) => c.status === 'current');
+  const done = cycles
+    .filter((c) => c.status === 'complete' && !c.excluded && c.lengthDays)
+    .sort((a, b) => b.startDate.localeCompare(a.startDate))
+    .slice(0, 6);
+  const avgLen = done.length
+    ? Math.round(done.reduce((s, c) => s + (c.lengthDays ?? 0), 0) / done.length)
+    : null;
+  const cycleDay = current
+    ? Math.floor((Date.parse(today) - Date.parse(current.startDate)) / 86_400_000) + 1
+    : null;
+
+  const latest = predictions.sort((a, b) => b.forCycleStart.localeCompare(a.forCycleStart))[0];
+  const prediction =
+    settings.predictionsEnabled && latest
+      ? { nextStart: latest.predictedNextStart, window80: [latest.lo80, latest.hi80] }
+      : undefined;
+
+  // Отдаём только дни, где что-то отмечено. Интимный слой (intimacy) не
+  // включается в выборку полей вовсе — см. шапку файла.
+  const marks = days
+    .filter((d) => (d.bleeding && d.bleeding !== 'none') || d.symptoms?.length || d.bbtC || d.note)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((d) => ({
+      date: d.date,
+      bleeding: d.bleeding && d.bleeding !== 'none' ? d.bleeding : undefined,
+      symptoms: d.symptoms?.length ? d.symptoms.map((s) => label.get(s.key) ?? s.key) : undefined,
+      bbt: d.bbtC ?? undefined,
+      note: d.note ? d.note.slice(0, 80) : undefined,
+    }));
+
+  return {
+    text: JSON.stringify({
+      today,
+      currentCycle: current
+        ? { start: current.startDate, day: cycleDay, periodLengthDays: current.periodLengthDays }
+        : null,
+      recentCycles: done.map((c) => ({ start: c.startDate, length: c.lengthDays, period: c.periodLengthDays })),
+      avgLength: avgLen,
+      prediction,
+      days: marks,
+    }),
+    count: marks.length,
+  };
+}
+
 /** Исполнить инструмент по имени. Любая ошибка — в content для модели,
  *  а не исключением наружу: упавший вызов не должен ронять весь ответ. */
 export async function runTool(name: string, argsJson: string): Promise<ToolResult> {
@@ -415,6 +492,8 @@ export async function runTool(name: string, argsJson: string): Promise<ToolResul
         return await runListLearning();
       case 'energy_summary':
         return await runEnergySummary();
+      case 'cycle_summary':
+        return await runCycleSummary();
       default:
         return { text: JSON.stringify({ error: `неизвестный инструмент ${name}` }), count: 0 };
     }
@@ -429,7 +508,7 @@ export function toolsSystemPrompt(): string {
   return [
     `Сегодня ${todayKey()}.`,
     'Тебе доступны инструменты чтения данных пользователя из его органайзера LifeHearth:',
-    'задачи, заметки, финансы, привычки, цели, обучение, уровень энергии.',
+    'задачи, заметки, финансы, привычки, цели, обучение, уровень энергии, женские дни (цикл).',
     'Когда вопрос касается личных данных или планов — сначала прочитай их инструментом, потом отвечай по фактам.',
     'Не выдумывай записи, которых нет. Отвечай на языке пользователя, кратко и по делу.',
   ].join(' ');

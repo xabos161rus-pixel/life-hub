@@ -124,6 +124,97 @@ describe('list_finance', () => {
   });
 });
 
+describe('cycle_summary', () => {
+  const settings = (lock: 'none' | 'pin') => ({
+    id: 'app',
+    mode: 'tracking',
+    predictionsEnabled: true,
+    fertilityDisplay: 'off',
+    dayStartHour: 0,
+    lock,
+    hideFromNavigation: false,
+    showOnTodayScreen: false,
+    neutralNotificationText: true,
+    includeInGeneralBackup: false,
+    syncEnabled: false,
+    integrations: {
+      todayCard: false,
+      calendarMarks: false,
+      energyCorrelation: false,
+      habitsCorrelation: false,
+      autoTasks: false,
+      planningHints: false,
+    },
+    updatedAt: '2026-08-01T00:00:00.000Z',
+  });
+
+  const day = (date: string, extra: Record<string, unknown>) => ({
+    date,
+    isBleedingDay: 0,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+    source: 'user',
+    ...extra,
+  });
+
+  it('отдаёт цикл, прогноз и отметки; симптомы — подписями; intimacy не утекает', async () => {
+    await db.cycleSettings.put(settings('none') as never);
+    await db.cycles.bulkAdd([
+      { startDate: '2026-07-15', endDate: '2026-08-11', lengthDays: 28, periodLengthDays: 5, status: 'complete', excluded: 0 },
+      { startDate: '2026-08-12', status: 'current', excluded: 0 },
+    ] as never[]);
+    await db.cyclePredictions.add({
+      forCycleStart: '2026-08-12',
+      predictedNextStart: '2026-09-09',
+      lo50: '2026-09-08',
+      hi50: '2026-09-10',
+      lo80: '2026-09-06',
+      hi80: '2026-09-12',
+    } as never);
+    await db.cycleSymptoms.add({ key: 'headache', group: 'somatic', label: 'Головная боль' } as never);
+    const recent = new Date();
+    recent.setDate(recent.getDate() - 2);
+    const rkey = `${recent.getFullYear()}-${String(recent.getMonth() + 1).padStart(2, '0')}-${String(recent.getDate()).padStart(2, '0')}`;
+    await db.cycleDays.add(
+      day(rkey, {
+        bleeding: 'medium',
+        isBleedingDay: 1,
+        symptoms: [{ key: 'headache', severity: 2 }],
+        intimacy: { count: 1, protection: 'protected' },
+      }) as never,
+    );
+
+    const r = JSON.parse((await runTool('cycle_summary', '{}')).text) as {
+      currentCycle: { start: string; day: number };
+      recentCycles: { length: number }[];
+      prediction?: { nextStart: string };
+      days: Record<string, unknown>[];
+    };
+    expect(r.currentCycle.start).toBe('2026-08-12');
+    expect(r.currentCycle.day).toBeGreaterThan(0);
+    expect(r.recentCycles).toEqual([{ start: '2026-07-15', length: 28, period: 5 }]);
+    expect(r.prediction?.nextStart).toBe('2026-09-09');
+    expect(r.days).toHaveLength(1);
+    expect(r.days[0].symptoms).toEqual(['Головная боль']);
+    // Интимный слой не должен просочиться ни под каким именем.
+    expect(JSON.stringify(r)).not.toContain('intimacy');
+    expect(JSON.stringify(r)).not.toContain('protected');
+  });
+
+  it('код доступа на разделе закрывает и доступ ИИ', async () => {
+    await db.cycleSettings.put(settings('pin') as never);
+    await db.cycleDays.add(day('2026-08-15', { bleeding: 'light', isBleedingDay: 1 }) as never);
+    const r = JSON.parse((await runTool('cycle_summary', '{}')).text) as { error?: string };
+    expect(r.error).toContain('кодом доступа');
+    expect(JSON.stringify(r)).not.toContain('light');
+  });
+
+  it('раздел не настроен — честная ошибка, не пустая сводка', async () => {
+    const r = JSON.parse((await runTool('cycle_summary', '{}')).text) as { error?: string };
+    expect(r.error).toContain('не настроен');
+  });
+});
+
 describe('устойчивость', () => {
   it('битые аргументы не роняют вызов — работаем с пустыми', async () => {
     const r = await runTool('list_tasks', '{оборванный json');
