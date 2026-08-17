@@ -247,9 +247,11 @@ export default {
       }
 
       // === Раздел ИИ: прокси к языковой модели ===
-      // Пока это ЗАГЛУШКА-ЭХО: тракт «отправил → получил ответ → увидел
-      // стоимость» доводится до конца без регистрации у провайдера, без ключа
-      // и без денег. Живой адаптер подключается на месте echoReply().
+      // Два режима, различаются на клиенте по Content-Type ответа:
+      //   - без ключа провайдера или model='echo' — заглушка, обычный JSON;
+      //   - живой провайдер — passthrough SSE-потока байт в байт (§4.2 плана):
+      //     JSON.parse каждой дельты здесь съедал бы CPU-лимит Workers Free
+      //     (10 мс на инвокацию), ожидание I/O в лимит не входит.
       if (url.pathname === '/ai/chat' && request.method === 'POST') {
         const accountId = await authAccount(request, env);
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
@@ -273,7 +275,58 @@ export default {
           (m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim(),
         );
         if (!clean.length) return json({ error: 'bad_request', message: 'нет сообщений' }, 400, origin);
-        return json(echoReply(clean, body?.systemPrompt), 200, origin);
+
+        const model = typeof body?.model === 'string' ? body.model : 'echo';
+        if (model === 'echo' || !env.AI_PROVIDER_KEY) {
+          return json(echoReply(clean, body?.systemPrompt), 200, origin);
+        }
+
+        // Живой провайдер. Формат — OpenAI chat completions (его говорят все
+        // агрегаторы; для Polza сверяется при настройке). Адрес НЕ зашит:
+        // AI_PROVIDER_URL — полный URL эндпоинта completions в переменных
+        // воркера, менять провайдера можно без правки кода.
+        if (!env.AI_PROVIDER_URL) {
+          return json({ error: 'provider', message: 'AI_PROVIDER_URL не настроен' }, 500, origin);
+        }
+        const sys = typeof body?.systemPrompt === 'string' && body.systemPrompt.trim()
+          ? [{ role: 'system', content: body.systemPrompt }]
+          : [];
+        let upstream;
+        try {
+          upstream = await fetch(env.AI_PROVIDER_URL, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${env.AI_PROVIDER_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              messages: [...sys, ...clean],
+              stream: true,
+              // usage приходит финальным чанком — иначе стоимость не посчитать.
+              stream_options: { include_usage: true },
+              // Общий потолок на размышления И текст (§4.5): с дефолтными 4096
+              // ответы регулярно рвались бы посреди генерации.
+              max_tokens: 32000,
+            }),
+          });
+        } catch {
+          return json({ error: 'provider', message: 'провайдер недоступен' }, 502, origin);
+        }
+        if (!upstream.ok) {
+          // Тело ошибки провайдера отдаём как есть (без ключей там ничего нет),
+          // статус пробрасываем — клиент различает 401/403/429 по нему.
+          const text = await upstream.text().catch(() => '');
+          return json({ error: 'provider', message: text.slice(0, 500) || `HTTP ${upstream.status}` }, upstream.status, origin);
+        }
+        return new Response(upstream.body, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-store',
+            ...corsHeaders(origin),
+          },
+        });
       }
 
       // === Семья: проксируем в Durable Object (1 комната на семью) ===
