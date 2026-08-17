@@ -17,10 +17,21 @@ export interface ModelInfo {
   priceOut: number; // ₽ за 1M выходных токенов
 }
 
+// ⚠️ id и цены живых моделей — СВЕРИТЬ с прайсом провайдера при настройке
+// ключа (шаг §8 плана): id должны совпадать со списком моделей агрегатора
+// (формат OpenRouter-стиля), цены ниже — ориентир от прайса Anthropic
+// (Sonnet $3/$15, Haiku $1/$5 за 1M) по курсу ~90 ₽/$ с наценкой ~6%.
+// Стоимость под ответом считается от этих чисел — пока они не сверены,
+// относиться к ней как к оценке.
 export const MODELS: ModelInfo[] = [
   { id: 'echo', label: 'Заглушка (бесплатно)', priceIn: 0, priceOut: 0 },
+  { id: 'anthropic/claude-sonnet-4.5', label: 'Claude Sonnet', priceIn: 290, priceOut: 1440 },
+  { id: 'anthropic/claude-haiku-4.5', label: 'Claude Haiku', priceIn: 96, priceOut: 480 },
 ];
 
+// Дефолт — заглушка: без ключа провайдера живые модели вернут ошибку, а
+// тракт и тесты должны работать из коробки. После настройки ключа модель
+// выбирается в самом чате (и запоминается в нём).
 export const DEFAULT_MODEL = 'echo';
 
 export function modelById(id: string): ModelInfo | undefined {

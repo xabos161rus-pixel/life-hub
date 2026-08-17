@@ -563,6 +563,10 @@ export interface LlmMessage extends BaseEntity {
   costRub: number | null;
   status: LlmStatus;
   error: string | null;
+  // Причина остановки провайдера: 'length' — ответ упёрся в max_tokens и
+  // обрезан, 'content_filter' — модель отклонила запрос (§4.5-4.6 плана).
+  // Поле не индексируется — старые записи без него читаются как undefined.
+  finishReason?: string | null;
 }
 
 // Конфиг E2E-синхронизации. НЕ синкается и НЕ входит в бэкап (содержит ключ

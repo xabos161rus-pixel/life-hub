@@ -1556,4 +1556,9 @@ export const EN: Record<string, string> = {
   'ID аккаунта': 'Account ID',
   'ID аккаунта скопирован': 'Account ID copied',
   'ID аккаунта — скопируйте вручную:': 'Account ID — copy it manually:',
+  'за чат: {cost}': 'chat total: {cost}',
+  'Модель': 'Model',
+  'Модель отклонила запрос.': 'The model refused the request.',
+  'Ответ обрезан лимитом токенов — попросите продолжить.':
+    'The reply was cut off by the token limit — ask it to continue.',
 };

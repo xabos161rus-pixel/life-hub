@@ -6,7 +6,8 @@ import { useToast } from '../../components/ui/toastContext';
 import { EmptyState } from '../../components/ui/EmptyState';
 import type { LlmMessage } from '../../db/types';
 import { requestChat, aiErrorText } from '../../lib/ai/aiClient';
-import { formatCost, modelLabel } from '../../lib/ai/models';
+import { MODELS, formatCost, modelLabel } from '../../lib/ai/models';
+import { Select } from '../../components/ui/Input';
 import {
   addAssistantMessage,
   addErrorMessage,
@@ -14,6 +15,7 @@ import {
   chatMessages,
   createChat,
   listChats,
+  patchChat,
   removeMessage,
   toContext,
 } from '../../lib/ai/llmRepo';
@@ -33,6 +35,10 @@ export function AiPage() {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  // Текст, печатающийся прямо сейчас. Живёт в React-состоянии, а НЕ в Dexie:
+  // запись чанков в наблюдаемую таблицу перечитывала бы весь чат дважды в
+  // секунду (§4.1 плана). null — стрима нет; '' — ждём первый токен.
+  const [streamText, setStreamText] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -69,7 +75,7 @@ export function AiPage() {
   // на каждый ответ на iOS конфликтует с инерцией и дёргает ленту.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
-  }, [messages.length, busy]);
+  }, [messages.length, busy, streamText]);
 
   // Отмена запроса при уходе с экрана — иначе платим за токены впустую и
   // пишем в состояние размонтированного компонента.
@@ -80,6 +86,7 @@ export function AiPage() {
     if (!text || busy || !chat) return;
     setDraft('');
     setBusy(true);
+    setStreamText('');
     const ac = new AbortController();
     abortRef.current = ac;
     try {
@@ -90,6 +97,7 @@ export function AiPage() {
         systemPrompt: chat.systemPrompt,
         model: chat.model,
         signal: ac.signal,
+        onDelta: (piece) => setStreamText((prev) => (prev ?? '') + piece),
       });
       await addAssistantMessage(chat.id, reply);
     } catch (e) {
@@ -97,6 +105,7 @@ export function AiPage() {
     } finally {
       abortRef.current = null;
       setBusy(false);
+      setStreamText(null);
       inputRef.current?.focus();
     }
   }
@@ -105,6 +114,7 @@ export function AiPage() {
   async function handleRetry(m: LlmMessage) {
     if (busy || !chat) return;
     setBusy(true);
+    setStreamText('');
     const ac = new AbortController();
     abortRef.current = ac;
     try {
@@ -115,6 +125,7 @@ export function AiPage() {
         systemPrompt: chat.systemPrompt,
         model: chat.model,
         signal: ac.signal,
+        onDelta: (piece) => setStreamText((prev) => (prev ?? '') + piece),
       });
       await addAssistantMessage(chat.id, reply);
     } catch (e) {
@@ -122,6 +133,7 @@ export function AiPage() {
     } finally {
       abortRef.current = null;
       setBusy(false);
+      setStreamText(null);
     }
   }
 
@@ -131,6 +143,9 @@ export function AiPage() {
     setListOpen(false);
     setDraft('');
   }
+
+  // Стоимость чата на первом же экране (§3 плана): сумма снимков costRub.
+  const chatCost = messages.reduce((sum, m) => sum + (m.costRub ?? 0), 0);
 
   async function copyText(text: string) {
     try {
@@ -145,6 +160,7 @@ export function AiPage() {
     <div style={CC_THEME} className="h-full">
       <Screen
         title={chat?.title ?? t('ИИ')}
+        subtitle={chatCost > 0 ? t('за чат: {cost}', { cost: formatCost(chatCost) }) : undefined}
         backTo="/home"
         fill
         right={
@@ -188,7 +204,7 @@ export function AiPage() {
                 />
               ),
             )}
-            {busy && <Thinking />}
+            {busy && streamText ? <StreamingBlock text={streamText} /> : busy ? <Thinking /> : null}
             <div ref={bottomRef} />
           </div>
 
@@ -196,6 +212,8 @@ export function AiPage() {
             ref={inputRef}
             value={draft}
             busy={busy}
+            model={chat?.model ?? ''}
+            onModel={(m) => chat && void patchChat(chat.id, { model: m })}
             onChange={setDraft}
             onSend={() => void handleSend()}
             onStop={() => abortRef.current?.abort()}
@@ -251,8 +269,17 @@ function AssistantBlock({
       <div className="min-w-0">
         {failed ? (
           <p className="text-sm text-danger">{message.error}</p>
+        ) : message.finishReason === 'content_filter' && !message.content.trim() ? (
+          // Отказ приходит HTTP 200 с пустым содержимым (§4.6) — без этой
+          // ветки на экране висел бы пустой блок со статусом «готово».
+          <p className="text-sm text-muted">{t('Модель отклонила запрос.')}</p>
         ) : (
           <Markdown text={message.content} />
+        )}
+        {!failed && message.finishReason === 'length' && (
+          <p className="mt-1 text-xs text-warning">
+            {t('Ответ обрезан лимитом токенов — попросите продолжить.')}
+          </p>
         )}
         <div className="mt-1.5 flex items-center gap-3 font-mono text-[0.7rem] text-muted">
           {!failed && message.tokensIn !== null && (
@@ -276,6 +303,20 @@ function AssistantBlock({
   );
 }
 
+/** Печатающийся ответ. Тот же вид, что готовый блок, но без метаданных. */
+function StreamingBlock({ text }: { text: string }) {
+  return (
+    <div className="grid grid-cols-[1.25rem_1fr] gap-x-1">
+      <div aria-hidden className="pt-2">
+        <span className="block size-1.5 animate-pulse rounded-full bg-accent" />
+      </div>
+      <div className="min-w-0">
+        <Markdown text={text} />
+      </div>
+    </div>
+  );
+}
+
 function Thinking() {
   return (
     <div className="grid grid-cols-[1.25rem_1fr] gap-x-1">
@@ -290,15 +331,34 @@ function Thinking() {
 interface ComposerProps {
   value: string;
   busy: boolean;
+  model: string;
+  onModel: (id: string) => void;
   onChange: (v: string) => void;
   onSend: () => void;
   onStop: () => void;
   ref?: React.Ref<HTMLTextAreaElement>;
 }
 
-function Composer({ value, busy, onChange, onSend, onStop, ref }: ComposerProps) {
+function Composer({ value, busy, model, onModel, onChange, onSend, onStop, ref }: ComposerProps) {
   return (
     <div className="shrink-0 border-t border-hairline pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
+      {/* Модель — у поля ввода, а не в настройках: смена посреди диалога
+          законна (дальше отвечает новая) и запоминается в самом чате. */}
+      <div className="mb-2">
+        <Select
+          compact
+          aria-label={t('Модель')}
+          value={model}
+          disabled={busy}
+          onChange={(e) => onModel(e.target.value)}
+        >
+          {MODELS.map((m) => (
+            <option key={m.id} value={m.id}>
+              {t(m.label)}
+            </option>
+          ))}
+        </Select>
+      </div>
       <div className="flex items-end gap-2">
         <textarea
           ref={ref}

@@ -7,6 +7,7 @@
 
 import { WORKER_URL } from '../sync';
 import { t } from '../i18n';
+import { feedStream, newStreamState } from './openaiStream';
 import { getSyncConfig } from '../syncState';
 
 export interface AiUsage {
@@ -18,6 +19,9 @@ export interface AiReply {
   content: string;
   model: string;
   usage: AiUsage;
+  // Причина остановки провайдера: 'length' — упёрлись в max_tokens (ответ
+  // обрезан), 'content_filter' — модель отклонила запрос. У заглушки её нет.
+  finishReason?: string | null;
 }
 
 export interface AiChatMessage {
@@ -76,6 +80,8 @@ export async function requestChat(params: {
   systemPrompt?: string;
   model?: string;
   signal?: AbortSignal;
+  /** Живой стрим: дельты текста по мере генерации. Заглушка отвечает разом. */
+  onDelta?: (text: string) => void;
 }): Promise<AiReply> {
   const c = await getSyncConfig();
   if (!c) throw new AiError('no_account', 'синхронизация не настроена');
@@ -111,6 +117,12 @@ export async function requestChat(params: {
     throw new AiError('provider', msg);
   }
 
+  // Формат ответа различается по Content-Type: заглушка отвечает готовым JSON,
+  // живой провайдер — SSE-потоком (см. worker/src/index.js). Отдельного
+  // meta-события или заголовка не нужно, пока формат потока один.
+  const type = res.headers.get('Content-Type') || '';
+  if (type.includes('text/event-stream')) return readStream(res, params.model, params.onDelta, params.signal);
+
   const data = (await res.json()) as Partial<AiReply>;
   if (typeof data.content !== 'string') throw new AiError('provider', 'пустой ответ');
   return {
@@ -120,5 +132,44 @@ export async function requestChat(params: {
       in: Number(data.usage?.in) || 0,
       out: Number(data.usage?.out) || 0,
     },
+  };
+}
+
+/** Дочитать SSE-поток провайдера до конца (или до отмены). */
+async function readStream(
+  res: Response,
+  model: string | undefined,
+  onDelta: ((text: string) => void) | undefined,
+  signal: AbortSignal | undefined,
+): Promise<AiReply> {
+  if (!res.body) throw new AiError('provider', 'пустой поток');
+  const st = newStreamState();
+  const reader = res.body.getReader();
+  // stream:true в декодере обязателен: сетевой чанк может порвать UTF-8
+  // символ пополам, и без него русский текст превращался бы в «��».
+  const decoder = new TextDecoder('utf-8');
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const added = feedStream(st, decoder.decode(value, { stream: true }));
+      if (added && onDelta) onDelta(added);
+    }
+    const tail = feedStream(st, decoder.decode());
+    if (tail && onDelta) onDelta(tail);
+  } catch (e) {
+    // Отмена генерации — не ошибка потока: накопленный текст выбрасывается
+    // выше по стеку тем же путём, что и любая отмена.
+    if (signal?.aborted || (e as { name?: string })?.name === 'AbortError') {
+      throw new AiError('aborted', 'отменено');
+    }
+    throw new AiError('network', 'поток оборвался');
+  }
+  if (!st.content && !st.done) throw new AiError('provider', 'пустой ответ');
+  return {
+    content: st.content,
+    model: model ?? 'unknown',
+    usage: { in: st.tokensIn ?? 0, out: st.tokensOut ?? 0 },
+    finishReason: st.finishReason,
   };
 }
