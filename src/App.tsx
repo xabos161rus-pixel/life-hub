@@ -43,6 +43,7 @@ import { InstallInstructionsPage } from './features/settings/InstallInstructions
 import { SectionsSettingsPage } from './features/settings/SectionsSettingsPage';
 import { FocusPage } from './features/focus/FocusPage';
 import { FamilyPage } from './features/family/FamilyPage';
+import { AiPage } from './features/ai/AiPage';
 import { PomodoroProvider } from './features/focus/PomodoroProvider';
 import { MiniTimer } from './features/focus/MiniTimer';
 import { GenderGate } from './features/onboarding/GenderGate';
@@ -182,6 +183,7 @@ export default function App() {
                     адреса — цена за несломанные уведомления и закладки. */}
                 <Route path="/more" element={<Navigate to="/home" replace />} />
                 <Route path="/more/family" element={<FamilyPage />} />
+                <Route path="/more/ai" element={<AiPage />} />
                 <Route path="/more/focus" element={<FocusPage />} />
                 <Route path="/more/learning" element={<LearningPage />} />
                 <Route path="/more/finance" element={<FinancePage />} />

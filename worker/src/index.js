@@ -246,6 +246,36 @@ export default {
         );
       }
 
+      // === Раздел ИИ: прокси к языковой модели ===
+      // Пока это ЗАГЛУШКА-ЭХО: тракт «отправил → получил ответ → увидел
+      // стоимость» доводится до конца без регистрации у провайдера, без ключа
+      // и без денег. Живой адаптер подключается на месте echoReply().
+      if (url.pathname === '/ai/chat' && request.method === 'POST') {
+        const accountId = await authAccount(request, env);
+        if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
+        // Allowlist — единственный барьер между публичным workers.dev и платным
+        // ключом провайдера. Пустая переменная = пускать всех (режим отладки).
+        const allowed = (env.AI_ALLOWED_ACCOUNTS || '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (allowed.length && !allowed.includes(accountId)) {
+          return json({ error: 'forbidden', message: 'аккаунт не в списке разрешённых' }, 403, origin);
+        }
+        let body;
+        try {
+          body = await request.json();
+        } catch {
+          return json({ error: 'bad_request', message: 'тело не JSON' }, 400, origin);
+        }
+        const messages = Array.isArray(body?.messages) ? body.messages : [];
+        const clean = messages.filter(
+          (m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim(),
+        );
+        if (!clean.length) return json({ error: 'bad_request', message: 'нет сообщений' }, 400, origin);
+        return json(echoReply(clean, body?.systemPrompt), 200, origin);
+      }
+
       // === Семья: проксируем в Durable Object (1 комната на семью) ===
       if (url.pathname.startsWith('/family/')) {
         const familyId = url.searchParams.get('familyId') || request.headers.get('X-Account');
@@ -269,6 +299,40 @@ export default {
     ctx.waitUntil(checkAppVersion(env)); // сторож версии → авто-пуш об обновлении
   },
 };
+
+/**
+ * Заглушка вместо языковой модели. Отвечает разметкой, чтобы на клиенте сразу
+ * было видно рендер markdown, и отдаёт usage в том же виде, в каком его отдаст
+ * настоящий провайдер, — тогда подключение живого адаптера не потребует правок
+ * ни в клиенте, ни в схеме данных.
+ *
+ * Оценка токенов грубая (символы / 3). Для русского это ЗАНИЖЕНИЕ: RU-текст
+ * токенизируется дороже английского. Точное число придёт от провайдера вместе
+ * с ответом, поэтому на этой эвристике ничего важного строить нельзя.
+ */
+function echoReply(messages, systemPrompt) {
+  const last = messages[messages.length - 1];
+  const inChars = messages.reduce((n, m) => n + m.content.length, 0) + (systemPrompt || '').length;
+  const content = [
+    '**Заглушка-эхо.** Провайдер пока не подключён — отвечает воркер.',
+    '',
+    'Ваш вопрос:',
+    '',
+    `> ${last.content.slice(0, 500).replace(/\n/g, '\n> ')}`,
+    '',
+    `Сообщений в контексте: ${messages.length}${systemPrompt ? ' · системный промпт задан' : ''}`,
+    '',
+    '```js',
+    "// проверка подсветки блока кода",
+    "const ok = true;",
+    '```',
+  ].join('\n');
+  return {
+    content,
+    model: 'echo',
+    usage: { in: Math.ceil(inChars / 3), out: Math.ceil(content.length / 3) },
+  };
+}
 
 // Текст по умолчанию для рассылки об обновлении. Кнопки «Обновить» в
 // приложении НЕТ: service worker ставит новую версию сам и перезагружает

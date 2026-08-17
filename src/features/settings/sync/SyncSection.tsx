@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { RefreshCw, QrCode, Smartphone, ShieldCheck } from 'lucide-react';
+import { RefreshCw, QrCode, Smartphone, ShieldCheck, Copy } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/toastContext';
 import { getSyncConfig } from '../../../lib/syncState';
@@ -53,6 +53,18 @@ export function SyncSection() {
     }
   }
 
+  async function handleCopyAccount() {
+    if (!config) return;
+    try {
+      await navigator.clipboard.writeText(config.accountId);
+      toast(t('ID аккаунта скопирован'));
+    } catch {
+      // Клипборд недоступен (нет secure context / отказ WebKit) — показываем
+      // значение в prompt, откуда его можно выделить и скопировать вручную.
+      window.prompt(t('ID аккаунта — скопируйте вручную:'), config.accountId);
+    }
+  }
+
   async function handleDisable() {
     if (!window.confirm(t('Отключить синхронизацию на этом устройстве? Локальные данные останутся на месте.'))) return;
     await disableSync();
@@ -84,6 +96,18 @@ export function SyncSection() {
               <QrCode size={18} />
               {t('Показать QR для другого устройства')}
             </Button>
+            {/* ID аккаунта нужен для allowlist AI-прокси в Worker (AI_ALLOWED_ACCOUNTS):
+                значение вводится в дашборде Cloudflare руками, поэтому кнопка копирования. */}
+            <button
+              className="flex w-full items-center justify-between gap-2 rounded-lg bg-surface-2 px-3 py-2 text-left active:opacity-60"
+              onClick={() => void handleCopyAccount()}
+            >
+              <span className="min-w-0">
+                <span className="block text-xs text-muted">{t('ID аккаунта')}</span>
+                <span className="block font-mono text-xs break-all">{config.accountId}</span>
+              </span>
+              <Copy size={16} className="shrink-0 text-muted" />
+            </button>
             <button
               className="w-full pt-1 text-sm text-danger active:opacity-60"
               onClick={() => void handleDisable()}

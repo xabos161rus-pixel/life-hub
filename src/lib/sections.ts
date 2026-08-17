@@ -19,6 +19,7 @@ import {
   GPlaces as MapPin,
   GStats as ChartColumnBig,
   GDrop as Droplet,
+  GBot as Bot,
   GSettings as SettingsIcon,
 } from '../components/ui/glyphs';
 
@@ -44,6 +45,7 @@ export type SectionId =
   | 'stats'
   | 'calendar'
   | 'cycle'
+  | 'ai'
   | 'settings';
 
 export interface Section {
@@ -125,6 +127,16 @@ export const SECTIONS: Section[] = [
     subtitle: 'Цикл, самочувствие и прогноз',
     hiddenByDefault: true,
   },
+  // Раздел «ИИ» существует в реестре только при включённом флаге (Настройки):
+  // фича дописывается, и до готовности её не видно ни в панели, ни в списке
+  // «Главной», ни в «Настроить разделы» — как «Женские дни» при мужском профиле.
+  {
+    id: 'ai',
+    label: 'ИИ',
+    to: '/more/ai',
+    icon: Bot,
+    subtitle: 'Чат с языковой моделью',
+  },
   {
     id: 'settings',
     label: 'Настройки',
@@ -153,8 +165,10 @@ export function cycleAllowed(gender: 'female' | 'male' | undefined): boolean {
  *  дни» исключается целиком: навигация, настройка разделов и всё, что строится
  *  из реестра, обязаны идти через эту функцию, а не через SECTIONS напрямую —
  *  иначе раздел «протечёт» в какой-нибудь список у мужского профиля. */
-export function sectionsFor(gender: 'female' | 'male' | undefined): Section[] {
-  return cycleAllowed(gender) ? SECTIONS : SECTIONS.filter((s) => s.id !== 'cycle');
+export function sectionsFor(gender: 'female' | 'male' | undefined, aiEnabled?: boolean): Section[] {
+  return SECTIONS.filter(
+    (s) => (s.id !== 'cycle' || cycleAllowed(gender)) && (s.id !== 'ai' || aiEnabled),
+  );
 }
 
 /** Сколько пользовательских разделов помещается в панель слева от «Главной». */

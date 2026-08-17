@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
-import { BellRing, GraduationCap, PhoneCall, SlidersHorizontal, Lightbulb } from 'lucide-react';
+import { BellRing, Bot, GraduationCap, PhoneCall, SlidersHorizontal, Lightbulb } from 'lucide-react';
 import {
   GCheck,
   GChevronRight as ChevronRight,
@@ -56,6 +56,7 @@ const TABLE_RU: Record<string, string> = {
   familyTasks: 'семейные задачи',
   familyMembers: 'участники семьи',
 };
+
 
 const THEME_OPTIONS: { value: Settings['theme']; label: string }[] = [
   { value: 'dark', label: 'Тёмная' },
@@ -666,6 +667,27 @@ export function SettingsPage() {
               <span className="min-w-0 flex-1 truncate">{t('Настроить разделы')}</span>
               <ChevronRight size={20} className="shrink-0 text-muted" />
             </Link>
+            {/* Раздел ИИ за флагом: пока фича дописывается, её можно мержить в
+                main рабочего приложения, не показывая на «Главной». */}
+            <div className="border-b border-hairline p-4">
+              <div className="mb-2.5 flex items-center gap-2">
+                <Bot size={20} className="shrink-0 text-muted" />
+                <span className="flex-1">
+                  {t('Раздел «ИИ»')}
+                  <span className="block text-sm text-muted">
+                    {t('Чат с языковой моделью. Нужна включённая синхронизация — ею идёт авторизация.')}
+                  </span>
+                </span>
+              </div>
+              <SegmentedControl<'off' | 'on'>
+                options={[
+                  { value: 'off', label: t('Скрыт') },
+                  { value: 'on', label: t('Показать') },
+                ]}
+                value={settings.aiEnabled ? 'on' : 'off'}
+                onChange={(v) => void updateSettings({ aiEnabled: v === 'on' })}
+              />
+            </div>
             <Link to="/more/trash" className="flex items-center gap-2 border-b border-hairline p-4">
               <Trash2 size={20} className="shrink-0 text-muted" />
               <span className="min-w-0 flex-1 truncate">{t('Корзина')}</span>

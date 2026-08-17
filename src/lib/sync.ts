@@ -18,7 +18,8 @@ import {
 } from './crypto';
 import { getSyncConfig, patchSyncConfig, saveSyncConfig, clearSyncConfig } from './syncState';
 
-const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
+// Экспорт: адрес воркера переиспользует клиент AI-прокси (lib/ai/aiClient.ts).
+export const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
 const PUSH_CHUNK = 200;
 
 // Таблицы, которые синхронизируются. settings (device-local) и sync (секреты)

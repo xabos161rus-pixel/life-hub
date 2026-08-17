@@ -26,6 +26,8 @@ import type {
   FamilyMessage,
   ReminderSection,
   ReminderItem,
+  LlmChat,
+  LlmMessage,
 } from './types';
 import type {
   Cycle,
@@ -37,7 +39,7 @@ import type {
   SymptomDef,
 } from './cycleTypes';
 
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -77,6 +79,11 @@ export class LifeHubDB extends Dexie {
   cycleSettings!: Table<CycleSettings, string>;
   cycleSymptoms!: Table<SymptomDef, string>;
   cyclePredictions!: Table<CyclePrediction, string>;
+  // Раздел «ИИ». НЕ входят в SYNCED_TABLES и в бэкап: pullPage старых сборок
+  // молча пропускает записи незнакомых таблиц, а курсор двигается — устройство
+  // на прошлой версии потеряло бы часть переписки навсегда (план, §4.7).
+  llmChats!: Table<LlmChat, string>;
+  llmMessages!: Table<LlmMessage, string>;
 
   constructor() {
     super('life-hub');
@@ -287,6 +294,17 @@ export class LifeHubDB extends Dexie {
     // Только новая таблица, существующие не трогаются → upgrade не нужен.
     this.version(16).stores({
       energyLogs: 'id, &date',
+    });
+
+    // v17 — раздел ИИ: чаты с языковой моделью. Только новые таблицы,
+    // существующие не трогаются → upgrade-функция не нужна.
+    // Индексы минимальные: чаты сортируем по lastMessageAt, сообщения читаем
+    // выборкой по chatId. Составной [chatId+createdAt] не добавляем — его не
+    // использовал бы ни один запрос, а каждый лишний индекс это запись на
+    // каждое сообщение.
+    this.version(17).stores({
+      llmChats: 'id, lastMessageAt',
+      llmMessages: 'id, chatId',
     });
   }
 }
