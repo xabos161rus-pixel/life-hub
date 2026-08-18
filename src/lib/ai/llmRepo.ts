@@ -68,7 +68,12 @@ async function addMessage(m: Omit<LlmMessage, keyof import('../../db/types').Bas
   const ts = now();
   const row: LlmMessage = { ...m, id: uid(), createdAt: ts, updatedAt: ts, deletedAt: null };
   await db.llmMessages.add(row);
-  await db.llmChats.update(m.chatId, { lastMessageAt: ts, updatedAt: ts });
+  await db.llmChats.update(m.chatId, {
+    lastMessageAt: ts,
+    updatedAt: ts,
+    // Превью для списка чатов. Ошибка контента не несёт — берём её текст.
+    lastMessageText: (m.content || m.error || '').slice(0, 90),
+  });
   return row;
 }
 
@@ -128,10 +133,17 @@ export async function removeMessage(id: string): Promise<void> {
   await db.llmMessages.update(id, { deletedAt: ts, updatedAt: ts });
 }
 
-/** Контекст для отправки в модель: только успешные непустые сообщения. */
+/** Сколько последних сообщений уходит в модель. Каждый запрос несёт весь
+ *  контекст заново, и без потолка длинный чат дорожает с каждой репликой —
+ *  до бесконечности. 30 сообщений ≈ 15 обменов: за глаза для связности. */
+const CONTEXT_LIMIT = 30;
+
+/** Контекст для отправки в модель: только успешные непустые сообщения,
+ *  не больше CONTEXT_LIMIT последних. */
 export function toContext(messages: LlmMessage[]): { role: 'user' | 'assistant'; content: string }[] {
   return messages
     .filter((m) => m.status === 'done' && m.content.trim())
+    .slice(-CONTEXT_LIMIT)
     .map((m) => ({ role: m.role, content: m.content }));
 }
 

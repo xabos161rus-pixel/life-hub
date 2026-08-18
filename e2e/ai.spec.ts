@@ -76,7 +76,8 @@ test('живой провайдер: SSE-стрим печатается, usage 
   await openApp(page, '/more/ai');
   await seedSyncAccount(page);
   // Живая модель выбирается в композере и запоминается в чате.
-  await page.getByLabel('Модель').selectOption({ label: 'Claude Sonnet 5' });
+  await page.getByRole('button', { name: 'Модель' }).click();
+  await page.getByRole('button', { name: /Claude Sonnet 5/ }).click();
 
   await page.getByPlaceholder('Сообщение…').fill('стримни');
   await page.getByRole('button', { name: 'Отправить' }).click();
@@ -84,7 +85,8 @@ test('живой провайдер: SSE-стрим печатается, usage 
   await expect(page.getByText('Стрим работает')).toBeVisible();
   await expect(page.getByText('40→9')).toBeVisible();
   // Ответ упёрся в max_tokens — приписка об обрыве обязана быть видимой.
-  await expect(page.getByText('Ответ обрезан лимитом токенов — попросите продолжить.')).toBeVisible();
+  await expect(page.getByText('Ответ обрезан лимитом токенов.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Дописать' })).toBeVisible();
   // Цена в шапке: сумма чата из usage и прайса модели.
   await expect(page.getByText(/за чат: /)).toBeVisible();
 });
@@ -175,7 +177,8 @@ test('доступ к данным: модель вызывает инструм
       sortOrder: 1000,
     } as never);
   });
-  await page.getByLabel('Модель').selectOption({ label: 'Claude Sonnet 5' });
+  await page.getByRole('button', { name: 'Модель' }).click();
+  await page.getByRole('button', { name: /Claude Sonnet 5/ }).click();
 
   await page.getByPlaceholder('Сообщение…').fill('что по задачам?');
   await page.getByRole('button', { name: 'Отправить' }).click();
@@ -219,4 +222,48 @@ test('тумблер «Доступ к данным» выключает инс�
   // Выбор запоминается в чате: после перезагрузки тумблер остаётся выключен.
   await page.goto('/more/ai');
   await expect(page.getByRole('button', { name: 'Доступ к данным' })).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('пустой чат: подсказка отправляется одним тапом', async ({ page }) => {
+  const bodies: string[] = [];
+  await page.route('**/ai/chat', (route) => {
+    bodies.push(route.request().postData() ?? '');
+    return route.fulfill({
+      contentType: 'application/json',
+      json: { content: 'Разобрал.', model: 'echo', usage: { in: 1, out: 1 } },
+    });
+  });
+  await openApp(page, '/more/ai');
+  await seedSyncAccount(page);
+
+  await page.getByRole('button', { name: 'Разбери мои расходы за месяц' }).click();
+  await expect(page.getByText('Разобрал.')).toBeVisible();
+  // Вопрос ушёл именно текстом подсказки и стал заголовком чата.
+  expect(bodies[0]).toContain('Разбери мои расходы за месяц');
+  await expect(page.getByRole('heading', { name: 'Разбери мои расходы за месяц' })).toBeVisible();
+});
+
+test('настройки чата: переименование и инструкция для модели сохраняются', async ({ page }) => {
+  const bodies: string[] = [];
+  await page.route('**/ai/chat', (route) => {
+    bodies.push(route.request().postData() ?? '');
+    return route.fulfill({
+      contentType: 'application/json',
+      json: { content: 'ок', model: 'echo', usage: { in: 1, out: 1 } },
+    });
+  });
+  await openApp(page, '/more/ai');
+  await seedSyncAccount(page);
+
+  await page.getByRole('button', { name: 'Настройки чата' }).click();
+  await page.getByLabel('Название').fill('Финансовый советник');
+  await page.getByLabel('Инструкция для модели').fill('отвечай одним предложением');
+  await page.getByRole('button', { name: 'Сохранить' }).click();
+  await expect(page.getByRole('heading', { name: 'Финансовый советник' })).toBeVisible();
+
+  // Инструкция реально уезжает в запрос системным промптом.
+  await page.getByPlaceholder('Сообщение…').fill('привет');
+  await page.getByRole('button', { name: 'Отправить' }).click();
+  await expect(page.getByText('ок', { exact: true })).toBeVisible();
+  expect(bodies[0]).toContain('отвечай одним предложением');
 });

@@ -1,15 +1,26 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowUp, Copy, Database, MessageSquarePlus, PanelsTopLeft, RotateCcw, Sparkles, Square } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  Copy,
+  Database,
+  MessageSquarePlus,
+  PanelsTopLeft,
+  RotateCcw,
+  SlidersHorizontal,
+  Square,
+} from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { useToast } from '../../components/ui/toastContext';
-import { EmptyState } from '../../components/ui/EmptyState';
-import type { LlmMessage } from '../../db/types';
+import { GSparkle } from '../../components/ui/glyphs';
+import type { LlmChat, LlmMessage } from '../../db/types';
 import { aiErrorText } from '../../lib/ai/aiClient';
 import { runAgent } from '../../lib/ai/agentLoop';
 import { TOOL_LABELS } from '../../lib/ai/tools';
-import { MODELS, formatCost, modelLabel } from '../../lib/ai/models';
-import { Select } from '../../components/ui/Input';
+import { formatCost, modelLabel } from '../../lib/ai/models';
 import {
   addAssistantMessage,
   addErrorMessage,
@@ -24,6 +35,8 @@ import {
 import { t } from '../../lib/i18n';
 import { Markdown } from './Markdown';
 import { ChatListSheet } from './ChatListSheet';
+import { ChatSettingsSheet } from './ChatSettingsSheet';
+import { ModelSheet } from './ModelSheet';
 
 // Акцент раздела — клай Claude Code. Перекрываем только акцентные переменные на
 // обёртке, как это делает FocusPage: нейтрали приложения остаются общими.
@@ -44,7 +57,12 @@ export function AiPage() {
   // Имя инструмента, который исполняется прямо сейчас, — строка «читаю…».
   const [toolLabel, setToolLabel] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
+  // Кнопка «вниз к последнему» — появляется, когда лента прокручена вверх.
+  const [awayFromBottom, setAwayFromBottom] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const creating = useRef(false);
@@ -85,32 +103,30 @@ export function AiPage() {
   // пишем в состояние размонтированного компонента.
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  async function handleSend() {
-    const text = draft.trim();
-    if (!text || busy || !chat) return;
-    setDraft('');
+  /** Общий прогон: история текущего чата → цикл агента → запись ответа.
+   *  Един для отправки и повтора — прежде логика жила в двух копиях. */
+  async function runTurn(target: LlmChat) {
     setBusy(true);
     setStreamText('');
     const ac = new AbortController();
     abortRef.current = ac;
     try {
-      await addUserMessage(chat, text);
-      const history = toContext(await chatMessages(chat.id));
+      const history = toContext(await chatMessages(target.id));
       const reply = await runAgent({
         messages: history,
-        systemPrompt: chat.systemPrompt,
-        model: chat.model,
+        systemPrompt: target.systemPrompt,
+        model: target.model,
         signal: ac.signal,
-        dataTools: chat.dataTools !== false,
+        dataTools: target.dataTools !== false,
         onDelta: (piece) => {
           setToolLabel(null);
           setStreamText((prev) => (prev ?? '') + piece);
         },
         onTool: (label) => setToolLabel(label),
       });
-      await addAssistantMessage(chat.id, reply);
+      await addAssistantMessage(target.id, reply);
     } catch (e) {
-      await addErrorMessage(chat.id, aiErrorText(e));
+      await addErrorMessage(target.id, aiErrorText(e));
     } finally {
       abortRef.current = null;
       setBusy(false);
@@ -120,41 +136,26 @@ export function AiPage() {
     }
   }
 
+  /** Отправка. textArg — программная (чипы-подсказки, «Продолжить»). */
+  async function handleSend(textArg?: string) {
+    const text = (textArg ?? draft).trim();
+    if (!text || busy || !chat) return;
+    if (!textArg) setDraft('');
+    await addUserMessage(chat, text);
+    await runTurn(chat);
+  }
+
   /** Повтор: снимаем прошлый ответ и спрашиваем заново тем же контекстом. */
   async function handleRetry(m: LlmMessage) {
     if (busy || !chat) return;
-    setBusy(true);
-    setStreamText('');
-    const ac = new AbortController();
-    abortRef.current = ac;
-    try {
-      await removeMessage(m.id);
-      const history = toContext(await chatMessages(chat.id));
-      const reply = await runAgent({
-        messages: history,
-        systemPrompt: chat.systemPrompt,
-        model: chat.model,
-        signal: ac.signal,
-        dataTools: chat.dataTools !== false,
-        onDelta: (piece) => {
-          setToolLabel(null);
-          setStreamText((prev) => (prev ?? '') + piece);
-        },
-        onTool: (label) => setToolLabel(label),
-      });
-      await addAssistantMessage(chat.id, reply);
-    } catch (e) {
-      await addErrorMessage(chat.id, aiErrorText(e));
-    } finally {
-      abortRef.current = null;
-      setBusy(false);
-      setStreamText(null);
-      setToolLabel(null);
-    }
+    await removeMessage(m.id);
+    await runTurn(chat);
   }
 
   async function handleNewChat() {
-    const c = await createChat();
+    // Новый чат наследует модель текущего: выбранная один раз живая модель
+    // не должна откатываться к заглушке на каждом «＋».
+    const c = await createChat(chat?.model);
     setPickedId(c.id);
     setListOpen(false);
     setDraft('');
@@ -172,6 +173,13 @@ export function AiPage() {
     }
   }
 
+  /** Показ кнопки «вниз»: далеко ли лента от последнего сообщения. */
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    setAwayFromBottom(el.scrollHeight - el.scrollTop - el.clientHeight > 400);
+  }
+
   return (
     <div style={CC_THEME} className="h-full">
       <Screen
@@ -180,33 +188,34 @@ export function AiPage() {
         backTo="/home"
         fill
         right={
-          <div className="flex items-center gap-1">
+          <div className="flex items-center">
+            <button
+              aria-label={t('Настройки чата')}
+              className="p-2 text-accent active:opacity-60"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <SlidersHorizontal size={21} />
+            </button>
             <button
               aria-label={t('Список чатов')}
               className="p-2 text-accent active:opacity-60"
               onClick={() => setListOpen(true)}
             >
-              <PanelsTopLeft size={22} />
+              <PanelsTopLeft size={21} />
             </button>
             <button
               aria-label={t('Новый чат')}
               className="p-2 text-accent active:opacity-60"
               onClick={() => void handleNewChat()}
             >
-              <MessageSquarePlus size={22} />
+              <MessageSquarePlus size={21} />
             </button>
           </div>
         }
       >
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-3">
-            {!messages.length && (
-              <EmptyState
-                icon={Sparkles}
-                title={t('Спросите что угодно')}
-                hint={t('Пока отвечает заглушка — провайдер подключается на следующем шаге.')}
-              />
-            )}
+        <div className="relative flex h-full min-h-0 flex-col">
+          <div ref={scrollRef} onScroll={handleScroll} className="min-h-0 flex-1 space-y-4 overflow-y-auto pb-3">
+            {!messages.length && !busy && <AiWelcome onAsk={(q) => void handleSend(q)} />}
             {messages.map((m) =>
               m.role === 'user' ? (
                 <UserBubble key={m.id} message={m} />
@@ -216,6 +225,7 @@ export function AiPage() {
                   message={m}
                   onCopy={() => void copyText(m.content)}
                   onRetry={() => void handleRetry(m)}
+                  onContinue={() => void handleSend(t('Продолжи с места обрыва.'))}
                   busy={busy}
                 />
               ),
@@ -229,13 +239,23 @@ export function AiPage() {
             <div ref={bottomRef} />
           </div>
 
+          {awayFromBottom && (
+            <button
+              aria-label={t('К последнему сообщению')}
+              className="absolute right-3 bottom-40 z-10 grid size-10 place-items-center rounded-full border border-hairline bg-elevated text-accent shadow-[var(--shadow-card)] active:opacity-70"
+              onClick={() => bottomRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })}
+            >
+              <ArrowDown size={19} />
+            </button>
+          )}
+
           <Composer
             ref={inputRef}
             value={draft}
             busy={busy}
-            model={chat?.model ?? ''}
+            modelName={modelLabel(chat?.model ?? null) || t('Модель')}
             dataTools={chat?.dataTools !== false}
-            onModel={(m) => chat && void patchChat(chat.id, { model: m })}
+            onModelTap={() => setModelOpen(true)}
             onDataTools={(v) => chat && void patchChat(chat.id, { dataTools: v })}
             onChange={setDraft}
             onSend={() => void handleSend()}
@@ -255,6 +275,62 @@ export function AiPage() {
         }}
         onNew={() => void handleNewChat()}
       />
+      {chat && (
+        <ChatSettingsSheet
+          key={chat.id}
+          open={settingsOpen}
+          chat={chat}
+          onClose={() => setSettingsOpen(false)}
+          onRemoved={() => {
+            setSettingsOpen(false);
+            setPickedId(null);
+          }}
+        />
+      )}
+      <ModelSheet
+        open={modelOpen}
+        value={chat?.model ?? 'echo'}
+        onClose={() => setModelOpen(false)}
+        onPick={(id) => chat && void patchChat(chat.id, { model: id })}
+      />
+    </div>
+  );
+}
+
+/** Быстрые вопросы пустого чата: человек не обязан выдумывать, что умеет
+ *  ассистент, — примеры показывают сразу и отправляются одним тапом. */
+const SUGGESTIONS = [
+  'Разбери мои расходы за месяц',
+  'Что у меня по задачам на этой неделе?',
+  'Собери план на завтра из моих задач',
+  'Что просело по привычкам за месяц?',
+];
+
+function AiWelcome({ onAsk }: { onAsk: (q: string) => void }) {
+  return (
+    <div className="flex flex-col items-center px-4 pt-10 text-center">
+      <div
+        aria-hidden
+        className="mb-4 grid size-16 place-items-center rounded-[1.25rem] text-white shadow-[var(--shadow-accent)]"
+        style={{ background: 'linear-gradient(150deg, var(--app-accent), var(--app-accent-2))' }}
+      >
+        <GSparkle size={30} />
+      </div>
+      <p className="text-lg font-bold tracking-tight">{t('Спросите о своём')}</p>
+      <p className="mt-1 mb-5 max-w-[17rem] text-sm text-muted">
+        {t('Ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.')}
+      </p>
+      <div className="flex w-full max-w-sm flex-col gap-2">
+        {SUGGESTIONS.map((q) => (
+          <button
+            key={q}
+            className="rounded-2xl border border-hairline bg-surface-2 px-4 py-3 text-left text-sm active:opacity-70"
+            onClick={() => onAsk(t(q))}
+          >
+            {t(q)}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -263,7 +339,7 @@ export function AiPage() {
  *  на всю ширину, и такая асимметрия узнаётся сразу. */
 function UserBubble({ message }: { message: LlmMessage }) {
   return (
-    <div className="flex justify-end">
+    <div className="cc-msg-in flex justify-end">
       <div className="max-w-[85%] rounded-2xl rounded-br-md bg-surface-2 px-3.5 py-2.5 whitespace-pre-wrap">
         {message.content}
       </div>
@@ -275,23 +351,40 @@ function AssistantBlock({
   message,
   onCopy,
   onRetry,
+  onContinue,
   busy,
 }: {
   message: LlmMessage;
   onCopy: () => void;
   onRetry: () => void;
+  onContinue: () => void;
   busy: boolean;
 }) {
   const failed = message.status === 'error';
   const cost = formatCost(message.costRub);
   return (
-    <div className="grid grid-cols-[1.25rem_1fr] gap-x-1">
+    <div className="cc-msg-in grid grid-cols-[1.25rem_1fr] gap-x-1">
       <div aria-hidden className="pt-2">
         <span className={`block size-1.5 rounded-full ${failed ? 'bg-danger' : 'bg-accent'}`} />
       </div>
       <div className="min-w-0">
         {failed ? (
-          <p className="text-sm text-danger">{message.error}</p>
+          // Ошибка — карточка с действием, а не строка мелким шрифтом:
+          // видно, что случилось, и что можно сделать прямо здесь.
+          <div className="rounded-xl border border-danger/25 bg-danger/10 px-3.5 py-3">
+            <p className="flex items-start gap-2 text-sm">
+              <AlertCircle size={16} className="mt-0.5 shrink-0 text-danger" />
+              <span className="min-w-0">{message.error}</span>
+            </p>
+            <button
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-danger/15 px-3 py-1.5 text-sm font-medium text-danger active:opacity-70 disabled:opacity-40"
+              disabled={busy}
+              onClick={onRetry}
+            >
+              <RotateCcw size={14} />
+              {t('Повторить')}
+            </button>
+          </div>
         ) : message.finishReason === 'content_filter' && !message.content.trim() ? (
           // Отказ приходит HTTP 200 с пустым содержимым (§4.6) — без этой
           // ветки на экране висел бы пустой блок со статусом «готово».
@@ -314,9 +407,16 @@ function AssistantBlock({
           </div>
         )}
         {!failed && message.finishReason === 'length' && (
-          <p className="mt-1 text-xs text-warning">
-            {t('Ответ обрезан лимитом токенов — попросите продолжить.')}
-          </p>
+          <div className="mt-1.5 flex items-center gap-2.5">
+            <p className="text-xs text-warning">{t('Ответ обрезан лимитом токенов.')}</p>
+            <button
+              className="rounded-lg bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent active:opacity-70 disabled:opacity-40"
+              disabled={busy}
+              onClick={onContinue}
+            >
+              {t('Дописать')}
+            </button>
+          </div>
         )}
         <div className="mt-1.5 flex items-center gap-3 font-mono text-[0.7rem] text-muted">
           {!failed && message.tokensIn !== null && (
@@ -340,7 +440,8 @@ function AssistantBlock({
   );
 }
 
-/** Печатающийся ответ. Тот же вид, что готовый блок, но без метаданных. */
+/** Печатающийся ответ. Тот же вид, что готовый блок, но без метаданных;
+ *  в конце — мигающая каретка, фирменный знак терминала. */
 function StreamingBlock({ text }: { text: string }) {
   return (
     <div className="grid grid-cols-[1.25rem_1fr] gap-x-1">
@@ -349,6 +450,7 @@ function StreamingBlock({ text }: { text: string }) {
       </div>
       <div className="min-w-0">
         <Markdown text={text} />
+        <span aria-hidden className="cc-caret" />
       </div>
     </div>
   );
@@ -372,7 +474,9 @@ function ToolLine({ label }: { label: string }) {
       <div aria-hidden className="pt-2">
         <span className="block size-1.5 animate-pulse rounded-full bg-accent" />
       </div>
-      <p className="font-mono text-xs text-muted">{t('читаю: {tool}…', { tool: t(label) })}</p>
+      <p className="font-mono text-xs text-muted">
+        {t('читаю:')} <span className="text-accent">{t(label)}</span>…
+      </p>
     </div>
   );
 }
@@ -380,9 +484,9 @@ function ToolLine({ label }: { label: string }) {
 interface ComposerProps {
   value: string;
   busy: boolean;
-  model: string;
+  modelName: string;
   dataTools: boolean;
-  onModel: (id: string) => void;
+  onModelTap: () => void;
   onDataTools: (v: boolean) => void;
   onChange: (v: string) => void;
   onSend: () => void;
@@ -390,27 +494,24 @@ interface ComposerProps {
   ref?: React.Ref<HTMLTextAreaElement>;
 }
 
-function Composer({ value, busy, model, dataTools, onModel, onDataTools, onChange, onSend, onStop, ref }: ComposerProps) {
+function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, onChange, onSend, onStop, ref }: ComposerProps) {
   return (
     <div className="shrink-0 border-t border-hairline pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
       {/* Модель — у поля ввода, а не в настройках: смена посреди диалога
-          законна (дальше отвечает новая) и запоминается в самом чате. */}
+          законна (дальше отвечает новая) и запоминается в самом чате.
+          Пилюля вместо системного select: тап открывает шит с ценами и
+          пояснениями — выбор становится осмысленным, а не слепым. */}
       <div className="mb-2 flex items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <Select
-            compact
-            aria-label={t('Модель')}
-            value={model}
-            disabled={busy}
-            onChange={(e) => onModel(e.target.value)}
-          >
-            {MODELS.map((m) => (
-              <option key={m.id} value={m.id}>
-                {t(m.label)}
-              </option>
-            ))}
-          </Select>
-        </div>
+        <button
+          aria-label={t('Модель')}
+          disabled={busy}
+          className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-hairline bg-surface-2 py-1.5 pr-2.5 pl-3.5 text-sm font-medium active:opacity-70 disabled:opacity-50"
+          onClick={onModelTap}
+        >
+          <span className="truncate">{modelName}</span>
+          <ChevronDown size={15} className="shrink-0 text-muted" />
+        </button>
+        <div className="flex-1" />
         {/* Доступ модели к данным приложения. Включён по умолчанию — это и
             есть смысл раздела; выключатель — для разговоров «не о своём». */}
         <button
@@ -450,7 +551,7 @@ function Composer({ value, busy, model, dataTools, onModel, onDataTools, onChang
         {busy ? (
           <button
             aria-label={t('Остановить')}
-            className="grid size-11 shrink-0 place-items-center rounded-full bg-surface-2 active:opacity-70"
+            className="grid size-11 shrink-0 place-items-center rounded-full border border-hairline bg-surface-2 active:opacity-70"
             onClick={onStop}
           >
             <Square size={16} />
@@ -459,7 +560,11 @@ function Composer({ value, busy, model, dataTools, onModel, onDataTools, onChang
           <button
             aria-label={t('Отправить')}
             disabled={!value.trim()}
-            className="grid size-11 shrink-0 place-items-center rounded-full bg-accent text-white transition-opacity active:opacity-80 disabled:opacity-30"
+            className="grid size-11 shrink-0 place-items-center rounded-full text-white transition-opacity active:opacity-80 disabled:opacity-30"
+            style={{
+              background: 'linear-gradient(150deg, var(--app-accent), var(--app-accent-2))',
+              boxShadow: 'var(--shadow-accent)',
+            }}
             onClick={onSend}
           >
             <ArrowUp size={20} />

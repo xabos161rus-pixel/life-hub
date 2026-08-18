@@ -586,6 +586,39 @@ select {
   outline: none;
 }
 
+/* ── Раздел ИИ: живые детали ленты ──────────────────────────────── */
+/* Каретка печатающегося ответа — фирменный знак CLI. Мигает шагами, не
+   плавно: терминальная каретка не «дышит», она щёлкает. */
+.cc-caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.05em;
+  margin-left: 0.1em;
+  vertical-align: text-bottom;
+  border-radius: 0.12em;
+  background: var(--cc-accent);
+  animation: cc-caret-blink 1s steps(2, jump-none) infinite;
+}
+@keyframes cc-caret-blink {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+/* Появление нового сообщения: короткий подъём без пружины — спокойный
+   ритм ленты важнее эффектности. */
+.cc-msg-in {
+  animation: cc-msg-in 180ms cubic-bezier(0.165, 0.84, 0.44, 1) both;
+}
+@keyframes cc-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* «Уменьшение движения» — системный тумблер, и он должен выключать анимации
    ВСЕ, а не только те, где мы вспомнили дописать motion-reduce:. До этого
    блока учтённых мест было два из шести с лишним десятков, а инлайновые

@@ -1,8 +1,11 @@
-import { MessageSquarePlus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { MessageSquarePlus, Search, Trash2 } from 'lucide-react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import type { LlmChat } from '../../db/types';
 import { removeChat } from '../../lib/ai/llmRepo';
+import { modelLabel } from '../../lib/ai/models';
 import { t } from '../../lib/i18n';
 
 /** «26 июл, 18:40» — ISO-метка сообщения, а не дата-ключ (formatRu тут не подходит). */
@@ -25,10 +28,21 @@ interface Props {
 }
 
 export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }: Props) {
+  const [query, setQuery] = useState('');
+
   async function handleRemove(chat: LlmChat) {
     if (!window.confirm(t('Удалить чат «{title}» со всей перепиской?', { title: chat.title }))) return;
     await removeChat(chat.id);
   }
+
+  // Поиск по заголовку и превью последнего сообщения. Полный текст переписки
+  // ищет глобальный поиск приложения — здесь нужен быстрый фильтр списка.
+  const q = query.trim().toLowerCase();
+  const shown = q
+    ? chats.filter(
+        (c) => c.title.toLowerCase().includes(q) || (c.lastMessageText ?? '').toLowerCase().includes(q),
+      )
+    : chats;
 
   return (
     <Sheet open={open} onClose={onClose} title={t('Чаты')}>
@@ -37,16 +51,33 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
           <MessageSquarePlus size={18} />
           {t('Новый чат')}
         </Button>
-        {chats.map((c) => (
+        {chats.length > 5 && (
+          <div className="relative">
+            <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
+            <Input
+              className="pl-9"
+              placeholder={t('Поиск по чатам')}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+        )}
+        {shown.map((c) => (
           <div
             key={c.id}
-            className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ${
-              c.id === activeId ? 'bg-surface-2' : ''
+            className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 ${
+              c.id === activeId ? 'border-accent/40 bg-accent/10' : 'border-hairline bg-surface-2'
             }`}
           >
             <button className="min-w-0 flex-1 text-left active:opacity-60" onClick={() => onPick(c.id)}>
               <span className="block truncate font-medium">{c.title}</span>
-              <span className="block text-xs text-muted">{formatWhen(c.lastMessageAt ?? c.createdAt)}</span>
+              {c.lastMessageText && (
+                <span className="mt-0.5 block truncate text-xs text-muted">{c.lastMessageText}</span>
+              )}
+              <span className="mt-0.5 block text-[0.68rem] text-muted">
+                {formatWhen(c.lastMessageAt ?? c.createdAt)}
+                {c.model !== 'echo' && ` · ${modelLabel(c.model)}`}
+              </span>
             </button>
             <button
               aria-label={t('Удалить чат')}
@@ -57,6 +88,9 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
             </button>
           </div>
         ))}
+        {q && !shown.length && (
+          <p className="py-4 text-center text-sm text-muted">{t('Ничего не нашлось')}</p>
+        )}
       </div>
     </Sheet>
   );

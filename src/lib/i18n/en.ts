@@ -1538,9 +1538,44 @@ export const EN: Record<string, string> = {
   'Пока отвечает заглушка — провайдер подключается на следующем шаге.':
     'A stub is answering for now — the provider is wired up in the next step.',
   'думает…': 'thinking…',
-  'читаю: {tool}…': 'reading: {tool}…',
+  'читаю:': 'reading:',
   'Доступ к данным': 'Data access',
   'Поиск заметок': 'Note search',
+  'Настройки чата': 'Chat settings',
+  'Инструкция для модели': 'Instructions for the model',
+  'Например: отвечай кратко, в два-три предложения': 'For example: answer briefly, in two or three sentences',
+  'Действует на все ответы в этом чате.': 'Applies to every reply in this chat.',
+  'Модель читает задачи, заметки, финансы и другие разделы.':
+    'The model reads tasks, notes, finance and other sections.',
+  'Включён': 'On',
+  'Выключен': 'Off',
+  'Экспорт в markdown': 'Export as markdown',
+  'Диалог экспортирован': 'Chat exported',
+  'Не удалось поделиться. Попробуйте ещё раз': 'Could not share. Try again',
+  'за вопрос': 'per question',
+  'Проверка интерфейса без трат — отвечает сервер приложения.':
+    'Interface check with zero cost — the app server answers.',
+  'Рабочая лошадка: быстрая, умная, для повседневных вопросов.':
+    'The workhorse: fast, smart, for everyday questions.',
+  'Подешевле и попроще — для коротких вопросов без глубины.':
+    'Cheaper and simpler — for short questions without depth.',
+  'Максимум качества для сложных разборов. Дорогая — включайте осознанно.':
+    'Top quality for complex analysis. Expensive — switch on deliberately.',
+  'Точная стоимость каждого ответа видна под ним и в шапке чата.':
+    'The exact cost of each reply is shown under it and in the chat header.',
+  'Спросите о своём': 'Ask about your own data',
+  'Ассистент читает ваши задачи, заметки, финансы и привычки — и отвечает по фактам.':
+    'The assistant reads your tasks, notes, finance and habits — and answers with facts.',
+  'Разбери мои расходы за месяц': 'Break down my spending for the month',
+  'Что у меня по задачам на этой неделе?': 'What are my tasks for this week?',
+  'Собери план на завтра из моих задач': 'Build a plan for tomorrow from my tasks',
+  'Что просело по привычкам за месяц?': 'Which habits slipped this month?',
+  'Продолжи с места обрыва.': 'Continue from where you stopped.',
+  'Ответ обрезан лимитом токенов.': 'The reply was cut by the token limit.',
+  'Дописать': 'Continue writing',
+  'К последнему сообщению': 'To the latest message',
+  'Поиск по чатам': 'Search chats',
+  'Ничего не нашлось': 'Nothing found',
   'Скопировать': 'Copy',
   'Повторить': 'Retry',
   'Не удалось скопировать': 'Could not copy',
@@ -1562,6 +1597,4 @@ export const EN: Record<string, string> = {
   'за чат: {cost}': 'chat total: {cost}',
   'Модель': 'Model',
   'Модель отклонила запрос.': 'The model refused the request.',
-  'Ответ обрезан лимитом токенов — попросите продолжить.':
-    'The reply was cut off by the token limit — ask it to continue.',
 };
