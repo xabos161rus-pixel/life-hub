@@ -76,7 +76,7 @@ test('живой провайдер: SSE-стрим печатается, usage 
   await openApp(page, '/more/ai');
   await seedSyncAccount(page);
   // Живая модель выбирается в композере и запоминается в чате.
-  await page.getByLabel('Модель').selectOption({ label: 'Claude Sonnet' });
+  await page.getByLabel('Модель').selectOption({ label: 'Claude Sonnet 5' });
 
   await page.getByPlaceholder('Сообщение…').fill('стримни');
   await page.getByRole('button', { name: 'Отправить' }).click();
@@ -175,7 +175,7 @@ test('доступ к данным: модель вызывает инструм
       sortOrder: 1000,
     } as never);
   });
-  await page.getByLabel('Модель').selectOption({ label: 'Claude Sonnet' });
+  await page.getByLabel('Модель').selectOption({ label: 'Claude Sonnet 5' });
 
   await page.getByPlaceholder('Сообщение…').fill('что по задачам?');
   await page.getByRole('button', { name: 'Отправить' }).click();

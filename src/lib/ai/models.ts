@@ -17,16 +17,17 @@ export interface ModelInfo {
   priceOut: number; // ₽ за 1M выходных токенов
 }
 
-// ⚠️ id и цены живых моделей — СВЕРИТЬ с прайсом провайдера при настройке
-// ключа (шаг §8 плана): id должны совпадать со списком моделей агрегатора
-// (формат OpenRouter-стиля), цены ниже — ориентир от прайса Anthropic
-// (Sonnet $3/$15, Haiku $1/$5 за 1M) по курсу ~90 ₽/$ с наценкой ~6%.
-// Стоимость под ответом считается от этих чисел — пока они не сверены,
-// относиться к ней как к оценке.
+// id и цены сверены с прайсом Polza.ai 18.08.2026 (страница «Модели»):
+// числа «от N ₽ за 1M» — нижняя ставка агрегатора, реальный счёт придёт в
+// usage ответа, поэтому подпись под ответом остаётся оценкой. Эндпоинт:
+// https://polza.ai/api/v1/chat/completions (значение AI_PROVIDER_URL).
+// Sonnet 5 — рабочая модель по умолчанию из плана (§3 «Следствия для v1»);
+// Sonnet 4.6 — дешёвый вариант; Opus 5 — осознанно, для сложных разборов.
 export const MODELS: ModelInfo[] = [
   { id: 'echo', label: 'Заглушка (бесплатно)', priceIn: 0, priceOut: 0 },
-  { id: 'anthropic/claude-sonnet-4.5', label: 'Claude Sonnet', priceIn: 290, priceOut: 1440 },
-  { id: 'anthropic/claude-haiku-4.5', label: 'Claude Haiku', priceIn: 96, priceOut: 480 },
+  { id: 'anthropic/claude-sonnet-5', label: 'Claude Sonnet 5', priceIn: 235, priceOut: 1174 },
+  { id: 'anthropic/claude-sonnet-4.6', label: 'Claude Sonnet 4.6', priceIn: 162, priceOut: 812 },
+  { id: 'anthropic/claude-opus-5', label: 'Claude Opus 5', priceIn: 587, priceOut: 2935 },
 ];
 
 // Дефолт — заглушка: без ключа провайдера живые модели вернут ошибку, а
