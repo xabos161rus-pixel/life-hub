@@ -387,6 +387,7 @@ export const EN: Record<string, string> = {
   'Включите уведомления — напоминания придут даже при закрытом приложении.':
     'Turn on notifications — reminders will arrive even when the app is closed.',
   'Защитите свои данные': 'Protect your data',
+  'Не пропускайте напоминания': "Don't miss reminders",
   'Настроить': 'Set up',
 
   'Сколько сегодня ({unit})': 'How much today ({unit})',

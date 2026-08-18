@@ -41,6 +41,10 @@ export function ProtectDataCard() {
       : !syncOn
         ? t('Включите синхронизацию и облачную копию — данные переживут потерю или замену телефона.')
         : t('Включите уведомления — напоминания придут даже при закрытом приложении.');
+  // Заголовок следует за содержимым: когда осталось включить только
+  // уведомления, «Защитите свои данные» над текстом про напоминания читался
+  // рассинхроном — карточка будто про одно, а просит другое.
+  const title = syncOn && !pushOn ? t('Не пропускайте напоминания') : t('Защитите свои данные');
 
   return (
     <section className="mb-5">
@@ -58,7 +62,7 @@ export function ProtectDataCard() {
             <ShieldCheck size={20} />
           </div>
           <div className="min-w-0">
-            <h3 className="font-semibold">{t('Защитите свои данные')}</h3>
+            <h3 className="font-semibold">{title}</h3>
             <p className="mt-0.5 text-sm leading-relaxed text-muted">{text}</p>
             <Link
               to="/more/settings"
