@@ -184,7 +184,13 @@ async function readStream(
     }
     throw new AiError('network', 'поток оборвался');
   }
-  if (!st.content && !st.toolCalls.length && !st.done) throw new AiError('provider', 'пустой ответ');
+  // Ошибка, пришедшая внутри 200-потока (так шлют агрегаторы), — это отказ
+  // провайдера, а не пустой успех. Пустой завершившийся поток — тоже отказ:
+  // молчаливое «0→0 · готово» выглядит как сбой без объяснения.
+  if (st.error) throw new AiError('provider', st.error);
+  if (!st.content && !st.toolCalls.length) {
+    throw new AiError('provider', st.done ? 'модель вернула пустой ответ' : 'пустой ответ');
+  }
   // Слоты без id/name — оборванные дельты вызова: исполнять нечего.
   const calls = st.toolCalls.filter((c) => c.id && c.name);
   return {

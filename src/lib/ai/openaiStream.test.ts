@@ -73,6 +73,17 @@ describe('feedStream', () => {
     expect(st.finishReason).toBe('tool_calls');
   });
 
+  it('ошибка внутри 200-потока ловится, а не глотается как пустой успех', () => {
+    const st = newStreamState();
+    feedStream(st, ev({ error: { message: 'model not available on your plan', code: 403 } }) + 'data: [DONE]\n\n');
+    expect(st.error).toBe('model not available on your plan');
+    expect(st.done).toBe(true);
+    // Строковый вариант формата — тоже провайдерская реальность.
+    const st2 = newStreamState();
+    feedStream(st2, ev({ error: 'insufficient balance' }));
+    expect(st2.error).toBe('insufficient balance');
+  });
+
   it('два параллельных вызова не перемешиваются между index', () => {
     const st = newStreamState();
     feedStream(

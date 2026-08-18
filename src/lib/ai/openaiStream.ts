@@ -29,6 +29,10 @@ export interface StreamState {
   tokensIn: number | null;
   tokensOut: number | null;
   done: boolean;
+  /** Ошибка, присланная провайдером ВНУТРИ потока (HTTP при этом 200).
+   *  Так делает часть агрегаторов: без этого поля событие молча пропускалось,
+   *  и человек видел «пустой ответ 0→0» вместо причины. */
+  error: string | null;
 }
 
 export function newStreamState(): StreamState {
@@ -40,6 +44,7 @@ export function newStreamState(): StreamState {
     tokensIn: null,
     tokensOut: null,
     done: false,
+    error: null,
   };
 }
 
@@ -57,6 +62,8 @@ interface OpenAiChunk {
     finish_reason?: string | null;
   }[];
   usage?: { prompt_tokens?: number; completion_tokens?: number } | null;
+  // Формат ошибки в теле события: {error: {message, code?}} либо {error: "строка"}.
+  error?: { message?: string; code?: string | number } | string | null;
 }
 
 /** Скормить кусок потока. Возвращает текст, ДОБАВИВШИЙСЯ этим куском. */
@@ -83,6 +90,13 @@ export function feedStream(st: StreamState, chunk: string): string {
     } catch {
       // Обрезанное посередине событие в конец потока — не повод терять
       // накопленный текст; просто пропускаем неразобранную строку.
+      continue;
+    }
+    if (obj.error) {
+      st.error =
+        typeof obj.error === 'string'
+          ? obj.error
+          : obj.error.message || `код ${String(obj.error.code ?? 'неизвестен')}`;
       continue;
     }
     const choice = obj.choices?.[0];
