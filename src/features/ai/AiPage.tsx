@@ -496,78 +496,82 @@ interface ComposerProps {
 
 function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, onChange, onSend, onStop, ref }: ComposerProps) {
   return (
+    // Один плотный блок вместо двух полупустых строк: поле во всю ширину,
+    // под ним слева модель и доступ к данным, справа отправка. Ни одного
+    // элемента, висящего в воздухе, — каждый угол занят делом.
     <div className="shrink-0 border-t border-hairline pt-2 pb-[calc(env(safe-area-inset-bottom)+8px)]">
-      {/* Модель — у поля ввода, а не в настройках: смена посреди диалога
-          законна (дальше отвечает новая) и запоминается в самом чате.
-          Пилюля вместо системного select: тап открывает шит с ценами и
-          пояснениями — выбор становится осмысленным, а не слепым. */}
-      <div className="mb-2 flex items-center gap-2">
+      <textarea
+        ref={ref}
+        value={value}
+        rows={1}
+        placeholder={t('Сообщение…')}
+        className="max-h-40 min-h-11 w-full resize-none rounded-2xl bg-surface-2 px-3.5 py-2.5 outline-none"
+        onChange={(e) => {
+          onChange(e.target.value);
+          // Авторост: сбрасываем высоту перед замером, иначе поле не сжимается.
+          e.target.style.height = 'auto';
+          e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+        }}
+        onKeyDown={(e) => {
+          // Enter отправляет только с курсором и физической клавиатурой:
+          // на телефоне это перевод строки, иначе писать многострочное нельзя.
+          if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) {
+            e.preventDefault();
+            onSend();
+          }
+        }}
+      />
+      <div className="mt-2 flex items-center gap-1.5">
+        {/* Модель — у поля ввода, а не в настройках: смена посреди диалога
+            законна (дальше отвечает новая) и запоминается в самом чате.
+            Пилюля вместо системного select: тап открывает шит с ценами и
+            пояснениями — выбор становится осмысленным, а не слепым. */}
         <button
           aria-label={t('Модель')}
           disabled={busy}
-          className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-hairline bg-surface-2 py-1.5 pr-2.5 pl-3.5 text-sm font-medium active:opacity-70 disabled:opacity-50"
+          className="inline-flex min-w-0 items-center gap-1 rounded-full border border-hairline bg-surface-2 py-1.5 pr-2 pl-3 text-[0.82rem] font-medium active:opacity-70 disabled:opacity-50"
           onClick={onModelTap}
         >
           <span className="truncate">{modelName}</span>
-          <ChevronDown size={15} className="shrink-0 text-muted" />
+          <ChevronDown size={14} className="shrink-0 text-muted" />
         </button>
-        <div className="flex-1" />
         {/* Доступ модели к данным приложения. Включён по умолчанию — это и
             есть смысл раздела; выключатель — для разговоров «не о своём». */}
         <button
           aria-label={t('Доступ к данным')}
           aria-pressed={dataTools}
           disabled={busy}
-          className={`grid size-9 shrink-0 place-items-center rounded-xl transition-colors ${
-            dataTools ? 'bg-accent/15 text-accent' : 'text-muted'
+          className={`inline-flex shrink-0 items-center gap-1 rounded-full border py-1.5 pr-2.5 pl-2 text-[0.82rem] font-medium transition-colors ${
+            dataTools
+              ? 'border-accent/30 bg-accent/12 text-accent'
+              : 'border-hairline bg-surface-2 text-muted'
           }`}
           onClick={() => onDataTools(!dataTools)}
         >
-          <Database size={17} />
+          <Database size={14} />
+          {t('Данные')}
         </button>
-      </div>
-      <div className="flex items-end gap-2">
-        <textarea
-          ref={ref}
-          value={value}
-          rows={1}
-          placeholder={t('Сообщение…')}
-          className="max-h-40 min-h-11 flex-1 resize-none rounded-2xl bg-surface-2 px-3.5 py-2.5 outline-none"
-          onChange={(e) => {
-            onChange(e.target.value);
-            // Авторост: сбрасываем высоту перед замером, иначе поле не сжимается.
-            e.target.style.height = 'auto';
-            e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
-          }}
-          onKeyDown={(e) => {
-            // Enter отправляет только с курсором и физической клавиатурой:
-            // на телефоне это перевод строки, иначе писать многострочное нельзя.
-            if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) {
-              e.preventDefault();
-              onSend();
-            }
-          }}
-        />
+        <div className="flex-1" />
         {busy ? (
           <button
             aria-label={t('Остановить')}
-            className="grid size-11 shrink-0 place-items-center rounded-full border border-hairline bg-surface-2 active:opacity-70"
+            className="grid size-10 shrink-0 place-items-center rounded-full border border-hairline bg-surface-2 active:opacity-70"
             onClick={onStop}
           >
-            <Square size={16} />
+            <Square size={15} />
           </button>
         ) : (
           <button
             aria-label={t('Отправить')}
             disabled={!value.trim()}
-            className="grid size-11 shrink-0 place-items-center rounded-full text-white transition-opacity active:opacity-80 disabled:opacity-30"
+            className="grid size-10 shrink-0 place-items-center rounded-full text-white transition-opacity active:opacity-80 disabled:opacity-30"
             style={{
               background: 'linear-gradient(150deg, var(--app-accent), var(--app-accent-2))',
               boxShadow: 'var(--shadow-accent)',
             }}
             onClick={onSend}
           >
-            <ArrowUp size={20} />
+            <ArrowUp size={19} />
           </button>
         )}
       </div>
