@@ -742,3 +742,38 @@ test.describe('панель инструментов', () => {
     await expect(page.locator('.note-editor h2')).toHaveCount(0);
   });
 });
+
+test.describe('карточка списка', () => {
+  test('превью: первая строка режется только когда она и есть заголовок', async ({ page }) => {
+    await openApp(page, '/notes');
+    await page.evaluate(async () => {
+      const { db } = await import('/src/db/db.ts');
+      const ts = new Date().toISOString();
+      await db.notes.bulkPut([
+        // Обычная заметка редактора: заголовок = первая строка контента.
+        {
+          id: 'pv1', createdAt: ts, updatedAt: ts, deletedAt: null,
+          title: 'Список покупок',
+          content: '<p>Список покупок</p><p>молоко, хлеб, сыр</p>',
+          tags: [], pinned: false, folderId: null,
+        },
+        // Заметка с собственным именем: контент начинается сразу с сути.
+        {
+          id: 'pv2', createdAt: ts, updatedAt: ts, deletedAt: null,
+          title: 'Поставщик',
+          content: '<p>Предоплата 100%, отгрузка из Люберец</p>',
+          tags: [], pinned: false, folderId: null,
+        },
+      ] as never[]);
+    });
+    await page.reload();
+
+    // У обычной — превью без дубля заголовка: текст после первой строки.
+    const usual = page.locator('.card', { hasText: 'Список покупок' });
+    await expect(usual.getByText('молоко, хлеб, сыр')).toBeVisible();
+    await expect(usual.getByText('Список покупок')).toHaveCount(1);
+    // У именованной — превью есть и начинается с первой строки контента.
+    const named = page.locator('.card', { hasText: 'Поставщик' });
+    await expect(named.getByText('Предоплата 100%')).toBeVisible();
+  });
+});

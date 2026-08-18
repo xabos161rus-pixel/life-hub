@@ -32,6 +32,7 @@ import { PlacesPage } from './features/places/PlacesPage';
 import { SearchPage } from './features/search/SearchPage';
 import { SharePage } from './features/share/SharePage';
 import { StatsPage } from './features/stats/StatsPage';
+import { NotFoundPage } from './features/NotFoundPage';
 import { CalendarPage } from './features/calendar/CalendarPage';
 import { CyclePage } from './features/cycle/CyclePage';
 import { CycleSettingsPage } from './features/cycle/CycleSettingsPage';
@@ -197,6 +198,10 @@ export default function App() {
                 <Route path="/more/settings" element={<SettingsPage />} />
                 <Route path="/more/settings/install" element={<InstallInstructionsPage />} />
                 <Route path="/more/settings/sections" element={<SectionsSettingsPage />} />
+                {/* Неизвестный адрес (битый дип-линк из пуша, старая закладка)
+                    рендерил немую пустоту — ни шапки, ни объяснения. Честный
+                    экран с выходом лучше молчания. */}
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </div>
             <ReloadPrompt />

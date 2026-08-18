@@ -59,7 +59,12 @@ function NoteRow({
   const text = useMemo(() => htmlToText(note.content), [note.content]);
   const title = note.title || text.split('\n')[0] || t('Без названия');
   const progress = useMemo(() => checklistProgress(note.content), [note.content]);
-  const preview = text.split('\n').slice(1).join(' ').trim();
+  // Первую строку текста режем, только когда она и есть заголовок (редактор
+  // выводит note.title из первой строки — deriveTitle). Если контент
+  // начинается с собственного текста, прежняя безусловная обрезка оставляла
+  // карточку без превью вовсе.
+  const lines = text.split('\n');
+  const preview = (lines[0]?.trim() === title.trim() ? lines.slice(1).join(' ') : text).trim();
 
   const holdRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const heldRef = useRef(false);

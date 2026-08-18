@@ -388,6 +388,10 @@ export const EN: Record<string, string> = {
     'Turn on notifications — reminders will arrive even when the app is closed.',
   'Защитите свои данные': 'Protect your data',
   'Не пропускайте напоминания': "Don't miss reminders",
+  'Не найдено': 'Not found',
+  'Такого экрана нет': 'No such screen',
+  'Ссылка устарела или адрес набран с ошибкой.': 'The link is outdated or the address is mistyped.',
+  'На «Сегодня»': 'To Today',
   'Настроить': 'Set up',
 
   'Сколько сегодня ({unit})': 'How much today ({unit})',
