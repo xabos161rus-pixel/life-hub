@@ -1045,7 +1045,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 if (f) void handlePickFile(f);
               }}
             />
-            <div className="flex w-full items-end rounded-3xl border border-border bg-surface transition-colors focus-within:border-accent">
+            <div className="flex w-full items-end rounded-3xl border border-border bg-surface transition-[border-color,box-shadow] focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
               <button
                 onClick={() => setAttachSheetOpen(true)}
                 disabled={sendingAttachment}

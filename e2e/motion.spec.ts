@@ -47,15 +47,19 @@ test('фокус клавиатуры видно даже там, где обв�
   await openApp(page, '/more/focus');
   await page.waitForTimeout(400);
   const visible = await page.evaluate(() => {
-    // Поле с outline-none: правило :focus-visible живёт вне слоёв и обязано
-    // перебить утилиту.
+    // Поле с outline-none: индикация фокуса обязана пробиться сквозь утилиту.
     const el = document.querySelector<HTMLElement>('input.outline-none, input[class*="outline-none"]');
     if (!el) return 'поле с outline-none не найдено';
     el.focus();
-    // focus-visible ставится браузером только для клавиатурного фокуса —
-    // проверяем через matches, а не через программный клик.
+    if (!el.matches(':focus-visible')) return 'нет :focus-visible';
+    // У текстовых полей обводку снимает index.css (она ложилась второй рамкой
+    // поверх собственной подсветки поля), а фокус показывает кольцо —
+    // box-shadow по форме поля. Годится любая из двух индикаций, лишь бы
+    // фокус не пропадал бесследно.
     const cs = getComputedStyle(el);
-    return el.matches(':focus-visible') ? cs.outlineWidth : 'нет :focus-visible';
+    const outlined = parseFloat(cs.outlineWidth) > 0 && cs.outlineStyle !== 'none';
+    const ringed = cs.boxShadow !== 'none' && cs.boxShadow !== '';
+    return outlined || ringed ? 'видно' : `не видно: outline=${cs.outlineWidth}, shadow=${cs.boxShadow}`;
   });
-  expect(visible).toBe('2px');
+  expect(visible).toBe('видно');
 });

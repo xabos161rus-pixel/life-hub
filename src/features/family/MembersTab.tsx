@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { UserPlus, LogOut, UserMinus } from 'lucide-react';
+import { UserPlus, LogOut, UserMinus, PhoneOff, ChevronRight } from 'lucide-react';
 import {
   GPencil as Pencil,
   GPhone as Phone,
@@ -24,6 +24,7 @@ import {
 } from '../../lib/family/familyKeys';
 import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
+import { CallDiagSheet } from './CallDiagSheet';
 import { t } from '../../lib/i18n';
 
 export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
@@ -34,6 +35,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
   useEffect(() => subscribePresence(familyId, setOnline), [familyId]);
   const onlineSet = new Set(online);
   const [invite, setInvite] = useState(false);
+  const [diag, setDiag] = useState(false);
   const [editName, setEditName] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [removing, setRemoving] = useState<FamilyMember | null>(null);
@@ -93,6 +95,17 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         <UserPlus size={18} />
         {t('Пригласить участника')}
       </Button>
+
+      {/* Разбор последнего сорвавшегося звонка. Живёт здесь, а не в общих
+          настройках: сюда человек и приходит, когда «не дозвонился». */}
+      <button
+        onClick={() => setDiag(true)}
+        className="flex w-full items-center gap-2 card px-4 py-3 text-left active:opacity-80"
+      >
+        <PhoneOff size={16} className="shrink-0 text-muted" />
+        <span className="flex-1 truncate font-medium">{t('Почему звонок не вышел')}</span>
+        <ChevronRight size={16} className="shrink-0 text-muted" />
+      </button>
 
       <div className="divide-y divide-hairline overflow-hidden card">
         {alive.map((m) => (
@@ -187,6 +200,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         onClose={() => setRemoving(null)}
       />
       <FamilyInviteSheet familyId={familyId} open={invite} onClose={() => setInvite(false)} />
+      <CallDiagSheet open={diag} onClose={() => setDiag(false)} />
       <ProfileNameSheet familyId={familyId} open={editName} currentName={self?.displayName ?? ''} onClose={() => setEditName(false)} />
       <RenameSheet
         key={renaming ? `rn-${config?.familyName ?? ''}` : 'rn-closed'}

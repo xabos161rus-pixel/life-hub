@@ -152,7 +152,7 @@ function DurationStepper({
             const n = parseInt(text, 10);
             if (!Number.isFinite(n) || n < 1) setText(String(value));
           }}
-          className="min-w-0 flex-1 bg-transparent text-center text-2xl font-bold tabular-nums outline-none"
+          className="min-w-0 flex-1 rounded-lg bg-transparent text-center text-2xl font-bold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
         />
         <button
           type="button"
@@ -191,7 +191,7 @@ function PresetForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={fallbackName}
-          className="w-full rounded-2xl bg-surface-2 px-4 py-3 text-base outline-none placeholder:text-muted"
+          className="w-full rounded-2xl bg-surface-2 px-4 py-3 text-base outline-none transition-[box-shadow] placeholder:text-muted focus-visible:ring-2 focus-visible:ring-accent/60"
         />
       </div>
       <div>

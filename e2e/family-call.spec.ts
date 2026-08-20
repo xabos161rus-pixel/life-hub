@@ -85,3 +85,40 @@ test('звонить некому — кнопки нет вовсе', async ({ 
   await seedFamily(page, []);
   await expect(page.getByRole('button', { name: /Позвонить/ })).toHaveCount(0);
 });
+
+test.describe('разбор неудавшегося звонка', () => {
+  test('пока неудач не было — экран честно говорит, что показывать нечего', async ({ page }) => {
+    await openApp(page, '/more/family');
+    await seedFamily(page, ['Отец']);
+    await page.getByRole('button', { name: 'Участники' }).click();
+    await page.getByRole('button', { name: 'Почему звонок не вышел' }).click();
+    await expect(page.getByText('Неудачных звонков пока не было.')).toBeVisible();
+  });
+
+  test('после обрыва видно причину: ретранслятор, маршруты и вердикт словами', async ({ page }) => {
+    await openApp(page, '/more/family');
+    await seedFamily(page, ['Отец']);
+    // Диагностика — снимок фактов последнего звонка; кладём его так же, как
+    // это делает менеджер звонков при обрыве.
+    await page.evaluate(() => {
+      localStorage.setItem(
+        'life-hub-call-diag',
+        JSON.stringify({
+          at: Date.now(),
+          turn: 'http-error',
+          turnDetail: 'HTTP 401',
+          local: { host: 2, srflx: 1 },
+          remote: { host: 1 },
+          reason: 'Соединение потеряно',
+        }),
+      );
+    });
+    await page.getByRole('button', { name: 'Участники' }).click();
+    await page.getByRole('button', { name: 'Почему звонок не вышел' }).click();
+
+    await expect(page.getByText('Соединение потеряно')).toBeVisible();
+    await expect(page.getByText(/сервер отказал/)).toBeVisible();
+    // Без relay-маршрутов вердикт обязан назвать причину человеческим языком.
+    await expect(page.getByText(/не получило ретранслятор/)).toBeVisible();
+  });
+});

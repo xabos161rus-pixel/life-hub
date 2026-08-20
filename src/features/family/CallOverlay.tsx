@@ -20,6 +20,11 @@ function fmtElapsed(ms: number): string {
 }
 
 function statusText(snap: CallSnapshot): string {
+  // Восстановление важнее самого статуса: человек должен понимать, что связь
+  // не умерла, а подхватывается — иначе он кладёт трубку сам.
+  if (snap.reconnecting && (snap.status === 'active' || snap.status === 'connecting')) {
+    return t('Восстанавливаю связь…');
+  }
   switch (snap.status) {
     case 'outgoing':
       return t('Вызов…');

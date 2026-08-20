@@ -17,6 +17,10 @@ import { t } from '../i18n';
 
 const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
 const RING_TIMEOUT_MS = 30_000;
+// Сколько ждём самовосстановления после 'disconnected' до ICE-restart.
+// 6 секунд: короткие провалы мобильной сети укладываются, а человек ещё не
+// решил, что связь умерла.
+const RECOVERY_GRACE_MS = 6_000;
 const OFFER_RESEND_MS = 2500;
 const ICE_GATHER_CAP_MS = 2000;
 // Фолбэк на случай недоступности /family/turn: только STUN. TURN-креды
@@ -41,6 +45,50 @@ export interface CallSnapshot {
   outputPickerAvailable: boolean;
   startedAt: number | null; // когда соединение стало active (для таймера)
   endReason: string | null;
+  /** Восстановление связи после обрыва — показываем вместо мгновенной смерти. */
+  reconnecting: boolean;
+}
+
+/** Что произошло со связью на этом устройстве — для экрана «Почему не вышло».
+ *  Без этих фактов «Соединение потеряно» неотличимо от десятка разных причин:
+ *  не пришли TURN-креды, сеть не пустила relay, оборвался сигналинг. */
+export interface CallDiag {
+  at: number;
+  /** Пришли ли TURN-креды с воркера (без них мобильные сети почти всегда падают). */
+  turn: 'ok' | 'no-config' | 'http-error' | 'network-error' | 'empty';
+  turnDetail?: string;
+  /** Свои ICE-кандидаты по типам: host — своя сеть, srflx — через STUN, relay — через TURN. */
+  local: Record<string, number>;
+  /** Кандидаты собеседника, дошедшие через сигналинг. */
+  remote: Record<string, number>;
+  /** Какая пара в итоге выбрана (если соединение состоялось). */
+  pair?: string;
+  iceState?: string;
+  connState?: string;
+  reason: string;
+}
+
+// Диагностика живёт в localStorage, а не в памяти модуля: разбор нужен уже
+// ПОСЛЕ того, как человек в сердцах закрыл приложение, — а с ним умерла бы и
+// причина. Одна запись, последняя: история неудач тут никому не нужна.
+const DIAG_KEY = 'life-hub-call-diag';
+
+/** Последняя диагностика звонка — читает экран разбора в «Семье». */
+export function getCallDiag(): CallDiag | null {
+  try {
+    const raw = localStorage.getItem(DIAG_KEY);
+    return raw ? (JSON.parse(raw) as CallDiag) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDiag(d: CallDiag): void {
+  try {
+    localStorage.setItem(DIAG_KEY, JSON.stringify(d));
+  } catch {
+    /* приватный режим — диагностика не критична */
+  }
 }
 
 const IDLE: CallSnapshot = {
@@ -54,6 +102,7 @@ const IDLE: CallSnapshot = {
   outputPickerAvailable: false,
   startedAt: null,
   endReason: null,
+  reconnecting: false,
 };
 
 class CallManager {
@@ -72,6 +121,17 @@ class CallManager {
 
   private pendingOffer: string | null = null; // зашифрованный SDP входящего
   private pendingCandidates: RTCIceCandidateInit[] = [];
+  // Кандидаты, прилетевшие ДО того как звонок опознан (сбор ICE стартует раньше,
+  // чем доставляется offer). Раньше они молча отбрасывались по несовпадению
+  // call-id — а это первые и самые быстрые relay-кандидаты.
+  private earlyCandidates = new Map<string, RTCIceCandidateInit[]>();
+
+  // Факты для диагностики — заполняются по ходу звонка.
+  private diagTurn: CallDiag['turn'] = 'empty';
+  private diagTurnDetail: string | undefined;
+  private diagLocal: Record<string, number> = {};
+  private diagRemote: Record<string, number> = {};
+  private restarted = false; // ICE-restart делаем один раз за звонок
 
   // Громкая связь.
   // iOS/Safari: Audio Session API — type 'play-and-record' ведёт звук «к уху»
@@ -88,6 +148,7 @@ class CallManager {
   private ringTimer: ReturnType<typeof setTimeout> | null = null;
   private resendTimer: ReturnType<typeof setInterval> | null = null;
   private dismissTimer: ReturnType<typeof setTimeout> | null = null;
+  private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
   // Возврат в приложение: iOS мог заглушить/убить микрофон в фоне — оживляем.
   private visHandler: (() => void) | null = null;
 
@@ -198,19 +259,73 @@ class CallManager {
     });
   }
 
+  /** ICE-серверы с воркера. Раньше любая осечка молча уходила в STUN-only —
+   *  а без TURN звонок с мобильной сети (CGNAT у операторов) не соединится
+   *  вовсе. Теперь причина осечки записывается в диагностику. */
   private async fetchIce(familyId: string): Promise<RTCIceServer[]> {
     try {
       const c = await getFamilyConfig(familyId);
-      if (!c) return DEFAULT_ICE;
+      if (!c) {
+        this.diagTurn = 'no-config';
+        return DEFAULT_ICE;
+      }
       const r = await fetch(`${WORKER_URL}/family/turn?familyId=${familyId}`, {
         headers: { Authorization: `Bearer ${c.familyToken}` },
       });
-      if (!r.ok) return DEFAULT_ICE;
+      if (!r.ok) {
+        this.diagTurn = 'http-error';
+        this.diagTurnDetail = `HTTP ${r.status}`;
+        return DEFAULT_ICE;
+      }
       const d = (await r.json()) as { iceServers?: RTCIceServer[] };
-      return Array.isArray(d.iceServers) && d.iceServers.length ? d.iceServers : DEFAULT_ICE;
-    } catch {
+      const list = Array.isArray(d.iceServers) && d.iceServers.length ? d.iceServers : null;
+      // «TURN получен» — это не просто ответ 200, а наличие turn:-адреса:
+      // один STUN в ответе на мобильной сети бесполезен.
+      const hasTurn = !!list?.some((s) => {
+        const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+        return urls.some((u) => typeof u === 'string' && u.startsWith('turn'));
+      });
+      this.diagTurn = hasTurn ? 'ok' : 'empty';
+      return list ?? DEFAULT_ICE;
+    } catch (e) {
+      this.diagTurn = 'network-error';
+      this.diagTurnDetail = String(e).slice(0, 120);
       return DEFAULT_ICE;
     }
+  }
+
+  /** Тип ICE-кандидата из SDP-строки: host | srflx | relay | prflx. */
+  private candType(sdp: string | undefined): string {
+    const m = / typ (\w+)/.exec(sdp ?? '');
+    return m ? m[1] : 'unknown';
+  }
+
+  /** Снимок фактов о звонке — пишется при завершении, читается экраном разбора. */
+  private async writeDiag(reason: string) {
+    const pc = this.pc;
+    const diag: CallDiag = {
+      at: Date.now(),
+      turn: this.diagTurn,
+      turnDetail: this.diagTurnDetail,
+      local: { ...this.diagLocal },
+      remote: { ...this.diagRemote },
+      iceState: pc?.iceConnectionState,
+      connState: pc?.connectionState,
+      reason,
+    };
+    try {
+      const stats = await pc?.getStats();
+      stats?.forEach((s: RTCStats & { state?: string; localCandidateId?: string; remoteCandidateId?: string }) => {
+        if (s.type === 'candidate-pair' && s.state === 'succeeded') {
+          const l = stats.get(s.localCandidateId ?? '') as { candidateType?: string } | undefined;
+          const r = stats.get(s.remoteCandidateId ?? '') as { candidateType?: string } | undefined;
+          diag.pair = `${l?.candidateType ?? '?'} ↔ ${r?.candidateType ?? '?'}`;
+        }
+      });
+    } catch {
+      /* статистика недоступна — остальных фактов достаточно */
+    }
+    saveDiag(diag);
   }
 
   // Ждём сбор ICE-кандидатов (с потолком), чтобы offer/answer ушли «полными».
@@ -248,25 +363,92 @@ class CallManager {
       }
     };
     pc.onicecandidate = (e) => {
-      if (e.candidate) void this.signal('ice', { candidate: e.candidate.toJSON() });
+      if (!e.candidate) return;
+      const t = this.candType(e.candidate.candidate);
+      this.diagLocal[t] = (this.diagLocal[t] ?? 0) + 1;
+      void this.signal('ice', { candidate: e.candidate.toJSON() });
     };
     pc.onconnectionstatechange = () => {
       const s = pc.connectionState;
+      if (this.pc !== pc) return; // событие осиротевшего соединения
       if (s === 'connected') {
         this.clearResend();
         this.clearConnTimeout();
+        this.clearRecovery();
         if (this.ringTimer) {
           clearTimeout(this.ringTimer);
           this.ringTimer = null;
         }
+        if (this.snap.reconnecting) this.set({ reconnecting: false });
         if (this.snap.status !== 'active') this.set({ status: 'active', startedAt: Date.now() });
+      } else if (s === 'disconnected') {
+        // Мобильная сеть роняет соединение на секунды (лифт, переход
+        // вышки, WiFi↔LTE) и сама поднимает. Раньше этот статус
+        // игнорировался и через мгновение прилетал 'failed' — звонок
+        // умирал там, где связь восстановилась бы сама.
+        this.beginRecovery(pc);
       } else if (s === 'failed') {
-        this.end('Соединение потеряно');
+        // Один ICE-restart: собираем кандидатов заново (у сети сменился
+        // адрес) и переигрываем offer. Это штатный путь WebRTC, без него
+        // любая смена сети = конец разговора.
+        if (!this.restarted && this.role === 'caller') {
+          this.restarted = true;
+          this.set({ reconnecting: true });
+          void this.restartIce(pc);
+          return;
+        }
+        void this.writeDiag('Соединение потеряно').finally(() => this.end('Соединение потеряно'));
       }
     };
     for (const t of this.localStream?.getTracks() ?? []) pc.addTrack(t, this.localStream!);
     this.pc = pc;
     return pc;
+  }
+
+  /** Пауза на самовосстановление после 'disconnected'. Не убиваем звонок
+   *  сразу: браузер сам перебирает пары. Не вернулись за окно — идём в
+   *  ICE-restart через штатный переход в 'failed'. */
+  private beginRecovery(pc: RTCPeerConnection) {
+    if (this.recoveryTimer) return;
+    this.set({ reconnecting: true });
+    this.recoveryTimer = setTimeout(() => {
+      this.recoveryTimer = null;
+      if (this.pc !== pc) return;
+      if (pc.connectionState === 'disconnected') {
+        if (!this.restarted && this.role === 'caller') {
+          this.restarted = true;
+          void this.restartIce(pc);
+        } else {
+          void this.writeDiag('Связь не восстановилась').finally(() => this.end('Связь не восстановилась'));
+        }
+      }
+    }, RECOVERY_GRACE_MS);
+  }
+
+  private clearRecovery() {
+    if (this.recoveryTimer) {
+      clearTimeout(this.recoveryTimer);
+      this.recoveryTimer = null;
+    }
+  }
+
+  /** Пересобрать ICE и переслать offer той же стороне. Делает только caller —
+   *  иначе обе стороны переигрывают одновременно и мешают друг другу. */
+  private async restartIce(pc: RTCPeerConnection) {
+    try {
+      const gen = this.gen;
+      pc.restartIce();
+      const offer = await pc.createOffer({ iceRestart: true });
+      if (this.gen !== gen || this.pc !== pc) return;
+      await pc.setLocalDescription(offer);
+      if (this.gen !== gen || this.pc !== pc) return;
+      await this.waitIce(pc);
+      if (this.gen !== gen || this.pc !== pc) return;
+      void this.signal('offer', { sdp: pc.localDescription });
+      this.armConnTimeout();
+    } catch {
+      void this.writeDiag('Соединение потеряно').finally(() => this.end('Соединение потеряно'));
+    }
   }
 
   private async drainCandidates() {
@@ -598,7 +780,9 @@ class CallManager {
       this.callId = f.call;
       this.role = 'callee';
       this.pendingOffer = f.data;
-      this.pendingCandidates = [];
+      // Кандидаты, обогнавшие это приглашение, — в очередь текущего звонка.
+      this.pendingCandidates = this.earlyCandidates.get(f.call) ?? [];
+      this.earlyCandidates.clear();
       const name = await this.peerName(f.from);
       this.set({ status: 'incoming', familyId, peerId: f.from, peerName: name, muted: false, startedAt: null, endReason: null });
       startRingtone();
@@ -606,7 +790,25 @@ class CallManager {
       return;
     }
 
-    if (f.call !== this.callId) return; // сигнал не текущего звонка
+    if (f.call !== this.callId) {
+      // Кандидаты обгоняют offer: сбор ICE у звонящего стартует раньше, чем
+      // доставляется приглашение, и первые (самые быстрые) relay-кандидаты
+      // прилетают в звонок, которого тут ещё «нет». Придерживаем их — при
+      // появлении offer с этим call-id они уйдут в соединение.
+      if (f.kind === 'ice' && f.data) {
+        const list = this.earlyCandidates.get(f.call) ?? [];
+        if (list.length < 40) {
+          try {
+            const { candidate } = await decryptJSON<{ candidate: RTCIceCandidateInit }>(c.familyKey, f.data);
+            list.push(candidate);
+            this.earlyCandidates.set(f.call, list);
+          } catch {
+            /* чужой ключ — не наш звонок */
+          }
+        }
+      }
+      return; // сигнал не текущего звонка
+    }
 
     if (f.kind === 'answer') {
       if (this.role !== 'caller' || !this.pc || !f.data) return;
@@ -628,6 +830,8 @@ class CallManager {
     } else if (f.kind === 'ice') {
       if (!f.data) return;
       const { candidate } = await decryptJSON<{ candidate: RTCIceCandidateInit }>(c.familyKey, f.data);
+      const t = this.candType(candidate.candidate);
+      this.diagRemote[t] = (this.diagRemote[t] ?? 0) + 1;
       if (this.pc && this.pc.remoteDescription) {
         try {
           await this.pc.addIceCandidate(candidate);
@@ -677,7 +881,10 @@ class CallManager {
     this.clearCallNotifications(this.callId);
     this.clearResend();
     this.clearConnTimeout();
+    this.clearRecovery();
     this.disarmMicRecovery();
+    this.restarted = false;
+    this.earlyCandidates.clear();
     // Вернуть системной аудиосессии обычный режим (iOS).
     {
       const as = this.audioSession();

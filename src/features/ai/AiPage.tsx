@@ -505,7 +505,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
         value={value}
         rows={1}
         placeholder={t('Сообщение…')}
-        className="max-h-40 min-h-11 w-full resize-none rounded-2xl bg-surface-2 px-3.5 py-2.5 outline-none"
+        className="max-h-40 min-h-11 w-full resize-none rounded-2xl bg-surface-2 px-3.5 py-2.5 outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-accent/60"
         onChange={(e) => {
           onChange(e.target.value);
           // Авторост: сбрасываем высоту перед замером, иначе поле не сжимается.
