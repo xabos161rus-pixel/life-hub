@@ -30,19 +30,20 @@ interface MenuCardProps {
 
 function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: MenuCardProps) {
   return (
-    <Link
-      to={to}
-      className="flex items-center gap-3 card p-4 active:opacity-80"
-    >
-      <div className="relative flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+    <Link to={to} className="flex items-stretch gap-3 pl-4 active:bg-surface-2">
+      <div className="relative my-3 flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
         <Icon size={ICON.header} />
         {badge && (
           <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-warning" />
         )}
       </div>
-      {/* min-w-0 обязателен: иначе длинная подпись не даёт колонке сжаться и
-          выдавливает стрелку за край карточки. */}
-      <div className="min-w-0 flex-1">
+      {/* Разделитель живёт ЗДЕСЬ, а не на всей строке: линия во всю ширину
+          режет строку под знаком, а начатая от текстовой колонки читается как
+          в системных списках. Первой строке границу снимает родитель. */}
+      <div className="flex min-w-0 flex-1 items-center gap-3 border-t border-hairline py-3 pr-4">
+        {/* min-w-0 обязателен: иначе длинная подпись не даёт колонке сжаться и
+            выдавливает стрелку за край карточки. */}
+        <div className="min-w-0 flex-1">
         <p className="font-semibold">{title}</p>
         {/* Две строки вместо многоточия: на 320px под подпись остаётся 158px,
             а «Общие задачи, чат и звонки» требует 299 — обрезка съедала
@@ -57,8 +58,9 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
             {subtitle}
           </p>
         )}
+        </div>
+        <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
       </div>
-      <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
     </Link>
   );
 }
@@ -192,7 +194,11 @@ export function HomePage() {
         {sections.length > 0 && (
           <section>
             <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Разделы')}</h2>
-            <div className="space-y-3">
+            {/* Один контейнер вместо десяти карточек: у каждой была своя
+                рамка и своя тень, а высоты в одном ряду расходились на 20px
+                (82 / 95 / 103) — список читался как набор плиток, а не как
+                список. Разделитель идёт от текстовой колонки. */}
+            <div className="card overflow-hidden [&>a:first-child>div:last-child]:border-t-0">
               {sections.map((s) => (
                 <MenuCard
                   key={s.id}
@@ -207,7 +213,7 @@ export function HomePage() {
         )}
 
         {settingsSection && (
-          <section>
+          <section className="card overflow-hidden [&>a>div:last-child]:border-t-0">
             <MenuCard
               to={settingsSection.to}
               icon={SettingsIcon}
