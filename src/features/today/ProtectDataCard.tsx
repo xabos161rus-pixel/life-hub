@@ -20,7 +20,14 @@ import { ICON } from '../../components/ui/icons';
  *
  * Не включаем ничего по умолчанию намеренно: ключ шифрования нужно осознанно
  * сохранить, а разрешение на уведомления система запрашивает явным жестом —
- * поэтому карточка ведёт в Настройки, где каждый шаг делается сознательно.
+ * поэтому строка ведёт в Настройки, где каждый шаг делается сознательно.
+ *
+ * СТРОКА, А НЕ КАРТОЧКА. Раньше здесь стоял блок с заголовком, тремя строками
+ * объяснения и отдельной ссылкой — 237px, треть экрана «Сегодня», на котором
+ * задачи дня и без того начинались за вторым экраном прокрутки. Служебная
+ * просьба, одинаковая на каждом заходе, не может стоить дороже содержимого:
+ * теперь это 48px — состояние словом и переход. Объяснение никуда не делось,
+ * оно на странице, куда ведёт переход.
  */
 export function ProtectDataCard() {
   // Нормализуем к null: без этого «нет записи» (undefined) неотличимо от
@@ -36,44 +43,34 @@ export function ProtectDataCard() {
   if (syncCfg === undefined) return null; // ещё грузится — не мигаем
   if (syncOn && pushOn) return null; // всё под защитой — не мозолим глаз
 
-  const text =
-    !syncOn && !pushOn
-      ? t('Синхронизация между устройствами, зашифрованная копия в облаке и напоминания даже при закрытом приложении.')
-      : !syncOn
-        ? t('Включите синхронизацию и облачную копию — данные переживут потерю или замену телефона.')
-        : t('Включите уведомления — напоминания придут даже при закрытом приложении.');
-  // Заголовок следует за содержимым: когда осталось включить только
-  // уведомления, «Защитите свои данные» над текстом про напоминания читался
-  // рассинхроном — карточка будто про одно, а просит другое.
-  const title = syncOn && !pushOn ? t('Не пропускайте напоминания') : t('Защитите свои данные');
+  // Состояние словом: что не защищено прямо сейчас. Длинное объяснение
+  // («зашифрованная копия», «даже при закрытом приложении») переехало на
+  // страницу настроек — в строке для него нет места, а на экране «Сегодня»
+  // ему не место и подавно.
+  const text = !syncOn
+    ? t('Данные только на этом устройстве')
+    : t('Напоминания не придут при закрытом приложении');
 
   return (
     <section className="mb-5">
-      <div className="card relative p-4">
+      <div className="card flex items-center gap-2.5 p-3">
+        <ShieldCheck size={ICON.base} className="shrink-0 text-accent" />
+        <p className="min-w-0 flex-1 truncate text-sm">{text}</p>
+        <Link
+          to="/more/settings"
+          className="flex min-h-11 shrink-0 items-center gap-0.5 pl-1 text-sm font-semibold text-accent active:opacity-70"
+        >
+          {t('Настроить')}
+          <ChevronRight size={ICON.action} />
+        </Link>
         <button
           type="button"
           aria-label={t('Скрыть')}
           onClick={() => setDismissed(true)}
-          className={`absolute top-2.5 right-2.5 flex size-7 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
+          className={`relative flex size-7 shrink-0 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
         >
           <X size={ICON.action} />
         </button>
-        <div className="flex items-start gap-3 pr-6">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
-            <ShieldCheck size={ICON.header} />
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-semibold">{title}</h3>
-            <p className="mt-0.5 text-sm leading-relaxed text-muted">{text}</p>
-            <Link
-              to="/more/settings"
-              className="mt-2.5 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-accent active:opacity-70"
-            >
-              {t('Настроить')}
-              <ChevronRight size={ICON.action} />
-            </Link>
-          </div>
-        </div>
       </div>
     </section>
   );

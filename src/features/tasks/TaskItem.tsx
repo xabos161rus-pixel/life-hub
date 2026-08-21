@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import {
   Bell,
   Repeat,
@@ -18,7 +18,6 @@ import { t } from '../../lib/i18n';
 import { skipTask, toggleTask } from './taskActions';
 import { ICON } from '../../components/ui/icons';
 import {
-  GCopy as Copy,
   GSnowflake as Snowflake,
 } from '../../components/ui/glyphs';
 
@@ -157,13 +156,6 @@ export function TaskItem({
     } else setDx(0);
   };
 
-  const handleCopy = (e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    const text = task.title + (task.notes ? `\n\n${task.notes}` : '');
-    void navigator.clipboard.writeText(text);
-    toast(t('Скопировано'));
-  };
-
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
     drag.current = {
       x: e.clientX,
@@ -269,7 +261,7 @@ export function TaskItem({
       <div
         ref={rowRef}
         data-task-id={task.id}
-        className={`relative flex touch-pan-y items-start gap-3 bg-surface px-4 py-3 ${
+        className={`relative flex touch-pan-y items-start gap-2.5 bg-surface px-4 py-2.5 ${
           draggable ? 'select-none [-webkit-user-select:none] [-webkit-touch-callout:none]' : ''
         } ${isDragSource ? 'scale-[0.97] opacity-40' : ''}`}
         style={{
@@ -401,14 +393,6 @@ export function TaskItem({
             </div>
           )}
         </div>
-        <button
-          type="button"
-          aria-label={t('Скопировать задачу')}
-          onClick={handleCopy}
-          className={`-mr-1 mt-0.5 shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
-        >
-          <Copy size={ICON.inline} />
-        </button>
       </div>
     </div>
   );
