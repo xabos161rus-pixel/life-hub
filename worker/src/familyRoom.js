@@ -276,6 +276,25 @@ export class FamilyRoom extends DurableObject {
       return this.json({ ok: true });
     }
 
+    // Отписка от уведомлений группы при выходе из неё. Без этой двери
+    // телефон вышедшего продолжал звенеть «Входящий звонок» и «Новое
+    // сообщение»: сервер по-прежнему считал его офлайн-участником и слал
+    // пуши. Локальная чистка данных на устройстве этот канал не закрывала.
+    if (path.endsWith('/push-unsub') && request.method === 'POST') {
+      const { memberId } = await request.json();
+      let cleared = false;
+      if (memberId) {
+        const had = this.sql
+          .exec('SELECT push_sub FROM members WHERE member_id=?', memberId)
+          .toArray()[0];
+        cleared = Boolean(had?.push_sub);
+        this.sql.exec('UPDATE members SET push_sub=NULL WHERE member_id=?', memberId);
+      }
+      // cleared говорит вызывающему, была ли подписка снята на самом деле —
+      // без этого «200 OK» неотличим от «ничего не сделал».
+      return this.json({ ok: true, cleared });
+    }
+
     return this.json({ error: 'not found' }, 404);
   }
 

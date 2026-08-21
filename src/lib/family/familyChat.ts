@@ -546,6 +546,23 @@ class FamilyEngine {
     }
   }
 
+  /** Отписаться от уведомлений группы. Зовётся при выходе — до того, как
+   *  локальные данные (а с ними токен) будут стёрты. */
+  async unregisterPush(c?: FamilyConfig) {
+    const cfg = c ?? (await this.cfg());
+    if (!cfg) return;
+    try {
+      await fetch(`${WORKER_URL}/family/push-unsub?familyId=${cfg.familyId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${cfg.familyToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberId: cfg.selfMemberId }),
+      });
+    } catch {
+      /* нет сети — уведомления перестанут доходить сами, когда истечёт
+         подписка; повторять здесь нечего, группа уже покинута */
+    }
+  }
+
   private scheduleReconnect() {
     if (!this.wantConnected || this.reconnectTimer) return;
     this.reconnectTimer = setTimeout(() => {
@@ -878,6 +895,9 @@ export function deleteMessage(familyId: string, clientMsgId: string): Promise<vo
 }
 export function renameFamily(familyId: string, name: string): Promise<void> {
   return getEngine(familyId).renameFamily(name);
+}
+export function unregisterFamilyPush(familyId: string): Promise<void> {
+  return getEngine(familyId).unregisterPush();
 }
 export function markSeen(familyId: string, seq: number): void {
   getEngine(familyId).markSeen(seq);
