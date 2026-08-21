@@ -1206,7 +1206,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
             </button>
           </div>
           {query.trim().length >= 2 && (
-            <div className="mt-1.5 max-h-56 overflow-y-auto rounded-2xl bg-surface-2/60">
+            // Плотный фон и тень: полупрозрачная подложка сливалась с лентой,
+            // и находки читались как продолжение переписки.
+            <div className="mt-1.5 max-h-56 overflow-y-auto rounded-2xl border border-border bg-surface shadow-lg">
               {hits.length === 0 ? (
                 <p className="px-3 py-2.5 text-xs text-muted">{t('Ничего не нашлось')}</p>
               ) : (
@@ -1227,7 +1229,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                       {/* Найденное выделяем: в длинной строке иначе не видно,
                           за что она зацепилась. */}
                       {h.message.text.slice(Math.max(0, h.from - 24), h.from)}
-                      <mark className="rounded bg-accent/25 text-fg">{h.message.text.slice(h.from, h.to)}</mark>
+                      <mark className="rounded bg-accent/25 text-text">{h.message.text.slice(h.from, h.to)}</mark>
                       {h.message.text.slice(h.to, h.to + 40)}
                     </span>
                     <span className="shrink-0 text-2xs text-muted">

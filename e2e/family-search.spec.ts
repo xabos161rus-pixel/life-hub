@@ -95,3 +95,21 @@ test('закрытие поиска возвращает переписку', as
   await expect(field(page)).toHaveCount(0);
   await expect(page.getByPlaceholder('Сообщение…')).toBeVisible();
 });
+
+test('подсветка найденного читается в тёмной теме', async ({ page }) => {
+  // <mark> у браузера по умолчанию чёрный текст на жёлтом. Если не задать цвет
+  // явно, в тёмной теме найденное слово превращается в чёрное на тёмном —
+  // ровно то, ради чего поиск и открывали, прочитать нельзя.
+  await openApp(page, '/more/family', { theme: 'dark' });
+  await seedChat(page, 30);
+
+  await openSearch(page);
+  await field(page).fill('тверская');
+
+  const colors = await page.locator('mark').first().evaluate((el) => ({
+    подсветка: getComputedStyle(el).color,
+    строка: getComputedStyle(el.parentElement!).color,
+  }));
+  // Цвет — как у остального текста строки, а не браузерный чёрный.
+  expect(colors.подсветка).toBe(colors.строка);
+});
