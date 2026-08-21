@@ -1,16 +1,16 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { SlidersHorizontal } from 'lucide-react';
 import {
   GPlus as Plus,
 } from '../../components/ui/glyphs';
-import { db } from '../../db/db';
 import type { FamilyConfig } from '../../db/types';
 import { Screen } from '../../components/layout/Screen';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { listFamilyConfigs } from '../../lib/family/familyState';
+import { countUnread } from '../../lib/family/unread';
 import { FamilyOnboarding, CreateFamilySheet, JoinFamilySheet } from './FamilyOnboarding';
 import { FamilyScreen, useFamilyStatusLine } from './FamilyScreen';
 import { CallButton } from './CallButton';
@@ -174,18 +174,14 @@ function GroupSwitcher({
   onAdd: () => void;
   onManage: () => void;
 }) {
-  const msgs = useLiveQuery(() => db.familyMessages.toArray(), []);
-  const unread = useMemo(() => {
-    const map: Record<string, number> = {};
-    const cfgById = Object.fromEntries(configs.map((c) => [c.familyId, c]));
-    for (const c of configs) map[c.familyId] = 0;
-    for (const m of msgs ?? []) {
-      const c = cfgById[m.familyId];
-      if (!c || m.deletedAt || m.seq == null) continue;
-      if (m.seq > c.lastReadSeq && m.senderMemberId !== c.selfMemberId) map[m.familyId]++;
-    }
-    return map;
-  }, [msgs, configs]);
+  // Считаем только сообщения после отметки прочтения. Полное чтение таблицы
+  // поднимало бы сюда и фотографии, и голосовые — ради числа на кружке.
+  const unread =
+    useLiveQuery(async () => {
+      const map: Record<string, number> = {};
+      for (const c of configs) map[c.familyId] = await countUnread(c);
+      return map;
+    }, [configs]) ?? {};
 
   return (
     <div className="shrink-0 -mx-1 flex gap-2 overflow-x-auto px-1 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
