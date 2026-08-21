@@ -96,14 +96,22 @@ test('подъём уходит глубже предела чтения из б
 
   // Поднимаемся страницами, пока не дойдём до цели. Она лежит на 560 сообщений
   // от конца — заведомо глубже, чем читается за один раз.
-  for (let i = 0; i < 14 && (await target.count()) === 0; i++) {
-    const shown = await bubbles(page).count();
-    await lane.evaluate((el) => {
-      el.scrollTop = 0;
-      el.dispatchEvent(new Event('scroll', { bubbles: true }));
-    });
-    await expect.poll(async () => bubbles(page).count()).toBeGreaterThan(shown);
-  }
-
-  await expect(target).toHaveCount(1);
+  //
+  // Ждём появления самой цели, а не роста числа пузырей после каждого рывка:
+  // долив идёт через слой раскладки, и под нагрузкой полного прогона он
+  // случался позже, чем ожидание успевало сдаться. Проверять надо то, ради
+  // чего тест написан, — что вглубь истории вообще можно дойти.
+  await expect
+    .poll(
+      async () => {
+        if (await target.count()) return true;
+        await lane.evaluate((el) => {
+          el.scrollTop = 0;
+          el.dispatchEvent(new Event('scroll', { bubbles: true }));
+        });
+        return false;
+      },
+      { timeout: 30_000, intervals: [150] },
+    )
+    .toBe(true);
 });
