@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import Dexie from 'dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { LucideIcon } from 'lucide-react';
 import { useLoaded } from '../../hooks/useLoaded';
@@ -72,6 +73,12 @@ const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
 // вверх. 60 — примерно три экрана: и открывается мгновенно, и «вчерашнее»
 // уже под рукой без подгрузки.
 const PAGE = 60;
+
+// Сколько последних записей поднимаем из базы. Шире окна отрисовки: в тех же
+// строках живут реакции и куски файлов, и запас держит их рядом с
+// сообщениями, к которым они относятся. Дальше вглубь истории человек
+// уходит подгрузкой, а не оплачивает её на каждом входящем сообщении.
+const READ_WINDOW = 400;
 
 /** мм:сс из секунд. */
 function fmtDur(sec: number): string {
@@ -540,7 +547,40 @@ function MessageRow({
 
 export function ChatTab({ familyId }: { familyId: string }) {
   const toast = useToast();
-  const messagesRaw = useLiveQuery(() => db.familyMessages.where('familyId').equals(familyId).toArray(), [familyId]);
+  // Размер окна держим вместе с группой, к которой он относится: при переходе
+  // в другую группу он вычисляется заново прямо в рендере. Сброс эффектом
+  // давал бы каскад перерисовок на каждом открытии чата.
+  const [win, setWin] = useState({ familyId, size: PAGE });
+  const windowSize = win.familyId === familyId ? win.size : PAGE;
+  const growWindow = () => setWin({ familyId, size: windowSize + PAGE });
+
+  // Читаем ХВОСТ переписки, а не всю таблицу.
+  //
+  // В строках сообщений лежит их содержимое — фотографии, голосовые, куски
+  // файлов, — и полное чтение поднимало из базы мегабайты на каждое входящее
+  // «дзынь». Берём последние записи по составному индексу и отдельно те, что
+  // ещё не ушли на сервер (у них нет порядкового номера, в диапазон они не
+  // попадают, зато их всегда единицы).
+  //
+  // Читаем с запасом относительно показанного: в тех же строках живут реакции
+  // и куски файлов, и запас держит их рядом с сообщениями, к которым они
+  // относятся. Когда человек поднимается вглубь истории, окно чтения растёт
+  // вместе с показанным — иначе подгрузка упёрлась бы в предел чтения.
+  const readLimit = Math.max(READ_WINDOW, windowSize + PAGE * 3);
+  const messagesRaw = useLiveQuery(async () => {
+    const recent = await db.familyMessages
+      .where('[familyId+seq]')
+      .between([familyId, Dexie.minKey], [familyId, Dexie.maxKey])
+      .reverse()
+      .limit(readLimit)
+      .toArray();
+    const pending = await db.familyMessages
+      .where('familyId')
+      .equals(familyId)
+      .filter((m) => m.seq == null)
+      .toArray();
+    return [...recent, ...pending];
+  }, [familyId, readLimit]);
   const membersRaw = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]);
   const config = useLiveQuery(() => getFamilyConfig(familyId), [familyId]);
   const selfId = config?.selfMemberId;
@@ -558,12 +598,6 @@ export function ChatTab({ familyId }: { familyId: string }) {
   // в DOM, лента высотой 186 000 пикселей, прокрутка вешала вкладку на
   // десятки секунд. Открытый чат почти всегда нужен «с конца», а прошлое
   // догружается по мере подъёма — так устроены все мессенджеры.
-  // Размер окна держим вместе с группой, к которой он относится: при переходе
-  // в другую группу он вычисляется заново прямо в рендере. Сброс эффектом
-  // давал бы каскад перерисовок на каждом открытии чата.
-  const [win, setWin] = useState({ familyId, size: PAGE });
-  const windowSize = win.familyId === familyId ? win.size : PAGE;
-  const growWindow = () => setWin({ familyId, size: windowSize + PAGE });
   const list = useMemo(
     () => (full.length > windowSize ? full.slice(-windowSize) : full),
     [full, windowSize],

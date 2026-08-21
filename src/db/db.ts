@@ -39,7 +39,7 @@ import type {
   SymptomDef,
 } from './cycleTypes';
 
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -305,6 +305,16 @@ export class LifeHubDB extends Dexie {
     this.version(17).stores({
       llmChats: 'id, lastMessageAt',
       llmMessages: 'id, chatId',
+    });
+
+    // v18 — составной индекс для хвоста семейной переписки.
+    //
+    // Лента читала таблицу сообщений целиком: вместе со строками приезжали
+    // фотографии, голосовые и куски файлов, лежащие в тех же записях, — и так
+    // на каждое входящее сообщение. По этому индексу берутся только последние
+    // сообщения группы, а история остаётся на диске, пока за ней не поднимутся.
+    this.version(18).stores({
+      familyMessages: 'clientMsgId, familyId, seq, createdAt, [familyId+seq]',
     });
   }
 }
