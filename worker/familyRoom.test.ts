@@ -243,3 +243,53 @@ describe('публичный ключ участника', () => {
     expect(rows[0].box_pub).toBe(`pub-${ALICE}`);
   });
 });
+
+describe('авторство сообщения', () => {
+  it('ставится по сессии соединения, а не по тому, что прислал отправитель', async () => {
+    const r = await setup();
+    const ws = r.addSocket(null);
+    // Соединение представилось Алисой — дальше сервер знает, кто на том конце.
+    await r.room.webSocketMessage(ws, JSON.stringify({ type: 'hello', memberId: ALICE, lastSeq: 0 }));
+    // ...и Алиса присылает кадр, подписанный владельцем группы. Токен группы
+    // есть у каждого участника, поэтому такой кадр отправить может любой:
+    // без проверки переписка семьи принимала бы сообщения «от мамы» от кого
+    // угодно из группы.
+    await r.room.webSocketMessage(
+      ws,
+      JSON.stringify({
+        type: 'send',
+        channel: 'msg',
+        clientMsgId: 'forged-1',
+        senderMemberId: OWNER,
+        createdAt: new Date().toISOString(),
+        ciphertext: 'зашифрованный текст',
+      }),
+    );
+
+    const res = await r.call('messages?since=0', { token: TOKEN });
+    const page = (await res.json()) as { items: { itemId: string; senderMemberId: string | null }[] };
+    const item = page.items.find((i) => i.itemId === 'forged-1');
+    expect(item, 'сообщение не записалось вовсе').toBeTruthy();
+    expect(item!.senderMemberId, 'сервер принял чужое авторство').toBe(ALICE);
+  });
+
+  it('кадр без представившейся сессии сохраняет заявленного автора', async () => {
+    // Путь до hello: attachment пуст, ломать авторство честному клиенту нельзя.
+    const r = await setup();
+    const ws = r.addSocket(null);
+    await r.room.webSocketMessage(
+      ws,
+      JSON.stringify({
+        type: 'send',
+        channel: 'msg',
+        clientMsgId: 'early-1',
+        senderMemberId: ALICE,
+        createdAt: new Date().toISOString(),
+        ciphertext: 'шифр',
+      }),
+    );
+    const res = await r.call('messages?since=0', { token: TOKEN });
+    const page = (await res.json()) as { items: { itemId: string; senderMemberId: string | null }[] };
+    expect(page.items.find((i) => i.itemId === 'early-1')?.senderMemberId).toBe(ALICE);
+  });
+});

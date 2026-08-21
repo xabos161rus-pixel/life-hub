@@ -445,7 +445,18 @@ export class FamilyRoom extends DurableObject {
       return;
     }
     if (msg.type === 'send') {
-      const res = await this.ingest(msg);
+      // АВТОРА СТАВИТ СЕРВЕР, А НЕ ОТПРАВИТЕЛЬ. Раньше senderMemberId брался
+      // прямо из кадра: любой участник группы (а токен группы есть у всех)
+      // мог отправить сообщение от имени другого — переписка семьи, где
+      // сообщение «от мамы» подделывается в одну строку. Содержимое зашифровано
+      // групповым ключом, и ключ у всех участников, так что криптография от
+      // своих здесь не защищает — защищает привязка к сессии: memberId уже
+      // закреплён за соединением в hello и лежит в attachment.
+      // Кадр без живой сессии (attachment пуст — соединение не представилось)
+      // остаётся на своём заявленном авторе: это путь ДО hello, и ломать его
+      // значило бы терять авторство у честных клиентов.
+      const att = ws.deserializeAttachment();
+      const res = await this.ingest(att?.memberId ? { ...msg, senderMemberId: att.memberId } : msg);
       ws.send(JSON.stringify({ type: 'ack', clientMsgId: msg.clientMsgId || null, itemId: res.itemId, seq: res.seq }));
       return;
     }
