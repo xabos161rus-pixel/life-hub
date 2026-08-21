@@ -61,3 +61,34 @@ describe('провод сообщений чата: payload ↔ строка', (
     expect(got.file?.fileId).toBe('f');
   });
 });
+
+describe('длинное голосовое едет частями и остаётся голосовым', () => {
+  it('длительность переживает провод в манифесте файла', () => {
+    // Запись на пару минут не помещается в один кадр сокета и раньше
+    // навсегда застревала в очереди, пытаясь уехать при каждом
+    // переподключении. Теперь она едет тем же путём, что файлы, — но
+    // получатель должен увидеть плеер, а не карточку вложения, и решает
+    // это длительность, приехавшая в манифесте.
+    const manifest: FamilyMessage = {
+      clientMsgId: 'v1',
+      familyId: 'f1',
+      seq: 10,
+      senderMemberId: 'me',
+      createdAt: '2026-08-21T10:00:00.000Z',
+      text: '',
+      file: { fileId: 'fid', name: 'Голосовое сообщение', mime: 'audio/mp4', size: 900_000, chunksTotal: 3 },
+      audioDur: 95,
+      status: 'pending',
+      deletedAt: null,
+    };
+
+    const wire = msgPayload(manifest) as Record<string, unknown>;
+    expect(wire.audioDur).toBe(95);
+
+    const back = msgRowFromWire('f1', { itemId: 'v1', seq: 10, senderMemberId: 'me', createdAt: manifest.createdAt }, wire, 'data:audio/mp4;base64,AAA');
+    expect(back.audioDur).toBe(95);
+    expect(back.file?.chunksTotal).toBe(3);
+    // Содержимое собрано локально — этого достаточно, чтобы показать плеер.
+    expect(back.fileData).toBeTruthy();
+  });
+});

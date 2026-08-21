@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { LucideIcon } from 'lucide-react';
 import { useLoaded } from '../../hooks/useLoaded';
@@ -66,6 +66,11 @@ import { ICON } from '../../components/ui/icons';
 
 // Палитра быстрых реакций — как в WhatsApp/Telegram, шесть базовых.
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
+
+// Сколько сообщений держим в ленте и на сколько прибавляем при подъёме
+// вверх. 60 — примерно три экрана: и открывается мгновенно, и «вчерашнее»
+// уже под рукой без подгрузки.
+const PAGE = 60;
 
 /** мм:сс из секунд. */
 function fmtDur(sec: number): string {
@@ -449,7 +454,15 @@ function MessageRow({
               </button>
             )}
             {m.audio && <AudioBubble src={m.audio} duration={m.audioDur ?? 0} own={own} />}
-            {m.file && <FileBubble m={m} own={own} received={fileReceived} />}
+            {/* Длинное голосовое приезжает частями, как файл, — но человеку
+                это знать незачем: как только запись собрана, показываем
+                обычный плеер. Пока части в пути — карточка с прогрессом. */}
+            {m.file &&
+              (m.audioDur != null && m.fileData ? (
+                <AudioBubble src={m.fileData} duration={m.audioDur} own={own} />
+              ) : (
+                <FileBubble m={m} own={own} received={fileReceived} />
+              ))}
             {m.image && (
               <img src={m.image} alt={t('Фото')} loading="lazy" className="block max-h-80 max-w-full rounded-xl" draggable={false} />
             )}
@@ -509,7 +522,22 @@ export function ChatTab({ familyId }: { familyId: string }) {
   // выглядит как потерянная переписка.
   const loaded = useLoaded(messagesRaw);
   const memberMap = useMemo(() => Object.fromEntries((membersRaw ?? []).map((m) => [m.id, m])), [membersRaw]);
-  const list = useMemo(() => ordered(messagesRaw ?? []), [messagesRaw]);
+  const full = useMemo(() => ordered(messagesRaw ?? []), [messagesRaw]);
+
+  // Рисуем ХВОСТ переписки, а не всю её историю.
+  //
+  // Замер на 1500 сообщениях (переписка семьи примерно за год): 14 000 узлов
+  // в DOM, лента высотой 186 000 пикселей, прокрутка вешала вкладку на
+  // десятки секунд. Открытый чат почти всегда нужен «с конца», а прошлое
+  // догружается по мере подъёма — так устроены все мессенджеры.
+  const [windowSize, setWindowSize] = useState(PAGE);
+  // Смена группы — начинаем с конца заново.
+  useEffect(() => setWindowSize(PAGE), [familyId]);
+  const list = useMemo(
+    () => (full.length > windowSize ? full.slice(-windowSize) : full),
+    [full, windowSize],
+  );
+  const hasOlder = full.length > list.length;
 
   // Реакции: append-only записи; последняя реакция участника на target
   // побеждает (порядок как в ленте: seq, потом pending по времени).
@@ -630,6 +658,21 @@ export function ChatTab({ familyId }: { familyId: string }) {
   const imageRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Высота ленты перед доливкой прошлых сообщений. Ненулевое значение
+  // одновременно служит замком: события прокрутки идут пачками, и без него
+  // одно касание у верхнего края долило бы сразу несколько страниц.
+  const heightBeforeGrow = useRef<number | null>(null);
+
+  // Возврат прокрутки после доливки прошлых сообщений. Слой срабатывает,
+  // когда новая разметка уже в DOM, но кадр ещё не нарисован, — человек не
+  // видит скачка: сообщение, на которое он смотрел, остаётся под пальцем.
+  useLayoutEffect(() => {
+    const before = heightBeforeGrow.current;
+    if (before === null) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop += el.scrollHeight - before;
+    heightBeforeGrow.current = null;
+  }, [windowSize]);
 
   // Отмечаем прочитанным до последнего seq, когда чат открыт и виден.
   useEffect(() => {
@@ -876,6 +919,13 @@ export function ChatTab({ familyId }: { familyId: string }) {
           onScroll={(e) => {
             const el = e.currentTarget;
             setShowJump(el.scrollHeight - el.scrollTop - el.clientHeight > 320);
+            // Дошли до верха окна — доливаем предыдущую страницу переписки.
+            // Высоту запоминаем ДО дорисовки: восстановлением позиции займётся
+            // слой ниже, уже после того как новые сообщения окажутся в разметке.
+            if (hasOlder && el.scrollTop < 240 && heightBeforeGrow.current === null) {
+              heightBeforeGrow.current = el.scrollHeight;
+              setWindowSize((n) => n + PAGE);
+            }
           }}
           className="h-full overflow-y-auto overscroll-contain px-1"
         >
@@ -888,6 +938,16 @@ export function ChatTab({ familyId }: { familyId: string }) {
             // мессенджерах, а не болтается в середине экрана. Ритм отступов —
             // по сериям (см. sameGroup), а не одинаковой прокладкой.
             <div className="flex min-h-full flex-col justify-end py-2">
+              {/* Явный признак, что переписка длиннее показанного: без него
+                  подгрузка на подъёме выглядит как случайность. */}
+              {hasOlder && (
+                <div className="flex items-center justify-center py-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2/70 px-3 py-1 text-2xs text-muted">
+                    <LoaderCircle size={ICON.inline} className="animate-spin" />
+                    {t('Загружаю прошлые сообщения…')}
+                  </span>
+                </div>
+              )}
               {list.map((m, i) => {
                 const sameGroup = (a: FamilyMessage | undefined, b: FamilyMessage) =>
                   Boolean(

@@ -13,6 +13,7 @@ import { getPushSubscription } from '../push';
 import { getFamilyConfig, patchFamilyConfig, listFamilyConfigs } from './familyState';
 import { assembleFile, splitDataUrl } from './fileTransfer';
 import { systemEventText } from './systemMessage';
+import { t } from '../i18n';
 import {
   WORKER_URL,
   adoptSealedKey,
@@ -26,6 +27,10 @@ import {
 const WS_URL = 'wss://life-hub-push.xabos161rus.workers.dev';
 const RECONNECT_MS = 3000;
 const PING_MS = 25_000;
+// Сколько символов dataURL безопасно уходит одним WS-фреймом. Лимит фрейма —
+// 1 МиБ, а полезная нагрузка раздувается шифрованием и JSON примерно в 1,33
+// раза; 600 КиБ символов оставляют запас.
+const SINGLE_FRAME_LIMIT = 600 * 1024;
 
 type ConnState = 'offline' | 'connecting' | 'online';
 // 'key' — личный конверт с новым ключом группы после исключения участника.
@@ -113,6 +118,9 @@ class FamilyEngine {
   private state: ConnState = 'offline';
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  // Ждём ли ответ на последний пинг. Признак «замороженного» сокета: он
+  // OPEN, отправка не падает, но собеседника на том конце уже нет.
+  private awaitingPong = false;
   private connecting = false; // фаза fetch-ticket (ws ещё null) — guard от гонки
   private wantConnected = false;
 
@@ -232,13 +240,35 @@ class FamilyEngine {
     }
   }
 
+  /** Heartbeat с проверкой ответа.
+   *
+   *  Мобильная сеть умеет «замораживать» соединение: сокет остаётся в
+   *  состоянии OPEN, отправка не падает, а на том конце уже никого нет.
+   *  Раньше мы в такой сокет исправно слали пинги и считали связь живой —
+   *  сообщения молча не доходили, пока человек сам не перезапустит
+   *  приложение. Теперь: нет ответа к следующему пингу — рвём соединение
+   *  сами, и обычный механизм переподключения поднимает рабочее. */
   private startPing(sock: WebSocket) {
     this.stopPing();
+    this.awaitingPong = false;
     this.pingTimer = setInterval(() => {
-      if (sock.readyState === WebSocket.OPEN) sock.send('{"t":"ping"}');
+      if (sock.readyState !== WebSocket.OPEN) return;
+      if (this.awaitingPong) {
+        // Предыдущий пинг остался без ответа — соединение мёртвое.
+        this.awaitingPong = false;
+        try {
+          sock.close();
+        } catch {
+          /* уже закрывается — переподключение поднимет обработчик onclose */
+        }
+        return;
+      }
+      this.awaitingPong = true;
+      sock.send('{"t":"ping"}');
     }, PING_MS);
   }
   private stopPing() {
+    this.awaitingPong = false;
     if (this.pingTimer) {
       clearInterval(this.pingTimer);
       this.pingTimer = null;
@@ -456,7 +486,10 @@ class FamilyEngine {
       sock.onmessage = async (ev) => {
         if (this.ws !== sock) return; // событие осиротевшего сокета — игнор
         const m = JSON.parse(ev.data as string);
-        if (m.t === 'pong') return; // ответ на heartbeat
+        if (m.t === 'pong') {
+          this.awaitingPong = false; // связь подтверждена
+          return;
+        }
         if (m.type === 'backfill') {
           const fresh = await this.cfg();
           if (fresh && m.items?.length) await this.applyBatch(fresh, m.items);
@@ -666,9 +699,25 @@ class FamilyEngine {
   }
 
   /** Отправить голосовое сообщение (аудио dataURL + длительность, сек). */
+  /** Отправить голосовое.
+   *
+   *  Короткая запись уезжает одним сообщением. Длинная — частями, тем же
+   *  проверенным путём, что и файлы: минута-две речи после base64 и шифрования
+   *  перестаёт помещаться в лимит одного WS-фрейма (1 МиБ), сервер такое
+   *  сообщение не принимает, и оно навсегда зависает в очереди, пытаясь
+   *  уехать при каждом переподключении, — то есть одна длинная запись
+   *  заклинивала весь чат. Длительность едет в манифесте, поэтому у
+   *  получателя остаётся обычный плеер, а не карточка файла. */
   async sendAudio(dataUrl: string, durationSec: number): Promise<void> {
     const c = await this.cfg();
     if (!c) return;
+    if (dataUrl.length > SINGLE_FRAME_LIMIT) {
+      await this.sendFile(
+        { name: t('Голосовое сообщение'), mime: 'audio/mp4', size: dataUrl.length, dataUrl },
+        durationSec,
+      );
+      return;
+    }
     const clientMsgId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
     await db.familyMessages.put({ clientMsgId, familyId: this.familyId, seq: null, senderMemberId: c.selfMemberId, createdAt, text: '', audio: dataUrl, audioDur: durationSec, status: 'pending', deletedAt: null });
@@ -682,7 +731,10 @@ class FamilyEngine {
    *  кусок), затем — манифест: единственное сообщение с пушем и превью «Файл».
    *  fileData манифеста заполняем сразу: у отправителя файл и так на руках,
    *  ждать собственных чанков обратно смысла нет. */
-  async sendFile(file: { name: string; mime: string; size: number; dataUrl: string }): Promise<void> {
+  async sendFile(
+    file: { name: string; mime: string; size: number; dataUrl: string },
+    audioDur?: number,
+  ): Promise<void> {
     const c = await this.cfg();
     if (!c) return;
     const fileId = crypto.randomUUID();
@@ -726,6 +778,9 @@ class FamilyEngine {
       text: '',
       file: { fileId, name: file.name, mime: file.mime, size: file.size, chunksTotal: parts.length },
       fileData: file.dataUrl,
+      // Голосовое, приехавшее частями: длительность отличает его от обычного
+      // вложения — получатель рисует плеер, а не карточку файла.
+      audioDur,
       status: 'pending',
       deletedAt: null,
     };
