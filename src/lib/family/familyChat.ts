@@ -8,6 +8,8 @@
 // живыми одновременно — две группы синкаются и шлют пуши параллельно.
 
 import { db } from '../../db/db';
+import { noteUndecrypted } from './undecrypted';
+import { decryptBatch } from './decryptBatch';
 import type { FamilyConfig, FamilyMessage, FamilySystemEvent, FamilyTask, FamilyMember } from '../../db/types';
 import { getPushSubscription } from '../push';
 import { getFamilyConfig, patchFamilyConfig, listFamilyConfigs } from './familyState';
@@ -17,7 +19,6 @@ import { t } from '../i18n';
 import {
   WORKER_URL,
   adoptSealedKey,
-  decFamily,
   encFamily,
   publishBoxPub,
   recoverAccess,
@@ -275,6 +276,21 @@ class FamilyEngine {
     }
   }
 
+  // Попытка забрать свой ключ с сервера — не чаще раза в минуту: пачки идут
+  // потоком, и без ограничения одна испорченная история устроила бы шквал
+  // запросов. Возвращает true, если ключ действительно сменился.
+  private lastKeyRecoverAt = 0;
+  private async tryRecoverKey(): Promise<FamilyConfig | null> {
+    const now = Date.now();
+    if (now - this.lastKeyRecoverAt < 60_000) return null;
+    this.lastKeyRecoverAt = now;
+    try {
+      return (await recoverAccess(this.familyId)) ? ((await this.cfg()) ?? null) : null;
+    } catch {
+      return null; // офлайн — попробуем на следующей пачке
+    }
+  }
+
   private bumpSeq(seq: number) {
     if (seq > this.maxSeqSeen) this.maxSeqSeen = seq;
     if (this.seqFlushTimer) return;
@@ -300,15 +316,18 @@ class FamilyEngine {
         c = (await this.cfg()) ?? c; // конфиг переписан: дальше работаем новым ключом
       }
     }
-    const decoded: { it: RawItem; p: Record<string, unknown> }[] = [];
-    for (const it of items) {
-      if (it.channel === 'key') continue; // не общий ключ и не сущность приложения
-      try {
-        decoded.push({ it, p: await decFamily<Record<string, unknown>>(c, it.ciphertext) });
-      } catch {
-        /* чужой ключ / битый шифротекст */
-      }
-    }
+    // Записи канала ключей уже разобраны выше — остальное расшифровываем
+    // пачкой, с одной попыткой забрать свой ключ, если он сменился.
+    const batch = await decryptBatch(
+      c,
+      items.filter((it) => it.channel !== 'key'),
+      () => this.tryRecoverKey(),
+    );
+    const decoded = batch.decoded;
+    c = batch.config;
+    // Что не поддалось и после обновления ключа — считаем и показываем в чате
+    // строкой: честнее пустоты, за которой не видно даже факта потери.
+    noteUndecrypted(this.familyId, batch.failed.filter((it) => it.channel === 'msg').length);
     // fileId'ы, которых коснулась эта пачка (пришёл чанк или манифест) — после
     // транзакции по каждому пробуем собрать файл заново.
     const touchedFileIds = new Set<string>();

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react';
 import Dexie from 'dexie';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { LucideIcon } from 'lucide-react';
@@ -48,6 +48,7 @@ import { getFamilyConfig } from '../../lib/family/familyState';
 import { systemMessageText } from '../../lib/family/systemMessage';
 import { linkify } from '../../lib/family/linkify';
 import { clearDraft, loadDraft, saveDraft } from '../../lib/family/draft';
+import { clearUndecrypted, subscribeUndecrypted, undecryptedCount } from '../../lib/family/undecrypted';
 import {
   sendMessage,
   sendImage,
@@ -739,6 +740,14 @@ export function ChatTab({ familyId }: { familyId: string }) {
   }
   const readMark = entryMark?.familyId === familyId ? entryMark.seq : 0;
 
+  // Сколько сообщений не поддалось расшифровке — счётчик живёт вне React
+  // (его пополняет движок чата), поэтому подписываемся на него напрямую.
+  const lostCount = useSyncExternalStore(
+    subscribeUndecrypted,
+    () => undecryptedCount(familyId),
+    () => 0,
+  );
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
@@ -1026,6 +1035,25 @@ export function ChatTab({ familyId }: { familyId: string }) {
               <span className={typers.length > 0 ? 'text-accent' : 'text-muted'}>{headerStatus}</span>
             </>
           )}
+        </div>
+      )}
+      {lostCount > 0 && (
+        // Тонкая строка, а не карточка: потеря редкая, но знать о ней человек
+        // должен. Крестик убирает счётчик — сообщения от этого не вернутся,
+        // но и висеть вечно предупреждению незачем.
+        <div className="mb-2 flex shrink-0 items-center gap-2 rounded-xl bg-warning/10 px-3 py-2 text-xs leading-snug text-warning">
+          <span className="min-w-0 flex-1">
+            {t('Не удалось прочитать сообщений: {n}. Они зашифрованы ключом, которого нет на этом устройстве.', {
+              n: lostCount,
+            })}
+          </span>
+          <button
+            onClick={() => clearUndecrypted(familyId)}
+            aria-label={t('Скрыть')}
+            className={`shrink-0 p-1 opacity-70 active:opacity-40 ${HIT_SLOP_44}`}
+          >
+            <X size={ICON.action} />
+          </button>
         </div>
       )}
       {/* overscroll-contain: флик до края ленты НЕ чейнится в App-контейнер —
