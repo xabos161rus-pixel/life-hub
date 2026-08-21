@@ -165,3 +165,40 @@ test('нижняя панель не наезжает на содержимое'
   });
   expect(overlap).toBeNull();
 });
+
+test('«Сегодня» показывает задачи дня на первом экране', async ({ page }) => {
+  // История: экран открывался по умолчанию и не показывал ни одной задачи —
+  // лента 1773px при экране 668px, блок «Задачи на сегодня» начинался на
+  // 1400-м пикселе. Место занимало служебное: промо защиты данных 237px,
+  // пустой блок напоминаний 155px, подсказка быстрого ввода 243px.
+  await openApp(page, './');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const today = now.slice(0, 10);
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    await db.tasks.bulkPut(
+      ['Отгрузить заказ', 'Созвон с поставщиком', 'Забрать посылку', 'Пробежка'].map((title, i) => ({
+        ...base(`td${i}`), title, notes: '', projectId: null, goalId: null, priority: 0,
+        dueDate: today, dueTime: null, duration: null, remindBefore: null,
+        completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: (i + 1) * 1000,
+      })),
+    );
+  });
+  await page.goto('./');
+  await page.waitForTimeout(400);
+
+  const view = await page.evaluate(() => {
+    const sc = document.getElementById('app-scroll');
+    const rows = [...document.querySelectorAll('[data-task-id]')];
+    if (!sc || rows.length === 0) return null;
+    const bottom = sc.getBoundingClientRect().bottom;
+    // Сколько задач целиком помещается в первый экран, без прокрутки.
+    const visible = rows.filter((r) => r.getBoundingClientRect().bottom <= bottom).length;
+    return { visible, firstTop: Math.round(rows[0].getBoundingClientRect().top) };
+  });
+
+  expect(view, 'на «Сегодня» не нашлось ни одной задачи').not.toBeNull();
+  // Три — с запасом на разную высоту строки; до правки было ноль.
+  expect(view!.visible, 'задачи дня снова уехали под сгиб').toBeGreaterThanOrEqual(3);
+});
