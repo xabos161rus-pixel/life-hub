@@ -197,6 +197,38 @@ test('доступ к данным: модель вызывает инструм
   expect(toolMsg?.content).toContain('полить фикус');
 });
 
+test('ответ не двоится: поток гаснет до того, как сообщение придёт из базы', async ({ page }) => {
+  // Пока ответ печатался потоком, он жил отдельным блоком. Запись в базу и
+  // снятие потока шли друг за другом, и между ними лента показывала ответ
+  // ДВАЖДЫ — сохранённым сообщением и всё ещё живым потоком. На быстрой
+  // машине это мелькание в один кадр, на медленной — заметное двоение (и
+  // случайно красный тест, который ищет текст ответа).
+  await page.route('**/ai/chat', (route) =>
+    route.fulfill({
+      contentType: 'text/event-stream',
+      body: [
+        'data: {"choices":[{"delta":{"content":"Ответ, который не должен двоиться"},"finish_reason":null}]}',
+        'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}',
+        'data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5}}',
+        'data: [DONE]',
+        '',
+      ].join('\n\n'),
+    }),
+  );
+
+  await openApp(page, '/more/ai');
+  await seedSyncAccount(page);
+  await page.getByPlaceholder('Сообщение…').fill('привет');
+  await page.getByRole('button', { name: 'Отправить' }).click();
+
+  const answer = page.getByText('Ответ, который не должен двоиться');
+  await expect(answer).toHaveCount(1);
+  await expect(answer).toBeVisible();
+  // И после того, как всё улеглось, он по-прежнему один.
+  await page.waitForTimeout(400);
+  await expect(answer).toHaveCount(1);
+});
+
 test('тумблер «Доступ к данным» выключает инструменты: запрос уходит без tools', async ({ page }) => {
   const bodies: string[] = [];
   await page.route('**/ai/chat', (route) => {

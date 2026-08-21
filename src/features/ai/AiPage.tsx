@@ -129,6 +129,12 @@ export function AiPage() {
         },
         onTool: (label) => setToolLabel(label),
       });
+      // Поток гасим ДО записи в базу. Иначе между «ответ сохранён» и
+      // «finally снял busy» лента показывает его дважды: сохранённым
+      // сообщением и всё ещё живым потоком. Человек видит короткое двоение,
+      // а на медленной машине окно достаточно заметное, чтобы в него попадал
+      // и глаз, и тест.
+      setStreamText(null);
       await addAssistantMessage(target.id, reply);
     } catch (e) {
       await addErrorMessage(target.id, aiErrorText(e));
