@@ -152,7 +152,7 @@ export default function App() {
             <div aria-hidden className="aurora pointer-events-none absolute inset-0 -z-10" />
             <div
               id="app-scroll"
-              className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+              className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
               style={{ overscrollBehavior: 'contain' }}
             >
               {/* Баннер установки — первый элемент ЛЕНТЫ, а не каркаса. Стоя над
@@ -163,6 +163,13 @@ export default function App() {
                   места ни у кнопки, ни у контента; при смене маршрута лента и
                   так кидается наверх (ScrollReset), так что баннер виден. */}
               <InstallBanner />
+              {/* Обёртка забирает ровно ОСТАТОК высоты после баннера. Без неё
+                  экран «во весь рост» (чат) брал h-full от всей ленты, не
+                  вычитая баннер, — и поле ввода уезжало за нижний край: с
+                  показанным баннером написать сообщение было нельзя вовсе.
+                  min-h-0 обязателен: без него обёртка растёт по содержимому
+                  ленты, и h-full внутри снова оказывается больше экрана. */}
+              <div className="flex min-h-0 flex-1 flex-col">
               <Routes>
                 <Route path="/" element={<TodayPage />} />
                 <Route path="/search" element={<SearchPage />} />
@@ -203,6 +210,7 @@ export default function App() {
                     экран с выходом лучше молчания. */}
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
+              </div>
             </div>
             <ReloadPrompt />
             <MiniTimer />

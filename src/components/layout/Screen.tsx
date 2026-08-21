@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { markFillScreen } from '../../lib/ui/fillScreen';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
@@ -100,6 +102,9 @@ export function Screen({
   fill = false,
   children,
 }: Props) {
+  // Пока такой экран открыт, баннер установки не показывается: прокрутки,
+  // вместе с которой он уезжал бы, здесь нет.
+  useEffect(() => (fill ? markFillScreen() : undefined), [fill]);
   return (
     <div className={fill ? 'flex h-full flex-col' : 'min-h-full pb-[max(16px,var(--fab-space,0px))]'}>
       {/* Широкие экраны (Mac/Windows/iPad): контент — центральная колонка

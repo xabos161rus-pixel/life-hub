@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import { Link } from 'react-router';
 import { Share } from 'lucide-react';
 import {
@@ -5,6 +6,7 @@ import {
 } from '../../components/ui/glyphs';
 import { dismissInstallBanner, useInstallBannerVisible } from '../../hooks/useInstallBanner';
 import { t } from '../../lib/i18n';
+import { fillScreenOpen, subscribeFillScreen } from '../../lib/ui/fillScreen';
 import { HIT_SLOP_44 } from '../ui/Checkbox';
 import { ICON } from '../../components/ui/icons';
 
@@ -24,8 +26,11 @@ import { ICON } from '../../components/ui/icons';
  */
 export function InstallBanner() {
   const visible = useInstallBannerVisible();
+  // На экранах во весь рост (чаты) баннеру уезжать некуда — он отнимал бы у
+  // переписки шестую часть экрана. Там он молчит и ждёт другого раздела.
+  const fillOpen = useSyncExternalStore(subscribeFillScreen, fillScreenOpen, fillScreenOpen);
 
-  if (!visible) return null;
+  if (!visible || fillOpen) return null;
 
   return (
     <div

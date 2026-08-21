@@ -91,7 +91,11 @@ function glyph(name: string, draw: React.ReactNode): LucideIcon {
  *  окон нет намеренно: под скатом они превращаются в грязь. */
 export const GHome = /*#__PURE__*/ glyph(
   'home',
-  <path d="M12 2.6 21 11.4V17.6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6.2z" />,
+  <>
+    <path d="M9.7 20.9v-4.8a2.3 2.3 0 0 1 4.6 0v4.8Z" fill="currentColor" fillOpacity="0.25" />
+    <path d="M3.3 10.6 12 3.6l8.7 7v8.4a1.9 1.9 0 0 1-1.9 1.9H5.2a1.9 1.9 0 0 1-1.9-1.9Z" />
+    <path d="M9.7 20.9v-4.8a2.3 2.3 0 0 1 4.6 0" />
+  </>,
 );
 
 /** Солнце. Четыре луча по осям вместо восьми: восемь на мелком размере
@@ -99,9 +103,10 @@ export const GHome = /*#__PURE__*/ glyph(
 export const GSun = /*#__PURE__*/ glyph(
   'sun',
   <>
-    <circle cx="12" cy="12" r="4.2" />
-    <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2" />
-    <path d="M5.4 5.4 7 7M17 17l1.6 1.6M18.6 5.4 17 7M7 17l-1.6 1.6" />
+    <circle cx="12" cy="12" r="3.4" fill="currentColor" fillOpacity="0.25" />
+    <circle cx="12" cy="12" r="3.4" />
+    <path d="M12 2.9v2M12 19.1v2M2.9 12h2M19.1 12h2" />
+    <path d="M5.57 5.57 6.98 6.98M17.02 17.02 18.43 18.43M18.43 5.57 17.02 6.98M6.98 17.02 5.57 18.43" />
   </>,
 );
 
@@ -110,9 +115,10 @@ export const GSun = /*#__PURE__*/ glyph(
 export const GTasks = /*#__PURE__*/ glyph(
   'tasks',
   <>
+    <rect x="12.2" y="5.2" width="8.4" height="2.4" rx="1.2" fill="currentColor" fillOpacity="0.25" />
+    <rect x="12.2" y="16.4" width="8.4" height="2.4" rx="1.2" fill="currentColor" fillOpacity="0.25" />
     <path d="M3.4 6.4 5.2 8.2l3.2-3.4" />
     <path d="M3.4 17.6 5.2 19.4l3.2-3.4" />
-    <path d="M12.2 6.2h8.4M12.2 17.4h8.4" />
   </>,
 );
 
@@ -121,9 +127,10 @@ export const GTasks = /*#__PURE__*/ glyph(
 export const GNotes = /*#__PURE__*/ glyph(
   'notes',
   <>
-    <path d="M6.4 3.4h7L19.6 9.6V17.6a3 3 0 0 1-3 3H6.4a3 3 0 0 1-3-3V6.4a3 3 0 0 1 3-3Z" />
-    <path d="M13.4 3.6v3.4a2.6 2.6 0 0 0 2.6 2.6h3.6" />
-    <path d="M7.2 13.6h8.6M7.2 17h5.6" />
+    <path d="M14.2 3.2 19.6 8.6h-2.8a2.6 2.6 0 0 1-2.6-2.6Z" fill="currentColor" fillOpacity="0.25" />
+    <path d="M6.4 3.2h7.8L19.6 8.6v8.9a3 3 0 0 1-3 3H6.4a3 3 0 0 1-3-3V6.2a3 3 0 0 1 3-3Z" />
+    <path d="M14.2 3.2v2.8a2.6 2.6 0 0 0 2.6 2.6h2.8" />
+    <path d="M7.2 12.7h8.7M7.2 16.4h5.4" />
   </>,
 );
 
@@ -136,10 +143,11 @@ export const GNotes = /*#__PURE__*/ glyph(
 export const GFamily = /*#__PURE__*/ glyph(
   'family',
   <>
-    <circle cx="8.8" cy="9.2" r="3.6" />
-    <path d="M2.6 19.8a6.2 6.2 0 0 1 12.4 0" />
-    <circle cx="17" cy="8.2" r="2.7" />
-    <path d="M15.8 12.8a4.8 4.8 0 0 1 5.6 4.9" />
+    <circle cx="8.6" cy="6.4" r="3" fill="currentColor" fillOpacity="0.25" />
+    <circle cx="8.6" cy="6.4" r="3" />
+    <path d="M2.9 18.9a5.7 5.7 0 0 1 11.4 0" />
+    <circle cx="18" cy="8.2" r="2.3" />
+    <path d="M13.89 16.78a3.9 3.9 0 0 1 7.11 2.22" />
   </>,
 );
 
@@ -148,10 +156,11 @@ export const GFamily = /*#__PURE__*/ glyph(
 export const GCalendar = /*#__PURE__*/ glyph(
   'calendar',
   <>
-    <rect x="3.4" y="5" width="17.2" height="15.4" rx="3" />
-    <path d="M3.4 9.8h17.2" />
-    <path d="M8 3v3.6M16 3v3.6" />
-    <path d="M8.8 15.2l2 2 3.8-4" />
+    <rect x="9.8" y="12.7" width="4.4" height="4.4" rx="1.4" fill="currentColor" fillOpacity="0.25" />
+    <rect x="3" y="5.2" width="18" height="15.6" rx="3" />
+    <path d="M3 9h18" />
+    <path d="M8 3v2.2M16 3v2.2" />
+    <rect x="9.8" y="12.7" width="4.4" height="4.4" rx="1.4" />
   </>,
 );
 
@@ -162,9 +171,10 @@ export const GCalendar = /*#__PURE__*/ glyph(
 export const GStats = /*#__PURE__*/ glyph(
   'stats',
   <>
-    <path d="M4.8 19.8V12.4" />
-    <path d="M12 19.8V4.6" />
-    <path d="M19.2 19.8V9.6" />
+    <rect x="3.2" y="14.2" width="4.2" height="6.7" rx="1.3" fill="currentColor" fillOpacity="0.35" />
+    <rect x="9.9" y="9.6" width="4.2" height="11.3" rx="1.3" fill="currentColor" fillOpacity="0.35" />
+    <rect x="16.6" y="5" width="4.2" height="15.9" rx="1.3" fill="currentColor" />
+    <path d="M3.2 20.2h17.6" />
   </>,
 );
 
@@ -173,8 +183,10 @@ export const GStats = /*#__PURE__*/ glyph(
 export const GTarget = /*#__PURE__*/ glyph(
   'target',
   <>
+    <circle cx="12" cy="12" r="4.4" fill="currentColor" fillOpacity="0.25" />
     <circle cx="12" cy="12" r="8.2" />
-    <circle cx="12" cy="12" r="3.4" />
+    <circle cx="12" cy="12" r="4.4" />
+    <circle cx="12" cy="12" r="1.45" fill="currentColor" />
   </>,
 );
 
@@ -182,9 +194,11 @@ export const GTarget = /*#__PURE__*/ glyph(
 export const GTimer = /*#__PURE__*/ glyph(
   'timer',
   <>
-    <circle cx="12" cy="13.4" r="7.6" />
-    <path d="M12 9.6v3.8h3" />
-    <path d="M9.6 2.8h4.8" />
+    <circle cx="12" cy="13.8" r="4.2" fill="currentColor" fillOpacity="0.25" />
+    <circle cx="12" cy="13.8" r="7.1" />
+    <path d="M9.6 3H14.4" />
+    <path d="M12 3v3.7" />
+    <path d="M12 13.8v-3.2" />
   </>,
 );
 
@@ -193,8 +207,10 @@ export const GTimer = /*#__PURE__*/ glyph(
 export const GLearning = /*#__PURE__*/ glyph(
   'learning',
   <>
-    <path d="M2.8 9.4 12 5.2l9.2 4.2-9.2 4.2z" />
-    <path d="M6.6 11.4v4.4c0 1.6 2.4 2.8 5.4 2.8s5.4-1.2 5.4-2.8v-4.4" />
+    <path d="M12 4.1 20.4 8.3 12 12.5 3.6 8.3Z" fill="currentColor" fillOpacity="0.25" />
+    <path d="M12 4.1 20.4 8.3 12 12.5 3.6 8.3Z" />
+    <path d="M7.4 10.2v4.7c0 1.6 2.06 2.5 4.6 2.5s4.6-.9 4.6-2.5v-4.7" />
+    <path d="M20.4 8.3v5.5" />
   </>,
 );
 
@@ -206,9 +222,9 @@ export const GLearning = /*#__PURE__*/ glyph(
 export const GFinance = /*#__PURE__*/ glyph(
   'finance',
   <>
-    <rect x="2.8" y="5.8" width="18.4" height="13.4" rx="3.2" />
-    <path d="M21.2 10.4h-4.2a2.6 2.6 0 0 0 0 5.2h4.2" />
-    <circle cx="17.8" cy="13" r="1" fill="currentColor" stroke="none" />
+    <path d="M21 9.6h-4.3a2.4 2.4 0 0 0 0 4.8H21Z" fill="currentColor" fillOpacity="0.25" />
+    <rect x="3" y="5.7" width="18" height="12.6" rx="3" />
+    <path d="M21 9.6h-4.3a2.4 2.4 0 0 0 0 4.8H21" />
   </>,
 );
 
@@ -216,16 +232,19 @@ export const GFinance = /*#__PURE__*/ glyph(
  *  символа энергии символ зарядного устройства. */
 export const GEnergy = /*#__PURE__*/ glyph(
   'energy',
-  <path d="M13.4 2.8 5.6 13.4h5.2l-.6 7.8 8-10.6h-5.4z" />,
+  <>
+    <path d="M13.5 3.9 5.8 13.3h4.4l.3 6.8 7.7-9.4h-4.4Z" fill="currentColor" fillOpacity="0.25" />
+    <path d="M13.5 3.9 5.8 13.3h4.4l.3 6.8 7.7-9.4h-4.4Z" />
+  </>,
 );
 
 /** Привычки: круговая стрелка с галочкой внутри — «повторяю и отмечаю». */
 export const GHabits = /*#__PURE__*/ glyph(
   'habits',
   <>
-    <path d="M20.2 12a8.2 8.2 0 1 1-2.6-6" />
-    <path d="M20.6 4.2v4.4h-4.4" />
-    <path d="M8.8 12.2l2.2 2.2 4.4-4.6" />
+    <circle cx="12" cy="12" r="3.4" fill="currentColor" fillOpacity="0.25" />
+    <path d="M20 12a8 8 0 1 1-2.9-6.1" />
+    <path d="M13.7 5.9h3.4L16.7 3" />
   </>,
 );
 
@@ -234,15 +253,19 @@ export const GHabits = /*#__PURE__*/ glyph(
 export const GPlaces = /*#__PURE__*/ glyph(
   'places',
   <>
-    <path d="M12 21.4s7-5.6 7-11.2a7 7 0 1 0-14 0c0 5.6 7 11.2 7 11.2Z" />
-    <circle cx="12" cy="10" r="2.6" />
+    <circle cx="12" cy="9.7" r="2.8" fill="currentColor" fillOpacity="0.25" />
+    <path d="M12 21c0 0 6.5-5.7 6.5-11.3a6.5 6.5 0 1 0-13 0C5.5 15.3 12 21 12 21Z" />
+    <circle cx="12" cy="9.7" r="2.8" />
   </>,
 );
 
 /** Женские дни: капля. */
 export const GDrop = /*#__PURE__*/ glyph(
   'drop',
-  <path d="M12 2.8c3.6 4.2 6.2 7.4 6.2 10.6a6.2 6.2 0 1 1-12.4 0c0-3.2 2.6-6.4 6.2-10.6Z" />,
+  <>
+    <path d="M12 3c3.5 4.1 6.1 7.3 6.1 10.4a6.1 6.1 0 0 1-12.2 0C5.9 10.3 8.5 7.1 12 3Z" fill="currentColor" fillOpacity="0.25" />
+    <path d="M12 3c3.5 4.1 6.1 7.3 6.1 10.4a6.1 6.1 0 0 1-12.2 0C5.9 10.3 8.5 7.1 12 3Z" />
+  </>,
 );
 
 /** Новое, «магия»: крупная звезда и маленькая в углу.
@@ -253,7 +276,12 @@ export const GDrop = /*#__PURE__*/ glyph(
 export const GSparkle = /*#__PURE__*/ glyph(
   'sparkle',
   <>
-    <path d="M10.2 2.8 12.2 8l5.2 2-5.2 2-2 5.2-2-5.2L3 10l5.2-2z" />
+    <path
+      d="M10 3 12.05 7.95 17 10 12.05 12.05 10 17 7.95 12.05 3 10 7.95 7.95Z"
+      fill="currentColor"
+      fillOpacity="0.25"
+    />
+    <path d="M10 3 12.05 7.95 17 10 12.05 12.05 10 17 7.95 12.05 3 10 7.95 7.95Z" />
     <path d="M18.2 15l1.2 2.2 2.2 1.2-2.2 1.2-1.2 2.2-1.2-2.2-2.2-1.2 2.2-1.2z" />
   </>,
 );
@@ -263,8 +291,13 @@ export const GSparkle = /*#__PURE__*/ glyph(
 export const GSettings = /*#__PURE__*/ glyph(
   'settings',
   <>
-    <path d="M3.4 8.4h17.2M3.4 15.6h17.2" />
+    <circle cx="9.2" cy="8.4" r="2.6" fill="currentColor" fillOpacity="0.25" />
+    <circle cx="15" cy="15.6" r="2.6" fill="currentColor" fillOpacity="0.25" />
+    <path d="M3.8 8.4h2.8" />
+    <path d="M11.8 8.4h8.4" />
     <circle cx="9.2" cy="8.4" r="2.6" />
+    <path d="M3.8 15.6h8.6" />
+    <path d="M17.6 15.6h2.6" />
     <circle cx="15" cy="15.6" r="2.6" />
   </>,
 );
@@ -274,24 +307,28 @@ export const GSettings = /*#__PURE__*/ glyph(
 export const GBot = /*#__PURE__*/ glyph(
   'bot',
   <>
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    <path d="m12 6.4 1.1 2.5 2.5 1.1-2.5 1.1-1.1 2.5-1.1-2.5-2.5-1.1 2.5-1.1z" />
+    <path d="M12 6.9l1.2 2.2 2.2 1.2-2.2 1.2-1.2 2.2-1.2-2.2-2.2-1.2 2.2-1.2z" fill="currentColor" fillOpacity="0.25" />
+    <path d="M20.8 15.4a2 2 0 0 1-2 2H7.4l-4.2 3.2V5.2a2 2 0 0 1 2-2h13.6a2 2 0 0 1 2 2z" />
+    <path d="M12 6.9l1.2 2.2 2.2 1.2-2.2 1.2-1.2 2.2-1.2-2.2-2.2-1.2 2.2-1.2z" />
   </>,
 );
 
 /** Облако — синхронизация включена. */
 export const GCloud = /*#__PURE__*/ glyph(
   'cloud',
-  <path d="M7.4 19.4a4.4 4.4 0 0 1-.5-8.8 5.6 5.6 0 0 1 10.7 1.5 3.9 3.9 0 0 1-.6 7.3z" />,
+  <>
+    <path d="M8.05 18.2A4.05 4.05 0 0 1 7.22 10.19A4.8 4.8 0 1 1 16.75 11.31A3.45 3.45 0 0 1 16.55 18.2Z" fill="currentColor" fillOpacity="0.25" />
+    <path d="M8.05 18.2A4.05 4.05 0 0 1 7.22 10.19A4.8 4.8 0 1 1 16.75 11.31A3.45 3.45 0 0 1 16.55 18.2Z" />
+  </>,
 );
 
 /** Облако перечёркнутое — синхронизации нет. */
 export const GCloudOff = /*#__PURE__*/ glyph(
   'cloud-off',
   <>
-    <path d="M7.4 19.4a4.4 4.4 0 0 1-.5-8.8 5.6 5.6 0 0 1 8.2-2.8" />
-    <path d="M17.6 11.2a3.9 3.9 0 0 1-.6 8.2h-6" />
-    <path d="M3.4 3.4 20.6 20.6" />
+    <path d="M12.97 18.2H8.05A4.05 4.05 0 0 1 5.65 10.89" />
+    <path d="M11.11 5.88A4.8 4.8 0 0 1 16.75 11.31A3.45 3.45 0 0 1 20 14.77" />
+    <path d="M3.5 3.5 20.5 20.5" />
   </>,
 );
 
@@ -353,9 +390,10 @@ export const GUndo = /*#__PURE__*/ glyph(
 export const GPhoto = /*#__PURE__*/ glyph(
   'photo',
   <>
-    <rect x="3" y="4.6" width="18" height="14.8" rx="3" />
-    <circle cx="15.6" cy="9.4" r="1.6" fill="currentColor" stroke="none" />
-    <path d="M3.6 16.6 8.2 12l3.3 3.3 2.9-2.9 5.9 5.9" />
+    <path d="M6.7 19.1 12 12.5l5.3 6.6z" fill="currentColor" fillOpacity="0.25" />
+    <rect x="3.7" y="4.9" width="16.6" height="14.2" rx="3" />
+    <path d="M6.7 19.1 12 12.5l5.3 6.6" />
+    <circle cx="16.1" cy="9.2" r="1.3" fill="currentColor" />
   </>,
 );
 
@@ -364,7 +402,7 @@ export const GPhoto = /*#__PURE__*/ glyph(
  *  хуже: наклон съедает просветы. */
 export const GAttach = /*#__PURE__*/ glyph(
   'attach',
-  <path d="M8 11V7.4a4 4 0 0 1 8 0v8.4a2.7 2.7 0 0 1-5.4 0V8.8a1.35 1.35 0 0 1 2.7 0V15" />,
+  <path d="M6.45 12.5V8.55a5.55 5.55 0 0 1 11.1 0v7.75a3.7 3.7 0 0 1-7.4 0V9.5a1.85 1.85 0 0 1 3.7 0v6.5" />,
 );
 
 /** Жирный: вертикаль и две чаши. Радиусы чаш разные — нижняя крупнее, как
@@ -424,8 +462,9 @@ export const GChevronDown = /*#__PURE__*/ glyph('chevron-down', <path d="M5.6 9.
 export const GSearch = /*#__PURE__*/ glyph(
   'search',
   <>
-    <circle cx="10.8" cy="10.8" r="6.4" />
-    <path d="M15.6 15.6 20.4 20.4" />
+    <circle cx="10.4" cy="10.4" r="6.2" fill="currentColor" fillOpacity="0.25" />
+    <circle cx="10.4" cy="10.4" r="6.2" />
+    <path d="M14.78 14.78 19.8 19.8" />
   </>,
 );
 
@@ -433,10 +472,10 @@ export const GSearch = /*#__PURE__*/ glyph(
 export const GTrash = /*#__PURE__*/ glyph(
   'trash',
   <>
-    <path d="M3.8 6.4h16.4" />
-    <path d="M9 6.4V4.6a1.2 1.2 0 0 1 1.2-1.2h3.6A1.2 1.2 0 0 1 15 4.6v1.8" />
-    <path d="M6.2 6.4l1 13a1.4 1.4 0 0 0 1.4 1.3h6.8a1.4 1.4 0 0 0 1.4-1.3l1-13" />
-    <path d="M10.2 10.4v6.4M13.8 10.4v6.4" />
+    <path d="M6.3 6.4l1 12.9a1.4 1.4 0 0 0 1.4 1.3h6.6a1.4 1.4 0 0 0 1.4-1.3l1-12.9z" fill="currentColor" fillOpacity="0.25" />
+    <path d="M3.9 6.4h16.2" />
+    <path d="M9 6.4V4.4a1.4 1.4 0 0 1 1.4-1.4h3.2a1.4 1.4 0 0 1 1.4 1.4v2" />
+    <path d="M6.3 6.4l1 12.9a1.4 1.4 0 0 0 1.4 1.3h6.6a1.4 1.4 0 0 0 1.4-1.3l1-12.9" />
   </>,
 );
 
@@ -444,19 +483,26 @@ export const GTrash = /*#__PURE__*/ glyph(
 export const GPencil = /*#__PURE__*/ glyph(
   'pencil',
   <>
-    <path d="M15.8 4.6 19.4 8.2 8.6 19H5v-3.6z" />
-    <path d="M13.4 7 17 10.6" />
+    <path d="M14.6 5.8 18.2 9.4 8.4 19.2H4.8v-3.6z" fill="currentColor" fillOpacity="0.25" />
+    <path d="M16.4 4 20 7.6 8.4 19.2H4.8v-3.6z" />
+    <path d="M14.6 5.8 18.2 9.4" />
   </>,
 );
 
 /** Папка. */
 export const GFolder = /*#__PURE__*/ glyph(
   'folder',
-  <path d="M3 6.6a1.6 1.6 0 0 1 1.6-1.6h4l2.2 2.6h7.6A1.6 1.6 0 0 1 20 9.2v8.2a1.6 1.6 0 0 1-1.6 1.6H4.6A1.6 1.6 0 0 1 3 17.4z" />,
+  <>
+    <path d="M4 7.8h14.4a1.6 1.6 0 0 1 1.6 1.6v7.5a1.6 1.6 0 0 1-1.6 1.6H5.6a1.6 1.6 0 0 1-1.6-1.6z" fill="currentColor" fillOpacity="0.25" />
+    <path d="M4 6.9a1.6 1.6 0 0 1 1.6-1.6h3.9l2.2 2.5h6.7a1.6 1.6 0 0 1 1.6 1.6v7.5a1.6 1.6 0 0 1-1.6 1.6H5.6a1.6 1.6 0 0 1-1.6-1.6z" />
+  </>,
 );
 
 /** Телефонная трубка. */
 export const GPhone = /*#__PURE__*/ glyph(
   'phone',
-  <path d="M7.4 3.6 9.8 8 8 10.2a12.6 12.6 0 0 0 5.8 5.8L16 14.2l4.4 2.4v3.2a1.4 1.4 0 0 1-1.6 1.4C10.6 20.4 3.6 13.4 3 5.2A1.4 1.4 0 0 1 4.4 3.6z" />,
+  <>
+    <path d="M7.4 3.8 9.8 8.1 8 10.3a12.6 12.6 0 0 0 5.8 5.8L16 14.3l4.2 2.4v2.8a1.4 1.4 0 0 1-1.6 1.4C10.6 20.1 3.7 13.2 3.2 5.3A1.4 1.4 0 0 1 4.6 3.8z" fill="currentColor" fillOpacity="0.25" />
+    <path d="M7.4 3.8 9.8 8.1 8 10.3a12.6 12.6 0 0 0 5.8 5.8L16 14.3l4.2 2.4v2.8a1.4 1.4 0 0 1-1.6 1.4C10.6 20.1 3.7 13.2 3.2 5.3A1.4 1.4 0 0 1 4.6 3.8z" />
+  </>,
 );
