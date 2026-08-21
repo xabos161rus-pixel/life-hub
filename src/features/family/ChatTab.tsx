@@ -47,6 +47,7 @@ import { isTouch } from '../../lib/platform';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import { systemMessageText } from '../../lib/family/systemMessage';
 import { linkify } from '../../lib/family/linkify';
+import { clearDraft, loadDraft, saveDraft } from '../../lib/family/draft';
 import {
   sendMessage,
   sendImage,
@@ -704,10 +705,21 @@ export function ChatTab({ familyId }: { familyId: string }) {
     [typingUntil, selfId, memberMap],
   );
 
-  const [text, setText] = useState('');
+  // Недописанное восстанавливаем сразу при первом рендере: если бы черновик
+  // подставлялся эффектом, поле успело бы моргнуть пустым.
+  const [text, setText] = useState(() => loadDraft(familyId)?.text ?? '');
   const [actionMsg, setActionMsg] = useState<FamilyMessage | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [replyTo, setReplyTo] = useState<FamilyMessage | null>(null);
+  // Цитата: пока человек её не трогал, берём сохранённую в черновике —
+  // в нём лежит только идентификатор, само сообщение находится в поднятой
+  // из базы переписке. Как только выбор сделан руками, он и показывается.
+  const [replyPick, setReplyPick] = useState<{ familyId: string; value: FamilyMessage | null } | null>(null);
+  const draftReplyId = loadDraft(familyId)?.replyToId;
+  const replyTo =
+    replyPick?.familyId === familyId
+      ? replyPick.value
+      : (draftReplyId && messagesRaw?.find((m) => m.clientMsgId === draftReplyId && !m.deletedAt)) || null;
+  const setReplyTo = (value: FamilyMessage | null) => setReplyPick({ familyId, value });
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [showJump, setShowJump] = useState(false);
   const [viewImage, setViewImage] = useState<string | null>(null);
@@ -722,6 +734,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Высота ленты перед доливкой прошлых сообщений. Ненулевое значение
   // одновременно служит замком: события прокрутки идут пачками, и без него
@@ -781,10 +794,32 @@ export function ChatTab({ familyId }: { familyId: string }) {
     highlightTimer.current = setTimeout(() => setHighlightId(null), 1300);
   }
 
+  // Черновик пишем сразу при вводе, а не эффектом: человек печатает и тут же
+  // уходит на «Участников», и эффект не успевал отработать до размонтирования
+  // — сообщение пропадало ровно в том случае, ради которого всё делалось.
+  // Запись — десятки байт в localStorage, на нажатие клавиши это незаметно.
+  const persistDraft = (nextText: string, nextReply: FamilyMessage | null) => {
+    // Правка отправленного — не черновик нового сообщения: она живёт только
+    // до ухода с экрана, и затирать ею недописанное было бы обидно.
+    if (editingId) return;
+    saveDraft(familyId, { text: nextText, replyToId: nextReply?.clientMsgId });
+  };
+
+  // Поле ввода растёт под текст: с фиксированной строкой длинное сообщение
+  // набиралось в щёлку с внутренней прокруткой, и написанного выше не видно.
+  // Потолок — в разметке (max-h), дальше поле прокручивается само.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text]);
+
   async function submit() {
     const body = text.trim();
     if (!body) return;
     setText('');
+    clearDraft(familyId);
     if (editingId) {
       const id = editingId;
       setEditingId(null);
@@ -813,6 +848,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
 
   function startReply(m: FamilyMessage) {
     setReplyTo(m);
+    persistDraft(text, m);
     setEditingId(null);
     setActionMsg(null);
   }
@@ -1129,7 +1165,10 @@ export function ChatTab({ familyId }: { familyId: string }) {
               <p className="truncate text-xs text-muted">{snippetOf(replyTo)}</p>
             </div>
             <button
-              onClick={() => setReplyTo(null)}
+              onClick={() => {
+                setReplyTo(null);
+                persistDraft(text, null);
+              }}
               aria-label={t('Отменить ответ')}
               className={`p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
@@ -1202,9 +1241,11 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 )}
               </button>
               <textarea
+                ref={inputRef}
                 value={text}
                 onChange={(e) => {
                   setText(e.target.value);
+                  persistDraft(e.target.value, replyTo);
                   if (e.target.value.trim()) sendTyping(familyId);
                 }}
                 onKeyDown={(e) => {
@@ -1217,7 +1258,10 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 }}
                 rows={1}
                 placeholder={t('Сообщение…')}
-                className="max-h-28 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 pl-0.5 pr-2 text-sm leading-tight outline-none"
+                // Шрифт не меньше 16px: на iOS поле с мелким шрифтом заставляет
+                // Safari при фокусе увеличить всю страницу, и после набора она
+                // остаётся увеличенной — чат «уезжает» за край экрана.
+                className="max-h-40 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 pl-0.5 pr-2 text-base leading-snug outline-none"
               />
               {text.trim() || !rec.supported ? (
                 <button
