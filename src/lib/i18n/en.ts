@@ -204,6 +204,13 @@ export const EN: Record<string, string> = {
   'изменено': 'edited',
   'Загружаю прошлые сообщения…': 'Loading earlier messages…',
   'Непрочитанные': 'Unread',
+  'Не удалось открыть данные': 'Could not open your data',
+  'Данные на устройстве новее, чем это приложение. Обновите приложение до последней версии — записи целы.':
+    'The data on this device is newer than this version of the app. Update to the latest version — your records are safe.',
+  'На устройстве кончилось место. Освободите память и откройте приложение снова — записи целы.':
+    'The device is out of storage. Free up space and open the app again — your records are safe.',
+  'Приложение не смогло открыть хранилище на этом устройстве. Записи, скорее всего, целы — попробуйте перезагрузить.':
+    'The app could not open storage on this device. Your records are most likely safe — try reloading.',
   'Перемотка': 'Seek',
   'Искать в переписке': 'Search messages',
   'Закрыть поиск': 'Close search',

@@ -6,6 +6,7 @@ import { db, ensureSettings } from './db/db'
 import { resolveLang, setLang } from './lib/i18n'
 import { ensurePushRegistered } from './lib/push'
 import { ensurePersistentStorage } from './lib/storage'
+import { StartupError } from './components/StartupError'
 
 // Данные живут только локально — просим браузер не вычищать хранилище.
 // Результат читает экран настроек: отказ означает, что Safari сотрёт всё
@@ -21,12 +22,22 @@ void ensurePushRegistered()
 // и «мигание» русского перед английским — это дефект, а не мелочь. Чтение
 // настройки из IndexedDB — миллисекунды.
 void (async () => {
-  await ensureSettings()
-  const s = await db.settings.get('app')
-  setLang(resolveLang(s?.language))
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  )
+  const root = createRoot(document.getElementById('root')!)
+  try {
+    await ensureSettings()
+    const s = await db.settings.get('app')
+    setLang(resolveLang(s?.language))
+    root.render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+  } catch (e) {
+    // Без этого человек видел пустой белый экран: весь рендер стоял за
+    // открытием базы, а обработчика у промиса не было вовсе. Откат версии,
+    // переполнение хранилища, повреждённая база на iOS — и приложение
+    // выглядело сломанным навсегда, без слова о причине и без единой кнопки.
+    setLang(resolveLang(undefined))
+    root.render(<StartupError error={e} />)
+  }
 })()
