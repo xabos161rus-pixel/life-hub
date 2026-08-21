@@ -80,3 +80,30 @@ test('подъём к началу доливает прошлые сообще�
   const top = await lane.evaluate((el) => el.scrollTop);
   expect(top).toBeGreaterThan(100);
 });
+
+test('подъём уходит глубже предела чтения из базы', async ({ page }) => {
+  // Лента не только рисует окно — она и читает из базы хвост, иначе каждое
+  // входящее сообщение поднимало бы из базы все фотографии и голосовые
+  // переписки. Здесь важно, что одно окно не заперло другое: человек,
+  // листающий вглубь, должен доходить до сообщений старше предела чтения,
+  // а не упираться в невидимую стену.
+  await openApp(page, '/more/family');
+  await seedChat(page, 900);
+  await expect(page.getByText('Сообщение 899')).toBeVisible();
+
+  const lane = page.locator('[class*="overscroll-contain"]').first();
+  const target = page.getByText('Сообщение 340', { exact: true });
+
+  // Поднимаемся страницами, пока не дойдём до цели. Она лежит на 560 сообщений
+  // от конца — заведомо глубже, чем читается за один раз.
+  for (let i = 0; i < 14 && (await target.count()) === 0; i++) {
+    const shown = await bubbles(page).count();
+    await lane.evaluate((el) => {
+      el.scrollTop = 0;
+      el.dispatchEvent(new Event('scroll', { bubbles: true }));
+    });
+    await expect.poll(async () => bubbles(page).count()).toBeGreaterThan(shown);
+  }
+
+  await expect(target).toHaveCount(1);
+});
