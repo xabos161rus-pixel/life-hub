@@ -54,12 +54,16 @@ export function RemindersBlock() {
       </div>
 
       {sections.length === 0 ? (
-        loaded && <button
-          onClick={() => setSectionSheet('new')}
-          className="card w-full px-4 py-3 text-left text-sm text-muted active:opacity-80"
-        >
-          {t('Добавьте раздел — например, «Работа» — и держите под рукой важные напоминания.')}
-        </button>
+        // Пустое состояние — подпись, а не карточка. Раньше здесь стояла
+        // карточка-приглашение на три строки (155px вместе с рубрикой), и она
+        // дублировала кнопку «+ раздел», которая уже стоит рядом с заголовком:
+        // два одинаковых действия подряд, из которых второе стоит в семь раз
+        // дороже места. Осталась одна строка — про что этот раздел.
+        loaded && (
+          <p className="px-1 text-xs leading-snug text-muted">
+            {t('Например, «Работа» или «Дом» — важное всегда под рукой.')}
+          </p>
+        )
       ) : (
         <div className="flex flex-col gap-3">
           {sections.map((s) => (

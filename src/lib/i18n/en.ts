@@ -375,8 +375,8 @@ export const EN: Record<string, string> = {
   'В архив': 'Archive',
   'Напоминания': 'Reminders',
   'раздел': 'section',
-  'Добавьте раздел — например, «Работа» — и держите под рукой важные напоминания.':
-    'Add a section — like "Work" — and keep important reminders at hand.',
+  'Например, «Работа» или «Дом» — важное всегда под рукой.':
+    'Say "Work" or "Home" — what matters, always at hand.',
   'Изменить раздел': 'Edit section',
   'Добавить напоминание': 'Add reminder',
   'Удалить раздел вместе с его напоминаниями?': 'Delete this section along with its reminders?',
