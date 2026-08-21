@@ -299,9 +299,13 @@ async function pull(c: SyncConfig): Promise<{ applied: number; skipped: number }
 }
 
 // === PUSH ===
-// Полный скан таблиц + фильтр по updatedAt в окне [lastPushAt, cutoff). Для
-// личного объёма данных (сотни записей) это миллисекунды; при росте можно
-// перейти на outbox/индекс.
+// Выборка по индексу updatedAt в окне [lastPushAt, cutoff).
+//
+// Раньше здесь был полный скан каждой из двадцати таблиц с фильтром в памяти.
+// Среди них noteFiles — куски вложений по 400 КиБ — и tasks с фотографиями
+// прямо в строке, а запускается отправка через полторы секунды после каждой
+// правки: пока пишешь заметку, на каждую паузу поднималась вся база. Индекс
+// добавлен в v19.
 async function push(c: SyncConfig): Promise<number> {
   // Курсор снимаем ДО скана и двигаем ровно на него — а НЕ на максимум
   // updatedAt среди найденных строк. Иначе правка, сделанная во время скана в
@@ -316,11 +320,15 @@ async function push(c: SyncConfig): Promise<number> {
   // (фильтр там строго больше cutoff). Нижняя граница включающая — она лишь
   // переотправит одну пограничную запись, что безвредно: на сервере стоит
   // ON CONFLICT ... WHERE excluded.updated_at > records.updated_at.
-  const inWindow = (u: unknown): u is string =>
-    typeof u === 'string' && u >= c.lastPushAt && u < cutoff;
   const fresh: { name: string; row: Row }[] = [];
   for (const name of SYNCED_TABLES) {
-    const rows = (await db.table<Row>(name).toArray()).filter((r) => inWindow(r.updatedAt));
+    // between(lower, upper, includeLower, includeUpper) — то же полуоткрытое
+    // окно, что и раньше, только границы теперь считает база.
+    const rows = await db
+      .table<Row>(name)
+      .where('updatedAt')
+      .between(c.lastPushAt, cutoff, true, false)
+      .toArray();
     for (const row of rows) fresh.push({ name, row });
   }
   // Шифруем параллельно (Promise.all), а не последовательно await в цикле —

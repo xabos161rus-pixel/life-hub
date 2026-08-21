@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { db } = await import('../db/db');
 const { generateKey, encryptJSON } = await import('./crypto');
-const { getSyncConfig } = await import('./syncState');
+const { getSyncConfig, patchSyncConfig } = await import('./syncState');
 const { runSync } = await import('./sync');
 
 const realFetch = globalThis.fetch;
@@ -283,5 +283,72 @@ describe('конфликт energyLogs по date', () => {
     const r = await runSync();
     expect(r?.pulled).toBe(1);
     expect(await db.energyLogs.get('remote')).toBeTruthy();
+  });
+});
+
+describe('отправка изменений не читает таблицы целиком', () => {
+  it('берёт окно по индексу updatedAt, а не всю базу', async () => {
+    // Раньше push читал КАЖДУЮ из двадцати синхронизируемых таблиц целиком и
+    // отбирал свежие строки уже в памяти. Среди них noteFiles — куски
+    // вложений по 400 КиБ — и tasks с фотографиями прямо в строке. И всё это
+    // через полторы секунды после каждой правки: пока пишешь заметку, на
+    // каждую паузу в наборе поднималась вся база.
+    //
+    // Отличить одно от другого можно точно: полное чтение идёт через
+    // store.getAll, выборка по индексу — через index.getAll.
+    await seedSync();
+    const old = '2020-01-01T00:00:00.000Z';
+    // Полсотни старых записей, которые отправлять не нужно.
+    await db.notes.bulkPut(
+      Array.from({ length: 50 }, (_, i) => ({
+        id: `n${i}`,
+        title: `Заметка ${i}`,
+        content: 'x'.repeat(5000),
+        createdAt: old,
+        updatedAt: old,
+        deletedAt: null,
+      })) as never[],
+    );
+    await patchSyncConfig({ lastPushAt: '2026-01-01T00:00:00.000Z' });
+    // И одна свежая — только она и должна уехать.
+    const fresh = new Date().toISOString();
+    await db.notes.put({
+      id: 'fresh', title: 'Свежая', content: 'привет',
+      createdAt: fresh, updatedAt: fresh, deletedAt: null,
+    } as never);
+
+    // Считаем ИМЕНА таблиц, прочитанных целиком: пара служебных (например,
+    // список семейных подключений — единицы строк) читается полностью и
+    // законно, а вот синхронизируемых среди них быть не должно.
+    const scanned: string[] = [];
+    let indexReads = 0;
+    const orig = {
+      store: IDBObjectStore.prototype.getAll,
+      index: IDBIndex.prototype.getAll,
+    };
+    IDBObjectStore.prototype.getAll = function (this: IDBObjectStore, ...args: unknown[]) {
+      scanned.push(this.name);
+      return (orig.store as (...a: unknown[]) => IDBRequest).apply(this, args);
+    } as typeof orig.store;
+    IDBIndex.prototype.getAll = function (this: IDBIndex, ...args: unknown[]) {
+      indexReads += 1;
+      return (orig.index as (...a: unknown[]) => IDBRequest).apply(this, args);
+    } as typeof orig.index;
+
+    const pushed: { table: string; id: string; updatedAt: string }[] = [];
+    mockQuietNetwork(pushed);
+
+    try {
+      await runSync();
+    } finally {
+      IDBObjectStore.prototype.getAll = orig.store;
+      IDBIndex.prototype.getAll = orig.index;
+    }
+
+    // Уехала ровно свежая запись.
+    expect(pushed.map((r) => r.id)).toEqual(['fresh']);
+    // Ни одна таблица с пользовательскими данными не прочитана целиком.
+    expect(scanned.filter((name) => name === 'notes' || name === 'tasks' || name === 'noteFiles')).toEqual([]);
+    expect(indexReads).toBeGreaterThan(0);
   });
 });
