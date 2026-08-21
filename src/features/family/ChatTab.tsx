@@ -730,6 +730,15 @@ export function ChatTab({ familyId }: { familyId: string }) {
     () => Object.entries(reads).reduce((mx, [id, s]) => (id !== selfId ? Math.max(mx, s) : mx), 0),
     [reads, selfId],
   );
+  // До какого места было прочитано в МОМЕНТ ВХОДА. Живое значение сюда не
+  // годится: открытый чат тут же отмечает всё прочитанным, и метка исчезла бы
+  // раньше, чем человек успел её увидеть. Поэтому запоминаем один раз.
+  const [entryMark, setEntryMark] = useState<{ familyId: string; seq: number } | null>(null);
+  if (config && entryMark?.familyId !== familyId) {
+    setEntryMark({ familyId, seq: config.lastReadSeq ?? 0 });
+  }
+  const readMark = entryMark?.familyId === familyId ? entryMark.seq : 0;
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
@@ -752,6 +761,18 @@ export function ChatTab({ familyId }: { familyId: string }) {
     heightBeforeGrow.current = null;
   }, [windowSize]);
 
+  // Первое сообщение, которого человек ещё не видел. Своё не считаем: метка
+  // «непрочитанные» над собственной репликой выглядела бы нелепо.
+  const firstUnreadId = useMemo(() => {
+    if (!readMark) {
+      // Ноль значит «чат ни разу не открывали»: метка над самым первым
+      // сообщением ничего не сообщает — вся переписка и так новая.
+      return null;
+    }
+    const m = list.find((x) => x.seq != null && x.seq > readMark && x.senderMemberId !== selfId);
+    return m?.clientMsgId ?? null;
+  }, [list, readMark, selfId]);
+
   // Отмечаем прочитанным до последнего seq, когда чат открыт и виден.
   useEffect(() => {
     if (document.visibilityState !== 'visible') return;
@@ -766,10 +787,15 @@ export function ChatTab({ familyId }: { familyId: string }) {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || list.length === 0) return;
-    // Первый показ ленты: сразу к последнему сообщению (а не к первому).
+    // Первый показ ленты. Если есть непрочитанное — встаём на границу, чтобы
+    // читать с того места, где остановились, а не отлистывать назад вручную.
+    // Метку ставим чуть выше верхнего края, иначе она упирается в шапку.
     if (!didInitialScroll.current) {
       didInitialScroll.current = true;
-      el.scrollTop = el.scrollHeight;
+      const mark = firstUnreadId
+        ? el.querySelector<HTMLElement>(`[data-msg-id="${CSS.escape(firstUnreadId)}"]`)
+        : null;
+      el.scrollTop = mark ? Math.max(0, mark.offsetTop - el.offsetTop - 56) : el.scrollHeight;
       return;
     }
     // Дальше — доскролл к низу при новом сообщении, только если уже у низа.
@@ -779,7 +805,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
         el.scrollTop = el.scrollHeight;
       });
     }
-  }, [list.length]);
+  }, [list.length, firstUnreadId]);
 
   // Прыжок к сообщению (тап по цитате): свой scrollTop + подсветка на секунду.
   function jumpToMessage(id: string) {
@@ -1077,10 +1103,23 @@ export function ChatTab({ familyId }: { familyId: string }) {
                       </span>
                     </div>
                   ) : null;
+                // Граница прочитанного: всё, что ниже, пришло после прошлого
+                // захода. Линия с подписью — как в почте и мессенджерах.
+                const unreadMark =
+                  m.clientMsgId === firstUnreadId ? (
+                    <div key={`u-${m.clientMsgId}`} className="flex items-center gap-2 py-2">
+                      <span className="h-px flex-1 bg-accent/30" />
+                      <span className="rounded-full bg-accent/12 px-2.5 py-0.5 text-2xs font-semibold text-accent">
+                        {t('Непрочитанные')}
+                      </span>
+                      <span className="h-px flex-1 bg-accent/30" />
+                    </div>
+                  ) : null;
                 if (m.system) {
                   return (
                     <div key={m.clientMsgId} className="mt-2">
                       {divider}
+                      {unreadMark}
                       {/* Полупрозрачная плашка: служебные события не должны
                           весить столько же, сколько живые сообщения. */}
                       <div className="py-0.5 text-center">
@@ -1095,6 +1134,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 return (
                   <div key={m.clientMsgId} className={groupStart ? 'mt-2.5' : 'mt-0.5'}>
                     {divider}
+                    {unreadMark}
                     <div data-msg-id={m.clientMsgId}>
                       <MessageRow
                         m={m}

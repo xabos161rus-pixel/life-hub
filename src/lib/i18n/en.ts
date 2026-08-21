@@ -202,6 +202,7 @@ export const EN: Record<string, string> = {
 
   'изменено': 'edited',
   'Загружаю прошлые сообщения…': 'Loading earlier messages…',
+  'Непрочитанные': 'Unread',
   'Пока нет сообщений. Напишите первым!': 'No messages yet. Write the first one!',
   'Редактирование сообщения': 'Editing message',
 
