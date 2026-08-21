@@ -32,7 +32,7 @@ function validated(sys: unknown): FamilySystemEvent | null {
 export function systemEventText(sys: FamilySystemEvent): string {
   switch (sys.kind) {
     case 'join':
-      return t('{name} присоединился', { name: sys.name ?? t('Участник') });
+      return t('{name} теперь в группе', { name: sys.name ?? t('Участник') });
     case 'call':
       return t('📞 Аудиозвонок · {dur}', { dur: formatCallDuration(sys.sec) });
     case 'callMissed':

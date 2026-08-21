@@ -45,6 +45,7 @@ import { fileKindLabel, formatFileSize, MAX_FILE_BYTES } from '../../lib/family/
 import { isTouch } from '../../lib/platform';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import { systemMessageText } from '../../lib/family/systemMessage';
+import { linkify } from '../../lib/family/linkify';
 import {
   sendMessage,
   sendImage,
@@ -95,7 +96,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
           else a.pause();
         }}
         aria-label={playing ? t('Пауза') : t('Воспроизвести')}
-        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'}`}
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${HIT_SLOP_44} ${own ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'}`}
       >
         {playing ? <Pause size={ICON.action} /> : <Play size={ICON.action} />}
       </button>
@@ -178,7 +179,12 @@ function ordered(msgs: FamilyMessage[]): FamilyMessage[] {
 }
 
 function timeLabel(iso: string): string {
-  return new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  // Локаль как у разделителей дней: в английском интерфейсе время не должно
+  // оставаться в русском формате.
+  return new Date(iso).toLocaleTimeString(getLang() === 'ru' ? 'ru-RU' : 'en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 /** «Сегодня» / «Вчера» / «5 июля» — разделители дней в ленте. */
@@ -472,9 +478,31 @@ function MessageRow({
               </p>
             )}
             {m.text && jumbo === 0 && (
-              <p className={`whitespace-pre-wrap break-words text-sm ${m.image ? 'px-2 pt-1' : ''}`}>{m.text}</p>
+              // Базовый кегль приложения, а не мелкий: чат читают в том числе
+              // родители, и 15px здесь были самым мелким текстом в разделе.
+              <p className={`whitespace-pre-wrap break-words ${m.image ? 'px-2 pt-1' : ''}`}>
+                {linkify(m.text).map((part, idx) =>
+                  part.kind === 'link' ? (
+                    <a
+                      key={idx}
+                      href={part.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      // Касание по ссылке не должно открывать меню сообщения:
+                      // жесты пузыря живут на родителе.
+                      onClick={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className={`underline underline-offset-2 ${own ? 'text-white' : 'text-accent'}`}
+                    >
+                      {part.value}
+                    </a>
+                  ) : (
+                    <span key={idx}>{part.value}</span>
+                  ),
+                )}
+              </p>
             )}
-            <span className={`mt-0.5 flex items-center justify-end gap-1 text-2xs ${m.image ? 'px-2 pb-1' : ''} ${jumbo ? 'text-muted' : own ? 'text-white/70' : 'text-muted'}`}>
+            <span className={`mt-0.5 flex items-center justify-end gap-1 text-2xs ${m.image ? 'px-2 pb-1' : ''} ${jumbo ? 'text-muted' : own ? 'text-white/90' : 'text-muted'}`}>
               {m.editedAt && <span>{t('изменено')}</span>}
               {timeLabel(m.createdAt)}
               {own &&
@@ -530,9 +558,12 @@ export function ChatTab({ familyId }: { familyId: string }) {
   // в DOM, лента высотой 186 000 пикселей, прокрутка вешала вкладку на
   // десятки секунд. Открытый чат почти всегда нужен «с конца», а прошлое
   // догружается по мере подъёма — так устроены все мессенджеры.
-  const [windowSize, setWindowSize] = useState(PAGE);
-  // Смена группы — начинаем с конца заново.
-  useEffect(() => setWindowSize(PAGE), [familyId]);
+  // Размер окна держим вместе с группой, к которой он относится: при переходе
+  // в другую группу он вычисляется заново прямо в рендере. Сброс эффектом
+  // давал бы каскад перерисовок на каждом открытии чата.
+  const [win, setWin] = useState({ familyId, size: PAGE });
+  const windowSize = win.familyId === familyId ? win.size : PAGE;
+  const growWindow = () => setWin({ familyId, size: windowSize + PAGE });
   const list = useMemo(
     () => (full.length > windowSize ? full.slice(-windowSize) : full),
     [full, windowSize],
@@ -770,6 +801,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
 
   async function doDelete(m: FamilyMessage) {
     setActionMsg(null);
+    // Спрашиваем: удаление необратимо и стирает сообщение у всех, а меню
+    // открывается одиночным касанием — промахнуться легко.
+    if (!window.confirm(t('Удалить сообщение? Оно исчезнет у всех.'))) return;
     if (editingId === m.clientMsgId) {
       setEditingId(null);
       setText('');
@@ -828,7 +862,13 @@ export function ChatTab({ familyId }: { familyId: string }) {
    *  сама карточка не может быть настоящей ссылкой без конфликта с жестами
    *  пузыря (свайп-ответ, долгое нажатие — меню). */
   function downloadFile(m: FamilyMessage) {
-    if (!m.file || !m.fileData) return;
+    if (!m.file) return;
+    // Молчащий тап хуже отказа с объяснением: человек жмёт снова и снова,
+    // не понимая, сломано приложение или файл.
+    if (!m.fileData) {
+      toast(t('Файл ещё не получен целиком — подождите пару секунд'));
+      return;
+    }
     const a = document.createElement('a');
     a.href = m.fileData;
     a.download = m.file.name;
@@ -899,9 +939,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
         items={
           isTouch
             ? [
-                { icon: ArrowRight, text: <>{t('Свайп по сообщению вправо — ответить')}</> },
-                { icon: Heart, text: <>{t('Двойной тап — быстрое ❤️')}</> },
-                { icon: Hand, text: <>{t('Тап или удержание — меню: реакции, копировать, править')}</> },
+                { icon: ArrowRight, text: <>{t('Проведите по сообщению вправо — ответить')}</> },
+                { icon: Heart, text: <>{t('Двойное касание — быстрое ❤️')}</> },
+                { icon: Hand, text: <>{t('Касание или удержание — меню: реакции, копировать, править')}</> },
               ]
             : [
                 { icon: ArrowRight, text: <>{t('Потяните сообщение мышью вправо — ответить')}</> },
@@ -924,7 +964,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             // слой ниже, уже после того как новые сообщения окажутся в разметке.
             if (hasOlder && el.scrollTop < 240 && heightBeforeGrow.current === null) {
               heightBeforeGrow.current = el.scrollHeight;
-              setWindowSize((n) => n + PAGE);
+              growWindow();
             }
           }}
           className="h-full overflow-y-auto overscroll-contain px-1"
@@ -1150,15 +1190,22 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   onClick={() => void submit()}
                   disabled={!text.trim()}
                   aria-label={t('Отправить')}
-                  className="m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white disabled:opacity-40 active:scale-95"
+                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white disabled:opacity-40 active:scale-95 ${HIT_SLOP_44}`}
                 >
                   <Send size={ICON.base} />
                 </button>
               ) : (
                 <button
-                  onClick={() => void rec.start()}
+                  onClick={() => {
+                    // start() возвращает false, если разрешения нет или запись
+                    // не поддерживается. Раньше это терялось, и кнопка
+                    // выглядела сломанной.
+                    void rec.start().then((ok) => {
+                      if (!ok) toast(t('Нет доступа к микрофону'));
+                    });
+                  }}
                   aria-label={t('Записать голосовое')}
-                  className="m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
+                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95 ${HIT_SLOP_44}`}
                 >
                   <Mic size={ICON.base} />
                 </button>

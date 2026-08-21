@@ -6,7 +6,7 @@ afterEach(() => setLang('ru'));
 
 describe('типизированные системные сообщения чата', () => {
   it('русский зритель: все три события', () => {
-    expect(systemEventText({ kind: 'join', name: 'Вася' })).toBe('Вася присоединился');
+    expect(systemEventText({ kind: 'join', name: 'Вася' })).toBe('Вася теперь в группе');
     expect(systemEventText({ kind: 'call', sec: 187 })).toBe('📞 Аудиозвонок · 3:07');
     expect(systemEventText({ kind: 'callMissed' })).toBe('📵 Пропущенный аудиозвонок');
   });
@@ -16,7 +16,7 @@ describe('типизированные системные сообщения ч�
     // text сохранён по-русски (язык отправителя) — рендер обязан игнорировать
     // его и раскрыть kind+params на языке зрителя. Это суть per-viewer.
     const m = { text: 'Вася присоединился', sys: { kind: 'join', name: 'Вася' } as const };
-    expect(systemMessageText(m)).toBe('Вася joined');
+    expect(systemMessageText(m)).toBe('Вася is now in the group');
     expect(systemEventText({ kind: 'call', sec: 61 })).toBe('📞 Audio call · 1:01');
     expect(systemEventText({ kind: 'callMissed' })).toBe('📵 Missed audio call');
   });
@@ -36,17 +36,17 @@ describe('типизированные системные сообщения ч�
   });
 
   it('join без имени: заглушка тоже локализуется у зрителя', () => {
-    expect(systemMessageText({ text: 'x', sys: { kind: 'join' } })).toBe('Участник присоединился');
-    expect(systemMessageText({ text: 'x', sys: { kind: 'join', name: '  ' } })).toBe('Участник присоединился');
+    expect(systemMessageText({ text: 'x', sys: { kind: 'join' } })).toBe('Участник теперь в группе');
+    expect(systemMessageText({ text: 'x', sys: { kind: 'join', name: '  ' } })).toBe('Участник теперь в группе');
     setLang('en');
-    expect(systemMessageText({ text: 'x', sys: { kind: 'join' } })).toBe('Member joined');
+    expect(systemMessageText({ text: 'x', sys: { kind: 'join' } })).toBe('Member is now in the group');
   });
 
   it('имя с долларовыми паттернами вставляется дословно', () => {
     // replaceAll со строковой заменой съел бы $$ / $& — подстановка функцией.
     setLang('en');
-    expect(systemEventText({ kind: 'join', name: 'Ba$$ Boy' })).toBe('Ba$$ Boy joined');
-    expect(systemEventText({ kind: 'join', name: '$&' })).toBe('$& joined');
+    expect(systemEventText({ kind: 'join', name: 'Ba$$ Boy' })).toBe('Ba$$ Boy is now in the group');
+    expect(systemEventText({ kind: 'join', name: '$&' })).toBe('$& is now in the group');
   });
 
   it('битые params с провода не роняют рендер — fallback в text', () => {
