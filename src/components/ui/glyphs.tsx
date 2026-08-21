@@ -171,9 +171,9 @@ export const GCalendar = /*#__PURE__*/ glyph(
 export const GStats = /*#__PURE__*/ glyph(
   'stats',
   <>
-    <rect x="3.2" y="14.2" width="4.2" height="6.7" rx="1.3" fill="currentColor" fillOpacity="0.35" />
-    <rect x="9.9" y="9.6" width="4.2" height="11.3" rx="1.3" fill="currentColor" fillOpacity="0.35" />
-    <rect x="16.6" y="5" width="4.2" height="15.9" rx="1.3" fill="currentColor" />
+    <rect x="3.2" y="13.5" width="4.2" height="6.7" rx="1.3" fill="currentColor" fillOpacity="0.25" stroke="none" />
+    <rect x="9.9" y="8.9" width="4.2" height="11.3" rx="1.3" fill="currentColor" fillOpacity="0.25" stroke="none" />
+    <rect x="16.6" y="4.3" width="4.2" height="15.9" rx="1.3" fill="currentColor" fillOpacity="0.25" stroke="none" />
     <path d="M3.2 20.2h17.6" />
   </>,
 );
@@ -186,7 +186,7 @@ export const GTarget = /*#__PURE__*/ glyph(
     <circle cx="12" cy="12" r="4.4" fill="currentColor" fillOpacity="0.25" />
     <circle cx="12" cy="12" r="8.2" />
     <circle cx="12" cy="12" r="4.4" />
-    <circle cx="12" cy="12" r="1.45" fill="currentColor" />
+    <circle cx="12" cy="12" r="1.45" fill="currentColor" stroke="none" />
   </>,
 );
 
@@ -393,7 +393,7 @@ export const GPhoto = /*#__PURE__*/ glyph(
     <path d="M6.7 19.1 12 12.5l5.3 6.6z" fill="currentColor" fillOpacity="0.25" />
     <rect x="3.7" y="4.9" width="16.6" height="14.2" rx="3" />
     <path d="M6.7 19.1 12 12.5l5.3 6.6" />
-    <circle cx="16.1" cy="9.2" r="1.3" fill="currentColor" />
+    <circle cx="16.1" cy="9.2" r="1.3" fill="currentColor" stroke="none" />
   </>,
 );
 
