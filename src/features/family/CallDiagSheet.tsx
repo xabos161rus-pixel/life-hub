@@ -38,6 +38,12 @@ export function CallDiagSheet({ open, onClose }: { open: boolean; onClose: () =>
           <Row label={t('Свои маршруты')} value={fmtCands(d.local)} bad={!d.local.relay} />
           <Row label={t('Маршруты собеседника')} value={fmtCands(d.remote)} bad={!d.remote.relay} />
           {d.pair && <Row label={t('Выбранная пара')} value={d.pair} />}
+          {!!d.restarts && (
+            <Row label={t('Попыток восстановить')} value={String(d.restarts)} />
+          )}
+          {!!d.iceErrors?.length && (
+            <Row label={t('Отказы ретранслятора')} value={d.iceErrors.join(', ')} bad />
+          )}
 
           <p className="rounded-xl bg-surface-2 p-3 text-xs leading-relaxed text-muted">
             {verdict(d.turn === 'ok', !!d.local.relay, !!d.remote.relay)}

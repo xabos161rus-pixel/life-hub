@@ -616,19 +616,19 @@ export class FamilyRoom extends DurableObject {
     }
   }
 
-  // ICE-серверы. STUN (Cloudflare + Google) бесплатен и безлимитен. TURN
-  // (relay для сетей за симметричным NAT/VPN, где P2P не пробивается),
-  // по приоритету:
+  // ICE-серверы. STUN бесплатен и безлимитен. TURN (relay для сетей за
+  // симметричным NAT/VPN, где P2P не пробивается), по приоритету:
   //   1) Cloudflare Realtime (секреты TURN_KEY_*; 1000 ГБ/мес, нужна подписка);
   //   2) Metered.ca (секреты METERED_DOMAIN + METERED_API_KEY; 20 ГБ/мес
   //      бесплатно, без карты);
   //   3) без секретов — только STUN (анонимный Open Relay мёртв — проверено).
   // Медиа шифруется SRTP — ретранслятор содержимого не видит.
   async iceServers() {
-    const servers = [
-      { urls: 'stun:stun.cloudflare.com:3478' },
-      { urls: 'stun:stun.l.google.com:19302' },
-    ];
+    // Один STUN, а не два: браузер опрашивает ВСЕ сконфигурированные серверы,
+    // и лишний удлиняет сбор кандидатов (предупреждение в документации
+    // Nextcloud Talk; у Firefox известны зависания сбора на 12-13 секунд).
+    // Google-STUN убран — Cloudflare отдаёт свой в том же ответе.
+    const servers = [{ urls: 'stun:stun.cloudflare.com:3478' }];
     const keyId = this.env.TURN_KEY_ID;
     const apiToken = this.env.TURN_KEY_API_TOKEN;
     if (keyId && apiToken) {
@@ -638,13 +638,16 @@ export class FamilyRoom extends DurableObject {
           {
             method: 'POST',
             headers: { Authorization: `Bearer ${apiToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ttl: 86400 }),
+            // TTL с запасом «дольше самого длинного звонка» (рекомендация
+            // Cloudflare): протухшие посреди разговора креды — это отказ
+            // ретранслятора ровно в момент, когда он нужен для восстановления.
+            body: JSON.stringify({ ttl: 28800 }),
           },
         );
         if (r.ok) {
           const data = await r.json();
           if (data.iceServers) {
-            servers.push(data.iceServers);
+            servers.push(...orderTurn(data.iceServers));
             return servers;
           }
         }
@@ -795,4 +798,32 @@ export class FamilyRoom extends DurableObject {
       );
     }
   }
+}
+
+/**
+ * Порядок TURN-адресов решает, дозвонится ли человек с мобильного интернета.
+ * Логика повторяет src/lib/family/callTuning.ts (orderTurnUrls) — там же
+ * подробное обоснование и тесты. Дублируется намеренно: воркер собирается
+ * отдельно от приложения и импортировать из src не может.
+ */
+function orderTurn(ice) {
+  const list = Array.isArray(ice) ? ice : [ice];
+  return list.map((s) => {
+    const urls = (Array.isArray(s.urls) ? s.urls : [s.urls]).filter(
+      (u) => typeof u === 'string' && !/:53(\?|$)/.test(u),
+    );
+    const rank = (u) => {
+      if (u.startsWith('turns:') && u.includes(':443')) return 0;
+      if (u.startsWith('turns:')) return 1;
+      if (u.startsWith('turn:') && u.includes('udp')) return 2;
+      if (u.startsWith('turn:')) return 3;
+      return 4;
+    };
+    const ordered = [...urls].sort((a, b) => rank(a) - rank(b));
+    if (!ordered.some((u) => u.startsWith('turns:') && u.includes(':443'))) {
+      const anyTls = ordered.find((u) => u.startsWith('turns:'));
+      if (anyTls) ordered.unshift(anyTls.replace(/:\d+/, ':443'));
+    }
+    return { ...s, urls: ordered };
+  });
 }

@@ -402,6 +402,8 @@ export const EN: Record<string, string> = {
   'Свои маршруты': 'Your routes',
   'Маршруты собеседника': 'Their routes',
   'Выбранная пара': 'Chosen pair',
+  'Попыток восстановить': 'Recovery attempts',
+  'Отказы ретранслятора': 'Relay errors',
   'есть ретранслятор': 'relay available',
   'только прямые': 'direct only',
   'Устройство не получило ретранслятор от сервера. На мобильном интернете без него звонок почти всегда обрывается — проверьте связь и попробуйте снова.': 'This device did not get a relay from the server. On mobile data a call almost always drops without one — check the connection and try again.',

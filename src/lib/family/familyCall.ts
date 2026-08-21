@@ -13,6 +13,7 @@ import { encryptJSON, decryptJSON } from '../crypto';
 import { getFamilyConfig } from './familyState';
 import { sendSignal, sendSystemMessage, connectFamily, type SignalFrame, type SignalKind } from './familyChat';
 import { startRingtone, stopRingtone } from './ringtone';
+import { tuneOpusSdp } from './callTuning';
 import { t } from '../i18n';
 
 const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
@@ -21,6 +22,11 @@ const RING_TIMEOUT_MS = 30_000;
 // 6 секунд: короткие провалы мобильной сети укладываются, а человек ещё не
 // решил, что связь умерла.
 const RECOVERY_GRACE_MS = 6_000;
+// Сколько раз пытаемся переиграть соединение, прежде чем признать поражение,
+// и с какой паузой. Числа — из клиента LiveKit: без паузы повтор приходится
+// на момент, когда сеть ещё не вернулась, и попытка сгорает впустую.
+const MAX_RESTARTS = 5;
+const RESTART_BACKOFF_MS = [0, 300, 1200, 2700, 4800];
 const OFFER_RESEND_MS = 2500;
 const ICE_GATHER_CAP_MS = 2000;
 // Фолбэк на случай недоступности /family/turn: только STUN. TURN-креды
@@ -49,6 +55,12 @@ export interface CallSnapshot {
   reconnecting: boolean;
 }
 
+/** Тот же тюнинг, но поверх описания сессии — в этом виде оно и ходит
+ *  между createOffer/createAnswer и setLocal/RemoteDescription. */
+function withOpusTuning(d: RTCSessionDescriptionInit | null): RTCSessionDescriptionInit {
+  return { type: d?.type ?? 'offer', sdp: tuneOpusSdp(d?.sdp) };
+}
+
 /** Что произошло со связью на этом устройстве — для экрана «Почему не вышло».
  *  Без этих фактов «Соединение потеряно» неотличимо от десятка разных причин:
  *  не пришли TURN-креды, сеть не пустила relay, оборвался сигналинг. */
@@ -65,6 +77,10 @@ export interface CallDiag {
   pair?: string;
   iceState?: string;
   connState?: string;
+  /** Отказы ретранслятора: 401 — протухшие креды, 701 — не достучались. */
+  iceErrors?: string[];
+  /** Сколько раз пытались переиграть соединение до сдачи. */
+  restarts?: number;
   reason: string;
 }
 
@@ -115,6 +131,9 @@ class CallManager {
 
   private familyId: string | null = null;
   private peerId: string | null = null;
+  // Свой идентификатор в группе — им выбирается сторона, отвечающая за
+  // восстановление связи. Заполняется при старте/приёме звонка.
+  private selfId: string | null = null;
   private callId: string | null = null;
   private role: 'caller' | 'callee' | null = null;
   private gen = 0; // поколение звонка: end() инкрементит → in-flight setup сверяет и бросает осиротевшие mic/pc
@@ -131,7 +150,8 @@ class CallManager {
   private diagTurnDetail: string | undefined;
   private diagLocal: Record<string, number> = {};
   private diagRemote: Record<string, number> = {};
-  private restarted = false; // ICE-restart делаем один раз за звонок
+  private diagIceErrors: string[] = [];
+  private restartAttempt = 0; // сколько попыток восстановления уже сделано
 
   // Громкая связь.
   // iOS/Safari: Audio Session API — type 'play-and-record' ведёт звук «к уху»
@@ -144,6 +164,15 @@ class CallManager {
   private receiverSinkId: string | null = null;
   private earpieceInputId: string | null = null;
   private speakerInputId: string | null = null;
+
+  // Блокировка гашения экрана на время разговора.
+  //
+  // Это лечение самой частой причины «поговорили и связь оборвалась» на
+  // телефоне: когда экран гаснет, iOS замораживает WebRTC, а спустя 30 секунд
+  // без подтверждения канала соединение обязано умереть по спецификации
+  // (consent freshness, RFC 7675). Человек в это время просто держит телефон
+  // у уха и ничего не трогает.
+  private wakeLock: WakeLockSentinel | null = null;
 
   private ringTimer: ReturnType<typeof setTimeout> | null = null;
   private resendTimer: ReturnType<typeof setInterval> | null = null;
@@ -294,6 +323,36 @@ class CallManager {
     }
   }
 
+  /** Держать экран включённым, пока идёт разговор. Система может отобрать
+   *  блокировку при уходе в фон — тогда её возвращает armMicRecovery по
+   *  возвращении на экран. */
+  private async holdScreen() {
+    try {
+      if (this.wakeLock || !('wakeLock' in navigator)) return;
+      this.wakeLock = await navigator.wakeLock.request('screen');
+      this.wakeLock.addEventListener('release', () => {
+        this.wakeLock = null;
+      });
+    } catch {
+      /* платформа не даёт — не критично, звонок продолжается */
+    }
+  }
+
+  private releaseScreen() {
+    const wl = this.wakeLock;
+    this.wakeLock = null;
+    if (wl) void wl.release().catch(() => {});
+  }
+
+  /** Мобильный интернет? Знание неточное (браузеры отдают тип сети не все и
+   *  не всегда), поэтому используется только как подсказка для выбора
+   *  relay-only — при неизвестном типе ведём себя как раньше. */
+  private cellular(): boolean {
+    const c = (navigator as Navigator & { connection?: { type?: string; effectiveType?: string } })
+      .connection;
+    return c?.type === 'cellular';
+  }
+
   /** Тип ICE-кандидата из SDP-строки: host | srflx | relay | prflx. */
   private candType(sdp: string | undefined): string {
     const m = / typ (\w+)/.exec(sdp ?? '');
@@ -311,6 +370,8 @@ class CallManager {
       remote: { ...this.diagRemote },
       iceState: pc?.iceConnectionState,
       connState: pc?.connectionState,
+      iceErrors: this.diagIceErrors.length ? [...this.diagIceErrors] : undefined,
+      restarts: this.restartAttempt || undefined,
       reason,
     };
     try {
@@ -354,7 +415,23 @@ class CallManager {
 
   private async createPc(familyId: string): Promise<RTCPeerConnection> {
     const iceServers = await this.fetchIce(familyId);
-    const pc = new RTCPeerConnection({ iceServers });
+    const pc = new RTCPeerConnection({
+      iceServers,
+      // Сотовая сеть почти всегда за симметричным CGNAT: прямой путь там не
+      // встанет никогда, а перебор host/srflx-пар — это и есть те самые
+      // «долгие секунды» перед обрывом. Идём сразу через ретранслятор.
+      // Тот же приём у Jitsi (forceTurnRelay). Трафик аудио 1:1 — около
+      // 40 МБ в час, при бесплатном лимите 1000 ГБ это ничего не стоит.
+      ...(this.cellular() && this.diagTurn === 'ok'
+        ? { iceTransportPolicy: 'relay' as RTCIceTransportPolicy }
+        : {}),
+      // Один транспорт на всё соединение: дефолт 'balanced' собирает
+      // отдельные наборы кандидатов на каждый медиапоток и удлиняет сбор.
+      bundlePolicy: 'max-bundle',
+      // Прогреть кандидатов заранее, не дожидаясь setLocalDescription:
+      // пока летит зашифрованное приглашение, маршруты уже собираются.
+      iceCandidatePoolSize: 2,
+    });
     pc.ontrack = (e) => {
       const [stream] = e.streams;
       if (stream) {
@@ -368,6 +445,15 @@ class CallManager {
       this.diagLocal[t] = (this.diagLocal[t] ?? 0) + 1;
       void this.signal('ice', { candidate: e.candidate.toJSON() });
     };
+    // Отказ ретранслятора виден только здесь: 401 — протухшие креды, 701 —
+    // до сервера не достучались (порт зарезан сетью). Без этой записи обе
+    // причины выглядят одинаково — «просто не соединилось».
+    pc.addEventListener('icecandidateerror', (ev) => {
+      const e = ev as RTCPeerConnectionIceErrorEvent;
+      if (this.diagIceErrors.length < 5) {
+        this.diagIceErrors.push(`${e.errorCode} ${String(e.url ?? '').slice(0, 40)}`);
+      }
+    });
     pc.onconnectionstatechange = () => {
       const s = pc.connectionState;
       if (this.pc !== pc) return; // событие осиротевшего соединения
@@ -380,6 +466,8 @@ class CallManager {
           this.ringTimer = null;
         }
         if (this.snap.reconnecting) this.set({ reconnecting: false });
+        this.restartAttempt = 0; // связь ожила — счётчик попыток с чистого листа
+        void this.holdScreen();
         if (this.snap.status !== 'active') this.set({ status: 'active', startedAt: Date.now() });
       } else if (s === 'disconnected') {
         // Мобильная сеть роняет соединение на секунды (лифт, переход
@@ -388,11 +476,7 @@ class CallManager {
         // умирал там, где связь восстановилась бы сама.
         this.beginRecovery(pc);
       } else if (s === 'failed') {
-        // Один ICE-restart: собираем кандидатов заново (у сети сменился
-        // адрес) и переигрываем offer. Это штатный путь WebRTC, без него
-        // любая смена сети = конец разговора.
-        if (!this.restarted && this.role === 'caller') {
-          this.restarted = true;
+        if (this.canRestart()) {
           this.set({ reconnecting: true });
           void this.restartIce(pc);
           return;
@@ -415,12 +499,13 @@ class CallManager {
       this.recoveryTimer = null;
       if (this.pc !== pc) return;
       if (pc.connectionState === 'disconnected') {
-        if (!this.restarted && this.role === 'caller') {
-          this.restarted = true;
+        if (this.canRestart()) {
           void this.restartIce(pc);
-        } else {
+        } else if (this.isRecoveryInitiator()) {
+          // Попытки исчерпаны — дальше тянуть бессмысленно.
           void this.writeDiag('Связь не восстановилась').finally(() => this.end('Связь не восстановилась'));
         }
+        // Не инициатор — ждём: восстановление ведёт другая сторона.
       }
     }, RECOVERY_GRACE_MS);
   }
@@ -432,13 +517,47 @@ class CallManager {
     }
   }
 
-  /** Пересобрать ICE и переслать offer той же стороне. Делает только caller —
-   *  иначе обе стороны переигрывают одновременно и мешают друг другу. */
+  /** Кто переигрывает соединение при обрыве.
+   *
+   *  Раньше это делал только звонящий — и если именно его телефон уснул или
+   *  потерял сеть, восстанавливать разговор было некому. Теперь роль
+   *  назначается детерминированно по идентификаторам участников: у обоих
+   *  устройств сравнение даёт один и тот же ответ, поэтому переигрывает
+   *  ровно одна сторона и встречные offer'ы не сталкиваются. Если своя
+   *  сторона не назначена — ждём: инициатор с той стороны нас вытянет. */
+  private isRecoveryInitiator(): boolean {
+    const self = this.selfId;
+    const peer = this.peerId;
+    if (!self || !peer) return this.role === 'caller';
+    return self < peer;
+  }
+
+  private canRestart(): boolean {
+    return this.restartAttempt < MAX_RESTARTS && this.isRecoveryInitiator();
+  }
+
+  /** Пересобрать маршруты и переиграть приглашение. Попытки идут с растущей
+   *  паузой (0 → 0.3 → 1.2 → 2.7 → 4.8 с, как в клиенте LiveKit): мгновенный
+   *  повтор в момент, когда сеть ещё не вернулась, просто сжигает попытку. */
   private async restartIce(pc: RTCPeerConnection) {
+    const delay = RESTART_BACKOFF_MS[Math.min(this.restartAttempt, RESTART_BACKOFF_MS.length - 1)];
+    this.restartAttempt++;
     try {
       const gen = this.gen;
+      if (delay) await new Promise((r) => setTimeout(r, delay));
+      if (this.gen !== gen || this.pc !== pc) return;
+      // Свежие ICE-серверы: за время разговора креды могли протухнуть, а
+      // ретранслятор нужен именно сейчас. setConfiguration меняет их без
+      // разрыва соединения.
+      const iceServers = await this.fetchIce(this.familyId ?? '');
+      if (this.gen !== gen || this.pc !== pc) return;
+      try {
+        pc.setConfiguration({ ...pc.getConfiguration(), iceServers });
+      } catch {
+        /* смена конфигурации не поддержана — идём со старыми серверами */
+      }
       pc.restartIce();
-      const offer = await pc.createOffer({ iceRestart: true });
+      const offer = withOpusTuning(await pc.createOffer({ iceRestart: true }));
       if (this.gen !== gen || this.pc !== pc) return;
       await pc.setLocalDescription(offer);
       if (this.gen !== gen || this.pc !== pc) return;
@@ -499,6 +618,8 @@ class CallManager {
     this.role = 'caller';
     this.pendingCandidates = [];
     const gen = this.gen;
+    this.selfId = (await getFamilyConfig(familyId))?.selfMemberId ?? null;
+    if (this.gen !== gen) return;
     const name = await this.peerName(peerId);
     if (this.gen !== gen) return;
     this.set({ peerName: name });
@@ -515,7 +636,7 @@ class CallManager {
     this.armMicRecovery();
     const pc = await this.createPc(familyId);
     if (this.gen !== gen) return this.abortLocal(pc, stream);
-    await pc.setLocalDescription(await pc.createOffer());
+    await pc.setLocalDescription(withOpusTuning(await pc.createOffer()));
     if (this.gen !== gen) return this.abortLocal(pc, stream);
     await this.waitIce(pc);
     if (this.gen !== gen) return this.abortLocal(pc, stream);
@@ -568,10 +689,10 @@ class CallManager {
     if (this.gen !== gen) return this.abortLocal(null, stream);
     const pc = await this.createPc(familyId);
     if (this.gen !== gen) return this.abortLocal(pc, stream);
-    await pc.setRemoteDescription(offer.sdp);
+    await pc.setRemoteDescription(withOpusTuning(offer.sdp));
     if (this.gen !== gen) return this.abortLocal(pc, stream);
     await this.drainCandidates();
-    await pc.setLocalDescription(await pc.createAnswer());
+    await pc.setLocalDescription(withOpusTuning(await pc.createAnswer()));
     if (this.gen !== gen) return this.abortLocal(pc, stream);
     await this.waitIce(pc);
     if (this.gen !== gen) return this.abortLocal(pc, stream);
@@ -779,6 +900,7 @@ class CallManager {
       this.peerId = f.from;
       this.callId = f.call;
       this.role = 'callee';
+      this.selfId = c.selfMemberId ?? null;
       this.pendingOffer = f.data;
       // Кандидаты, обогнавшие это приглашение, — в очередь текущего звонка.
       this.pendingCandidates = this.earlyCandidates.get(f.call) ?? [];
@@ -817,7 +939,7 @@ class CallManager {
       const ans = await decryptJSON<{ sdp: RTCSessionDescriptionInit }>(c.familyKey, f.data);
       if (this.pc !== pc) return; // звонок снесён/заменён, пока расшифровывали
       try {
-        await pc.setRemoteDescription(ans.sdp);
+        await pc.setRemoteDescription(withOpusTuning(ans.sdp));
       } catch {
         return; // pc закрыт во время await
       }
@@ -883,7 +1005,8 @@ class CallManager {
     this.clearConnTimeout();
     this.clearRecovery();
     this.disarmMicRecovery();
-    this.restarted = false;
+    this.releaseScreen();
+    this.restartAttempt = 0;
     this.earlyCandidates.clear();
     // Вернуть системной аудиосессии обычный режим (iOS).
     {
