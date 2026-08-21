@@ -15,6 +15,7 @@ import {
   Reply,
   Paperclip,
   Mic,
+  Search as SearchIcon,
   Play,
   Pause,
   LoaderCircle,
@@ -49,6 +50,7 @@ import { systemMessageText } from '../../lib/family/systemMessage';
 import { linkify } from '../../lib/family/linkify';
 import { clearDraft, loadDraft, saveDraft } from '../../lib/family/draft';
 import { clearUndecrypted, subscribeUndecrypted, undecryptedCount } from '../../lib/family/undecrypted';
+import { searchMessages, type SearchHit } from '../../lib/family/searchMessages';
 import {
   sendMessage,
   sendImage,
@@ -799,6 +801,26 @@ export function ChatTab({ familyId }: { familyId: string }) {
     () => 0,
   );
 
+  // Поиск по переписке. Ищем по базе, а не по загруженному окну: нужное почти
+  // всегда старше того, что лежит в ленте.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  useEffect(() => {
+    if (!searchOpen) return;
+    let cancelled = false;
+    // Небольшая пауза: иначе каждая набранная буква прочёсывает историю.
+    const id = setTimeout(() => {
+      void searchMessages(familyId, query).then((res) => {
+        if (!cancelled) setHits(res);
+      });
+    }, 220);
+    return () => {
+      cancelled = true;
+      clearTimeout(id);
+    };
+  }, [familyId, query, searchOpen]);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
@@ -867,6 +889,25 @@ export function ChatTab({ familyId }: { familyId: string }) {
     }
   }, [list.length, firstUnreadId]);
 
+  // Показать сообщение, до которого человек не долистывал: находка поиска или
+  // цитата на старое сообщение. Лента держит в разметке только хвост
+  // переписки, поэтому сначала разворачиваем её настолько, чтобы нужное
+  // попало в окно, и лишь потом прыгаем — иначе прыгать некуда.
+  const pendingJump = useRef<string | null>(null);
+  function revealMessage(m: FamilyMessage) {
+    const idx = full.findIndex((x) => x.clientMsgId === m.clientMsgId);
+    if (idx >= 0 && full.length - idx <= windowSize) {
+      jumpToMessage(m.clientMsgId);
+      return;
+    }
+    pendingJump.current = m.clientMsgId;
+    // Сколько нужно показать: от найденного до конца переписки. Если
+    // сообщение старше и предела чтения — берём с запасом, следующий заход
+    // эффекта доберёт остальное.
+    const need = idx >= 0 ? full.length - idx + 10 : windowSize + PAGE * 4;
+    setWin({ familyId, size: Math.max(windowSize, need) });
+  }
+
   // Прыжок к сообщению (тап по цитате): свой scrollTop + подсветка на секунду.
   function jumpToMessage(id: string) {
     const scrollEl = scrollRef.current;
@@ -879,6 +920,18 @@ export function ChatTab({ familyId }: { familyId: string }) {
     if (highlightTimer.current) clearTimeout(highlightTimer.current);
     highlightTimer.current = setTimeout(() => setHighlightId(null), 1300);
   }
+
+  // Долистали до нужного сообщения — прыгаем. Пока его нет в разметке, ждём
+  // следующего захода: окно растёт постранично. Слой стоит ПОСЛЕ объявления
+  // jumpToMessage — иначе вызов идёт по подъёму объявления, а это ошибка
+  // правил хуков.
+  useLayoutEffect(() => {
+    const id = pendingJump.current;
+    if (!id) return;
+    if (!scrollRef.current?.querySelector(`[data-msg-id="${CSS.escape(id)}"]`)) return;
+    pendingJump.current = null;
+    jumpToMessage(id);
+  }, [list, windowSize]);
 
   // Черновик пишем сразу при вводе, а не эффектом: человек печатает и тут же
   // уходит на «Участников», и эффект не успевал отработать до размонтирования
@@ -1067,16 +1120,18 @@ export function ChatTab({ familyId }: { familyId: string }) {
     // Полная высота под чат от каркаса (Screen fill): лента растёт и скроллится,
     // композер прибит к низу. Без magic-number — высоту даёт родитель.
     <div className="flex h-full min-h-0 flex-col">
-      {/* Для группы из нескольких собеседников строка «0 в сети» не сообщает
-          ничего, чего человек уже не предполагает, — прячем её, пока никто не
-          появился и не печатает. Для одного собеседника показываем всегда:
-          «был(а) в сети 2 ч назад» — это ценность, а не шум. */}
-      {others.length > 0 &&
-        (others.length === 1 ||
-          typers.length > 0 ||
-          others.some((o) => onlineSet.has(o.id))) && (
+      {/* Строка над лентой: слева присутствие, справа поиск. Для группы из
+          нескольких собеседников «0 в сети» не сообщает ничего, чего человек
+          уже не предполагает, — оставляем слева пусто, пока никто не появился
+          и не печатает. Для одного собеседника показываем всегда: «был(а) в
+          сети 2 ч назад» — это ценность, а не шум. Сама строка живёт всегда:
+          в ней кнопка поиска, и отдельная строка ради неё стоила бы чату
+          ещё двух десятков пикселей высоты. */}
+      {!searchOpen && (
         <div className="flex shrink-0 items-center gap-1.5 px-1 pb-1.5 text-xs">
-          {others.length === 1 ? (
+          {others.length > 0 &&
+          (others.length === 1 || typers.length > 0 || others.some((o) => onlineSet.has(o.id))) ? (
+            others.length === 1 ? (
             <>
               <span
                 className={`size-2 shrink-0 rounded-full ${onlineSet.has(others[0].id) ? 'bg-success' : 'bg-muted'}`}
@@ -1095,6 +1150,73 @@ export function ChatTab({ familyId }: { familyId: string }) {
               />
               <span className={typers.length > 0 ? 'text-accent' : 'text-muted'}>{headerStatus}</span>
             </>
+            )
+          ) : null}
+          <button
+            onClick={() => setSearchOpen(true)}
+            aria-label={t('Искать в переписке')}
+            className={`ml-auto shrink-0 p-1 text-muted active:text-accent ${HIT_SLOP_44}`}
+          >
+            <SearchIcon size={ICON.action} />
+          </button>
+        </div>
+      )}
+      {searchOpen && (
+        <div className="mb-2 shrink-0">
+          <div className="flex items-center gap-2 rounded-2xl border border-border bg-surface px-3 py-1.5 focus-within:border-accent">
+            <SearchIcon size={ICON.action} className="shrink-0 text-muted" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('Искать в переписке')}
+              // 16px, иначе Safari при фокусе увеличивает страницу.
+              className="min-w-0 flex-1 bg-transparent py-1.5 text-base outline-none"
+            />
+            <button
+              onClick={() => {
+                setSearchOpen(false);
+                setQuery('');
+                setHits([]);
+              }}
+              aria-label={t('Закрыть поиск')}
+              className={`shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+            >
+              <X size={ICON.action} />
+            </button>
+          </div>
+          {query.trim().length >= 2 && (
+            <div className="mt-1.5 max-h-56 overflow-y-auto rounded-2xl bg-surface-2/60">
+              {hits.length === 0 ? (
+                <p className="px-3 py-2.5 text-xs text-muted">{t('Ничего не нашлось')}</p>
+              ) : (
+                hits.map((h) => (
+                  <button
+                    key={h.message.clientMsgId}
+                    onClick={() => {
+                      setSearchOpen(false);
+                      revealMessage(h.message);
+                    }}
+                    className="flex w-full items-baseline gap-2 border-b border-hairline/50 px-3 py-2 text-left last:border-0 active:bg-surface-2"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-xs">
+                      <span className="font-medium" style={{ color: memberMap[h.message.senderMemberId]?.color }}>
+                        {memberMap[h.message.senderMemberId]?.displayName || t('Участник')}
+                      </span>
+                      {': '}
+                      {/* Найденное выделяем: в длинной строке иначе не видно,
+                          за что она зацепилась. */}
+                      {h.message.text.slice(Math.max(0, h.from - 24), h.from)}
+                      <mark className="rounded bg-accent/25 text-fg">{h.message.text.slice(h.from, h.to)}</mark>
+                      {h.message.text.slice(h.to, h.to + 40)}
+                    </span>
+                    <span className="shrink-0 text-2xs text-muted">
+                      {now ? dayLabel(h.message.createdAt, now) : ''}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
           )}
         </div>
       )}

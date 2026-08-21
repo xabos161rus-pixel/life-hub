@@ -204,6 +204,9 @@ export const EN: Record<string, string> = {
   'Загружаю прошлые сообщения…': 'Loading earlier messages…',
   'Непрочитанные': 'Unread',
   'Перемотка': 'Seek',
+  'Искать в переписке': 'Search messages',
+  'Закрыть поиск': 'Close search',
+  'Ничего не нашлось': 'Nothing found',
   'Не удалось прочитать сообщений: {n}. Они зашифрованы ключом, которого нет на этом устройстве.':
     'Could not read {n} message(s). They are encrypted with a key this device does not have.',
   'Пока нет сообщений. Напишите первым!': 'No messages yet. Write the first one!',
