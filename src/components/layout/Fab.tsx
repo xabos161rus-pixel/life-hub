@@ -238,7 +238,7 @@ export function Fab({ onClick, label }: Props) {
       aria-hidden={hidden || undefined}
       tabIndex={hidden ? -1 : undefined}
       style={{
-        backgroundImage: 'linear-gradient(140deg, var(--app-accent-fill), var(--app-accent-2-fill))',
+        background: 'var(--app-accent-fill)',
         touchAction: 'none', // касание кнопки не скроллит страницу — тащим её саму
         // Свойство translate, а не transform: transform занят переносом
         // (императивно в onPointerMove), и они бы затирали друг друга.

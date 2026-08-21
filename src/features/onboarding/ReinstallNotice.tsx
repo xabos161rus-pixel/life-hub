@@ -69,7 +69,7 @@ export function ReinstallNotice() {
         onClick={dismiss}
         className="absolute inset-0 bg-black/55 backdrop-blur-sm"
       />
-      <div className="relative m-3 flex max-h-[88dvh] w-full max-w-md animate-fade-in flex-col overflow-hidden rounded-3xl border border-border bg-bg shadow-2xl">
+      <div className="relative m-3 flex max-h-[88dvh] w-full max-w-md animate-fade-in flex-col overflow-hidden rounded-3xl border border-border bg-bg">
         {/* Шапка */}
         <div className="relative flex items-center gap-3 px-5 pt-5 pb-4">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl tile-accent text-accent">
@@ -200,7 +200,7 @@ export function ReinstallNotice() {
             href={INSTALL_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-accent-fill to-accent-2-fill px-5 py-3.5 font-semibold text-white shadow-[0_6px_20px_-9px_var(--app-accent-fill)] active:opacity-90"
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-accent-fill px-5 py-3.5 font-semibold text-white active:opacity-90"
           >
             <ExternalLink size={ICON.base} />
             {t('Открыть сайт установки')}

@@ -558,7 +558,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
             disabled={!value.trim()}
             className={`grid size-10 shrink-0 place-items-center rounded-full text-white transition-opacity active:opacity-80 disabled:opacity-30 ${HIT_SLOP_44}`}
             style={{
-              background: 'linear-gradient(150deg, var(--app-accent), var(--app-accent-2))',
+              background: 'var(--app-accent-fill)',
               boxShadow: 'var(--shadow-accent)',
             }}
             onClick={onSend}

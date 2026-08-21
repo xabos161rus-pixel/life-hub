@@ -57,9 +57,7 @@ export function TabBar() {
                     // узком экране она сжимается вместо того, чтобы задавать
                     // неусыхаемый min-content и выталкивать ряд за край.
                     className={`flex h-9 w-full max-w-16 items-center justify-center rounded-2xl transition-colors duration-200 ${
-                      isActive
-                        ? 'bg-accent/15 text-accent shadow-[0_5px_18px_-7px_var(--app-accent-fill)]'
-                        : 'text-muted'
+                      isActive ? 'text-accent' : 'text-muted'
                     }`}
                   >
                     <span className="relative shrink-0">
@@ -71,9 +69,6 @@ export function TabBar() {
                         // больше нет, вес идёт обычным пропом и означает
                         // пиксели (ui/icons.ts).
                         strokeWidth={isActive ? STROKE_STRONG : STROKE}
-                        style={
-                          isActive ? { filter: 'drop-shadow(0 0 6px var(--app-accent))' } : undefined
-                        }
                       />
                       {showBadge && (
                         <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-warning ring-2 ring-elevated" />

@@ -34,16 +34,22 @@ export function InstallBanner() {
 
   return (
     <div
-      className="card mx-auto mt-4 flex w-[calc(100%-32px)] max-w-lg shrink-0 items-center gap-3 p-3"
+      // Одна строка вместо трёх. Прежний вид занимал 106px из 659 на КАЖДОМ
+      // экране приложения — самую дорогую площадь верха отдавали системной
+      // просьбе, одинаковой во всех разделах. Объяснение, почему это важно,
+      // никуда не делось: оно на странице, которая открывается по нажатию.
+      className="card mx-auto mt-3 flex w-[calc(100%-32px)] max-w-lg shrink-0 items-center gap-2.5 px-3 py-2"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
-        <Share size={ICON.base} />
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg tile-accent text-accent">
+        <Share size={ICON.action} />
       </span>
-      <Link to="/more/settings/install" className="min-w-0 flex-1 text-sm">
-        <span className="font-semibold">{t('Установите на экран «Домой»')}</span>
-        <span className="block text-muted">
-          {t('Иначе данные могут не сохраниться. Как это сделать →')}
-        </span>
+      {/* min-h-11: свернув баннер в строку, ссылку легко оставить ниже нормы —
+          зона нажатия обязана держать 44px независимо от высоты текста. */}
+      <Link
+        to="/more/settings/install"
+        className="flex min-h-11 min-w-0 flex-1 items-center truncate text-sm font-medium"
+      >
+        {t('Установите на экран «Домой»')}
       </Link>
       <button
         aria-label={t('Скрыть')}

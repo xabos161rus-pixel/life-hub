@@ -214,7 +214,7 @@ function GroupSwitcher({
             key={c.familyId}
             onClick={() => onSelect(c.familyId)}
             className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium active:opacity-80 ${
-              active ? 'bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent' : 'bg-surface-2 text-muted'
+              active ? 'bg-accent-fill text-white' : 'bg-surface-2 text-muted'
             }`}
           >
             <span className="max-w-[9rem] truncate">{c.familyName || t('Семья')}</span>

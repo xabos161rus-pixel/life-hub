@@ -70,7 +70,7 @@ function GoalCard({
             width: `${pct}%`,
             background: reached
               ? 'var(--app-success)'
-              : `linear-gradient(90deg, ${goal.color}, var(--app-accent-2))`,
+              : goal.color,
           }}
         />
       </div>
@@ -136,7 +136,7 @@ function GoalCard({
               onDeposit();
             }}
             className="shrink-0 rounded-xl px-4 py-2 text-sm font-bold text-white active:opacity-80"
-            style={{ background: `linear-gradient(140deg, ${goal.color}, var(--app-accent-2))` }}
+            style={{ background: goal.color }}
           >
             {t('Пополнить')}
           </button>

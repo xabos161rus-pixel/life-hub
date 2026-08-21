@@ -364,7 +364,7 @@ function Section({
 /** Тонкая линия-индикатор вставки задачи между строками. */
 function TaskDropLine() {
   return (
-    <div className="my-1.5 h-1 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent-fill)]" aria-hidden />
+    <div className="my-1.5 h-1 rounded-full bg-accent" aria-hidden />
   );
 }
 
@@ -529,8 +529,8 @@ function FrozenSection({
 function DropLine() {
   return (
     <div className="mx-1 mb-4 flex items-center gap-2" aria-hidden>
-      <span className="size-3 shrink-0 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent-fill)]" />
-      <span className="h-1.5 flex-1 rounded-full bg-accent shadow-[0_0_12px_2px_var(--app-accent-fill)]" />
+      <span className="size-3 shrink-0 rounded-full bg-accent" />
+      <span className="h-1.5 flex-1 rounded-full bg-accent" />
     </div>
   );
 }

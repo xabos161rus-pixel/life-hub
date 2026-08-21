@@ -493,7 +493,7 @@ function MessageRow({
                 ? 'bg-transparent px-1 py-0'
                 : `rounded-2xl ${m.image ? 'p-1' : 'px-3 py-2'} ${
                     own
-                      ? `bg-gradient-to-br from-accent-fill to-accent-2-fill text-white ${groupEnd ? 'rounded-br-md' : ''}`
+                      ? `bg-accent-fill text-white ${groupEnd ? 'rounded-br-md' : ''}`
                       : `bg-surface-2 text-text ${groupEnd ? 'rounded-bl-md' : ''}`
                   }`
             } ${highlight ? 'ring-2 ring-frost' : ''}`}
@@ -1470,7 +1470,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             <button
               onClick={rec.stop}
               aria-label={t('Отправить голосовое')}
-              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent-fill text-white active:scale-95"
             >
               <Send size={ICON.header} />
             </button>
@@ -1546,7 +1546,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   onClick={() => void submit()}
                   disabled={!text.trim()}
                   aria-label={t('Отправить')}
-                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white disabled:opacity-40 active:scale-95 ${HIT_SLOP_44}`}
+                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-accent-fill text-white disabled:opacity-40 active:scale-95 ${HIT_SLOP_44}`}
                 >
                   <Send size={ICON.base} />
                 </button>
@@ -1561,7 +1561,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                     });
                   }}
                   aria-label={t('Записать голосовое')}
-                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95 ${HIT_SLOP_44}`}
+                  className={`m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-accent-fill text-white active:scale-95 ${HIT_SLOP_44}`}
                 >
                   <Mic size={ICON.base} />
                 </button>

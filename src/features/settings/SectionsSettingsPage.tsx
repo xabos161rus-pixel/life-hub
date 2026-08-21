@@ -264,7 +264,7 @@ export function SectionsSettingsPage() {
   const dropLine = (index: number) =>
     dropIndex === index ? (
       <div
-        className="my-1 h-1 rounded-full bg-accent shadow-[0_0_10px_2px_var(--app-accent-fill)]"
+        className="my-1 h-1 rounded-full bg-accent"
         aria-hidden
       />
     ) : null;

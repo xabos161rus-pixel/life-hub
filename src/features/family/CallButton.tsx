@@ -63,7 +63,7 @@ export function CallButton({ familyId }: { familyId: string }) {
         type="button"
         aria-label={others.length === 1 ? t('Позвонить: {name}', { name: others[0].displayName }) : t('Позвонить')}
         onClick={() => (others.length === 1 ? call(others[0].id) : setPick(true))}
-        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent active:scale-95"
+        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-fill text-white active:scale-95"
       >
         <GPhone size={ICON.header} />
       </button>

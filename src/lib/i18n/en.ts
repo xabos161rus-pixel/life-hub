@@ -5,6 +5,7 @@
 
 export const EN: Record<string, string> = {
   // === Разделы и навигация ===
+  'чтобы не потерять данные': 'so your data is not lost',
   'нужна резервная копия': 'backup needed',
   'есть непрочитанные': 'unread messages',
   'Сегодня': 'Today',

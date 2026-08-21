@@ -122,7 +122,7 @@ export function CallOverlay({ snap }: { snap: CallSnapshot }) {
       {/* Кто и статус */}
       <div className="flex flex-1 flex-col items-center justify-center gap-6">
         <span
-          className={`flex size-28 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-3xl font-semibold text-white shadow-2xl ${
+          className={`flex size-28 items-center justify-center rounded-full bg-accent-fill text-3xl font-semibold text-white ${
             snap.status === 'outgoing' || incoming ? 'animate-pulse' : ''
           }`}
         >

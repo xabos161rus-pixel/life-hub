@@ -133,7 +133,7 @@ export function Screen({
                 словом «Заметка» незачем. Рендерить пустой h1 нельзя — он
                 занимает высоту строки и раздувает шапку. */}
             {title && (
-              <h1 className="line-clamp-2 text-[clamp(23px,7.5vw,27px)] leading-[1.15] font-bold tracking-tight break-words">
+              <h1 className="line-clamp-2 text-2xl leading-[1.15] font-bold tracking-tight break-words">
                 {title}
               </h1>
             )}
