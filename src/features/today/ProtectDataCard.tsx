@@ -59,7 +59,7 @@ export function ProtectDataCard() {
           <X size={ICON.action} />
         </button>
         <div className="flex items-start gap-3 pr-6">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
             <ShieldCheck size={ICON.header} />
           </div>
           <div className="min-w-0">

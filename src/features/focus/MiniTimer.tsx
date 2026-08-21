@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { Pause, Play, RotateCcw } from 'lucide-react';
 import {
   GClose as X,
+  GPause as Pause,
+  GPlay as Play,
+  GRepeat as RotateCcw,
 } from '../../components/ui/glyphs';
 import { formatClock, usePomodoro } from './pomodoro';
 import { t } from '../../lib/i18n';

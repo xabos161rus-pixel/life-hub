@@ -6,7 +6,6 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Lock, RotateCcw } from 'lucide-react';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
 import { Screen } from '../../components/layout/Screen';
@@ -21,6 +20,10 @@ import { computeNavLayout } from '../../lib/navLayout';
 import { freezeAllForSection, unfreezeSectionFrozen } from '../habits/habitRepo';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import {
+  GLock as Lock,
+  GRepeat as RotateCcw,
+} from '../../components/ui/glyphs';
 
 const LAYOUT_OPTS = { maxBottom: MAX_BOTTOM, defaultBottom: DEFAULT_BOTTOM, anchorId: ANCHOR_ID };
 
@@ -209,6 +212,12 @@ export function SectionsSettingsPage() {
     window.addEventListener('pointerup', finish);
     window.addEventListener('pointercancel', cancel);
     const prevTouch = document.body.style.touchAction;
+    // Правило react-hooks/immutability считает это изменением неизменяемого
+    // значения. Здесь оно ошибается: страница на время переноса запрещает
+    // собственную прокрутку, и это законная работа с DOM внутри эффекта —
+    // ровно то, для чего эффекты и нужны. Прежнее значение возвращается в
+    // функции очистки ниже.
+    // eslint-disable-next-line react-hooks/immutability
     document.body.style.touchAction = 'none';
     return () => {
       window.removeEventListener('pointermove', move);
@@ -286,7 +295,7 @@ export function SectionsSettingsPage() {
           draggable ? 'touch-pan-y cursor-grab select-none [-webkit-touch-callout:none] [-webkit-user-select:none] active:cursor-grabbing' : ''
         }`}
       >
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
           <Icon size={ICON.header} />
         </div>
         {/* Обычный shrink (был shrink-[0.05]): при сумме flex-факторов меньше 1
@@ -336,7 +345,7 @@ export function SectionsSettingsPage() {
   // как у обычной строки (см. row): те же зазоры, тот же неусыхаемый бейдж.
   const anchorRow = anchor && (
     <div className="flex items-center gap-3 card p-3 max-[375px]:gap-2 max-[375px]:px-2">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
         <anchor.icon size={ICON.header} />
       </div>
       <span className="min-w-0 grow basis-auto truncate font-semibold">{t(anchor.label)}</span>

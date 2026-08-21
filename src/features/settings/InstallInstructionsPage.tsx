@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   Smartphone,
   SquarePlus,
-  TriangleAlert,
   Upload,
   type LucideIcon,
 } from 'lucide-react';
@@ -17,6 +16,9 @@ import { Screen } from '../../components/layout/Screen';
 import { InstallLink } from './InstallLink';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import {
+  GAlert as TriangleAlert,
+} from '../../components/ui/glyphs';
 
 const STEPS: { icon: LucideIcon; text: string }[] = [
   { icon: Compass, text: 'Откройте этот сайт в Safari' },

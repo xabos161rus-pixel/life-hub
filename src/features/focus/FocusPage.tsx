@@ -1,11 +1,17 @@
 import { useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ListChecks, Pause, Play, RotateCcw, SkipForward } from 'lucide-react';
+import {
+  ListChecks,
+  SkipForward,
+} from 'lucide-react';
 import {
   GChevronRight as ChevronRight,
   GPencil as Pencil,
   GPlus as Plus,
   GTrash as Trash2,
+  GPause as Pause,
+  GPlay as Play,
+  GRepeat as RotateCcw,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';

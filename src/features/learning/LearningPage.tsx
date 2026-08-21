@@ -64,7 +64,7 @@ function LearningCard({ item, onOpen }: { item: LearningItem; onOpen: () => void
       className="card p-4 active:opacity-90"
     >
       <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
           <Icon size={ICON.header} />
         </div>
         <div className="min-w-0 flex-1">

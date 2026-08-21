@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Lock } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { verifyPin } from '../../lib/crypto';
@@ -7,6 +6,9 @@ import type { CycleSettings } from '../../db/cycleTypes';
 import { unlockCycleSection } from './lockState';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import {
+  GLock as Lock,
+} from '../../components/ui/glyphs';
 
 /** Экран ввода кода перед разделом.
  *

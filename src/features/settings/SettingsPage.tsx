@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'r
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
 import {
-  BellRing,
   PhoneCall,
   SlidersHorizontal,
   Lightbulb,
@@ -13,6 +12,7 @@ import {
   GTrash as Trash2,
   GBot as Bot,
   GLearning as GraduationCap,
+  GBellRing as BellRing,
 } from '../../components/ui/glyphs';
 import { ACCENTS } from '../../lib/accents';
 import { getLang, resolveLang, t } from '../../lib/i18n';

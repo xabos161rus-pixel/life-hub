@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  ExternalLink,
   Lightbulb,
   Package,
   Plane,
@@ -21,6 +20,7 @@ import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import {
   GPlaces as MapPin,
+  GExternalLink as ExternalLink,
 } from '../../components/ui/glyphs';
 
 const KIND_ICONS: Record<PlaceKind, LucideIcon> = {
@@ -71,12 +71,12 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
               e.stopPropagation();
               openMaps(item.location);
             }}
-            className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent active:opacity-70"
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent active:opacity-70"
           >
             <MapPin size={ICON.header} />
           </button>
         ) : (
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
             <Icon size={ICON.header} />
           </div>
         )}

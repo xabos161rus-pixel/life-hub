@@ -34,7 +34,7 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
       to={to}
       className="flex items-center gap-3 card p-4 active:opacity-80"
     >
-      <div className="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+      <div className="relative flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
         <Icon size={ICON.header} />
         {badge && (
           <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-warning" />

@@ -95,7 +95,7 @@ export function OnboardingOverlay() {
         key={step}
         className="relative flex min-h-0 flex-1 animate-fade-in flex-col items-center justify-center gap-5 px-8 text-center"
       >
-        <div className="flex size-20 items-center justify-center rounded-3xl bg-accent/15 text-accent shadow-[var(--shadow-accent)]">
+        <div className="flex size-20 items-center justify-center rounded-3xl tile-accent text-accent shadow-[var(--shadow-accent)]">
           <Icon size={ICON.hero} strokeWidth={STROKE_STRONG} />
         </div>
         <h2 className="text-2xl font-bold tracking-tight">{t(slide.title)}</h2>

@@ -36,7 +36,7 @@ export function InstallBanner() {
     <div
       className="card mx-auto mt-4 flex w-[calc(100%-32px)] max-w-lg shrink-0 items-center gap-3 p-3"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
         <Share size={ICON.base} />
       </span>
       <Link to="/more/settings/install" className="min-w-0 flex-1 text-sm">

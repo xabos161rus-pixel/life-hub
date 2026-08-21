@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { RefreshCw, QrCode, Smartphone, ShieldCheck, Copy } from 'lucide-react';
+import {
+  RefreshCw,
+  QrCode,
+  Smartphone,
+  ShieldCheck,
+} from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/toastContext';
 import { getSyncConfig } from '../../../lib/syncState';
@@ -8,6 +13,9 @@ import { createSyncAccount, disableSync, runSync } from '../../../lib/sync';
 import { PairingSheet } from './PairingSheet';
 import { t } from '../../../lib/i18n';
 import { ICON } from '../../../components/ui/icons';
+import {
+  GCopy as Copy,
+} from '../../../components/ui/glyphs';
 
 function formatSyncedAt(iso: string): string {
   if (!iso) return t('ещё не синхронизировано');

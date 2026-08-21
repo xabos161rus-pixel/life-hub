@@ -1,11 +1,14 @@
 import { useMemo, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { FolderKanban, RotateCcw } from 'lucide-react';
+import {
+  FolderKanban,
+} from 'lucide-react';
 // Иконки разделов — из реестра, по той же причине, что и на экране поиска:
 // свой список означал бы один раздел двумя разными рисунками в одном кадре.
 import { SECTION_BY_ID } from '../../lib/sections';
 import {
   GTrash as Trash2,
+  GRepeat as RotateCcw,
 } from '../../components/ui/glyphs';
 import type { LucideIcon } from 'lucide-react';
 import type { Table } from 'dexie';

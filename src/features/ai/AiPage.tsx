@@ -4,11 +4,9 @@ import {
   CircleAlert,
   ArrowDown,
   ArrowUp,
-  Copy,
   Database,
   MessageSquarePlus,
   PanelsTopLeft,
-  RotateCcw,
   SlidersHorizontal,
   Square,
 } from 'lucide-react';
@@ -17,6 +15,8 @@ import { useToast } from '../../components/ui/toastContext';
 import {
   GSparkle,
   GChevronDown as ChevronDown,
+  GCopy as Copy,
+  GRepeat as RotateCcw,
 } from '../../components/ui/glyphs';
 import { IconButton } from '../../components/ui/IconButton';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';

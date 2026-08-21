@@ -14,12 +14,10 @@ import { useLoaded } from '../../hooks/useLoaded';
 import {
   ArrowLeft,
   ArrowRight,
-  FolderPlus,
   GripVertical,
   Hand,
   ListChecks,
   Repeat,
-  Snowflake,
 } from 'lucide-react';
 import {
   GChevronDown as ChevronDown,
@@ -28,6 +26,8 @@ import {
   GPencil as Pencil,
   GPlus as Plus,
   GSun as Sun,
+  GFolderPlus as FolderPlus,
+  GSnowflake as Snowflake,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { isTouch } from '../../lib/platform';

@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
-import { Copy, Download, TriangleAlert } from 'lucide-react';
+import {
+  Download,
+} from 'lucide-react';
 import {
   GCheck as Check,
+  GCopy as Copy,
+  GAlert as TriangleAlert,
 } from '../../../components/ui/glyphs';
 import { Sheet } from '../../../components/ui/Sheet';
 import { Button } from '../../../components/ui/Button';

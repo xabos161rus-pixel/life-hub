@@ -1,9 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Snowflake } from 'lucide-react';
 import {
   GCheck as Check,
   GFolder as Folder,
+  GSnowflake as Snowflake,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';

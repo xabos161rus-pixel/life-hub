@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
-import { Bell, Copy, Repeat, SkipForward, Snowflake } from 'lucide-react';
+import {
+  Bell,
+  Repeat,
+  SkipForward,
+} from 'lucide-react';
 import type { Project, Task } from '../../db/types';
 import { HIT_SLOP_44, TaskCheck } from '../../components/ui/Checkbox';
 import { ProgressBar } from '../../components/ui/ProgressBar';
@@ -13,6 +17,10 @@ import { describeRecurrence } from '../../lib/recurrence';
 import { t } from '../../lib/i18n';
 import { skipTask, toggleTask } from './taskActions';
 import { ICON } from '../../components/ui/icons';
+import {
+  GCopy as Copy,
+  GSnowflake as Snowflake,
+} from '../../components/ui/glyphs';
 
 const PRIORITY_BAR: Record<number, string> = {
   3: 'bg-danger',

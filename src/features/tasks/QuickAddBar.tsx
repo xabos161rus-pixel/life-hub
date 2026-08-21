@@ -2,7 +2,6 @@ import { useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 
 import {
   CircleX,
   CornerDownLeft,
-  Send,
 } from 'lucide-react';
 import { isTouch } from '../../lib/platform';
 import { db } from '../../db/db';
@@ -16,6 +15,7 @@ import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 import {
   GSparkle as Sparkles,
+  GSend as Send,
 } from '../../components/ui/glyphs';
 
 /**

@@ -8,16 +8,11 @@ import {
   CheckCheck,
   ChevronsDown,
   Clock,
-  Copy,
   Hand,
   Heart,
-  Send,
-  Reply,
   Paperclip,
   Mic,
   Search as SearchIcon,
-  Play,
-  Pause,
   LoaderCircle,
   Image as ImageIcon,
   File as FileIcon,
@@ -30,6 +25,11 @@ import {
   GPencil as Pencil,
   GTrash as Trash2,
   GClose as X,
+  GCopy as Copy,
+  GSend as Send,
+  GReply as Reply,
+  GPlay as Play,
+  GPause as Pause,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import type { FamilyMessage } from '../../db/types';

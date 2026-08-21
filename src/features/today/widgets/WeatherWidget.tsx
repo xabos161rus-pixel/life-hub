@@ -53,7 +53,7 @@ export function WeatherWidget() {
 
   return (
     <section className="card mb-4 flex items-center gap-4 px-4 py-3.5">
-      <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-accent/12 text-accent">
+      <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl tile-accent text-accent">
         {weatherIcon(w.code, w.isDay)}
       </div>
       <div className="min-w-0 flex-1">

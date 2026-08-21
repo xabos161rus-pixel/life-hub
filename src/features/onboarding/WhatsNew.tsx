@@ -29,14 +29,18 @@ export function WhatsNew() {
   // виделось lastSeenVersion === undefined, эффект считал это первым запуском
   // и затирал реальную версию — окно не показывалось никогда.
   const settings = useLiveQuery(() => db.settings.get('app'), []);
-  // Закрыто в этом сеансе. Само окно — производное от версии, а не отдельное
-  // состояние: setState внутри эффекта дал бы каскадный рендер, да и «показать
-  // ли окно» полностью определяется тем, что уже лежит в настройках.
-  const [dismissed, setDismissed] = useState(false);
-
   const loading = settings === undefined;
   const seen = settings?.lastSeenVersion;
   const onboarded = Boolean(settings?.onboardingDone);
+
+  // Закрыто в этом сеансе — помним вместе с версией, для которой закрывали.
+  // Кнопка «Что нового» в настройках сбрасывает lastSeenVersion, и окно обязано
+  // открыться снова даже у того, кто уже закрывал его в этом сеансе. Раньше
+  // сброс делал эффект со setState: лишний каскад рендеров ради значения,
+  // которое вычисляется прямо здесь.
+  const [dismissal, setDismissal] = useState<{ seen?: string; value: boolean }>({ value: false });
+  const dismissed = dismissal.seen === seen && dismissal.value;
+  const setDismissed = (value: boolean) => setDismissal({ seen, value });
   // Версию молча запоминаем в двух случаях, когда окно показывать не надо:
   //  — первый запуск: человеку всё новое, список изменений вместо приветствия
   //    бессмыслен;
@@ -49,10 +53,6 @@ export function WhatsNew() {
       void updateSettings({ lastSeenVersion: APP_VERSION });
     }
   }, [silentCatchUp, seen]);
-
-  // Кнопка «Что нового» в настройках сбрасывает lastSeenVersion — окно
-  // обязано открыться и у того, кто уже закрывал его в этом сеансе.
-  useEffect(() => setDismissed(false), [seen]);
 
   const open = !loading && !silentCatchUp && seen !== APP_VERSION && !dismissed;
 

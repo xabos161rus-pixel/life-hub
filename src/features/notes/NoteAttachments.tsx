@@ -53,7 +53,7 @@ export function NoteAttachments({
               disabled={!ready}
               aria-label={t('Скачать {name}', { name: f.name })}
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
                 <Icon size={ICON.header} />
               </span>
               <span className="min-w-0">

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { BellRing } from 'lucide-react';
 import {
   GClose as X,
+  GBellRing as BellRing,
 } from '../../components/ui/glyphs';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
-import { connectionState, subscribeConnection, registerAllFamilyPush } from '../../lib/family/familyChat';
+import { registerAllFamilyPush } from '../../lib/family/familyChat';
 import { getFamilyConfig } from '../../lib/family/familyState';
 import { pushEnabled, pushSupported, isStandalone, enablePush } from '../../lib/push';
 import { MembersTab } from './MembersTab';
@@ -22,25 +22,6 @@ const TABS = [
   { value: 'tasks' as const, label: 'Задачи' },
   { value: 'members' as const, label: 'Участники' },
 ];
-
-function useConnection(familyId: string) {
-  const [s, setS] = useState(connectionState(familyId));
-  useEffect(() => subscribeConnection(familyId, setS), [familyId]);
-  return s;
-}
-
-const CONN_LABEL: Record<string, string> = { offline: 'не в сети', connecting: 'подключение…', online: 'на связи' };
-
-/** Статус соединения для подзаголовка шапки: «на связи» / «подключение…» /
- *  «не в сети». Живёт здесь, а рендерится в FamilyPage: раньше статус занимал
- *  собственную строку в теле экрана, и вместе со свитчером групп и баннерами
- *  лента чата не влезала в экран вовсе. Только соединение, без счётчиков:
- *  присутствие СОБЕСЕДНИКОВ (кто онлайн, «был(а) в сети…», «печатает») — зона
- *  ответственности строки внутри ChatTab, второй счётчик был бы дублем. */
-export function useFamilyStatusLine(familyId: string): string {
-  const conn = useConnection(familyId);
-  return t(CONN_LABEL[conn]);
-}
 
 export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
   const [tab, setTab] = useState<Tab>('chat');

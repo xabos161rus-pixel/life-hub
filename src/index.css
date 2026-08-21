@@ -125,6 +125,10 @@
   --shadow-card: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px -12px oklch(0 0 0 / 0.55);
   --shadow-pop: 0 8px 30px -8px oklch(0 0 0 / 0.6);
   --shadow-accent: 0 10px 30px -8px oklch(0.74 0.142 266 / 0.5);
+  /* Тень под плиткой знака. Мягче акцентной: та поднимает кнопку, эта лишь
+     отделяет плитку от карточки. Цвет тянется из --app-accent, поэтому
+     переопределять её в каждой палитре не нужно. */
+  --shadow-tile: 0 8px 20px -14px color-mix(in oklab, var(--app-accent) 55%, transparent);
   --shadow-focus: 0 10px 30px -8px oklch(0.66 0.205 38 / 0.5);
   color-scheme: dark;
 }
@@ -175,6 +179,7 @@
   --shadow-card: 0 1px 2px oklch(0.7 0.02 284 / 0.18), 0 10px 24px -14px oklch(0.5 0.04 284 / 0.3);
   --shadow-pop: 0 10px 30px -8px oklch(0.5 0.04 284 / 0.25);
   --shadow-accent: 0 10px 30px -10px oklch(0.58 0.17 266 / 0.45);
+  --shadow-tile: 0 6px 16px -12px color-mix(in oklab, var(--app-accent) 40%, transparent);
   --shadow-focus: 0 10px 30px -10px oklch(0.62 0.205 35 / 0.45);
   color-scheme: light;
 }
@@ -566,6 +571,30 @@ select {
   font-weight: 700;
 }
 
+
+/* Плитка под знаком раздела.
+ *
+ * Плоская подложка bg-accent/15 читается как заливка формы: знак нарисован НА
+ * фоне. Градиент с тонкой обводкой и мягкой тенью читается как поверхность, на
+ * которой знак лежит, — разница заметна там, где плитки идут подряд: на
+ * «Главной», в списке разделов, в настройках.
+ *
+ * Границу держим внутри размера (box-sizing: border-box у Tailwind по
+ * умолчанию), поэтому size-10 остаётся 40px и раскладка не едет. */
+.tile-accent {
+  /* Стопы НЕПРОЗРАЧНЫЕ — акцент подмешан к поверхности, а не к transparent.
+     Полупрозрачный градиент выглядит так же, но ломает замер контраста: обход
+     в e2e/contrast.spec.ts, найдя backgroundImage, берёт его стопы за базу и
+     прекращает подъём по родителям, а прозрачный стоп базой быть не может —
+     все иконки на плитках показывали 1.01:1 вместо реальных четырёх. */
+  background-image: linear-gradient(
+    150deg,
+    color-mix(in oklab, var(--app-accent) 20%, var(--app-surface)),
+    color-mix(in oklab, var(--app-accent) 8%, var(--app-surface))
+  );
+  border: 1px solid color-mix(in oklab, var(--app-accent) 24%, transparent);
+  box-shadow: var(--shadow-tile);
+}
 
 /* Видимый фокус клавиатуры. Правило намеренно ВНЕ @layer: утилита
    outline-none живёт в @layer utilities, а всё, что вне слоёв, перебивает

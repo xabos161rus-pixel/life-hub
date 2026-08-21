@@ -123,7 +123,7 @@ describe('код, вставленный из мессенджера', () => {
     const code = await sealInvite(DATA, word);
     // U+200E в начале и U+200B в середине — их дописывают чаты и клавиатуры.
     const cut = Math.floor(code.length / 2);
-    const pasted = `‎${code.slice(0, cut)}​${code.slice(cut)}`;
+    const pasted = `\u200E${code.slice(0, cut)}\u200B${code.slice(cut)}`;
     const parsed = parsePastedInvite(pasted);
     expect(parsed.kind).toBe('v3');
     const opened = await openInvite(parsed.code, word);

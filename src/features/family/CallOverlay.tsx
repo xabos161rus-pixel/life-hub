@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { PhoneOff, Mic, MicOff, Volume2, Headphones, Lock } from 'lucide-react';
+import {
+  PhoneOff,
+  Mic,
+  MicOff,
+  Volume2,
+  Headphones,
+} from 'lucide-react';
 import {
   GPhone as Phone,
+  GLock as Lock,
 } from '../../components/ui/glyphs';
 import { callManager, type CallSnapshot } from '../../lib/family/familyCall';
 import { getLang, t } from '../../lib/i18n';
