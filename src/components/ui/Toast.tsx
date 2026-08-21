@@ -14,13 +14,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={show}>
       {children}
-      {message && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+92px)] z-[60] flex justify-center px-6">
+      {/* role="status" + aria-live: всплывающее сообщение — единственный канал
+          подтверждений в приложении («Скопировано», «Не удалось сохранить»), и
+          без живого региона незрячий пользователь не узнаёт о нём вообще.
+          Регион висит в DOM всегда, меняется только текст: вставленный вместе с
+          сообщением, он озвучивается не во всех связках браузер-скринридер. */}
+      <div
+        role="status"
+        aria-live="polite"
+        className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+92px)] z-[60] flex justify-center px-6"
+      >
+        {message && (
           <div className="animate-fade-in rounded-full bg-surface-2 px-4 py-2.5 text-sm font-medium shadow-lg shadow-black/30 border border-border">
             {message}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </ToastContext.Provider>
   );
 }

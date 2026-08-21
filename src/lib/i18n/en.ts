@@ -5,6 +5,8 @@
 
 export const EN: Record<string, string> = {
   // === Разделы и навигация ===
+  'нужна резервная копия': 'backup needed',
+  'есть непрочитанные': 'unread messages',
   'Сегодня': 'Today',
   'Календарь': 'Calendar',
   'Задачи': 'Tasks',

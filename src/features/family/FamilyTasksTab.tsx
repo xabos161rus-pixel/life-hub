@@ -50,7 +50,20 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
     const assignee = task.assigneeId ? memberMap[task.assigneeId] : null;
     const author = memberMap[task.createdBy];
     return (
-      <div key={task.id} onClick={() => openEdit(task)} className="flex items-start gap-3 py-3 active:opacity-80">
+      <div
+        key={task.id}
+        role="button"
+        tabIndex={0}
+        aria-label={t('Изменить задачу')}
+        onClick={() => openEdit(task)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openEdit(task);
+          }
+        }}
+        className="flex items-start gap-3 py-3 active:opacity-80"
+      >
         <TaskCheck checked={done} onChange={() => void toggleFamilyTask(familyId, task)} color={assignee?.color} />
         <div className="min-w-0 flex-1">
           <p className={`break-words ${done ? 'text-muted line-through' : 'font-medium'}`}>{task.title}</p>

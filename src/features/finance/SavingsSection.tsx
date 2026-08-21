@@ -37,7 +37,19 @@ function GoalCard({
   const accent = reached ? 'var(--app-success)' : goal.color;
 
   return (
-    <div onClick={onEdit} className="card p-4 active:opacity-90">
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={t('Изменить цель накоплений')}
+      onClick={onEdit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onEdit();
+        }
+      }}
+      className="card p-4 active:opacity-90"
+    >
       <div className="mb-3.5 flex items-center gap-2.5">
         <span
           className="flex size-10 shrink-0 items-center justify-center rounded-xl text-lg leading-none"
