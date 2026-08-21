@@ -63,7 +63,7 @@ test('английский: системные сообщения чата ло�
     ]);
   });
   await page.goto('/more/family?g=f1');
-  await expect(page.getByText('Вася joined')).toBeVisible();
+  await expect(page.getByText('Вася is now in the group')).toBeVisible();
   await expect(page.getByText('📞 Audio call · 3:07')).toBeVisible();
   await expect(page.getByText('Мама присоединилась')).toBeVisible();
 });
