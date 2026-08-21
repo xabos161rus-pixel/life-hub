@@ -3,6 +3,7 @@
 // изменения и отправить). Содержимое шифруется на устройстве; на Worker уходит
 // только шифротекст + служебные поля.
 
+import type { IndexableType, Table } from 'dexie';
 import { db } from '../db/db';
 import type { SyncConfig } from '../db/types';
 import {
@@ -120,24 +121,46 @@ function isPoisonRecord(e: unknown): boolean {
 }
 
 /**
- * У habitLogs уникальный составной индекс &[habitId+date] (db.ts), а id
- * генерируются случайно на каждом устройстве. Отметил привычку за один день
- * на маке и на телефоне до обмена — получаются две строки с разными id и
- * одинаковой парой [habitId+date], и put входящей падает с ConstraintError.
- * Разрешаем как везде в синке — по LWW, оставляя более свежую отметку.
+ * Конфликты по уникальным индексам.
+ *
+ * У части таблиц есть уникальные индексы: &[habitId+date] у отметок привычек,
+ * &date у отметок энергии — они держат правило «одна отметка в день» на уровне
+ * базы. При этом id генерируются случайно на каждом устройстве. Отметил
+ * привычку (или уровень энергии) за один день на маке и на телефоне до
+ * обмена — получаются две строки с разными id и одинаковым ключом, и put
+ * входящей падает с ConstraintError.
+ *
+ * А ConstraintError не считается «ядовитой записью», значит pullPage бросает
+ * его дальше и курсор lastPullAt не двигается. Синхронизация встаёт НАВСЕГДА и
+ * молча — вместе с задачами, заметками, целями и финансами. Именно так и было
+ * с energyLogs: разрешение конфликта написали под habitLogs поимённо, а вторую
+ * таблицу с уникальным индексом просто забыли.
+ *
+ * Поэтому идём не по списку таблиц, а по схеме: спрашиваем у Dexie, какие
+ * индексы объявлены уникальными, и разрешаем каждый по LWW — как везде в
+ * синке. Новая таблица с уникальным индексом попадает сюда сама, без правок.
+ *
  * Возвращает false, если побеждает локальная запись и писать не нужно.
  */
-async function resolveHabitLogConflict(obj: Row): Promise<boolean> {
-  const habitId = obj.habitId as string | undefined;
-  const date = obj.date as string | undefined;
-  if (!habitId || !date) return true;
-  const dup = await db.habitLogs.where('[habitId+date]').equals([habitId, date]).first();
-  if (!dup || dup.id === obj.id) return true;
-  if (obj.updatedAt > (dup.updatedAt ?? '')) {
-    await db.habitLogs.delete(dup.id); // входящая свежее — снимаем локальный дубль
-    return true;
+async function resolveUniqueConflicts(table: Table<Row>, obj: Row): Promise<boolean> {
+  for (const idx of table.schema.indexes) {
+    if (!idx.unique) continue;
+    const keys = Array.isArray(idx.keyPath) ? idx.keyPath : [idx.keyPath as string];
+    const values = keys.map((k) => obj[k]);
+    // Пустое значение в ключе индекса не индексируется — конфликтовать нечему.
+    if (values.some((v) => v === undefined || v === null || v === '')) continue;
+    const dup = await table
+      .where(idx.name)
+      .equals(idx.compound ? (values as IndexableType) : (values[0] as IndexableType))
+      .first();
+    if (!dup || dup.id === obj.id) continue;
+    if (obj.updatedAt > (dup.updatedAt ?? '')) {
+      await table.delete(dup.id); // входящая свежее — снимаем локальный дубль
+      continue;
+    }
+    return false; // локальная запись свежее — входящую игнорируем
   }
-  return false; // локальная отметка свежее — входящую игнорируем
+  return true;
 }
 
 /** Применить одну входящую запись. true — если что-то записано локально. */
@@ -196,7 +219,7 @@ async function applyRecord(c: SyncConfig, r: RemoteRecord): Promise<boolean> {
   const local = await table.get(r.id);
   if (!shouldApply(local?.updatedAt, r.updatedAt)) return false;
   const obj = await decryptJSON<Row>(c.key, r.ciphertext);
-  if (r.table === 'habitLogs' && !(await resolveHabitLogConflict(obj))) return false;
+  if (!(await resolveUniqueConflicts(table, obj))) return false;
   // Пишем НАПРЯМУЮ (минуя repo) — сохраняем серверный updatedAt, иначе синк
   // зациклится (repo проставил бы новый updatedAt → бесконечный пинг-понг).
   await table.put(obj);

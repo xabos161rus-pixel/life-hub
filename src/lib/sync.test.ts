@@ -73,11 +73,10 @@ beforeEach(async () => {
 afterEach(async () => {
   globalThis.fetch = realFetch;
   vi.restoreAllMocks();
-  // Чистим только то, что трогают тесты, — пересоздание базы медленнее.
-  await db.sync.clear();
-  await db.tasks.clear();
-  await db.notes.clear();
-  await db.habitLogs.clear();
+  // Чистим ВСЕ таблицы, а не список поимённо: список молча устаревает, и
+  // записи из прошлого теста ломают следующий там, где есть уникальные
+  // индексы. Пересоздавать базу всё равно дороже.
+  await Promise.all(db.tables.map((t) => t.clear()));
 });
 
 describe('курсор push', () => {
@@ -204,5 +203,85 @@ describe('конфликт habitLogs по [habitId+date]', () => {
     await runSync();
     expect(await db.habitLogs.get('local')).toBeTruthy();
     expect(await db.habitLogs.get('remote')).toBeUndefined();
+  });
+});
+
+describe('конфликт energyLogs по date', () => {
+  // У energyLogs уникальный индекс &date (db.ts, версия 16) — «одна отметка в
+  // день». Та же ловушка, что у привычек, но разрешения конфликта для неё не
+  // было: put падал с ConstraintError, а ConstraintError не считается
+  // «ядовитой записью», значит pullPage бросал ошибку дальше и курсор
+  // lastPullAt не двигался. Синхронизация вставала НАВСЕГДА и молча — вместе
+  // с задачами, заметками, целями и финансами.
+  it('входящая свежее — локальный дубль снимается, синк не встаёт', async () => {
+    const key = await seedSync();
+    const older = '2026-08-16T10:00:00.000Z';
+    const newer = '2026-08-16T11:00:00.000Z';
+    await db.energyLogs.put({ id: 'local', date: '2026-08-16', level: 2, updatedAt: older, deletedAt: null } as never);
+    const ct = await encryptJSON(key, { id: 'remote', date: '2026-08-16', level: 5, updatedAt: newer, deletedAt: null });
+    mockFetch((url) => {
+      if (url.includes('/sync/pull'))
+        return jsonRes({
+          records: [{ table: 'energyLogs', id: 'remote', updatedAt: newer, deletedAt: null, ciphertext: ct }],
+          hasMore: false,
+          nextSince: `${newer}|remote`,
+        });
+      return jsonRes({ ok: true });
+    });
+
+    const r = await runSync();
+    expect(r?.pulled).toBe(1);
+    expect(await db.energyLogs.get('remote')).toBeTruthy();
+    expect(await db.energyLogs.get('local')).toBeUndefined();
+    // И главное: курсор уехал вперёд, то есть следующий цикл пойдёт дальше.
+    const c = await getSyncConfig();
+    expect(c?.lastPullAt).toBe(`${newer}|remote`);
+  });
+
+  it('локальная свежее — входящая игнорируется', async () => {
+    const key = await seedSync();
+    const older = '2026-08-16T10:00:00.000Z';
+    const newer = '2026-08-16T11:00:00.000Z';
+    await db.energyLogs.put({ id: 'local', date: '2026-08-16', level: 4, updatedAt: newer, deletedAt: null } as never);
+    const ct = await encryptJSON(key, { id: 'remote', date: '2026-08-16', level: 1, updatedAt: older, deletedAt: null });
+    mockFetch((url) => {
+      if (url.includes('/sync/pull'))
+        return jsonRes({
+          records: [{ table: 'energyLogs', id: 'remote', updatedAt: older, deletedAt: null, ciphertext: ct }],
+          hasMore: false,
+          nextSince: `${older}|remote`,
+        });
+      return jsonRes({ ok: true });
+    });
+
+    await runSync();
+    expect(await db.energyLogs.get('local')).toBeTruthy();
+    expect(await db.energyLogs.get('remote')).toBeUndefined();
+  });
+
+  it('мягко удалённая отметка держит дату — входящая всё равно применяется', async () => {
+    // Снять отметку через приложение = мягкое удаление: строка остаётся и
+    // продолжает занимать date. Без разрешения конфликта человек не мог бы
+    // починить синк даже вручную.
+    const key = await seedSync();
+    const older = '2026-08-16T10:00:00.000Z';
+    const newer = '2026-08-16T11:00:00.000Z';
+    await db.energyLogs.put({
+      id: 'local', date: '2026-08-16', level: 2, updatedAt: older, deletedAt: older,
+    } as never);
+    const ct = await encryptJSON(key, { id: 'remote', date: '2026-08-16', level: 5, updatedAt: newer, deletedAt: null });
+    mockFetch((url) => {
+      if (url.includes('/sync/pull'))
+        return jsonRes({
+          records: [{ table: 'energyLogs', id: 'remote', updatedAt: newer, deletedAt: null, ciphertext: ct }],
+          hasMore: false,
+          nextSince: `${newer}|remote`,
+        });
+      return jsonRes({ ok: true });
+    });
+
+    const r = await runSync();
+    expect(r?.pulled).toBe(1);
+    expect(await db.energyLogs.get('remote')).toBeTruthy();
   });
 });
