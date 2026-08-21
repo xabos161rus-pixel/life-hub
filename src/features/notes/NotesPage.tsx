@@ -27,9 +27,16 @@ import { checklistProgress } from './checklist';
 import { countNotesDeep, flattenTree, folderMoveTargets } from './folderTree';
 import { ICON } from '../../components/ui/icons';
 
-/** HTML заметки → плоский текст для превью/поиска (с переносами на блоках). */
-function htmlToText(html: string): string {
-  const withBreaks = html
+/** HTML заметки → плоский текст для превью/поиска (с переносами на блоках).
+ *
+ *  Пустой аргумент — законный случай, а не небрежность: запись может приехать
+ *  синком с устройства другой версии или из восстановленной копии, где поля
+ *  content не оказалось. Без этой строки первая же такая заметка роняла ВЕСЬ
+ *  экран («Что-то пошло не так»), потому что рендер списка падал на
+ *  undefined.replace — из-за одной битой записи человек терял доступ ко всем
+ *  своим заметкам сразу. */
+function htmlToText(html: string | null | undefined): string {
+  const withBreaks = (html ?? '')
     .replace(/<\/?(?:div|p|li|h1|h2|ul|ol|blockquote)[^>]*>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<[^>]+>/g, '');

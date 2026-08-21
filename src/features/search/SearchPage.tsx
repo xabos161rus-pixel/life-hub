@@ -26,9 +26,13 @@ import { ICON } from '../../components/ui/icons';
 
 const PER_SECTION = 8;
 
-/** HTML заметки → плоский текст для поиска и контекста (теги убираем regex-ом). */
-function htmlToText(html: string): string {
-  return html
+/** HTML заметки → плоский текст для поиска и контекста (теги убираем regex-ом).
+ *
+ *  Пустой аргумент допустим: запись без content приезжает синком с устройства
+ *  другой версии или из восстановленной копии, и падать всем поиском из-за
+ *  одной такой заметки нельзя. */
+function htmlToText(html: string | null | undefined): string {
+  return (html ?? '')
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

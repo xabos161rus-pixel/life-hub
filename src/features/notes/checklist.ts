@@ -71,9 +71,13 @@ export function toggleChecklist(root: HTMLElement): void {
   }
 }
 
-/** Сколько пунктов сделано и сколько всего — для превью в списке заметок. */
-export function checklistProgress(html: string): { done: number; total: number } | null {
-  if (!html.includes(CHECKLIST_CLASS)) return null;
+/** Сколько пунктов сделано и сколько всего — для превью в списке заметок.
+ *
+ *  html может не быть вовсе: запись приезжает синком с устройства другой
+ *  версии или из восстановленной копии. Падение здесь означало бы пустой
+ *  экран вместо всего списка заметок. */
+export function checklistProgress(html: string | null | undefined): { done: number; total: number } | null {
+  if (!html?.includes(CHECKLIST_CLASS)) return null;
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const items = doc.querySelectorAll(`ul.${CHECKLIST_CLASS} > li`);
   if (items.length === 0) return null;

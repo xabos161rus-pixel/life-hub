@@ -153,12 +153,13 @@ const dayKeyShift = (days: number) => {
 /** HTML заметки → простой текст. В браузере — DOM-парсер, как в поиске и
  *  списке заметок; в юнитах (node, DOMParser отсутствует) — стрип тегов.
  *  Для поиска и передачи модели такой точности достаточно. */
-function htmlToText(html: string): string {
+function htmlToText(html: string | null | undefined): string {
+  const src = html ?? ''; // запись без content приезжает синком со старой версии
   if (typeof DOMParser !== 'undefined') {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const doc = new DOMParser().parseFromString(src, 'text/html');
     return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim();
   }
-  return html
+  return src
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')

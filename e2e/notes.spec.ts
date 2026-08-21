@@ -809,3 +809,32 @@ test.describe('карточка списка', () => {
     await expect(named.getByText('Предоплата 100%')).toBeVisible();
   });
 });
+
+test('битая заметка не роняет весь список', async ({ page }) => {
+  // Запись без content приезжает синком с устройства другой версии или из
+  // восстановленной копии. Раньше первая такая заметка валила экран целиком
+  // («Что-то пошло не так»): превью считалось через undefined.replace — и
+  // человек терял доступ сразу ко всем своим заметкам, а не к одной битой.
+  await openApp(page, '/notes');
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const ts = new Date().toISOString();
+    await db.notes.bulkPut([
+      // Без content вовсе — ровно то, что приезжает с чужой версии схемы.
+      { id: 'broken1', createdAt: ts, updatedAt: ts, deletedAt: null, title: 'Без содержимого', tags: [], pinned: false, folderId: null },
+      { id: 'ok1', createdAt: ts, updatedAt: ts, deletedAt: null, title: 'Целая заметка', content: '<p>Текст на месте</p>', tags: [], pinned: false, folderId: null },
+    ] as never[]);
+  });
+  await page.goto('/notes');
+
+  // Экран жив, и на нём обе заметки: битая не прячется и не мешает соседке.
+  await expect(page.getByText('Что-то пошло не так')).toHaveCount(0);
+  await expect(page.getByText('Целая заметка')).toBeVisible();
+  await expect(page.getByText('Без содержимого')).toBeVisible();
+
+  // Поиск по заметкам тоже переживает битую запись.
+  await openApp(page, '/search');
+  await page.getByPlaceholder('Искать везде…').fill('Текст');
+  await expect(page.getByText('Что-то пошло не так')).toHaveCount(0);
+  await expect(page.getByText('Целая заметка')).toBeVisible();
+});
