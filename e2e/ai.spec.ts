@@ -218,15 +218,38 @@ test('ответ не двоится: поток гаснет до того, к�
 
   await openApp(page, '/more/ai');
   await seedSyncAccount(page);
+
+  await page.evaluate(() => {
+    const w = window as unknown as { __maxSeen: number };
+    w.__maxSeen = 0;
+    const count = () => {
+      const n = Array.from(document.querySelectorAll('*')).filter(
+        (el) =>
+          el.children.length === 0 &&
+          (el.textContent ?? '').includes('Ответ, который не должен двоиться'),
+      ).length;
+      if (n > w.__maxSeen) w.__maxSeen = n;
+    };
+    new MutationObserver(count).observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  });
+
   await page.getByPlaceholder('Сообщение…').fill('привет');
   await page.getByRole('button', { name: 'Отправить' }).click();
 
   const answer = page.getByText('Ответ, который не должен двоиться');
-  await expect(answer).toHaveCount(1);
   await expect(answer).toBeVisible();
-  // И после того, как всё улеглось, он по-прежнему один.
   await page.waitForTimeout(400);
   await expect(answer).toHaveCount(1);
+
+  // Одной проверки «в конце их не два» мало: двоение живёт доли секунды, и
+  // на быстрой машине проверка приходит уже после него. Наблюдатель считает
+  // вхождения на КАЖДОЕ изменение разметки и помнит максимум — так в кадр
+  // попадает и мелькание.
+  expect(await page.evaluate(() => (window as unknown as { __maxSeen: number }).__maxSeen)).toBe(1);
 });
 
 test('тумблер «Доступ к данным» выключает инструменты: запрос уходит без tools', async ({ page }) => {
