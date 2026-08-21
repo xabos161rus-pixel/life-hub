@@ -40,7 +40,7 @@ export function EnergyJournal({ byDate }: Props) {
               type="button"
               aria-label={`${formatRu(date)} — ${level ? t(ENERGY_LABEL[level]) : t('нет отметки')}`}
               onClick={() => setEditing(date)}
-              className="flex min-h-11 flex-col items-center gap-1 py-1 active:opacity-70"
+              className="flex min-h-11 min-w-11 flex-1 flex-col items-center gap-1 py-1 active:opacity-70"
             >
               <span
                 aria-hidden

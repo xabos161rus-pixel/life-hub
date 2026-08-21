@@ -22,6 +22,7 @@ import {
   type SoundType,
 } from './pomodoro';
 import { ICON } from '../../components/ui/icons';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 const PHASE_LABEL: Record<Phase, string> = {
   work: 'Фокус',
@@ -447,7 +448,7 @@ export function FocusPage() {
             <p className="text-sm font-medium text-muted">{t('Шаблоны')}</p>
             <button
               onClick={() => setManaging((v) => !v)}
-              className="text-sm font-medium text-accent active:opacity-60"
+              className={`text-sm font-medium text-accent active:opacity-60 ${HIT_SLOP_44}`}
             >
               {managing ? t('Готово') : t('Изменить')}
             </button>
@@ -469,7 +470,7 @@ export function FocusPage() {
             ))}
             <button
               onClick={openNewPreset}
-              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70"
+              className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70 ${HIT_SLOP_44}`}
             >
               <Plus size={ICON.inline} /> {t('Шаблон')}
             </button>

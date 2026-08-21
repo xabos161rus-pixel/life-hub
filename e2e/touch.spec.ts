@@ -7,7 +7,10 @@ import type { Page } from '@playwright/test';
 // раздувая вид. Поэтому меряем ::after вместе с кнопкой.
 
 const SCREENS = ['/', '/tasks', '/notes', '/calendar', '/goals', '/home',
-  '/more/finance', '/more/habits', '/more/cycle', '/more/settings'];
+  '/more/finance', '/more/habits', '/more/cycle', '/more/settings',
+  // Аудит нашёл здесь кнопки 21×21 и 37×37 — экраны просто не были в списке.
+  '/more/ai', '/more/focus', '/more/learning', '/more/energy', '/more/places',
+  '/home/profile', '/share'];
 
 async function small(page: Page): Promise<string[]> {
   return page.evaluate(() => {

@@ -521,7 +521,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
         <button
           aria-label={t('Модель')}
           disabled={busy}
-          className="inline-flex min-w-0 items-center gap-1 rounded-full border border-hairline bg-surface-2 py-1.5 pr-2 pl-3 text-[0.82rem] font-medium active:opacity-70 disabled:opacity-50"
+          className={`inline-flex min-w-0 items-center gap-1 rounded-full border border-hairline bg-surface-2 py-1.5 pr-2 pl-3 text-[0.82rem] font-medium active:opacity-70 disabled:opacity-50 ${HIT_SLOP_44}`}
           onClick={onModelTap}
         >
           <span className="truncate">{modelName}</span>
@@ -533,7 +533,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
           aria-label={t('Доступ к данным')}
           aria-pressed={dataTools}
           disabled={busy}
-          className={`inline-flex shrink-0 items-center gap-1 rounded-full border py-1.5 pr-2.5 pl-2 text-[0.82rem] font-medium transition-colors ${
+          className={`inline-flex shrink-0 items-center gap-1 rounded-full border py-1.5 pr-2.5 pl-2 text-[0.82rem] font-medium transition-colors ${HIT_SLOP_44} ${
             dataTools
               ? 'border-accent/30 bg-accent/12 text-accent'
               : 'border-hairline bg-surface-2 text-muted'
@@ -547,7 +547,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
         {busy ? (
           <button
             aria-label={t('Остановить')}
-            className="grid size-10 shrink-0 place-items-center rounded-full border border-hairline bg-surface-2 active:opacity-70"
+            className={`grid size-10 shrink-0 place-items-center rounded-full border border-hairline bg-surface-2 active:opacity-70 ${HIT_SLOP_44}`}
             onClick={onStop}
           >
             <Square size={ICON.action} />
@@ -556,7 +556,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
           <button
             aria-label={t('Отправить')}
             disabled={!value.trim()}
-            className="grid size-10 shrink-0 place-items-center rounded-full text-white transition-opacity active:opacity-80 disabled:opacity-30"
+            className={`grid size-10 shrink-0 place-items-center rounded-full text-white transition-opacity active:opacity-80 disabled:opacity-30 ${HIT_SLOP_44}`}
             style={{
               background: 'linear-gradient(150deg, var(--app-accent), var(--app-accent-2))',
               boxShadow: 'var(--shadow-accent)',

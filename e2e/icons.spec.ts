@@ -20,6 +20,14 @@ const ROUTES = [
   // с 18 до 15px: реальный штрих 1.27px вместо 1.5. Ровно та ошибка, ради
   // которой шкала и вводилась.
   '/more/settings', '/more/settings/sections', '/more/settings/install',
+  // Вторая серия дыр, найденная аудитом: на этих экранах жили 21 (три кнопки
+  // шапки ИИ), 19 (стрелки ИИ), 30 (заглушка ИИ), 26 (компас 404) и 13
+  // (метаданные ответа) — всё мимо замера, потому что маршрута не было в
+  // списке. Дырка не закрывается один раз: закрывать надо весь список.
+  '/more/ai', '/home/profile', '/share',
+  '/more/cycle/settings', '/more/cycle/year', '/more/cycle/report',
+  // Несуществующий адрес — экран «Не найдено» тоже рисует иконку.
+  '/такого-экрана-нет',
 ];
 
 /** Открыть маршрут и убедиться, что экран действительно отрисовался.
@@ -37,11 +45,15 @@ interface Glyph {
   name: string;
   size: number;
   real: number;
+  /** Что просили в разметке (атрибут width), null у чужих svg без него. */
+  asked: number | null;
+  /** Насколько раскладка ужала иконку против заданного. */
+  drift: number;
 }
 
 async function collectGlyphs(page: import('@playwright/test').Page): Promise<Glyph[]> {
   return page.evaluate(() => {
-    const out: { name: string; size: number; real: number }[] = [];
+    const out: { name: string; size: number; real: number; asked: number | null; drift: number }[] = [];
     for (const svg of document.querySelectorAll<SVGElement>('svg.lucide')) {
       const box = svg.getBoundingClientRect();
       if (!box.width || !box.height) continue; // скрытые не считаем
@@ -50,10 +62,15 @@ async function collectGlyphs(page: import('@playwright/test').Page): Promise<Gly
       const attr = parseFloat(getComputedStyle(svg).strokeWidth);
       if (!Number.isFinite(attr)) continue;
       const size = Math.round(box.width);
+      // Заданный размер — тот, что в разметке; фактический — то, во что его
+      // превратила раскладка. Расхождение и есть «съеденная флексом» иконка.
+      const asked = parseFloat(svg.getAttribute('width') ?? '');
       out.push({
         name: svg.getAttribute('class')?.split(/\s+/).find((c) => c.startsWith('lucide-')) ?? '?',
         size,
         real: Math.round((attr * size) / 24 / 0.01) * 0.01,
+        asked: Number.isFinite(asked) ? asked : null,
+        drift: Number.isFinite(asked) ? Math.round(Math.abs(box.width - asked) * 100) / 100 : 0,
       });
     }
     return out;
@@ -99,6 +116,24 @@ test('размеры иконок — только со ступеней шка�
     bad.push(...(await collectGlyphs(page)).filter((g) => !ALLOWED.has(g.size)));
   }
   expect(bad, `иконки вне шкалы: ${JSON.stringify(bad)}`).toEqual([]);
+});
+
+test('иконка не ужимается раскладкой: заданный размер равен фактическому', async ({ page }) => {
+  // Тест шкалы ловит только те размеры, которых нет в ALLOWED, — прецедент
+  // 18→15 попался именно так, случайно. Сжатие 24→20 или 20→18 он пропустит:
+  // оба значения законны. А штрих при этом проседает (24→20 даёт 1.25px вместо
+  // 1.5), потому что вес считается от размера.
+  //
+  // Допуск 0.5px, а не точное равенство: дробная раскладка и кнопки с
+  // active:scale-95 дают законные доли пикселя.
+  test.setTimeout(120_000);
+  await openApp(page);
+  const squeezed: Glyph[] = [];
+  for (const route of ROUTES) {
+    await openRoute(page, route);
+    squeezed.push(...(await collectGlyphs(page)).filter((g) => g.asked !== null && g.drift > 0.5));
+  }
+  expect(squeezed, `иконки ужаты раскладкой: ${JSON.stringify(squeezed)}`).toEqual([]);
 });
 
 test('кнопки-иконки в шапке одинаковой ширины на всех экранах', async ({ page }) => {
