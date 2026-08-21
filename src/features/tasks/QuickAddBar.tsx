@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/Input';
 import { MicButton } from '../../components/ui/MicButton';
 import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { Hint } from '../../components/ui/Hint';
+import { dismissHintOnUse } from '../../hooks/useHint';
 import { describeParsed, parseQuickTask } from '../../lib/nlDate';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
@@ -17,6 +18,10 @@ import {
   GSparkle as Sparkles,
   GSend as Send,
 } from '../../components/ui/glyphs';
+
+/** Подсказка живёт под этим ключом и в разметке, и в скрытии по факту
+ *  использования — поэтому одна константа, а не два одинаковых литерала. */
+const QUICK_ADD_HINT = 'tasks-quick-add';
 
 /**
  * Быстрый ввод задачи в стиле TickTick: одна строка без открытия формы.
@@ -58,6 +63,9 @@ export function QuickAddBar({
       sortOrder: Date.now(),
     });
     setText('');
+    // Задача добавлена этой строкой — значит подсказка про неё свою работу
+    // сделала и больше не занимает 165px над списком.
+    void dismissHintOnUse(QUICK_ADD_HINT);
     wrapRef.current?.querySelector('input')?.focus();
   }
 
@@ -108,7 +116,7 @@ export function QuickAddBar({
         {hint && <p className="px-1 pt-0.5 pb-1 text-xs text-accent">{hint}</p>}
       </div>
       <Hint
-        id="tasks-quick-add"
+        id={QUICK_ADD_HINT}
         title={t('Быстрое добавление')}
         className="mt-2"
         items={[

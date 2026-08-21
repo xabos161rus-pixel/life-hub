@@ -84,3 +84,23 @@ test('чип «Период» выключается — задача сохра
   await expect(page.getByText('Обычная задача')).toBeVisible();
   await expect(page.locator('#app-scroll').getByText('Сегодня', { exact: true })).toBeVisible();
 });
+
+test('подсказка быстрого ввода уходит сама, как только ею воспользовались', async ({ page }) => {
+  // Совет занимает над списком 165px и висел там, пока его не закроют руками:
+  // тот, кто уже понял, платил этой полосой при каждом заходе. Задача,
+  // добавленная той самой строкой, — доказательство, что совет сработал.
+  await openApp(page, '/tasks');
+  const hint = page.getByText('Быстрое добавление');
+  await expect(hint).toBeVisible();
+
+  await page.getByPlaceholder('Что нужно сделать?').first().fill('Позвонить в сервис');
+  await page.getByPlaceholder('Что нужно сделать?').first().press('Enter');
+
+  await expect(page.getByText('Позвонить в сервис')).toBeVisible();
+  await expect(hint, 'подсказка осталась после того, как ею воспользовались').toHaveCount(0);
+
+  // И не возвращается после перезагрузки: решение записано, а не забыто.
+  await page.reload();
+  await expect(page.getByText('Позвонить в сервис')).toBeVisible();
+  await expect(hint).toHaveCount(0);
+});
