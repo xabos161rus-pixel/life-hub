@@ -39,38 +39,111 @@ for (const path of SCREENS) {
   });
 }
 
-test('кнопка «+» не перекрывает элементы управления', async ({ page }) => {
-  // Настоящая история: FAB садилась в середину экрана и перекрывала сегмент
-  // «Год» на 66%, а карандаш раздела — на 93%. Виновата была не сама кнопка, а
-  // баннер установки, который поднимал её на свою высоту.
-  await openApp(page, './more/finance');
-  await page.waitForTimeout(500);
-  const fab = page.locator('button').filter({ hasText: /^$/ }).last();
-  const box = await page.evaluate(() => {
-    const btns = [...document.querySelectorAll('button')];
-    // FAB — единственная круглая кнопка, приклеенная к низу экрана.
-    const el = btns.find((b) => {
-      const s = getComputedStyle(b);
-      const r = b.getBoundingClientRect();
-      return s.position === 'fixed' && r.width >= 44 && r.width === r.height && r.top > innerHeight / 2;
-    });
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    // Что находится под центром кнопки, если её убрать.
-    el.style.pointerEvents = 'none';
-    const under = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    el.style.pointerEvents = '';
-    const interactive = under?.closest('button, a, input, select, [role="tab"]');
-    return {
-      bottomGap: innerHeight - r.bottom,
-      covers: interactive ? interactive.textContent?.trim().slice(0, 40) ?? '(без текста)' : null,
-    };
+/** Заполняет ленту так, чтобы ей было куда прокручиваться: пустой экран
+ *  проверяет ровно ничего — кнопке нечего перекрывать. */
+async function seedLongList(page: Page) {
+  await page.evaluate(async () => {
+    const { db } = await import('/src/db/db.ts');
+    const now = new Date().toISOString();
+    const base = (id: string) => ({ id, createdAt: now, updatedAt: now, deletedAt: null });
+    const today = new Date().toISOString().slice(0, 10);
+    await db.projects.bulkPut([
+      { ...base('lp1'), name: 'Дела', color: '#5b7cfa', emoji: '📌', sortOrder: 1000, archivedAt: null },
+    ]);
+    await db.tasks.bulkPut(
+      Array.from({ length: 24 }, (_, i) => ({
+        ...base(`lt${i}`),
+        title: `Задача с довольно длинным названием номер ${i}`,
+        notes: '', projectId: 'lp1', goalId: null, priority: 0,
+        dueDate: today, dueTime: null, duration: null, remindBefore: null,
+        completedAt: null, checklist: [], recurrence: null, tags: [], sortOrder: (i + 1) * 1000,
+      })),
+    );
+    await db.notes.bulkPut(
+      Array.from({ length: 12 }, (_, i) => ({
+        ...base(`ln${i}`), title: `Заметка ${i}`, content: '<p>Текст заметки для объёма ленты.</p>',
+        tags: [], pinned: false, folderId: null,
+      })),
+    );
+    await db.expenseItems.bulkPut(
+      Array.from({ length: 14 }, (_, i) => ({
+        ...base(`le${i}`), title: `Трата ${i}`, amount: 1000 + i * 137,
+        kind: i % 3 === 0 ? 'income' : 'expense', category: 'Дом', date: today, note: '',
+      })),
+    );
   });
-  void fab;
-  expect(box, 'FAB не найдена').not.toBeNull();
-  // Кнопка должна сидеть у нижнего края, а не висеть посреди экрана.
-  expect(box!.bottomGap, 'FAB далеко от нижнего края — её что-то подпирает').toBeLessThan(140);
-  expect(box!.covers, 'под кнопкой «+» оказался интерактивный элемент').toBeNull();
+}
+
+// Кнопка «+» — единственный элемент, который живёт ПОВЕРХ ленты, поэтому она
+// одна и способна перекрыть содержимое. Раньше так и было: на «Сегодня» под
+// ней при прокрутке оказывались «отправить» и микрофон строки быстрого ввода
+// (100% и 22% площади), крестик подсказки (100%), кружок оценки энергии (54%)
+// — тап по ним открывал «Новая задача». Прежняя версия этого теста смотрела
+// один экран, одну (нулевую) позицию прокрутки и только точку под центром
+// кнопки, поэтому ничего из перечисленного не видела.
+for (const route of ['./', './tasks', './notes', './more/finance']) {
+  test(`кнопка «+» не перекрывает ленту: ${route}`, async ({ page }) => {
+    await openApp(page, route);
+    await seedLongList(page);
+    await page.goto(route);
+    await page.waitForTimeout(400);
+
+    const res = await page.evaluate(async () => {
+      const sc = document.getElementById('app-scroll');
+      const fab = [...document.querySelectorAll('button')].find((b) => {
+        const st = getComputedStyle(b);
+        const r = b.getBoundingClientRect();
+        return st.position === 'fixed' && r.width >= 44 && r.width === r.height && r.top > innerHeight / 2;
+      });
+      if (!sc || !fab) return { fabFound: false, gap: 0, hits: [] as string[] };
+      const F = fab.getBoundingClientRect();
+      const S = sc.getBoundingClientRect();
+      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+      const hits: string[] = [];
+      const max = sc.scrollHeight - sc.clientHeight;
+      // Шаг мельче высоты кнопки: иначе элемент может проскочить её зону между
+      // двумя замерами и тест промолчит.
+      for (let y = 0; y <= max; y += 48) {
+        sc.scrollTop = y;
+        await sleep(40);
+        for (const el of document.querySelectorAll('button, a, input, select, [role="button"], [role="tab"]')) {
+          if (el.closest('nav') || el === fab) continue;
+          const b = el.getBoundingClientRect();
+          if (!b.width || !b.height) continue;
+          // Видимая часть элемента: лента обрезает всё, что ниже её края, и
+          // без этого срезанные строки давали бы ложные срабатывания.
+          const vTop = Math.max(b.top, S.top);
+          const vBottom = Math.min(b.bottom, S.bottom);
+          if (vBottom - vTop <= 0) continue;
+          const ox = Math.min(b.right, F.right) - Math.max(b.left, F.left);
+          const oy = Math.min(vBottom, F.bottom) - Math.max(vTop, F.top);
+          if (ox > 0 && oy > 0) {
+            const name = (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30);
+            const line = `${name || '(без текста)'} на прокрутке ${y}`;
+            if (!hits.includes(line)) hits.push(line);
+          }
+        }
+      }
+      sc.scrollTop = 0;
+      return { fabFound: true, gap: Math.round(F.top - S.bottom), hits };
+    });
+
+    expect(res.fabFound, `на ${route} не нашлась кнопка «+»`).toBe(true);
+    // Полоса под кнопку: лента обязана кончаться выше её верхнего края.
+    expect(res.gap, `лента заходит под кнопку на ${route}`).toBeGreaterThanOrEqual(0);
+    expect(res.hits, `кнопка «+» накрыла управление на ${route}`).toEqual([]);
+  });
+}
+
+test('на экранах без кнопки «+» лента не теряет высоту', async ({ page }) => {
+  // Полоса живёт ровно столько, сколько сама кнопка: иначе внизу одиннадцати
+  // маршрутов из двадцати висела бы мёртвая пустота высотой почти с таб-бар.
+  await openApp(page, './more/settings');
+  await page.waitForTimeout(300);
+  const strip = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--fab-strip').trim(),
+  );
+  expect(strip === '' || strip === '0px', `полоса кнопки осталась на экране без кнопки: ${strip}`).toBe(true);
 });
 
 test('нижняя панель не наезжает на содержимое', async ({ page }) => {
