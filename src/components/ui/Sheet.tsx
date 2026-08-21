@@ -4,6 +4,8 @@ import {
   GClose as X,
 } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
+import { useKeyboardInset } from '../../hooks/useKeyboardInset';
+import { isTouch } from '../../lib/platform';
 import { HIT_SLOP_44 } from './hitSlop';
 import { ICON } from '../../components/ui/icons';
 
@@ -23,6 +25,15 @@ const FLICK_VELOCITY = 0.55;
  *  Закрывается свайпом вниз по «ручке»/шапке. */
 export function Sheet({ open, onClose, title, children }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Клавиатура накрывала нижнюю часть панели: она прибита к низу
+  // layout-вьюпорта, а клавиатура живёт поверх него. Под ней оказывались
+  // последние поля и ряд кнопок — «Сохранить» нажать было нельзя, и
+  // доскроллить к ней тоже: низ самой панели уже под клавиатурой.
+  const keyboardInset = useKeyboardInset();
+  // Тап, который убрал клавиатуру, не должен ещё и закрыть шторку: click
+  // приходит следом за pointerdown, и без этого флага одно касание делало бы
+  // и то, и другое.
+  const swallowClick = useRef(false);
   // Текущее смещение панели за пальцем; null — drag не активен (нет transform).
   const [dragY, setDragY] = useState<number | null>(null);
   // Сведения о текущем жесте для расчёта скорости и delta; вне state, чтобы не дёргать рендер.
@@ -82,17 +93,49 @@ export function Sheet({ open, onClose, title, children }: Props) {
 
   return createPortal(
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 animate-fade-in bg-black/60" onClick={onClose} />
+      <div
+        className="absolute inset-0 animate-fade-in bg-black/60"
+        // Решение принимаем на pointerdown, а не на click: браузер снимает
+        // фокус с поля сам, ещё до клика, и к обработчику click проверять уже
+        // нечего — активным элементом будет body.
+        onPointerDown={(e) => {
+          // Тап мимо панели, когда человек печатает, — это «убери клавиатуру»,
+          // а не «выбрось форму». Раньше он закрывал шторку, и заполненная
+          // задача с чек-листом и фотографиями исчезала от одного промаха.
+          // Снимаем фокус сами; закрывает уже следующий тап.
+          const active = document.activeElement as HTMLElement | null;
+          const typing =
+            active &&
+            panelRef.current?.contains(active) &&
+            (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+          if (!typing || (keyboardInset === 0 && !isTouch)) return;
+          e.preventDefault(); // фокус не отдаём браузеру — снимаем сами
+          active.blur();
+          swallowClick.current = true;
+        }}
+        onClick={() => {
+          if (swallowClick.current) {
+            swallowClick.current = false;
+            return;
+          }
+          onClose();
+        }}
+      />
       <div
         ref={panelRef}
         className="absolute inset-x-0 bottom-0 mx-auto max-h-[88dvh] w-full max-w-lg animate-sheet-up overflow-y-auto rounded-t-[1.6rem] border-t border-hairline bg-elevated pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-pop)]"
-        style={
-          dragging
-            ? { transform: `translateY(${dragY}px)`, transition: 'none' }
-            : // Пустой transform держит панель на месте и даёт пружину обратно
-              // после drag, не перезапуская keyframe-анимацию входа.
-              { transform: 'translateY(0)', transition: 'transform 0.2s ease-out' }
-        }
+        style={{
+          // Панель поднимается ровно на высоту клавиатуры, а её потолок на ту
+          // же величину опускается — иначе поднятая панель упёрлась бы в
+          // верхний край экрана и нижние поля всё равно остались бы за кадром.
+          transform: dragging
+            ? `translateY(${dragY - keyboardInset}px)`
+            : `translateY(-${keyboardInset}px)`,
+          // Пустой transform держит панель на месте и даёт пружину обратно
+          // после drag, не перезапуская keyframe-анимацию входа.
+          transition: dragging ? 'none' : 'transform 0.2s ease-out',
+          maxHeight: keyboardInset > 0 ? `calc(88dvh - ${keyboardInset}px)` : undefined,
+        }}
       >
         <div
           onPointerDown={handlePointerDown}
