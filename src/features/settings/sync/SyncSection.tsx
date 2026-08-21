@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { useToast } from '../../../components/ui/toastContext';
+import { db } from '../../../db/db';
 import { getSyncConfig } from '../../../lib/syncState';
 import { createSyncAccount, disableSync, runSync } from '../../../lib/sync';
 import { PairingSheet } from './PairingSheet';
@@ -30,6 +31,9 @@ function formatSyncedAt(iso: string): string {
 export function SyncSection() {
   const config = useLiveQuery(() => getSyncConfig(), []);
   const toast = useToast();
+  // Отметку о неудаче ставит фоновый цикл — читаем её живым запросом, чтобы
+  // строка исчезла сама, как только обмен пройдёт.
+  const failedAt = useLiveQuery(async () => (await db.settings.get('app'))?.syncFailedAt ?? null, []);
   const [sheet, setSheet] = useState<null | 'show' | 'connect'>(null);
   const [busy, setBusy] = useState(false);
 
@@ -91,6 +95,16 @@ export function SyncSection() {
                 <span className="font-medium text-success">{t('Включена')}</span> · {t('E2E-шифрование')}
                 <br />
                 <span className="text-muted">{t('Последняя: {when}', { when: formatSyncedAt(config.lastSyncedAt) })}</span>
+                {failedAt && (
+                  <>
+                    <br />
+                    {/* Фоновый обмен идёт сам и об ошибках молчал: он мог не
+                        работать неделями, а здесь стояла просто старая дата. */}
+                    <span className="text-warning">
+                      {t('Последняя попытка не удалась: {when}', { when: formatSyncedAt(failedAt) })}
+                    </span>
+                  </>
+                )}
               </span>
             </p>
             <Button className="w-full inline-flex items-center justify-center gap-2" disabled={busy} onClick={() => void handleSyncNow()}>

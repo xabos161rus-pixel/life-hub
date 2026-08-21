@@ -352,3 +352,31 @@ describe('отправка изменений не читает таблицы �
     expect(indexReads).toBeGreaterThan(0);
   });
 });
+
+describe('семейные подключения уезжают на другие устройства', () => {
+  it('свежая группа попадает в отправку, старая — нет', async () => {
+    // Группы читаются иначе, чем остальные таблицы (индекса по updatedAt у них
+    // нет, да и групп единицы), поэтому отбор окна для них написан отдельно —
+    // и однажды уже отвалился при правке соседнего кода: осталась ссылка на
+    // удалённую функцию, то есть отправка падала бы целиком.
+    await seedSync();
+    await patchSyncConfig({ lastPushAt: '2026-01-01T00:00:00.000Z' });
+    const key = await generateKey();
+    const base = {
+      familyToken: 'tok', familyKey: key, familyName: 'Наши', selfMemberId: 'me',
+      lastSeq: 0, lastReadSeq: 0, enabled: true, joinedAt: '2026-01-01T00:00:00.000Z',
+      keyEpoch: 0, keyRing: { '0': key }, deletedAt: null,
+    };
+    await db.family.bulkPut([
+      { ...base, id: 'old', familyId: 'old', updatedAt: '2025-06-01T00:00:00.000Z' },
+      { ...base, id: 'new', familyId: 'new', updatedAt: new Date().toISOString() },
+    ] as never[]);
+
+    const sent: { table: string; id: string; updatedAt: string }[] = [];
+    mockQuietNetwork(sent);
+    await runSync();
+
+    const shares = sent.filter((r) => r.table === 'familyShare');
+    expect(shares.map((r) => r.id)).toEqual(['new']);
+  });
+});

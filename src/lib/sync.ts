@@ -348,10 +348,10 @@ async function push(c: SyncConfig): Promise<number> {
   // Здесь окно считается в памяти, а не запросом по индексу, как у таблиц выше:
   // у `family` индекса по updatedAt нет, а строк в ней столько же, сколько у
   // человека семейных групп — одна-две. Индекс ради этого не нужен, а вот
-  // предикат нужен: без него отправлялись бы все подключения при каждом пуше.
-  const inWindow = (u: unknown): u is string =>
-    typeof u === 'string' && u >= c.lastPushAt && u < cutoff;
-  const famFresh = (await db.family.toArray()).filter((f) => inWindow(f.updatedAt));
+  // отбор нужен: без него отправлялись бы все подключения при каждом пуше.
+  const famFresh = (await db.family.toArray()).filter(
+    (f) => typeof f.updatedAt === 'string' && f.updatedAt >= c.lastPushAt && f.updatedAt < cutoff,
+  );
   for (const f of famFresh) {
     const keysRaw: Record<string, string> = {};
     for (const [e, k] of Object.entries(f.keyRing ?? {})) keysRaw[e] = await exportKeyRaw(k);
@@ -413,12 +413,38 @@ export async function runSync(): Promise<{ pulled: number; pushed: number; skipp
     const fresh = await getSyncConfig(); // курсор pull обновился
     const pushed = fresh ? await push(fresh) : 0;
     await patchSyncConfig({ lastSyncedAt: new Date().toISOString() });
+    // Прошлая неудача больше не актуальна — снимаем отметку.
+    await clearSyncFailure();
     return { pulled, pushed, skipped };
   } catch (e) {
     lastError = String(e);
+    // Фоновый цикл запускается сам и ошибку никому не показывает: раньше она
+    // жила только в переменной модуля и пропадала при перезагрузке. Оставляем
+    // след в настройках, чтобы экран синхронизации мог сказать честно.
+    await noteSyncFailure();
     throw e;
   } finally {
     running = false;
+  }
+}
+
+/** Отметить неудачу обмена. Ошибки записи настроек глотаем: если уж и она не
+ *  прошла, то показывать всё равно негде, а ронять цикл из-за пометки нельзя. */
+async function noteSyncFailure(): Promise<void> {
+  try {
+    const s = await db.settings.get('app');
+    if (s) await db.settings.put({ ...s, syncFailedAt: new Date().toISOString() });
+  } catch {
+    /* негде отметить — не беда */
+  }
+}
+
+async function clearSyncFailure(): Promise<void> {
+  try {
+    const s = await db.settings.get('app');
+    if (s?.syncFailedAt) await db.settings.put({ ...s, syncFailedAt: null });
+  } catch {
+    /* негде отметить — не беда */
   }
 }
 

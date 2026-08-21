@@ -243,10 +243,11 @@ export function NoteEditorPage() {
     };
   }, [routeId, isNew]);
 
+  const toast = useToast();
+
   const flush = useCallback(async () => {
     const el = editorRef.current;
     if (deletedRef.current || !dirtyRef.current || !el || savingRef.current) return;
-    dirtyRef.current = false;
     savingRef.current = true; // in-flight guard: не создаём дубль новой заметки
     try {
       const html = sanitizeNoteHtml(el.innerHTML);
@@ -273,11 +274,20 @@ export function NoteEditorPage() {
         savedIdRef.current = created.id;
         navigate(`/notes/${created.id}`, { replace: true });
       }
+      // Флаг «есть несохранённое» снимаем ТОЛЬКО после успешной записи.
+      // Раньше он снимался до неё, и упавшее сохранение уже не повторялось:
+      // текст оставался на экране, но в базу не попадал никогда, а человеку
+      // об этом не говорили. Заметку теряла первая же нехватка места.
+      dirtyRef.current = false;
       setSaved(true);
+    } catch {
+      // Не молчим: на экране текст цел, и человек должен знать, что его надо
+      // сохранить ещё раз (или освободить место), а не закрывать заметку.
+      toast(t('Не удалось сохранить заметку. Текст на экране цел — попробуйте ещё раз'));
     } finally {
       savingRef.current = false;
     }
-  }, [navigate]);
+  }, [navigate, toast]);
 
   const touch = useCallback(() => {
     dirtyRef.current = true;
@@ -289,7 +299,6 @@ export function NoteEditorPage() {
 
   const toolbarRef = useRef<HTMLDivElement>(null);
   const keyboardInset = useKeyboardInset();
-  const toast = useToast();
 
   // === Фото и файлы ===
 
