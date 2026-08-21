@@ -504,7 +504,7 @@ export function SettingsPage() {
           <div className="card space-y-3 p-4">
             {/* Автоматическая облачная копия — переживает потерю телефона */}
             <div className="flex items-center justify-between gap-3">
-              <span className="min-w-0 text-sm font-medium">{t('Копия в облаке')}</span>
+              <span className="min-w-0 text-base font-medium">{t('Копия в облаке')}</span>
               {syncOn && (
                 <div className="w-32 shrink-0">
                   <SegmentedControl<'off' | 'cloud'>

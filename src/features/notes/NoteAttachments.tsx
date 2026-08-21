@@ -57,7 +57,7 @@ export function NoteAttachments({
                 <Icon size={ICON.header} />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium">{f.name}</span>
+                <span className="block truncate text-base font-medium">{f.name}</span>
                 <span className="block text-xs text-muted">
                   {/* Чанки ещё едут синком с другого устройства — честное
                       «получение», а не карточка, притворяющаяся готовой. */}

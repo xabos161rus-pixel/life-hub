@@ -294,7 +294,7 @@ export function GoalDetailPage() {
               >
                 <Icon size={ICON.base} className="shrink-0 text-muted" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{li.title}</p>
+                  <p className="truncate text-base font-medium">{li.title}</p>
                   <div className="mt-1.5">
                     <ProgressBar
                       value={

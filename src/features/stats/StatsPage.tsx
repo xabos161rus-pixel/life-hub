@@ -344,7 +344,7 @@ export function StatsPage() {
           {/* Хедлайн: процент выполнения + полоса */}
           <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
             <div className="mb-2 flex items-baseline justify-between gap-2">
-              <span className="min-w-0 truncate text-sm font-medium">{t('Выполнено из всех')}</span>
+              <span className="min-w-0 truncate text-base font-medium">{t('Выполнено из всех')}</span>
               <span className="shrink-0 text-lg font-bold" style={{ color: 'var(--app-success)' }}>
                 {taskBreakdown.completionRate}%
               </span>
@@ -387,7 +387,7 @@ export function StatsPage() {
           <StatCard title={t('Время на задачи')}>
             <div className="mb-3 rounded-xl border border-hairline bg-surface-2 px-3.5 py-3">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="min-w-0 truncate text-sm font-medium">{t('Сегодня на задачи')}</span>
+                <span className="min-w-0 truncate text-base font-medium">{t('Сегодня на задачи')}</span>
                 <span className="shrink-0 text-lg font-bold" style={{ color: 'var(--app-accent-2)' }}>
                   {taskTime.today > 0 ? formatDuration(taskTime.today) : t('0м')}
                 </span>
@@ -456,7 +456,7 @@ export function StatsPage() {
               {topGoals.map(({ goal, value, label }) => (
                 <div key={goal.id}>
                   <div className="mb-1 flex items-baseline justify-between gap-3">
-                    <span className="truncate text-sm font-medium">{goal.title}</span>
+                    <span className="truncate text-base font-medium">{goal.title}</span>
                     <span className="shrink-0 text-xs text-muted">{label}</span>
                   </div>
                   <ProgressBar value={value} color={goal.color} />

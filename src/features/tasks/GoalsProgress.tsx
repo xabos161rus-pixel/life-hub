@@ -132,7 +132,7 @@ export function GoalsProgress() {
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{goal.title}</p>
+                  <p className="truncate text-base font-semibold">{goal.title}</p>
                   <p
                     className={`truncate text-xs ${reached ? 'text-success' : 'text-muted'}`}
                   >
