@@ -344,6 +344,13 @@ async function push(c: SyncConfig): Promise<number> {
   );
   // Семейные подключения — на другие МОИ устройства (ключ семьи внутри
   // шифротекста аккаунтного ключа; серверу, как и всё остальное, не виден).
+  //
+  // Здесь окно считается в памяти, а не запросом по индексу, как у таблиц выше:
+  // у `family` индекса по updatedAt нет, а строк в ней столько же, сколько у
+  // человека семейных групп — одна-две. Индекс ради этого не нужен, а вот
+  // предикат нужен: без него отправлялись бы все подключения при каждом пуше.
+  const inWindow = (u: unknown): u is string =>
+    typeof u === 'string' && u >= c.lastPushAt && u < cutoff;
   const famFresh = (await db.family.toArray()).filter((f) => inWindow(f.updatedAt));
   for (const f of famFresh) {
     const keysRaw: Record<string, string> = {};
