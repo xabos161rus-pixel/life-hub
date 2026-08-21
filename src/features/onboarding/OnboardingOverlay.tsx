@@ -1,8 +1,18 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { LayoutGrid, Lightbulb, ListTodo, NotebookText, ShieldCheck, Sparkles, Sun, Target, type LucideIcon } from 'lucide-react';
+import {
+  LayoutGrid,
+  Lightbulb,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react';
 import {
   GChevronRight as ChevronRight,
+  GTasks as ListTodo,
+  GNotes as NotebookText,
+  GSparkle as Sparkles,
+  GSun as Sun,
+  GTarget as Target,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { now } from '../../db/repo';

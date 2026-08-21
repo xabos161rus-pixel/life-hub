@@ -19,7 +19,7 @@ export function NotFoundPage() {
         </p>
         <Link
           to="/"
-          className="mt-5 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white active:opacity-80"
+          className="mt-5 rounded-full bg-accent-fill px-5 py-2.5 text-sm font-semibold text-white active:opacity-80"
         >
           {t('На «Сегодня»')}
         </Link>

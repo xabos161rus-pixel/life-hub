@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { ClipboardPaste, ListTodo, NotebookPen } from 'lucide-react';
+import {
+  ClipboardPaste,
+  NotebookPen,
+} from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea } from '../../components/ui/Input';
@@ -10,6 +13,9 @@ import { create } from '../../db/repo';
 import { parseQuickTask } from '../../lib/nlDate';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import {
+  GTasks as ListTodo,
+} from '../../components/ui/glyphs';
 
 /** Экранирование текста перед вставкой в HTML-заметку. */
 function esc(s: string): string {

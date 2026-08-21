@@ -1,7 +1,9 @@
 import { useMemo, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { ChartColumnBig, Share2 } from 'lucide-react';
+import {
+  Share2,
+} from 'lucide-react';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import type { Goal, LearningItem, Task } from '../../db/types';
@@ -18,6 +20,9 @@ import { IconButton } from '../../components/ui/IconButton';
 import { StatCard } from '../../components/ui/StatCard';
 import { EnergyStatsCard } from '../energy/EnergyStatsCard';
 import { t } from '../../lib/i18n';
+import {
+  GStats as ChartColumnBig,
+} from '../../components/ui/glyphs';
 
 interface TaskStats {
   /** последние 7 дней (старые → новые): подпись дня + число выполненных */

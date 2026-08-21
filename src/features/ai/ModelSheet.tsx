@@ -1,8 +1,10 @@
-import { Check } from 'lucide-react';
 import { Sheet } from '../../components/ui/Sheet';
 import { MODELS, type ModelInfo } from '../../lib/ai/models';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import {
+  GCheck as Check,
+} from '../../components/ui/glyphs';
 
 /** Ориентир цены «за вопрос»: типовой обмен с чтением данных — примерно
  *  6K токенов входа (история + результат инструмента) и 700 выхода.

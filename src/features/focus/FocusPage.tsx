@@ -396,7 +396,7 @@ export function FocusPage() {
             }}
             className="flex size-20 items-center justify-center rounded-full text-white active:scale-90"
           >
-            {p.running ? <Pause size={ICON.hero} fill="#fff" /> : <Play size={ICON.hero} fill="#fff" className="ml-1" />}
+            {p.running ? <Pause size={ICON.hero} fill="currentColor" /> : <Play size={ICON.hero} fill="currentColor" className="ml-1" />}
           </button>
           <button
             onClick={p.skip}

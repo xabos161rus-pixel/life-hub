@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { BookOpen, FileText, FlaskConical, GraduationCap, Languages, Video } from 'lucide-react';
+import {
+  BookOpen,
+  FileText,
+  FlaskConical,
+  Languages,
+  Video,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
@@ -16,6 +22,9 @@ import { LearningItemSheet } from './LearningItemSheet';
 import { ProgressStepper } from './ProgressStepper';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import {
+  GLearning as GraduationCap,
+} from '../../components/ui/glyphs';
 
 type Filter = 'inProgress' | 'planned' | 'done';
 

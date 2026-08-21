@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { CalendarClock, Wallet } from 'lucide-react';
+import {
+  CalendarClock,
+} from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -16,6 +18,9 @@ import { ExpenseSheet } from './ExpenseSheet';
 import { SavingsSection } from './SavingsSection';
 import { t, tPlur } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import {
+  GFinance as Wallet,
+} from '../../components/ui/glyphs';
 
 const RECURRENCE_LABEL: Record<ExpenseRecurrence, string> = {
   monthly: 'Ежемесячно',

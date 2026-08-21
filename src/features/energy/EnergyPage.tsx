@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { BatteryCharging } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -13,6 +12,9 @@ import type { EnergyEffort, EnergyItem } from '../../db/types';
 import { EnergyJournal } from './EnergyJournal';
 import { EnergySheet } from './EnergySheet';
 import { t } from '../../lib/i18n';
+import {
+  GEnergy as BatteryCharging,
+} from '../../components/ui/glyphs';
 
 type Filter = 'all' | EnergyEffort;
 

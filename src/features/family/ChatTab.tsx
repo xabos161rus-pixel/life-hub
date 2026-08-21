@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import type { LucideIcon } from 'lucide-react';
 import { useLoaded } from '../../hooks/useLoaded';
 import {
   ArrowRight,
@@ -15,7 +16,7 @@ import {
   Mic,
   Play,
   Pause,
-  Loader2,
+  LoaderCircle,
   Image as ImageIcon,
   File as FileIcon,
   FileText,
@@ -114,19 +115,24 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
 }
 
 /** Иконка по короткой подписи из fileKindLabel — 4 значка на 5 подписей
- *  («Документ PDF» и «Текст» делят FileText), остальное — общий File. */
-function fileIconFor(kindLabel: string) {
-  if (kindLabel === 'Архив') return FileArchive;
-  if (kindLabel === 'Таблица') return FileSpreadsheet;
-  if (kindLabel === 'Документ PDF' || kindLabel === 'Текст') return FileText;
-  return FileIcon;
-}
+ *  («Документ PDF» и «Текст» делят FileText), остальное — общий File.
+ *
+ *  Реестр, а не функция с return: возврат компонента из вызова внутри рендера
+ *  React считает созданием нового типа на каждый кадр (react-hooks/
+ *  static-components), и карточка файла теряла бы поддерево при каждом
+ *  обновлении списка сообщений. Тот же приём уже используется в разделе целей. */
+const FILE_ICONS: Record<string, LucideIcon> = {
+  'Архив': FileArchive,
+  'Таблица': FileSpreadsheet,
+  'Документ PDF': FileText,
+  'Текст': FileText,
+};
 
 /** Карточка файла-манифеста: иконка типа, имя, подпись — тип+размер, когда
  *  файл на руках; прогресс сборки или «недоступен», пока нет. */
 function FileBubble({ m, own, received }: { m: FamilyMessage; own: boolean; received: number }) {
   const info = m.file!;
-  const Icon = fileIconFor(fileKindLabel(info.mime, info.name));
+  const Icon = FILE_ICONS[fileKindLabel(info.mime, info.name)] ?? FileIcon;
   const available = Boolean(m.fileData);
   // received===0 и своего fileData нет — либо чанки ещё даже не начали
   // приходить (маловероятно долго), либо это старая история и ретеншн
@@ -1056,7 +1062,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted active:text-accent disabled:opacity-50"
               >
                 {sendingAttachment ? (
-                  <Loader2 size={ICON.header} className="animate-spin motion-reduce:animate-none" />
+                  <LoaderCircle size={ICON.header} className="animate-spin motion-reduce:animate-none" />
                 ) : (
                   <Paperclip size={ICON.header} />
                 )}

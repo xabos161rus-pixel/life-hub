@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useLoaded } from '../../hooks/useLoaded';
-import { CalendarCheck } from 'lucide-react';
 import { Fab } from '../../components/layout/Fab';
 import { Screen } from '../../components/layout/Screen';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -17,6 +16,9 @@ import { t, tPlur } from '../../lib/i18n';
 import { toggleHabitDone } from './habitRepo';
 import { HabitSheet } from './HabitSheet';
 import { HabitLogSheet } from './HabitLogSheet';
+import {
+  GHabits as CalendarCheck,
+} from '../../components/ui/glyphs';
 
 type Filter = 'active' | 'archived';
 

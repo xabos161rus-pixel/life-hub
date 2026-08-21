@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
-import { BellRing, Bot, GraduationCap, PhoneCall, SlidersHorizontal, Lightbulb } from 'lucide-react';
+import {
+  BellRing,
+  PhoneCall,
+  SlidersHorizontal,
+  Lightbulb,
+} from 'lucide-react';
 import {
   GCheck,
   GChevronRight as ChevronRight,
   GTrash as Trash2,
+  GBot as Bot,
+  GLearning as GraduationCap,
 } from '../../components/ui/glyphs';
 import { ACCENTS } from '../../lib/accents';
 import { getLang, resolveLang, t } from '../../lib/i18n';

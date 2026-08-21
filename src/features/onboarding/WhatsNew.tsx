@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Sparkles } from 'lucide-react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { db } from '../../db/db';
@@ -9,6 +8,9 @@ import { APP_VERSION, RELEASES } from '../../lib/changelog';
 import { formatRu } from '../../lib/dates';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import {
+  GSparkle as Sparkles,
+} from '../../components/ui/glyphs';
 
 /** «Что нового» после обновления.
  *

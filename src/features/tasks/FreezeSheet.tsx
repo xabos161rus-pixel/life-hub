@@ -14,7 +14,7 @@ import { useToast } from '../../components/ui/toastContext';
 import { formatDueDate } from '../../lib/dates';
 import { formatDueRange } from '../../lib/taskDates';
 import { freezeTasks } from './taskActions';
-import { ICON, STROKE } from '../../components/ui/icons';
+import { ICON, STROKE, STROKE_HEAVY } from '../../components/ui/icons';
 import { t } from '../../lib/i18n';
 
 // Строки списка: заголовок группы (проект/подпроект/«Без проекта») или задача.
@@ -152,7 +152,7 @@ export function FreezeSheet({ open, onClose }: { open: boolean; onClose: () => v
             on ? 'border-frost-fill bg-frost-fill text-on-light' : 'border-border'
           }`}
         >
-          {on && <Check size={ICON.inline} />}
+          {on && <Check size={ICON.inline} strokeWidth={STROKE_HEAVY} />}
         </span>
         <span className="min-w-0 flex-1">
           <span lang="ru" className="block break-words text-pretty hyphens-auto font-medium">

@@ -89,14 +89,14 @@ function glyph(name: string, draw: React.ReactNode): LucideIcon {
  *  начался, и между ними висит зазор в полтора пикселя — на 20px он читается
  *  как сломанная иконка. Цельный контур снимает вопрос стыка вовсе. Двери и
  *  окон нет намеренно: под скатом они превращаются в грязь. */
-export const GHome = glyph(
+export const GHome = /*#__PURE__*/ glyph(
   'home',
-  <path d="M12 2.6 21 11.4V19a1.6 1.6 0 0 1-1.6 1.6H4.6A1.6 1.6 0 0 1 3 19v-7.6z" />,
+  <path d="M12 2.6 21 11.4V17.6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-6.2z" />,
 );
 
 /** Солнце. Четыре луча по осям вместо восьми: восемь на мелком размере
  *  сливаются в венчик и спорят с диском. */
-export const GSun = glyph(
+export const GSun = /*#__PURE__*/ glyph(
   'sun',
   <>
     <circle cx="12" cy="12" r="4.2" />
@@ -107,22 +107,22 @@ export const GSun = glyph(
 
 /** Задачи: галочка и три строки. Галочка крупная и слева — она и есть смысл,
  *  строки лишь подсказывают, что это список. */
-export const GTasks = glyph(
+export const GTasks = /*#__PURE__*/ glyph(
   'tasks',
   <>
-    <path d="M3.4 7.6 5.2 9.4l3.2-3.4" />
-    <path d="M3.4 16.4 5.2 18.2l3.2-3.4" />
-    <path d="M12.2 7.4h8.4M12.2 16.2h8.4" />
+    <path d="M3.4 6.4 5.2 8.2l3.2-3.4" />
+    <path d="M3.4 17.6 5.2 19.4l3.2-3.4" />
+    <path d="M12.2 6.2h8.4M12.2 17.4h8.4" />
   </>,
 );
 
 /** Заметки: лист с загнутым уголком и двумя строками. Спираль блокнота убрана
  *  — она давала частую гребёнку, самую заметную деталь всего таб-бара. */
-export const GNotes = glyph(
+export const GNotes = /*#__PURE__*/ glyph(
   'notes',
   <>
-    <path d="M5.2 3.4h8.2L19.6 9.6V19a1.6 1.6 0 0 1-1.6 1.6H5.2A1.6 1.6 0 0 1 3.6 19V5a1.6 1.6 0 0 1 1.6-1.6Z" />
-    <path d="M13.4 3.6v4.4a1.6 1.6 0 0 0 1.6 1.6h4.4" />
+    <path d="M6.4 3.4h7L19.6 9.6V17.6a3 3 0 0 1-3 3H6.4a3 3 0 0 1-3-3V6.4a3 3 0 0 1 3-3Z" />
+    <path d="M13.4 3.6v3.4a2.6 2.6 0 0 0 2.6 2.6h3.6" />
     <path d="M7.2 13.6h8.6M7.2 17h5.6" />
   </>,
 );
@@ -133,7 +133,7 @@ export const GNotes = glyph(
  *  куском плеча. Формально это приём «фигура уходит за край», но на 20px он
  *  читается не как второй человек, а как обломок. Теперь обе фигуры целые,
  *  разница только в размере и высоте — так глаз сразу видит двоих. */
-export const GFamily = glyph(
+export const GFamily = /*#__PURE__*/ glyph(
   'family',
   <>
     <circle cx="8.8" cy="9.2" r="3.6" />
@@ -145,7 +145,7 @@ export const GFamily = glyph(
 
 /** Календарь: рамка, шапка и одна отметка дня. Сетка из шести точек, как у
  *  lucide, на 20px превращается в серое поле. */
-export const GCalendar = glyph(
+export const GCalendar = /*#__PURE__*/ glyph(
   'calendar',
   <>
     <rect x="3.4" y="5" width="17.2" height="15.4" rx="3" />
@@ -159,18 +159,18 @@ export const GCalendar = glyph(
 
 /** Статистика: три столбца разной высоты, без осей. Оси занимали треть глифа
  *  и ничего не сообщали. */
-export const GStats = glyph(
+export const GStats = /*#__PURE__*/ glyph(
   'stats',
   <>
-    <path d="M6.4 20V13.2" />
-    <path d="M12 20V4.6" />
-    <path d="M17.6 20v-9.6" />
+    <path d="M4.8 19.8V12.4" />
+    <path d="M12 19.8V4.6" />
+    <path d="M19.2 19.8V9.6" />
   </>,
 );
 
 /** Цель: два кольца и точка. У lucide три кольца — на 20px внутреннее и
  *  средний зазор схлопываются в кляксу. */
-export const GTarget = glyph(
+export const GTarget = /*#__PURE__*/ glyph(
   'target',
   <>
     <circle cx="12" cy="12" r="8.2" />
@@ -179,7 +179,7 @@ export const GTarget = glyph(
 );
 
 /** Фокус: таймер. Кольцо, стрелка от центра вверх-вправо и кнопка сверху. */
-export const GTimer = glyph(
+export const GTimer = /*#__PURE__*/ glyph(
   'timer',
   <>
     <circle cx="12" cy="13.4" r="7.6" />
@@ -190,7 +190,7 @@ export const GTimer = glyph(
 
 /** Обучение: академическая шапочка. Только доска и кисточка — без «чаши» под
  *  доской, которая на мелком размере читается как вторая фигура. */
-export const GLearning = glyph(
+export const GLearning = /*#__PURE__*/ glyph(
   'learning',
   <>
     <path d="M2.8 9.4 12 5.2l9.2 4.2-9.2 4.2z" />
@@ -203,7 +203,7 @@ export const GLearning = glyph(
  *  Полоса поперёк корпуса, как было, превращала кошелёк в банковскую карту:
  *  та же скруглённая рамка с горизонтальной чертой. Карман, входящий внутрь
  *  от правого края, ни с чем не путается. */
-export const GFinance = glyph(
+export const GFinance = /*#__PURE__*/ glyph(
   'finance',
   <>
     <rect x="2.8" y="5.8" width="18.4" height="13.4" rx="3.2" />
@@ -214,13 +214,13 @@ export const GFinance = glyph(
 
 /** Энергия: молния. Квадратные скобки батареи убраны совсем — они делали из
  *  символа энергии символ зарядного устройства. */
-export const GEnergy = glyph(
+export const GEnergy = /*#__PURE__*/ glyph(
   'energy',
   <path d="M13.4 2.8 5.6 13.4h5.2l-.6 7.8 8-10.6h-5.4z" />,
 );
 
 /** Привычки: круговая стрелка с галочкой внутри — «повторяю и отмечаю». */
-export const GHabits = glyph(
+export const GHabits = /*#__PURE__*/ glyph(
   'habits',
   <>
     <path d="M20.2 12a8.2 8.2 0 1 1-2.6-6" />
@@ -231,7 +231,7 @@ export const GHabits = glyph(
 
 /** Места: булавка. Каплевидный корпус вместо круга на ножке — силуэт
  *  узнаётся даже размытым. */
-export const GPlaces = glyph(
+export const GPlaces = /*#__PURE__*/ glyph(
   'places',
   <>
     <path d="M12 21.4s7-5.6 7-11.2a7 7 0 1 0-14 0c0 5.6 7 11.2 7 11.2Z" />
@@ -240,7 +240,7 @@ export const GPlaces = glyph(
 );
 
 /** Женские дни: капля. */
-export const GDrop = glyph(
+export const GDrop = /*#__PURE__*/ glyph(
   'drop',
   <path d="M12 2.8c3.6 4.2 6.2 7.4 6.2 10.6a6.2 6.2 0 1 1-12.4 0c0-3.2 2.6-6.4 6.2-10.6Z" />,
 );
@@ -250,17 +250,17 @@ export const GDrop = glyph(
  *  У lucide рядом с четырьмя лучами стоял ещё и плюс — три разных объекта в
  *  одном глифе. Здесь объекта два, и они разнесены по диагонали: стоя рядом,
  *  звёзды сливались в кляксу. */
-export const GSparkle = glyph(
+export const GSparkle = /*#__PURE__*/ glyph(
   'sparkle',
   <>
     <path d="M10.2 2.8 12.2 8l5.2 2-5.2 2-2 5.2-2-5.2L3 10l5.2-2z" />
-    <path d="M18.4 15.4l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z" />
+    <path d="M18.2 15l1.2 2.2 2.2 1.2-2.2 1.2-1.2 2.2-1.2-2.2-2.2-1.2 2.2-1.2z" />
   </>,
 );
 
 /** Настройки: два ползунка. Шестерёнка с двенадцатью зубьями — самый
  *  «шумный» символ в любом наборе. */
-export const GSettings = glyph(
+export const GSettings = /*#__PURE__*/ glyph(
   'settings',
   <>
     <path d="M3.4 8.4h17.2M3.4 15.6h17.2" />
@@ -271,7 +271,7 @@ export const GSettings = glyph(
 
 /** ИИ: контур чат-пузыря с искрой внутри. Голова робота с антенной и глазами
  *  на 20px рассыпается в шум; пузырь сразу говорит «чат», искра — «модель». */
-export const GBot = glyph(
+export const GBot = /*#__PURE__*/ glyph(
   'bot',
   <>
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -280,13 +280,13 @@ export const GBot = glyph(
 );
 
 /** Облако — синхронизация включена. */
-export const GCloud = glyph(
+export const GCloud = /*#__PURE__*/ glyph(
   'cloud',
   <path d="M7.4 19.4a4.4 4.4 0 0 1-.5-8.8 5.6 5.6 0 0 1 10.7 1.5 3.9 3.9 0 0 1-.6 7.3z" />,
 );
 
 /** Облако перечёркнутое — синхронизации нет. */
-export const GCloudOff = glyph(
+export const GCloudOff = /*#__PURE__*/ glyph(
   'cloud-off',
   <>
     <path d="M7.4 19.4a4.4 4.4 0 0 1-.5-8.8 5.6 5.6 0 0 1 8.2-2.8" />
@@ -299,17 +299,17 @@ export const GCloudOff = glyph(
 
 /** Чек-лист: галочка и две строки. Тот же приём, что у иконки задач, — набор
  *  должен быть узнаваем как один набор. */
-export const GChecklist = glyph(
+export const GChecklist = /*#__PURE__*/ glyph(
   'checklist',
   <>
-    <path d="M3.4 7.4 5 9l3-3.2" />
-    <path d="M3.4 16.2 5 17.8l3-3.2" />
-    <path d="M11.6 7.2h9M11.6 16h9" />
+    <path d="M3.4 6.4 5.2 8.2l3.2-3.4" />
+    <path d="M3.4 17.6 5.2 19.4l3.2-3.4" />
+    <path d="M12.2 6.2h8.4M12.2 17.4h8.4" />
   </>,
 );
 
 /** Маркированный список: три точки и три строки. */
-export const GBullets = glyph(
+export const GBullets = /*#__PURE__*/ glyph(
   'bullets',
   <>
     <circle cx="4.6" cy="7" r="1.3" fill="currentColor" stroke="none" />
@@ -321,17 +321,17 @@ export const GBullets = glyph(
 
 /** Нумерованный список: цифры набраны линиями, а не шрифтом — иначе они
  *  жили бы своей типографикой и не совпадали по весу с соседями. */
-export const GNumbers = glyph(
+export const GNumbers = /*#__PURE__*/ glyph(
   'numbers',
   <>
-    <path d="M3.4 5.6 5 4.8v4.6" />
+    <path d="M3.2 6.2 5.2 4.8v4.8" />
     <path d="M3.2 14.4a1.6 1.6 0 1 1 2.9 1l-2.9 3.4h3.2" />
     <path d="M9.8 7h10.8M9.8 17h10.8" />
   </>,
 );
 
 /** Цитата: две крупные запятые. */
-export const GQuote = glyph(
+export const GQuote = /*#__PURE__*/ glyph(
   'quote',
   <>
     <path d="M10.2 4.6C6 6.2 3.6 9.4 3.6 13.6v5.8h6.6v-6.6H6.4c0-2.6 1.2-4.4 3.8-5.4z" />
@@ -340,17 +340,17 @@ export const GQuote = glyph(
 );
 
 /** Отмена: стрелка назад по дуге. */
-export const GUndo = glyph(
+export const GUndo = /*#__PURE__*/ glyph(
   'undo',
   <>
-    <path d="M8.6 6.4 4.2 10.8l4.4 4.4" />
-    <path d="M4.2 10.8h9.6a5.8 5.8 0 0 1 0 11.6h-4" />
+    <path d="M8.6 5.2 4.2 9.6l4.4 4.4" />
+    <path d="M4.2 9.6h9.2a5.2 5.2 0 0 1 0 10.4H9.4" />
   </>,
 );
 
 /** Фото: рамка, гора одним штрихом до краёв и солнце-точка. Точка залита,
  *  как маркеры GBullets: кольцо этого размера на 14px схлопывается в грязь. */
-export const GPhoto = glyph(
+export const GPhoto = /*#__PURE__*/ glyph(
   'photo',
   <>
     <rect x="3" y="4.6" width="18" height="14.8" rx="3" />
@@ -362,14 +362,14 @@ export const GPhoto = glyph(
 /** Скрепка: вертикальная, одним непрерывным контуром — три хода с равными
  *  просветами. Диагональная (как в lucide) на мелком размере читается
  *  хуже: наклон съедает просветы. */
-export const GAttach = glyph(
+export const GAttach = /*#__PURE__*/ glyph(
   'attach',
   <path d="M8 11V7.4a4 4 0 0 1 8 0v8.4a2.7 2.7 0 0 1-5.4 0V8.8a1.35 1.35 0 0 1 2.7 0V15" />,
 );
 
 /** Жирный: вертикаль и две чаши. Радиусы чаш разные — нижняя крупнее, как
  *  в настоящей литере B, иначе буква выглядит механической. */
-export const GBold = glyph(
+export const GBold = /*#__PURE__*/ glyph(
   'bold',
   <>
     <path d="M7.8 4.8v14.4" />
@@ -379,7 +379,7 @@ export const GBold = glyph(
 );
 
 /** Курсив: две горизонтали и наклонный штрих между ними. */
-export const GItalic = glyph(
+export const GItalic = /*#__PURE__*/ glyph(
   'italic',
   <>
     <path d="M10.4 4.8h8.2" />
@@ -390,7 +390,7 @@ export const GItalic = glyph(
 
 /** Зачёркнутый: линия поверх S-образных половинок. Половинки не касаются
  *  линии — просвет держит все три элемента раздельными на мелком размере. */
-export const GStrike = glyph(
+export const GStrike = /*#__PURE__*/ glyph(
   'strike',
   <>
     <path d="M16.6 6.8c-.7-1.5-2.4-2.4-4.6-2.4-2.7 0-4.6 1.3-4.6 3.3 0 .9.3 1.6 1 2.2" />
@@ -402,26 +402,26 @@ export const GStrike = glyph(
 // === Частые действия ===
 
 /** Плюс. */
-export const GPlus = glyph('plus', <path d="M12 4.8v14.4M4.8 12h14.4" />);
+export const GPlus = /*#__PURE__*/ glyph('plus', <path d="M12 4.8v14.4M4.8 12h14.4" />);
 
 /** Крест. */
-export const GClose = glyph('close', <path d="M6.4 6.4 17.6 17.6M17.6 6.4 6.4 17.6" />);
+export const GClose = /*#__PURE__*/ glyph('close', <path d="M6.4 6.4 17.6 17.6M17.6 6.4 6.4 17.6" />);
 
 /** Галочка. */
-export const GCheck = glyph('check', <path d="M4.8 12.6 9.4 17.2 19.2 7" />);
+export const GCheck = /*#__PURE__*/ glyph('check', <path d="M4.8 12.6 9.4 17.2 19.2 7" />);
 
 /** Шеврон вправо — переход вглубь. Короче и круче, чем у lucide: в строке
  *  списка он стоит рядом с текстом и не должен спорить с ним по высоте. */
-export const GChevronRight = glyph('chevron-right', <path d="M9.6 5.6 16 12l-6.4 6.4" />);
+export const GChevronRight = /*#__PURE__*/ glyph('chevron-right', <path d="M9.6 5.6 16 12l-6.4 6.4" />);
 
 /** Шеврон влево — «назад». */
-export const GChevronLeft = glyph('chevron-left', <path d="M14.4 5.6 8 12l6.4 6.4" />);
+export const GChevronLeft = /*#__PURE__*/ glyph('chevron-left', <path d="M14.4 5.6 8 12l6.4 6.4" />);
 
 /** Шеврон вниз — раскрыть. */
-export const GChevronDown = glyph('chevron-down', <path d="M5.6 9.6 12 16l6.4-6.4" />);
+export const GChevronDown = /*#__PURE__*/ glyph('chevron-down', <path d="M5.6 9.6 12 16l6.4-6.4" />);
 
 /** Поиск: кольцо и ручка под 45°. */
-export const GSearch = glyph(
+export const GSearch = /*#__PURE__*/ glyph(
   'search',
   <>
     <circle cx="10.8" cy="10.8" r="6.4" />
@@ -430,7 +430,7 @@ export const GSearch = glyph(
 );
 
 /** Корзина: крышка, корпус и две полосы. */
-export const GTrash = glyph(
+export const GTrash = /*#__PURE__*/ glyph(
   'trash',
   <>
     <path d="M3.8 6.4h16.4" />
@@ -441,7 +441,7 @@ export const GTrash = glyph(
 );
 
 /** Карандаш. */
-export const GPencil = glyph(
+export const GPencil = /*#__PURE__*/ glyph(
   'pencil',
   <>
     <path d="M15.8 4.6 19.4 8.2 8.6 19H5v-3.6z" />
@@ -450,13 +450,13 @@ export const GPencil = glyph(
 );
 
 /** Папка. */
-export const GFolder = glyph(
+export const GFolder = /*#__PURE__*/ glyph(
   'folder',
   <path d="M3 6.6a1.6 1.6 0 0 1 1.6-1.6h4l2.2 2.6h7.6A1.6 1.6 0 0 1 20 9.2v8.2a1.6 1.6 0 0 1-1.6 1.6H4.6A1.6 1.6 0 0 1 3 17.4z" />,
 );
 
 /** Телефонная трубка. */
-export const GPhone = glyph(
+export const GPhone = /*#__PURE__*/ glyph(
   'phone',
   <path d="M7.4 3.6 9.8 8 8 10.2a12.6 12.6 0 0 0 5.8 5.8L16 14.2l4.4 2.4v3.2a1.4 1.4 0 0 1-1.6 1.4C10.6 20.4 3.6 13.4 3 5.2A1.4 1.4 0 0 1 4.4 3.6z" />,
 );

@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { MessageSquarePlus, Search, Trash2 } from 'lucide-react';
+import {
+  MessageSquarePlus,
+} from 'lucide-react';
 import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -8,6 +10,10 @@ import { removeChat } from '../../lib/ai/llmRepo';
 import { modelLabel } from '../../lib/ai/models';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import {
+  GSearch as Search,
+  GTrash as Trash2,
+} from '../../components/ui/glyphs';
 
 /** «26 июл, 18:40» — ISO-метка сообщения, а не дата-ключ (formatRu тут не подходит). */
 function formatWhen(iso: string): string {

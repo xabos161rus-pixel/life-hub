@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
-import { Copy, Download, AlertTriangle } from 'lucide-react';
+import { Copy, Download, TriangleAlert } from 'lucide-react';
 import {
   GCheck as Check,
 } from '../../../components/ui/glyphs';
@@ -169,7 +169,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
             </Button>
           </div>
           <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
-            <AlertTriangle size={ICON.base} className="mt-0.5 shrink-0" />
+            <TriangleAlert size={ICON.base} className="mt-0.5 shrink-0" />
             <span>
               {t('Любой, у кого есть этот код, получит доступ к данным и сможет их расшифровать. Не передавайте его и сохраните резервную копию — без ключа облачные данные не восстановить.')}
             </span>

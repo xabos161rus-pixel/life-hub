@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Copy, ExternalLink, Share, ShieldAlert, Sparkles } from 'lucide-react';
+import {
+  Copy,
+  ExternalLink,
+  Share,
+  ShieldAlert,
+} from 'lucide-react';
 import {
   GCheck as Check,
   GChevronRight as ChevronRight,
   GClose as X,
+  GSparkle as Sparkles,
 } from '../../components/ui/glyphs';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';

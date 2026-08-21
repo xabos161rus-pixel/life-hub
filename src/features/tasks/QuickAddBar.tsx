@@ -1,5 +1,9 @@
 import { useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
-import { CircleX, CornerDownLeft, Send, Sparkles } from 'lucide-react';
+import {
+  CircleX,
+  CornerDownLeft,
+  Send,
+} from 'lucide-react';
 import { isTouch } from '../../lib/platform';
 import { db } from '../../db/db';
 import { create } from '../../db/repo';
@@ -10,6 +14,9 @@ import { Hint } from '../../components/ui/Hint';
 import { describeParsed, parseQuickTask } from '../../lib/nlDate';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import {
+  GSparkle as Sparkles,
+} from '../../components/ui/glyphs';
 
 /**
  * Быстрый ввод задачи в стиле TickTick: одна строка без открытия формы.

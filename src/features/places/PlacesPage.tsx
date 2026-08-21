@@ -3,7 +3,6 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import {
   ExternalLink,
   Lightbulb,
-  MapPin,
   Package,
   Plane,
   UtensilsCrossed,
@@ -20,6 +19,9 @@ import type { PlaceItem, PlaceKind, PlaceStatus } from '../../db/types';
 import { PlaceSheet } from './PlaceSheet';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
+import {
+  GPlaces as MapPin,
+} from '../../components/ui/glyphs';
 
 const KIND_ICONS: Record<PlaceKind, LucideIcon> = {
   place: MapPin,

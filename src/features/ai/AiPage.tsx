@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  AlertCircle,
+  CircleAlert,
   ArrowDown,
   ArrowUp,
-  ChevronDown,
   Copy,
   Database,
   MessageSquarePlus,
@@ -15,7 +14,10 @@ import {
 } from 'lucide-react';
 import { Screen } from '../../components/layout/Screen';
 import { useToast } from '../../components/ui/toastContext';
-import { GSparkle } from '../../components/ui/glyphs';
+import {
+  GSparkle,
+  GChevronDown as ChevronDown,
+} from '../../components/ui/glyphs';
 import { IconButton } from '../../components/ui/IconButton';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { ICON } from '../../components/ui/icons';
@@ -358,7 +360,7 @@ function AssistantBlock({
           // видно, что случилось, и что можно сделать прямо здесь.
           <div className="rounded-xl border border-danger/25 bg-danger/10 px-3.5 py-3">
             <p className="flex items-start gap-2 text-sm">
-              <AlertCircle size={ICON.action} className="mt-0.5 shrink-0 text-danger" />
+              <CircleAlert size={ICON.action} className="mt-0.5 shrink-0 text-danger" />
               <span className="min-w-0">{message.error}</span>
             </p>
             <button
