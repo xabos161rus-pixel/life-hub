@@ -16,6 +16,9 @@ import {
 import { Screen } from '../../components/layout/Screen';
 import { useToast } from '../../components/ui/toastContext';
 import { GSparkle } from '../../components/ui/glyphs';
+import { IconButton } from '../../components/ui/IconButton';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { ICON } from '../../components/ui/icons';
 import type { LlmChat, LlmMessage } from '../../db/types';
 import { aiErrorText } from '../../lib/ai/aiClient';
 import { runAgent } from '../../lib/ai/agentLoop';
@@ -188,28 +191,10 @@ export function AiPage() {
         backTo="/home"
         fill
         right={
-          <div className="flex items-center">
-            <button
-              aria-label={t('Настройки чата')}
-              className="p-2 text-accent active:opacity-60"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <SlidersHorizontal size={21} />
-            </button>
-            <button
-              aria-label={t('Список чатов')}
-              className="p-2 text-accent active:opacity-60"
-              onClick={() => setListOpen(true)}
-            >
-              <PanelsTopLeft size={21} />
-            </button>
-            <button
-              aria-label={t('Новый чат')}
-              className="p-2 text-accent active:opacity-60"
-              onClick={() => void handleNewChat()}
-            >
-              <MessageSquarePlus size={21} />
-            </button>
+          <div className="flex items-center gap-1">
+            <IconButton icon={SlidersHorizontal} label={t('Настройки чата')} onClick={() => setSettingsOpen(true)} />
+            <IconButton icon={PanelsTopLeft} label={t('Список чатов')} onClick={() => setListOpen(true)} />
+            <IconButton icon={MessageSquarePlus} label={t('Новый чат')} onClick={() => void handleNewChat()} />
           </div>
         }
       >
@@ -427,12 +412,17 @@ function AssistantBlock({
           )}
           {!failed && message.model && <span className="truncate">{modelLabel(message.model)}</span>}
           {!failed && (
-            <button aria-label={t('Скопировать')} className="p-1 active:opacity-60" onClick={onCopy}>
-              <Copy size={13} />
+            <button aria-label={t('Скопировать')} className={`p-1 active:opacity-60 ${HIT_SLOP_44}`} onClick={onCopy}>
+              <Copy size={ICON.inline} />
             </button>
           )}
-          <button aria-label={t('Повторить')} className="p-1 active:opacity-60 disabled:opacity-30" disabled={busy} onClick={onRetry}>
-            <RotateCcw size={13} />
+          <button
+            aria-label={t('Повторить')}
+            className={`p-1 active:opacity-60 disabled:opacity-30 ${HIT_SLOP_44}`}
+            disabled={busy}
+            onClick={onRetry}
+          >
+            <RotateCcw size={ICON.inline} />
           </button>
         </div>
       </div>

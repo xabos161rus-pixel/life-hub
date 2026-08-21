@@ -23,6 +23,7 @@ import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { GoalEditSheet } from './GoalEditSheet';
 import { IconButton } from '../../components/ui/IconButton';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 const KIND_ICONS: Record<LearningKind, LucideIcon> = {
   book: Book,
@@ -299,7 +300,7 @@ export function GoalDetailPage() {
                   type="button"
                   aria-label={t('Отвязать')}
                   onClick={() => update(db.learningItems, li.id, { goalId: null })}
-                  className="p-1.5 text-muted"
+                  className={`p-1.5 text-muted ${HIT_SLOP_44}`}
                 >
                   <X size={16} />
                 </button>

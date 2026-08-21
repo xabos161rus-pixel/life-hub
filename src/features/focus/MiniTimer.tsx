@@ -29,7 +29,11 @@ export function MiniTimer() {
   if (/^\/notes\/.+/.test(pathname)) return null; // там таб-бара нет
 
   const color = p.phase === 'work' ? 'var(--focus-accent)' : 'var(--app-success)';
-  const iconBtn = 'shrink-0 p-1 text-muted active:opacity-60';
+  // Бокс 36px вместо прежних 26: три кнопки идут подряд через gap-2, и
+  // невидимая зона 44 им не подходит — соседние зоны перекрылись бы (ограничение
+  // в hitSlop.ts: не ближе 11px друг к другу). Поэтому растёт сама кнопка:
+  // 36 + 8 зазора = шаг 44, попадание пальцем без промаха по соседу.
+  const iconBtn = 'flex size-9 shrink-0 items-center justify-center rounded-full text-muted active:opacity-60';
   return (
     <div
       role="button"

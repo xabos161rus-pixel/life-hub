@@ -4,6 +4,7 @@ import {
   GClose as X,
 } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
+import { HIT_SLOP_44 } from './hitSlop';
 
 interface Props {
   open: boolean;
@@ -102,11 +103,16 @@ export function Sheet({ open, onClose, title, children }: Props) {
           <div className="mx-auto mb-2.5 h-1 w-9 rounded-full bg-muted/40" />
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">{title}</h2>
+            {/* Крестик остаётся мелким (30px): визуально он служебный и
+                раздувать его незачем. А вот зону касания псевдоэлемент
+                добирает до 44×44 — палец мимо служебной кнопки промахивается
+                ровно так же, как мимо главной. Ограничение hitSlop про 11px
+                между соседями соблюдено: рядом с крестиком ничего нет. */}
             <button
               onClick={onClose}
               onPointerDown={(e) => e.stopPropagation()}
               aria-label={t('Закрыть')}
-              className="rounded-full bg-surface-2 p-1.5 text-muted transition-transform active:scale-90"
+              className={`rounded-full bg-surface-2 p-1.5 text-muted transition-transform active:scale-90 ${HIT_SLOP_44}`}
             >
               <X size={18} />
             </button>

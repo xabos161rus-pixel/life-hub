@@ -13,6 +13,7 @@ import { ChatTab } from './ChatTab';
 import { FamilyTasksTab } from './FamilyTasksTab';
 import { useToast } from '../../components/ui/toastContext';
 import { getLang, t } from '../../lib/i18n';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 type Tab = 'chat' | 'tasks' | 'members';
 const TABS = [
@@ -90,7 +91,11 @@ export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: strin
                   «разрешить уведомления», английская ветка явная. */}
               {getLang() === 'en' ? 'Turn on' : 'Включить'}
             </button>
-            <button onClick={() => setPushHidden(true)} aria-label={t('Скрыть')} className="shrink-0 p-0.5 text-muted active:opacity-60">
+            <button
+              onClick={() => setPushHidden(true)}
+              aria-label={t('Скрыть')}
+              className={`ml-1 shrink-0 p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
+            >
               <X size={16} />
             </button>
           </div>

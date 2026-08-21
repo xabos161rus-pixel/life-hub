@@ -60,6 +60,7 @@ import {
   markSeen,
 } from '../../lib/family/familyChat';
 import { useVoiceRecorder } from './useVoiceRecorder';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 
 // Палитра быстрых реакций — как в WhatsApp/Telegram, шесть базовых.
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
@@ -971,7 +972,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 setText('');
               }}
               aria-label={t('Отменить редактирование')}
-              className="p-1 active:opacity-60"
+              className={`p-1 active:opacity-60 ${HIT_SLOP_44}`}
             >
               <X size={16} />
             </button>
@@ -989,7 +990,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             <button
               onClick={() => setReplyTo(null)}
               aria-label={t('Отменить ответ')}
-              className="p-1 text-muted active:opacity-60"
+              className={`p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
               <X size={16} />
             </button>
