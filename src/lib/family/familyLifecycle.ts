@@ -16,7 +16,7 @@ import {
 } from '../crypto';
 import { saveFamilyConfig, getFamilyConfig, listFamilyConfigs, clearFamily } from './familyState';
 import { upsertSelfMember } from './familyRepo';
-import { connectFamily, disconnectFamily, sendSystemMessage } from './familyChat';
+import { connectFamily, disconnectFamily, sendSystemMessage, unregisterFamilyPush } from './familyChat';
 import { ensureBoxKeys, registerMember } from './familyKeys';
 import { t } from '../i18n';
 
@@ -141,10 +141,22 @@ export async function createFamilyInvite(
   return { code, word, expiresAt: peekInvite(code).expiresAt };
 }
 
-/** Выйти из группы на этом устройстве (её локальные данные стираются). */
+/** Выйти из группы на этом устройстве (её локальные данные стираются).
+ *
+ *  Порядок важен: сначала отписка от уведомлений — на неё нужен токен группы,
+ *  который сотрёт clearFamily. Без отписки телефон продолжал бы звенеть
+ *  «Входящий звонок» из группы, из которой человек уже вышел. */
 export async function leaveFamily(familyId: string): Promise<void> {
+  await unregisterFamilyPush(familyId).catch(() => {});
   disconnectFamily(familyId);
   await clearFamily(familyId);
+  // Разбор последнего звонка тоже про эту группу — уносить его с собой
+  // некуда и незачем.
+  try {
+    localStorage.removeItem('life-hub-call-diag');
+  } catch {
+    /* приватный режим */
+  }
 }
 
 /** familyId группы, которую показать по умолчанию (первая по joinedAt). */
