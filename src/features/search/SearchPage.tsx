@@ -21,6 +21,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
+import { searchMessages } from '../../lib/family/searchMessages';
 import { t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
 
@@ -69,18 +70,41 @@ export function SearchPage() {
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
 
-  const tasks = useLiveQuery(() => db.tasks.toArray(), []);
-  const notes = useLiveQuery(() => db.notes.toArray(), []);
-  const goals = useLiveQuery(() => db.goals.toArray(), []);
-  const places = useLiveQuery(() => db.placeItems.toArray(), []);
-  const learning = useLiveQuery(() => db.learningItems.toArray(), []);
-  const energy = useLiveQuery(() => db.energyItems.toArray(), []);
-  const expenses = useLiveQuery(() => db.expenseItems.toArray(), []);
-  const familyMsgs = useLiveQuery(() => db.familyMessages.toArray(), []);
-  const reminders = useLiveQuery(() => db.reminderItems.toArray(), []);
+  // Читаем базу ТОЛЬКО когда есть что искать.
+  //
+  // Раньше девять запросов выполнялись при открытии экрана и висели живыми
+  // подписками всё время, пока он открыт. Среди них — вся переписка семьи
+  // вместе с фотографиями, голосовыми и кусками файлов (они лежат в тех же
+  // строках) и все задачи с их снимками. Экран открывается с главной одним
+  // тапом, и каждое входящее сообщение перечитывало всё заново.
+  //
+  // Короткий запрос тоже не читаем: по одной букве находится вся база, и
+  // пользы в таком ответе нет.
+  const data = useLiveQuery(async () => {
+    if (q.length < 2) return null;
+    const [tasks, notes, goals, places, learning, energy, expenses, reminders, families] =
+      await Promise.all([
+        db.tasks.toArray(),
+        db.notes.toArray(),
+        db.goals.toArray(),
+        db.placeItems.toArray(),
+        db.learningItems.toArray(),
+        db.energyItems.toArray(),
+        db.expenseItems.toArray(),
+        db.reminderItems.toArray(),
+        db.family.toArray(),
+      ]);
+    // Переписку ищем тем же способом, что и внутри чата: по хвосту истории
+    // и по составному индексу, а не полным чтением таблицы.
+    const chat = (
+      await Promise.all(families.map((f) => searchMessages(f.familyId, query)))
+    ).flat();
+    return { tasks, notes, goals, places, learning, energy, expenses, reminders, chat };
+  }, [q, query]);
 
   const sections = useMemo<SectionResult[]>(() => {
-    if (!q) return [];
+    if (!q || !data) return [];
+    const { tasks, notes, goals, places, learning, energy, expenses, reminders } = data;
 
     const build = (
       key: string,
@@ -124,14 +148,15 @@ export function SearchPage() {
       .map((x) => ({ id: x.id, to: '/more/finance', title: x.title, context: t(x.category) }));
 
     // Чат append-only и без другой навигации, кроме скролла, — поиск обязан
-    // его видеть. Системные и удалённые сообщения пропускаем.
-    const chatHits: Hit[] = (familyMsgs ?? [])
-      .filter((m) => !m.deletedAt && !m.system && m.text.toLowerCase().includes(q))
-      .sort((a, b) => (b.seq ?? 0) - (a.seq ?? 0))
-      .map((m) => ({
+    // его видеть. Отбор (удалённые, системные, регистр, «ё») уже сделан
+    // searchMessages: он же используется внутри самого чата, и расхождения
+    // между «нашлось в поиске» и «нашлось в чате» быть не должно.
+    const chatHits: Hit[] = data.chat
+      .sort((a, b) => (b.message.seq ?? 0) - (a.message.seq ?? 0))
+      .map(({ message: m }) => ({
         id: m.clientMsgId,
         to: `/more/family?g=${m.familyId}`,
-        title: m.text,
+        title: m.text || m.file?.name || '',
         context: new Date(m.createdAt).toLocaleDateString('ru-RU'),
       }));
 
@@ -150,7 +175,7 @@ export function SearchPage() {
       build('energy', t('Энергия'), SECTION_BY_ID.get('energy')!.icon, energyHits),
       build('expenses', t('Финансы'), SECTION_BY_ID.get('finance')!.icon, expenseHits),
     ].filter((s) => s.total > 0);
-  }, [q, tasks, notes, goals, places, learning, energy, expenses, familyMsgs, reminders]);
+  }, [q, data]);
 
   return (
     <Screen title={t('Поиск')} backTo="/">

@@ -15,13 +15,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Гейт: в прод уезжает только то, что прошло типы, линт, юниты и браузерные
+  # тесты. Раньше деплой проверял ровно одно — что сборка собралась, — и любая
+  # сломанная логика выкатывалась молча. При красных тестах сборки не будет, а
+  # на Pages останется прошлая рабочая версия.
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   build:
+    needs: tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build

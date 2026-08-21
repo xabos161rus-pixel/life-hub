@@ -1,0 +1,73 @@
+name: Tests
+
+# Прогон всех проверок проекта: типы, линт, юниты, браузерные тесты.
+#
+# Зачем: до появления этого файла в CI не было НИ ОДНОГО теста — деплой
+# проверял ровно то, что сборка собралась. Больше 460 юнитов и почти 200
+# браузерных тестов запускались только вручную, а в main вливаются коммиты из
+# разных сессий. Сломанная логика уезжала в прод молча.
+#
+# Файл переиспользуемый (workflow_call): deploy.yml вызывает его как гейт,
+# и на GitHub Pages выкатывается только то, что прошло проверки. Он же
+# работает на pull request — обновления зависимостей от Dependabot наконец
+# будет видно, ломают они что-нибудь или нет.
+#
+# Node 22 обязателен: worker/familyRoom.test.ts и removal.integration.test.ts
+# используют node:sqlite, которого нет в Node 20. На двадцатой они падают при
+# загрузке — это 26 тестов, включая всю проверку семейных ключей (исключение
+# участника, ротация, доступ исключённого).
+
+on:
+  workflow_call:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    name: Типы, линт, юниты
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # tsc -b внутри build: типы проверяются той же командой, что и сборка,
+      # отдельный шаг был бы повтором.
+      - name: Сборка и типы
+        run: npm run build
+      - name: Линт
+        run: npm run lint
+      - name: Юнит-тесты
+        run: npm test
+
+  e2e:
+    name: Браузерные тесты
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # Полный прогон идёт около девяти минут в один поток (в CI workers=1,
+      # см. playwright.config.ts). Три части укладываются в 4-5 минут, а
+      # раннеры для публичного репозитория бесплатны.
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Браузер
+        run: npx playwright install --with-deps chromium
+      - name: Тесты
+        run: npx playwright test --shard=${{ matrix.shard }}/3
+      # Разбор падения без артефактов сводится к гаданию: трасса показывает
+      # состояние страницы в момент, когда тест сдался.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-${{ matrix.shard }}
+          path: test-results/
+          retention-days: 7
