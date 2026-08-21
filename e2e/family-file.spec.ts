@@ -144,3 +144,29 @@ test('сид манифеста без fileData и без чанков — «Ф�
   await expect(page.getByText('старый.zip')).toBeVisible();
   await expect(page.getByText('Файл недоступен')).toBeVisible();
 });
+
+// Однопиксельные картинки разного цвета: содержимое не важно, важно, что это
+// разные файлы и что их несколько.
+const PNG_RED = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+test('несколько фото за раз уходят все и в том порядке, в каком выбраны', async ({ page }) => {
+  // С прогулки снимков всегда пачка. Выбирать по одному и ждать отправки
+  // каждого — занятие на несколько минут, и порядок при этом легко потерять.
+  await openApp(page, '/more/family');
+  await seedFamily(page);
+
+  const before = await page.locator('img').count();
+
+  await page.getByRole('button', { name: 'Прикрепить' }).click();
+  await page.getByRole('button', { name: 'Фото' }).click();
+  await page.locator('input[type="file"][accept="image/*"]').setInputFiles([
+    { name: 'первое.png', mimeType: 'image/png', buffer: PNG_RED },
+    { name: 'второе.png', mimeType: 'image/png', buffer: PNG_RED },
+    { name: 'третье.png', mimeType: 'image/png', buffer: PNG_RED },
+  ]);
+
+  await expect.poll(async () => page.locator('img').count(), { timeout: 15_000 }).toBe(before + 3);
+});

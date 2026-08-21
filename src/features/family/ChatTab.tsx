@@ -93,7 +93,24 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
   const [playing, setPlaying] = useState(false);
   const [pos, setPos] = useState(0);
   const aRef = useRef<HTMLAudioElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
   const total = duration || pos || 1;
+
+  /** Перемотка по координате касания на дорожке. */
+  const seekTo = (clientX: number) => {
+    const bar = barRef.current;
+    const a = aRef.current;
+    if (!bar || !a) return;
+    const r = bar.getBoundingClientRect();
+    if (!r.width) return;
+    const ratio = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    // Длительность из метаданных точнее записанной в сообщении, но у файлов
+    // из потоковой записи она бывает бесконечной — тогда верим сообщению.
+    const dur = Number.isFinite(a.duration) && a.duration > 0 ? a.duration : duration;
+    if (!dur) return;
+    a.currentTime = ratio * dur;
+    setPos(a.currentTime);
+  };
   return (
     <div className="flex min-w-[170px] items-center gap-2.5 py-0.5">
       <button
@@ -109,8 +126,42 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
       >
         {playing ? <Pause size={ICON.action} /> : <Play size={ICON.action} />}
       </button>
-      <div className={`h-1 flex-1 overflow-hidden rounded-full ${own ? 'bg-white/25' : 'bg-hairline'}`}>
-        <div className="h-full rounded-full bg-current" style={{ width: `${Math.min(100, (pos / total) * 100)}%` }} />
+      {/* Полоса перематывает: голосовое на минуту без перемотки приходится
+          слушать целиком, даже если нужен был конец. Дорожка тонкая, но зона
+          касания вокруг неё — во всю высоту строки, иначе в неё не попасть
+          пальцем. stopPropagation: иначе касание уходит в жесты пузыря
+          (свайп-ответ, меню) и вместо перемотки открывается меню. */}
+      <div
+        ref={barRef}
+        role="slider"
+        tabIndex={0}
+        aria-label={t('Перемотка')}
+        aria-valuemin={0}
+        aria-valuemax={Math.round(total)}
+        aria-valuenow={Math.round(pos)}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          seekTo(e.clientX);
+        }}
+        onPointerMove={(e) => {
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) seekTo(e.clientX);
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          const a = aRef.current;
+          if (!a) return;
+          if (e.key === 'ArrowRight') a.currentTime = Math.min(total, a.currentTime + 5);
+          else if (e.key === 'ArrowLeft') a.currentTime = Math.max(0, a.currentTime - 5);
+          else return;
+          e.preventDefault();
+          setPos(a.currentTime);
+        }}
+        className="flex flex-1 cursor-pointer touch-none items-center py-2"
+      >
+        <div className={`h-1 w-full overflow-hidden rounded-full ${own ? 'bg-white/25' : 'bg-hairline'}`}>
+          <div className="h-full rounded-full bg-current" style={{ width: `${Math.min(100, (pos / total) * 100)}%` }} />
+        </div>
       </div>
       <span className="shrink-0 text-2xs tabular-nums">{fmtDur(playing || pos ? pos : duration)}</span>
       <audio
@@ -916,6 +967,16 @@ export function ChatTab({ familyId }: { familyId: string }) {
     await deleteMessage(familyId, m.clientMsgId);
   }
 
+  /** Несколько снимков за раз: с прогулки или из поездки их всегда пачка, а
+   *  выбирать по одному и ждать отправки каждого — занятие на пять минут.
+   *  Отправляем последовательно: параллельная отправка перемешала бы порядок
+   *  снимков в переписке, а он для фотографий важен. */
+  async function handlePickImages(files: File[]) {
+    for (const f of files) {
+      await handlePickImage(f);
+    }
+  }
+
   async function handlePickImage(file: File) {
     // Раньше ошибка глоталась молча: человек выбирал фото, ничего не
     // происходило, и понять почему было невозможно. Молчаливый отказ хуже
@@ -1280,11 +1341,12 @@ export function ChatTab({ familyId }: { familyId: string }) {
               ref={imageRef}
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0];
+                const files = Array.from(e.target.files ?? []);
                 e.target.value = '';
-                if (f) void handlePickImage(f);
+                if (files.length) void handlePickImages(files);
               }}
             />
             <input
