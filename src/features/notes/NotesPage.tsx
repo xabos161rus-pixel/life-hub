@@ -21,6 +21,7 @@ import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { FolderSheet } from './FolderSheet';
 import { checklistProgress } from './checklist';
 import { countNotesDeep, flattenTree, folderMoveTargets } from './folderTree';
+import { ICON } from '../../components/ui/icons';
 
 /** HTML заметки → плоский текст для превью/поиска (с переносами на блоках). */
 function htmlToText(html: string): string {
@@ -146,7 +147,7 @@ function NoteRow({
         onPointerCancel={onUp}
         onClick={onClick}
       >
-        {note.pinned && <Pin size={14} className="mt-1 shrink-0 text-accent" fill="currentColor" />}
+        {note.pinned && <Pin size={ICON.inline} className="mt-1 shrink-0 text-accent" fill="currentColor" />}
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 break-words font-semibold">{title}</p>
           <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted">
@@ -332,7 +333,7 @@ export function NotesPage() {
               📄
             </span>
             <span className="min-w-0 flex-1 font-medium">{t('Все заметки')}</span>
-            {movingParent === null && <Check size={18} className="shrink-0 text-accent" />}
+            {movingParent === null && <Check size={ICON.base} className="shrink-0 text-accent" />}
           </button>
           {/* Всё дерево одним списком: вложенность показана отступом, как в
               «Куда перенести?» Apple Notes, — переносить можно на любой
@@ -351,7 +352,7 @@ export function NotesPage() {
                 {f.emoji}
               </span>
               <span className="min-w-0 flex-1 truncate font-medium">{f.name}</span>
-              {movingParent === f.id && <Check size={18} className="shrink-0 text-accent" />}
+              {movingParent === f.id && <Check size={ICON.base} className="shrink-0 text-accent" />}
             </button>
           ))}
         </div>
@@ -377,7 +378,7 @@ export function NotesPage() {
             aria-label={current ? t('Новая вложенная папка') : t('Новая папка')}
             className={`p-1 text-accent active:opacity-60 ${HIT_SLOP_44}`}
           >
-            <FolderPlus size={20} />
+            <FolderPlus size={ICON.header} />
           </button>
           {current && (
             <button
@@ -397,7 +398,7 @@ export function NotesPage() {
         >
           {/* Назад — на уровень выше, а не всегда в корень: внутри вложенной
               папки «Все заметки» перепрыгивал бы родителя. */}
-          <ChevronLeft size={16} /> {parent ? `${parent.emoji} ${parent.name}` : t('Все заметки')}
+          <ChevronLeft size={ICON.action} /> {parent ? `${parent.emoji} ${parent.name}` : t('Все заметки')}
         </button>
       )}
 

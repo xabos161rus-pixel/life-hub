@@ -6,6 +6,7 @@ import {
 } from '../../components/ui/glyphs';
 import { formatClock, usePomodoro } from './pomodoro';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /** Полоска-таймер над таб-баром, пока идёт помодоро. Тап — открыть «Фокус». */
 export function MiniTimer() {
@@ -64,7 +65,7 @@ export function MiniTimer() {
         }}
         className={iconBtn}
       >
-        {p.running ? <Pause size={18} /> : <Play size={18} />}
+        {p.running ? <Pause size={ICON.base} /> : <Play size={ICON.base} />}
       </button>
       <button
         type="button"
@@ -75,7 +76,7 @@ export function MiniTimer() {
         }}
         className={iconBtn}
       >
-        <RotateCcw size={18} />
+        <RotateCcw size={ICON.base} />
       </button>
       <button
         type="button"
@@ -86,7 +87,7 @@ export function MiniTimer() {
         }}
         className={iconBtn}
       >
-        <X size={18} />
+        <X size={ICON.base} />
       </button>
     </div>
   );

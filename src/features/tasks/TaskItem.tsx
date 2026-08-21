@@ -12,6 +12,7 @@ import { formatDueRange } from '../../lib/taskDates';
 import { describeRecurrence } from '../../lib/recurrence';
 import { t } from '../../lib/i18n';
 import { skipTask, toggleTask } from './taskActions';
+import { ICON } from '../../components/ui/icons';
 
 const PRIORITY_BAR: Record<number, string> = {
   3: 'bg-danger',
@@ -289,7 +290,7 @@ export function TaskItem({
             className={`flex size-[22px] shrink-0 items-center justify-center rounded-[6px] active:scale-90 ${HIT_SLOP_44}`}
             style={{ color: 'var(--app-warning)' }}
           >
-            <SkipForward size={18} />
+            <SkipForward size={ICON.base} />
           </button>
         )}
         <TaskCheck checked={done} onChange={handleToggle} color={project?.color} />
@@ -328,7 +329,7 @@ export function TaskItem({
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
               {frozen && (
                 <span className="flex items-center gap-0.5 text-frost">
-                  <Snowflake size={14} />
+                  <Snowflake size={ICON.inline} />
                   {t('заморожено')}
                 </span>
               )}
@@ -352,12 +353,12 @@ export function TaskItem({
               ) : null}
               {task.remindBefore != null && task.dueTime && (
                 <span className="flex items-center" aria-label={t('Напоминание включено')}>
-                  <Bell size={14} />
+                  <Bell size={ICON.inline} />
                 </span>
               )}
               {task.recurrence && (
                 <span className="flex items-center gap-0.5">
-                  <Repeat size={14} />
+                  <Repeat size={ICON.inline} />
                   {describeRecurrence(task.recurrence)}
                 </span>
               )}
@@ -398,7 +399,7 @@ export function TaskItem({
           onClick={handleCopy}
           className={`-mr-1 mt-0.5 shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
         >
-          <Copy size={14} />
+          <Copy size={ICON.inline} />
         </button>
       </div>
     </div>

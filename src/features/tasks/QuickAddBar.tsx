@@ -9,6 +9,7 @@ import { HIT_SLOP_44 } from '../../components/ui/Checkbox';
 import { Hint } from '../../components/ui/Hint';
 import { describeParsed, parseQuickTask } from '../../lib/nlDate';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /**
  * Быстрый ввод задачи в стиле TickTick: одна строка без открытия формы.
@@ -94,7 +95,7 @@ export function QuickAddBar({
               canSend ? 'text-accent' : 'text-muted opacity-40'
             }`}
           >
-            <Send size={20} />
+            <Send size={ICON.header} />
           </button>
         </div>
         {hint && <p className="px-1 pt-0.5 pb-1 text-xs text-accent">{hint}</p>}

@@ -13,6 +13,7 @@ import { formatDueDate } from '../../lib/dates';
 import { toggleFamilyTask } from '../../lib/family/familyRepo';
 import { FamilyTaskSheet } from './FamilyTaskSheet';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 export function FamilyTasksTab({ familyId }: { familyId: string }) {
   const tasksRaw = useLiveQuery(() => db.familyTasks.where('familyId').equals(familyId).toArray(), [familyId]);
@@ -68,7 +69,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
   return (
     <div className="space-y-3">
       <Button onClick={openNew} className="w-full inline-flex items-center justify-center gap-2">
-        <Plus size={18} />
+        <Plus size={ICON.base} />
         {t('Новая задача')}
       </Button>
 
@@ -84,7 +85,7 @@ export function FamilyTasksTab({ familyId }: { familyId: string }) {
                 onClick={() => setShowDone((v) => !v)}
                 className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-sm text-muted active:opacity-60"
               >
-                <ChevronRight size={14} className={`shrink-0 transition-transform ${showDone ? 'rotate-90' : ''}`} />
+                <ChevronRight size={ICON.inline} className={`shrink-0 transition-transform ${showDone ? 'rotate-90' : ''}`} />
                 <span>{t('Выполненные')}</span>
                 <span className="text-xs">{completed.length}</span>
               </button>

@@ -9,6 +9,7 @@ import type { LearningItem } from '../../db/types';
 import { todayKey } from '../../lib/dates';
 import { formatNum } from '../../lib/finance';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 const BTN_CLASS =
   'flex size-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-text active:opacity-70 disabled:opacity-40';
@@ -39,7 +40,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
         disabled={item.progressCurrent <= 0}
         onClick={() => void setValue(item.progressCurrent - step)}
       >
-        <Minus size={18} />
+        <Minus size={ICON.base} />
       </button>
       <span className="min-w-12 text-center font-bold tabular-nums">
         {formatNum(item.progressCurrent)}
@@ -51,7 +52,7 @@ export function ProgressStepper({ item }: { item: LearningItem }) {
         disabled={item.progressCurrent >= item.progressTarget}
         onClick={() => void setValue(item.progressCurrent + step)}
       >
-        <Plus size={18} />
+        <Plus size={ICON.base} />
       </button>
       {item.progressUnit === 'pages' && (
         <button

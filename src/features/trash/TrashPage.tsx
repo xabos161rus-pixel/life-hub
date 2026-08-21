@@ -18,6 +18,7 @@ import { update } from '../../db/repo';
 import { formatRu } from '../../lib/dates';
 import type { BaseEntity } from '../../db/types';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 interface TrashEntry {
   table: Table<BaseEntity, string>;
@@ -126,7 +127,7 @@ export function TrashPage() {
               const Icon = entry.icon;
               return (
                 <div key={`${entry.tableName}-${entry.id}`} className="flex items-center gap-3 px-4 py-3">
-                  <Icon size={18} className="mt-0.5 shrink-0 self-start text-muted" />
+                  <Icon size={ICON.base} className="mt-0.5 shrink-0 self-start text-muted" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{entry.title || t('Без названия')}</p>
                     <p className="text-sm text-muted">
@@ -139,7 +140,7 @@ export function TrashPage() {
                     onClick={() => void handleRestore(entry)}
                   >
                     <span className="flex items-center gap-1.5">
-                      <RotateCcw size={16} />
+                      <RotateCcw size={ICON.action} />
                       {t('Восстановить')}
                     </span>
                   </Button>
@@ -148,7 +149,7 @@ export function TrashPage() {
                     className="shrink-0 p-2 text-muted active:opacity-60"
                     onClick={() => void handlePurge(entry)}
                   >
-                    <Trash2 size={18} className="text-danger" />
+                    <Trash2 size={ICON.base} className="text-danger" />
                   </button>
                 </div>
               );

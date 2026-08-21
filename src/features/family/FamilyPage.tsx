@@ -16,6 +16,7 @@ import { FamilyScreen, useFamilyStatusLine } from './FamilyScreen';
 import { CallButton } from './CallButton';
 import { ManageGroupsSheet } from './ManageGroupsSheet';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 const ACTIVE_KEY = 'life-hub-active-family';
 
@@ -217,7 +218,7 @@ function GroupSwitcher({
         aria-label={t('Добавить группу')}
         className="flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-surface-2 text-muted active:opacity-80"
       >
-        <Plus size={18} />
+        <Plus size={ICON.base} />
       </button>
       {configs.length > 0 && (
         <button
@@ -225,7 +226,7 @@ function GroupSwitcher({
           aria-label={t('Управление группами')}
           className="flex size-8 shrink-0 items-center justify-center self-center rounded-full bg-surface-2 text-muted active:opacity-80"
         >
-          <SlidersHorizontal size={16} />
+          <SlidersHorizontal size={ICON.action} />
         </button>
       )}
     </div>

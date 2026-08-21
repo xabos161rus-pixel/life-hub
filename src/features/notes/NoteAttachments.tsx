@@ -7,6 +7,7 @@ import type { NoteAttachment } from '../../lib/noteFiles';
 import { fileKindLabel, formatFileSize } from '../../lib/noteFiles';
 import { t } from '../../lib/i18n';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { ICON } from '../../components/ui/icons';
 
 /** Иконка по короткой подписи из fileKindLabel — та же раскладка, что у
  *  карточки файла в семейном чате (там она локальна для фичи, а общий дом ей
@@ -53,7 +54,7 @@ export function NoteAttachments({
               aria-label={t('Скачать {name}', { name: f.name })}
             >
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
-                <Icon size={20} />
+                <Icon size={ICON.header} />
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{f.name}</span>
@@ -72,7 +73,7 @@ export function NoteAttachments({
               className={`shrink-0 rounded-lg p-2 text-muted active:bg-surface-2 ${HIT_SLOP_44}`}
               onClick={() => onDelete(f.fileId)}
             >
-              <GClose size={16} />
+              <GClose size={ICON.action} />
             </button>
           </div>
         );

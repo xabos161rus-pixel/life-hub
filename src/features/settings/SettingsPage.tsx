@@ -42,6 +42,7 @@ import { usePersistentStorage } from './usePersistentStorage';
 import { SyncSection } from './sync/SyncSection';
 import { InstallLink } from './InstallLink';
 import type { Settings } from '../../db/types';
+import { ICON } from '../../components/ui/icons';
 
 /** Имена таблиц человеческим языком — они уходят в диалог о перезаписи копии,
  *  и «cycleDays: 214 → 0» там читалось бы как сообщение об ошибке. */
@@ -126,7 +127,7 @@ function HintsResetRow() {
       }}
       className="flex w-full items-center gap-2 border-b border-hairline p-4 text-left disabled:opacity-40"
     >
-      <Lightbulb size={20} className="shrink-0 text-muted" />
+      <Lightbulb size={ICON.header} className="shrink-0 text-muted" />
       <span className="min-w-0 flex-1">
         <span className="block truncate">{t('Показать подсказки заново')}</span>
         <span className="block text-sm text-muted">
@@ -135,7 +136,7 @@ function HintsResetRow() {
             : t('Скрыто {hidden} из {total}', { hidden, total: HINT_IDS.length })}
         </span>
       </span>
-      <ChevronRight size={20} className="shrink-0 text-muted" />
+      <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
     </button>
   );
 }
@@ -378,7 +379,7 @@ export function SettingsPage() {
                     <span className="block font-medium">{t(a.label)}</span>
                     <span className="block text-sm text-muted">{t(a.hint)}</span>
                   </span>
-                  {selected && <GCheck size={18} className="shrink-0 text-accent" />}
+                  {selected && <GCheck size={ICON.base} className="shrink-0 text-accent" />}
                 </button>
               );
             })}
@@ -441,7 +442,7 @@ export function SettingsPage() {
                 экранах ничего не меняется: всё влезает в одну строку, и flex-1
                 подписи по-прежнему прижимает селект к правому краю. */}
             <div className="flex flex-wrap items-center gap-2 border-t border-hairline p-4">
-              <BellRing size={20} className="shrink-0 text-muted" />
+              <BellRing size={ICON.header} className="shrink-0 text-muted" />
               <span className="flex-1">{t('Звук сообщений')}</span>
               {/* Выбор сразу проигрывает звук — слышно, что выбираешь. */}
               {/* compact-Select вместо голого <select>: он снимает системную
@@ -466,7 +467,7 @@ export function SettingsPage() {
               </Select>
             </div>
             <div className="flex flex-wrap items-center gap-2 border-t border-hairline p-4">
-              <PhoneCall size={20} className="shrink-0 text-muted" />
+              <PhoneCall size={ICON.header} className="shrink-0 text-muted" />
               <span className="flex-1">{t('Звук звонка')}</span>
               {/* Выбор сразу проигрывает короткий фрагмент рингтона. */}
               <Select
@@ -663,15 +664,15 @@ export function SettingsPage() {
               to="/more/settings/sections"
               className="flex items-center gap-2 border-b border-hairline p-4"
             >
-              <SlidersHorizontal size={20} className="shrink-0 text-muted" />
+              <SlidersHorizontal size={ICON.header} className="shrink-0 text-muted" />
               <span className="min-w-0 flex-1 truncate">{t('Настроить разделы')}</span>
-              <ChevronRight size={20} className="shrink-0 text-muted" />
+              <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
             </Link>
             {/* Раздел ИИ за флагом: пока фича дописывается, её можно мержить в
                 main рабочего приложения, не показывая на «Главной». */}
             <div className="border-b border-hairline p-4">
               <div className="mb-2.5 flex items-center gap-2">
-                <Bot size={20} className="shrink-0 text-muted" />
+                <Bot size={ICON.header} className="shrink-0 text-muted" />
                 <span className="flex-1">
                   {t('Раздел «ИИ»')}
                   <span className="block text-sm text-muted">
@@ -689,9 +690,9 @@ export function SettingsPage() {
               />
             </div>
             <Link to="/more/trash" className="flex items-center gap-2 border-b border-hairline p-4">
-              <Trash2 size={20} className="shrink-0 text-muted" />
+              <Trash2 size={ICON.header} className="shrink-0 text-muted" />
               <span className="min-w-0 flex-1 truncate">{t('Корзина')}</span>
-              <ChevronRight size={20} className="shrink-0 text-muted" />
+              <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
             </Link>
             <button
               type="button"
@@ -701,9 +702,9 @@ export function SettingsPage() {
               onClick={() => void updateSettings({ onboardingDone: null })}
               className="flex w-full items-center gap-2 border-b border-hairline p-4 text-left"
             >
-              <GraduationCap size={20} className="shrink-0 text-muted" />
+              <GraduationCap size={ICON.header} className="shrink-0 text-muted" />
               <span className="min-w-0 flex-1 truncate">{t('Показать обучение заново')}</span>
-              <ChevronRight size={20} className="shrink-0 text-muted" />
+              <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
             </button>
             <HintsResetRow />
             <Link
@@ -711,7 +712,7 @@ export function SettingsPage() {
               className="flex items-center justify-between gap-2 border-b border-hairline p-4"
             >
               <span className="min-w-0">{t('Установка и восстановление данных')}</span>
-              <ChevronRight size={20} className="shrink-0 text-muted" />
+              <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
             </Link>
             <div className="p-4">
               <p className="mb-2.5 text-sm text-muted">

@@ -24,6 +24,7 @@ import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { GoalEditSheet } from './GoalEditSheet';
 import { IconButton } from '../../components/ui/IconButton';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { ICON } from '../../components/ui/icons';
 
 const KIND_ICONS: Record<LearningKind, LucideIcon> = {
   book: Book,
@@ -200,7 +201,7 @@ export function GoalDetailPage() {
                 }}
                 className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 active:opacity-70"
               >
-                <Minus size={18} />
+                <Minus size={ICON.base} />
               </button>
               <Input
                 type="number"
@@ -225,7 +226,7 @@ export function GoalDetailPage() {
                 }}
                 className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 active:opacity-70"
               >
-                <Plus size={18} />
+                <Plus size={ICON.base} />
               </button>
             </div>
           </div>
@@ -261,7 +262,7 @@ export function GoalDetailPage() {
           }}
           className="mt-2 flex items-center gap-1.5 px-1 py-2 text-sm font-medium text-accent"
         >
-          <Plus size={16} /> {t('Задача')}
+          <Plus size={ICON.action} /> {t('Задача')}
         </button>
       </section>
 
@@ -282,7 +283,7 @@ export function GoalDetailPage() {
                 key={li.id}
                 className="flex items-center gap-3 card p-3.5"
               >
-                <Icon size={18} className="shrink-0 text-muted" />
+                <Icon size={ICON.base} className="shrink-0 text-muted" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{li.title}</p>
                   <div className="mt-1.5">
@@ -302,7 +303,7 @@ export function GoalDetailPage() {
                   onClick={() => update(db.learningItems, li.id, { goalId: null })}
                   className={`p-1.5 text-muted ${HIT_SLOP_44}`}
                 >
-                  <X size={16} />
+                  <X size={ICON.action} />
                 </button>
               </div>
             );
@@ -343,7 +344,7 @@ export function GoalDetailPage() {
                   }}
                   className="flex items-center gap-3 rounded-xl bg-surface-2 px-3.5 py-3 text-left active:opacity-70"
                 >
-                  <Icon size={18} className="shrink-0 text-muted" />
+                  <Icon size={ICON.base} className="shrink-0 text-muted" />
                   <span className="min-w-0 flex-1 truncate font-medium">{li.title}</span>
                 </button>
               );

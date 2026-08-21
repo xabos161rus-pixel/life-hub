@@ -8,6 +8,7 @@ import { getFamilyConfig } from '../../lib/family/familyState';
 import { subscribePresence } from '../../lib/family/familyChat';
 import { callManager } from '../../lib/family/familyCall';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /**
  * Звонок из семейного экрана.
@@ -64,7 +65,7 @@ export function CallButton({ familyId }: { familyId: string }) {
         onClick={() => (others.length === 1 ? call(others[0].id) : setPick(true))}
         className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent active:scale-95"
       >
-        <GPhone size={19} />
+        <GPhone size={ICON.header} />
       </button>
 
       <Sheet open={pick} onClose={() => setPick(false)} title={t('Кому позвонить')}>
@@ -109,7 +110,7 @@ function MemberRow({
           {online ? t('В сети') : t('Не в сети')}
         </span>
       </span>
-      <GPhone size={20} className="shrink-0 text-accent" />
+      <GPhone size={ICON.header} className="shrink-0 text-accent" />
     </button>
   );
 }

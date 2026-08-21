@@ -20,6 +20,7 @@ import {
 import { computeNavLayout } from '../../lib/navLayout';
 import { freezeAllForSection, unfreezeSectionFrozen } from '../habits/habitRepo';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 const LAYOUT_OPTS = { maxBottom: MAX_BOTTOM, defaultBottom: DEFAULT_BOTTOM, anchorId: ANCHOR_ID };
 
@@ -286,7 +287,7 @@ export function SectionsSettingsPage() {
         }`}
       >
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-          <Icon size={20} />
+          <Icon size={ICON.header} />
         </div>
         {/* Обычный shrink (был shrink-[0.05]): при сумме flex-факторов меньше 1
             браузер раздаёт только эту долю нехватки, поэтому строка не ужималась,
@@ -304,7 +305,7 @@ export function SectionsSettingsPage() {
           // несёт смысл само, а замок здесь лишь украшение. Плюс 4.25px на
           // сжатии боковых полей — этого хватает, чтобы «Настройки» влезли.
           <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
-            <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>{t('всегда')}</span>
+            <Lock size={ICON.inline} className="shrink-0 max-[375px]:hidden" /> <span>{t('всегда')}</span>
           </span>
         ) : (
           <button
@@ -336,11 +337,11 @@ export function SectionsSettingsPage() {
   const anchorRow = anchor && (
     <div className="flex items-center gap-3 card p-3 max-[375px]:gap-2 max-[375px]:px-2">
       <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-        <anchor.icon size={20} />
+        <anchor.icon size={ICON.header} />
       </div>
       <span className="min-w-0 grow basis-auto truncate font-semibold">{t(anchor.label)}</span>
       <span className="flex shrink-0 items-center gap-1 rounded-full border border-hairline px-2 py-1 text-xs text-muted max-[375px]:px-1.5">
-        <Lock size={14} className="shrink-0 max-[375px]:hidden" /> <span>{t('всегда')}</span>
+        <Lock size={ICON.inline} className="shrink-0 max-[375px]:hidden" /> <span>{t('всегда')}</span>
       </span>
     </div>
   );
@@ -403,7 +404,7 @@ export function SectionsSettingsPage() {
         onClick={reset}
         className="mb-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border py-3.5 text-sm font-semibold text-muted active:opacity-70"
       >
-        <RotateCcw size={16} /> {t('Сбросить по умолчанию')}
+        <RotateCcw size={ICON.action} /> {t('Сбросить по умолчанию')}
       </button>
 
       {/* Превью панели */}
@@ -414,7 +415,7 @@ export function SectionsSettingsPage() {
         {previewBottom.map((s) =>
           s ? (
             <div key={s.id} className="flex min-w-0 flex-1 flex-col items-center gap-1 py-2.5">
-              <s.icon size={20} className="text-muted" />
+              <s.icon size={ICON.header} className="text-muted" />
               {/* без max-w-full подпись раздвигает колонку и превью уезжает вбок.
                   Кегль плавающий и мельче, чем в самой панели: колонка превью
                   уже настоящей вкладки (страница отъедает px-4 = 34px), на 320px

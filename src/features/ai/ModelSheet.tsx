@@ -2,6 +2,7 @@ import { Check } from 'lucide-react';
 import { Sheet } from '../../components/ui/Sheet';
 import { MODELS, type ModelInfo } from '../../lib/ai/models';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /** Ориентир цены «за вопрос»: типовой обмен с чтением данных — примерно
  *  6K токенов входа (история + результат инструмента) и 700 выхода.
@@ -52,7 +53,7 @@ export function ModelSheet({ open, value, onClose, onPick }: Props) {
                 </p>
                 <p className="mt-0.5 text-xs text-muted">{t(MODEL_HINTS[m.id] ?? '')}</p>
               </div>
-              {active && <Check size={18} className="shrink-0 text-accent" />}
+              {active && <Check size={ICON.base} className="shrink-0 text-accent" />}
             </button>
           );
         })}

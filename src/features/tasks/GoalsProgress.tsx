@@ -10,6 +10,7 @@ import { goalProgress } from '../../lib/progress';
 import { compareAhead, deadlineLabel, remainingLabel } from '../../lib/goalsAhead';
 import { GCheck } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /**
  * Приближение к целям — лентой над списком задач.
@@ -124,7 +125,7 @@ export function GoalsProgress() {
                   <Ring value={value} color={reached ? 'var(--app-success)' : goal.color} />
                   <span className="absolute inset-0 flex items-center justify-center">
                     {reached ? (
-                      <GCheck size={16} className="text-success" strokeWidth={2.4} />
+                      <GCheck size={ICON.action} className="text-success" strokeWidth={2.4} />
                     ) : (
                       <span className="text-2xs font-bold tabular-nums">{value}</span>
                     )}

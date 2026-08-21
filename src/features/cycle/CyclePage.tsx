@@ -18,6 +18,7 @@ import { CycleLock } from './CycleLock';
 import { isUnlocked, subscribeLock } from './lockState';
 import type { CyclePredictionResult } from '../../lib/cycle/predict';
 import { IconButton } from '../../components/ui/IconButton';
+import { ICON } from '../../components/ui/icons';
 
 /** Как называем прогноз словами.
  *
@@ -176,7 +177,7 @@ export function CyclePage() {
             {anomalies.length > 0 && (
               <section>
                 <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
-                  <Info size={14} className="shrink-0" />
+                  <Info size={ICON.inline} className="shrink-0" />
                   {t('Стоит обратить внимание')}
                 </h2>
                 <div className="card divide-y divide-hairline px-4">
@@ -297,7 +298,7 @@ export function CyclePage() {
 
         {!data.hasAnyData && !data.loading && (
           <Button onClick={() => setPickedDate(todayKey())} className="w-full">
-            <Plus size={18} className="-mt-0.5 mr-1 inline" /> {t('Отметить сегодня')}
+            <Plus size={ICON.base} className="-mt-0.5 mr-1 inline" /> {t('Отметить сегодня')}
           </Button>
         )}
       </div>

@@ -9,6 +9,7 @@ import { db } from '../../db/db';
 import { create } from '../../db/repo';
 import { parseQuickTask } from '../../lib/nlDate';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /** Экранирование текста перед вставкой в HTML-заметку. */
 function esc(s: string): string {
@@ -124,13 +125,13 @@ export function SharePage() {
         />
 
         <Button variant="secondary" onClick={() => void pasteFromClipboard()}>
-          <ClipboardPaste size={18} className="mr-2 inline" />
+          <ClipboardPaste size={ICON.base} className="mr-2 inline" />
           {t('Вставить из буфера')}
         </Button>
 
         <div className="mt-1 flex gap-2">
           <Button className="flex-1" disabled={!canCreate || busy} onClick={() => void createTask()}>
-            <ListTodo size={18} className="mr-2 inline" />
+            <ListTodo size={ICON.base} className="mr-2 inline" />
             {t('В задачи')}
           </Button>
           <Button
@@ -139,7 +140,7 @@ export function SharePage() {
             disabled={!canCreate || busy}
             onClick={() => void createNote()}
           >
-            <NotebookPen size={18} className="mr-2 inline" />
+            <NotebookPen size={ICON.base} className="mr-2 inline" />
             {t('В заметки')}
           </Button>
         </div>

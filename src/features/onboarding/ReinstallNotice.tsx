@@ -79,7 +79,7 @@ export function ReinstallNotice() {
             onClick={dismiss}
             className="absolute top-3.5 right-3.5 flex size-8 items-center justify-center rounded-full text-muted active:opacity-60"
           >
-            <X size={18} />
+            <X size={ICON.base} />
           </button>
         </div>
 
@@ -92,7 +92,7 @@ export function ReinstallNotice() {
 
           {/* Главное предупреждение — данные */}
           <div className="flex gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-3.5">
-            <ShieldAlert size={20} className="mt-0.5 shrink-0 text-warning" />
+            <ShieldAlert size={ICON.header} className="mt-0.5 shrink-0 text-warning" />
             <p className="text-sm leading-relaxed">
               <span className="font-semibold">{t('Сначала сохраните данные.')}</span>{' '}
               {t('При удалении приложения задачи, заметки и всё остальное стираются с телефона. Сохраните копию — и вернёте всё за минуту, ровно с той же точки.')}
@@ -149,7 +149,7 @@ export function ReinstallNotice() {
           {/* Ссылка на сайт установки — открыть в Safari */}
           <div className="card p-3.5">
             <div className="mb-2 flex items-center gap-2 text-sm text-muted">
-              <Share size={16} className="shrink-0" />
+              <Share size={ICON.action} className="shrink-0" />
               <span>{t('Откройте эту ссылку в Safari:')}</span>
             </div>
             <div className="flex items-center gap-2">
@@ -162,7 +162,7 @@ export function ReinstallNotice() {
                 aria-label={t('Скопировать ссылку')}
                 className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-accent active:opacity-60"
               >
-                {copied ? <Check size={18} /> : <Copy size={18} />}
+                {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
               </button>
             </div>
           </div>
@@ -177,7 +177,7 @@ export function ReinstallNotice() {
             className="inline-flex items-center gap-1 text-sm font-semibold text-accent active:opacity-70"
           >
             {t('Подробная инструкция и восстановление данных')}
-            <ChevronRight size={16} />
+            <ChevronRight size={ICON.action} />
           </Link>
         </div>
 
@@ -196,7 +196,7 @@ export function ReinstallNotice() {
             rel="noopener noreferrer"
             className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-accent-fill to-accent-2-fill px-5 py-3.5 font-semibold text-white shadow-[0_6px_20px_-9px_var(--app-accent-fill)] active:opacity-90"
           >
-            <ExternalLink size={18} />
+            <ExternalLink size={ICON.base} />
             {t('Открыть сайт установки')}
           </a>
         </div>

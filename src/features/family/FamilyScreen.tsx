@@ -14,6 +14,7 @@ import { FamilyTasksTab } from './FamilyTasksTab';
 import { useToast } from '../../components/ui/toastContext';
 import { getLang, t } from '../../lib/i18n';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { ICON } from '../../components/ui/icons';
 
 type Tab = 'chat' | 'tasks' | 'members';
 const TABS = [
@@ -82,7 +83,7 @@ export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: strin
             минус строка переписки на экране. */}
         {!pushOn && !pushHidden && (
           <div className="flex items-center gap-2 rounded-xl bg-accent/10 px-3 py-2 text-sm">
-            <BellRing size={16} className="shrink-0 text-accent" />
+            <BellRing size={ICON.action} className="shrink-0 text-accent" />
             {/* Короткая формулировка намеренно: длинная растягивала баннер на
                 три строки и вместе с остальной шапкой выталкивала чат за экран. */}
             <span className="min-w-0 flex-1">{t('Уведомления')}</span>
@@ -96,7 +97,7 @@ export function FamilyScreen({ familyId, onLeft, onAddGroup }: { familyId: strin
               aria-label={t('Скрыть')}
               className={`ml-1 shrink-0 p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
-              <X size={16} />
+              <X size={ICON.action} />
             </button>
           </div>
         )}

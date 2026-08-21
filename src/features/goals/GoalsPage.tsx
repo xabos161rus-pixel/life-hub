@@ -14,6 +14,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { GoalCard } from './GoalCard';
 import { GoalEditSheet } from './GoalEditSheet';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 function bySortOrder(a: Goal, b: Goal): number {
   return a.sortOrder - b.sortOrder;
@@ -32,7 +33,7 @@ function CollapsibleSection({ title, goals }: { title: string; goals: Goal[] }) 
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full items-center gap-1 py-1 text-sm font-semibold text-muted"
       >
-        <Icon size={16} />
+        <Icon size={ICON.action} />
         {title}
         <span className="font-normal">· {goals.length}</span>
       </button>

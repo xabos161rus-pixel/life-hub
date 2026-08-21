@@ -22,6 +22,7 @@ import { SearchField } from '../../components/ui/Input';
 import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 const PER_SECTION = 8;
 
@@ -51,7 +52,7 @@ interface SectionResult {
 function Row({ icon: Icon, hit }: { icon: LucideIcon; hit: Hit }) {
   return (
     <Link to={hit.to} className="flex items-start gap-3 px-4 py-3 active:opacity-70">
-      <Icon size={18} className="mt-0.5 shrink-0 text-accent" />
+      <Icon size={ICON.base} className="mt-0.5 shrink-0 text-accent" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{hit.title || t('Без названия')}</p>
         {hit.context && <p className="truncate text-sm text-muted">{hit.context}</p>}

@@ -61,6 +61,7 @@ import {
 } from '../../lib/family/familyChat';
 import { useVoiceRecorder } from './useVoiceRecorder';
 import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { ICON } from '../../components/ui/icons';
 
 // Палитра быстрых реакций — как в WhatsApp/Telegram, шесть базовых.
 const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
@@ -90,7 +91,7 @@ function AudioBubble({ src, duration, own }: { src: string; duration: number; ow
         aria-label={playing ? t('Пауза') : t('Воспроизвести')}
         className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'}`}
       >
-        {playing ? <Pause size={16} /> : <Play size={16} />}
+        {playing ? <Pause size={ICON.action} /> : <Play size={ICON.action} />}
       </button>
       <div className={`h-1 flex-1 overflow-hidden rounded-full ${own ? 'bg-white/25' : 'bg-hairline'}`}>
         <div className="h-full rounded-full bg-current" style={{ width: `${Math.min(100, (pos / total) * 100)}%` }} />
@@ -142,7 +143,7 @@ function FileBubble({ m, own, received }: { m: FamilyMessage; own: boolean; rece
       <div
         className={`flex size-9 shrink-0 items-center justify-center rounded-full ${own ? 'bg-white/20 text-white' : 'bg-accent/15 text-accent'}`}
       >
-        <Icon size={18} />
+        <Icon size={ICON.base} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{info.name}</p>
@@ -392,7 +393,7 @@ function MessageRow({
               className="flex shrink-0 items-center pr-2 text-accent"
               style={{ opacity: Math.min(1, dragX / SWIPE_REPLY_PX) }}
             >
-              <Reply size={18} />
+              <Reply size={ICON.base} />
             </span>
           )}
           <div
@@ -459,11 +460,11 @@ function MessageRow({
               {timeLabel(m.createdAt)}
               {own &&
                 (m.status === 'pending' ? (
-                  <Clock size={14} />
+                  <Clock size={ICON.inline} />
                 ) : m.seq != null && maxOtherRead >= m.seq ? (
-                  <CheckCheck size={14} className="text-sky-300" />
+                  <CheckCheck size={ICON.inline} className="text-sky-300" />
                 ) : (
-                  <Check size={14} />
+                  <Check size={ICON.inline} />
                 ))}
             </span>
           </div>
@@ -956,7 +957,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             }}
             className="absolute bottom-3 right-2 flex size-10 items-center justify-center rounded-full border border-border bg-elevated/95 text-muted shadow-lg shadow-black/20 active:scale-95"
           >
-            <ChevronsDown size={20} />
+            <ChevronsDown size={ICON.header} />
           </button>
         )}
       </div>
@@ -964,7 +965,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
       <div className="shrink-0 border-t border-hairline bg-bg">
         {editingId && (
           <div className="flex items-center gap-2 px-1 pt-2 text-sm text-muted">
-            <Pencil size={14} className="shrink-0 text-accent" />
+            <Pencil size={ICON.inline} className="shrink-0 text-accent" />
             <span className="flex-1">{t('Редактирование сообщения')}</span>
             <button
               onClick={() => {
@@ -974,13 +975,13 @@ export function ChatTab({ familyId }: { familyId: string }) {
               aria-label={t('Отменить редактирование')}
               className={`p-1 active:opacity-60 ${HIT_SLOP_44}`}
             >
-              <X size={16} />
+              <X size={ICON.action} />
             </button>
           </div>
         )}
         {replyTo && (
           <div className="flex items-center gap-2 px-1 pt-2 text-sm">
-            <Reply size={14} className="shrink-0 text-accent" />
+            <Reply size={ICON.inline} className="shrink-0 text-accent" />
             <div className="min-w-0 flex-1 border-l-2 border-accent pl-2">
               <p className="text-xs font-semibold text-accent">
                 {memberMap[replyTo.senderMemberId]?.displayName || t('Участник')}
@@ -992,7 +993,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               aria-label={t('Отменить ответ')}
               className={`p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
-              <X size={16} />
+              <X size={ICON.action} />
             </button>
           </div>
         )}
@@ -1003,7 +1004,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               aria-label={t('Отменить запись')}
               className="flex size-11 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95"
             >
-              <Trash2 size={20} />
+              <Trash2 size={ICON.header} />
             </button>
             <div className="flex flex-1 items-center gap-2 text-sm">
               <span className="size-2.5 shrink-0 animate-pulse rounded-full bg-danger" />
@@ -1015,7 +1016,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               aria-label={t('Отправить голосовое')}
               className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
             >
-              <Send size={20} />
+              <Send size={ICON.header} />
             </button>
           </div>
         ) : (
@@ -1055,9 +1056,9 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 className="flex size-11 shrink-0 select-none items-center justify-center self-end rounded-full text-muted active:text-accent disabled:opacity-50"
               >
                 {sendingAttachment ? (
-                  <Loader2 size={20} className="animate-spin motion-reduce:animate-none" />
+                  <Loader2 size={ICON.header} className="animate-spin motion-reduce:animate-none" />
                 ) : (
-                  <Paperclip size={20} />
+                  <Paperclip size={ICON.header} />
                 )}
               </button>
               <textarea
@@ -1085,7 +1086,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   aria-label={t('Отправить')}
                   className="m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white disabled:opacity-40 active:scale-95"
                 >
-                  <Send size={17} />
+                  <Send size={ICON.base} />
                 </button>
               ) : (
                 <button
@@ -1093,7 +1094,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                   aria-label={t('Записать голосовое')}
                   className="m-1 flex size-9 shrink-0 select-none items-center justify-center self-end rounded-full bg-gradient-to-br from-accent-fill to-accent-2-fill text-white active:scale-95"
                 >
-                  <Mic size={17} />
+                  <Mic size={ICON.base} />
                 </button>
               )}
             </div>
@@ -1110,7 +1111,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             }}
             className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
           >
-            <ImageIcon size={18} className="text-accent" />
+            <ImageIcon size={ICON.base} className="text-accent" />
             {t('Фото')}
           </button>
           <button
@@ -1120,7 +1121,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
             }}
             className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
           >
-            <FileIcon size={18} className="text-accent" />
+            <FileIcon size={ICON.base} className="text-accent" />
             {t('Файл')}
           </button>
         </div>
@@ -1150,7 +1151,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               onClick={() => startReply(actionMsg)}
               className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
             >
-              <Reply size={18} className="text-accent" />
+              <Reply size={ICON.base} className="text-accent" />
               {t('Ответить')}
             </button>
             {actionMsg.text && (
@@ -1158,7 +1159,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 onClick={() => void copyText(actionMsg)}
                 className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
               >
-                <Copy size={18} className="text-accent" />
+                <Copy size={ICON.base} className="text-accent" />
                 {t('Копировать')}
               </button>
             )}
@@ -1167,7 +1168,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 onClick={() => startEdit(actionMsg)}
                 className="flex w-full items-center gap-3 rounded-xl bg-surface-2 p-3.5 text-left active:opacity-80"
               >
-                <Pencil size={18} className="text-accent" />
+                <Pencil size={ICON.base} className="text-accent" />
                 {t('Редактировать')}
               </button>
             )}
@@ -1176,7 +1177,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
                 onClick={() => void doDelete(actionMsg)}
                 className="flex w-full items-center gap-3 rounded-xl bg-danger/15 p-3.5 text-left text-danger active:opacity-80"
               >
-                <Trash2 size={18} />
+                <Trash2 size={ICON.base} />
                 {t('Удалить')}
               </button>
             )}

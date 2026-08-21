@@ -27,6 +27,7 @@ import { cycleAllowed } from '../../lib/sections';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /** Дни менструации из раздела «Женские дни» — но только если человек включил
  *  отметки в настройках раздела. Отдельный хук, чтобы запрос к таблицам цикла
@@ -172,7 +173,7 @@ export function CalendarPage() {
               onClick={() => shiftMonth(-1)}
               className={`shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
-              <ChevronLeft size={20} />
+              <ChevronLeft size={ICON.header} />
             </button>
             {/* ml-1 поверх gap-2: зона 44px вылезает за кнопку на (44-32.75)/2 = 5.625px
                 с каждой стороны, значит между стрелками нужно ≥11.25px, иначе тап у
@@ -184,7 +185,7 @@ export function CalendarPage() {
               onClick={() => shiftMonth(1)}
               className={`ml-1 shrink-0 rounded-lg p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
             >
-              <ChevronRight size={20} />
+              <ChevronRight size={ICON.header} />
             </button>
           </div>
         </div>
@@ -276,7 +277,7 @@ export function CalendarPage() {
           onClick={() => openTask(null)}
           className="mt-2 flex min-h-11 items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
         >
-          <Plus size={14} /> {t('Задача на этот день')}
+          <Plus size={ICON.inline} /> {t('Задача на этот день')}
         </button>
       </section>
 

@@ -42,7 +42,7 @@ import { TaskItem } from './TaskItem';
 import { FreezeSheet } from './FreezeSheet';
 import { GoalsProgress } from './GoalsProgress';
 import { unfreezeAll, unfreezeTask } from './taskActions';
-import { STROKE, STROKE_STRONG } from '../../components/ui/icons';
+import { ICON, STROKE, STROKE_STRONG } from '../../components/ui/icons';
 import { IconButton } from '../../components/ui/IconButton';
 import { autoScrollStep } from './autoScroll';
 
@@ -249,11 +249,11 @@ function SubSection({
           }`}
         >
           <ChevronDown
-            size={16}
+            size={ICON.action}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
           <span className="flex shrink-0 items-center">
-            <ProjectFolderIcon project={project} size={16} />
+            <ProjectFolderIcon project={project} size={ICON.action} />
           </span>
           <h3 className="truncate text-base font-semibold tracking-tight">{project.name}</h3>
           <span className="text-sm text-muted">{count}</span>
@@ -263,7 +263,7 @@ function SubSection({
           aria-label={t('Редактировать подпроект')}
           className="p-1.5 text-muted active:opacity-60"
         >
-          <Pencil size={14} />
+          <Pencil size={ICON.inline} />
         </button>
       </div>
       {!collapsed && children}
@@ -325,7 +325,7 @@ function Section({
           }`}
         >
           <ChevronDown
-            size={18}
+            size={ICON.base}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
           {icon && <span className="flex shrink-0 items-center">{icon}</span>}
@@ -342,7 +342,7 @@ function Section({
             // так что зона не срезается ни рамкой, ни overflow-x у #app-scroll.
             className={`p-1.5 text-muted active:opacity-60 ${HIT_SLOP_44}`}
           >
-            <Pencil size={14} />
+            <Pencil size={ICON.inline} />
           </button>
         )}
       </div>
@@ -421,7 +421,7 @@ function CompletedSubsection({
         className="flex w-full items-center gap-1.5 px-1 py-1 text-left text-sm text-muted active:opacity-60"
       >
         <ChevronRight
-          size={14}
+          size={ICON.inline}
           className={`shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
         />
         <span>{t('Выполненные')}</span>
@@ -456,10 +456,10 @@ function FrozenSection({
       <div className="mb-2 flex items-center gap-1 px-1">
         <button onClick={onToggle} className="flex flex-1 items-center gap-1.5 text-left">
           <ChevronDown
-            size={18}
+            size={ICON.base}
             className={`shrink-0 text-muted transition-transform ${collapsed ? '-rotate-90' : ''}`}
           />
-          <Snowflake size={16} className="shrink-0 text-frost" />
+          <Snowflake size={ICON.action} className="shrink-0 text-frost" />
           <h2 className="text-lg font-bold tracking-tight">{t('Заморожено')}</h2>
           <span className="text-sm text-muted">{tasks.length}</span>
         </button>
@@ -487,7 +487,7 @@ function FrozenSection({
                     )}
                     {task.recurrence && (
                       <span className="flex items-center gap-0.5">
-                        <Repeat size={14} />
+                        <Repeat size={ICON.inline} />
                         {describeRecurrence(task.recurrence)}
                       </span>
                     )}
@@ -504,7 +504,7 @@ function FrozenSection({
                   // Тёплое солнце-«разморозка» — контраст к голубой теме секции.
                   className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning active:opacity-70"
                 >
-                  <Sun size={16} />
+                  <Sun size={ICON.action} />
                 </button>
               </div>
             );
@@ -533,7 +533,7 @@ function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; onAddSu
         aria-label={t('Добавить задачу')}
         className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-accent active:opacity-60"
       >
-        <Plus size={14} /> {t('Задача')}
+        <Plus size={ICON.inline} /> {t('Задача')}
       </button>
       {onAddSubproject && (
         <button
@@ -541,7 +541,7 @@ function AddTaskRow({ onClick, onAddSubproject }: { onClick: () => void; onAddSu
           aria-label={t('Добавить подпроект')}
           className="flex items-center gap-1.5 px-1 py-1.5 text-sm font-medium text-muted active:opacity-60"
         >
-          <FolderPlus size={14} /> {t('Подпроект')}
+          <FolderPlus size={ICON.inline} /> {t('Подпроект')}
         </button>
       )}
     </div>
@@ -1386,7 +1386,7 @@ export function TasksPage() {
             onClick={() => openProject(null)}
             className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border py-3 text-sm font-medium text-muted active:opacity-70"
           >
-            <FolderPlus size={16} /> {t('Новый проект')}
+            <FolderPlus size={ICON.action} /> {t('Новый проект')}
           </button>
 
           {frozenTasks.length > 0 && (

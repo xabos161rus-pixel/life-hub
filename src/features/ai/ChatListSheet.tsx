@@ -7,6 +7,7 @@ import type { LlmChat } from '../../db/types';
 import { removeChat } from '../../lib/ai/llmRepo';
 import { modelLabel } from '../../lib/ai/models';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /** «26 июл, 18:40» — ISO-метка сообщения, а не дата-ключ (formatRu тут не подходит). */
 function formatWhen(iso: string): string {
@@ -48,12 +49,12 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
     <Sheet open={open} onClose={onClose} title={t('Чаты')}>
       <div className="space-y-2">
         <Button className="w-full inline-flex items-center justify-center gap-2" onClick={onNew}>
-          <MessageSquarePlus size={18} />
+          <MessageSquarePlus size={ICON.base} />
           {t('Новый чат')}
         </Button>
         {chats.length > 5 && (
           <div className="relative">
-            <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
+            <Search size={ICON.action} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted" />
             <Input
               className="pl-9"
               placeholder={t('Поиск по чатам')}
@@ -84,7 +85,7 @@ export function ChatListSheet({ open, chats, activeId, onClose, onPick, onNew }:
               className="p-2 text-muted active:opacity-60"
               onClick={() => void handleRemove(c)}
             >
-              <Trash2 size={17} />
+              <Trash2 size={ICON.base} />
             </button>
           </div>
         ))}

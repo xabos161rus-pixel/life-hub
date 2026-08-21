@@ -5,6 +5,7 @@ import {
 } from '../../components/ui/glyphs';
 import { t } from '../../lib/i18n';
 import { HIT_SLOP_44 } from './hitSlop';
+import { ICON } from '../../components/ui/icons';
 
 interface Props {
   open: boolean;
@@ -114,7 +115,7 @@ export function Sheet({ open, onClose, title, children }: Props) {
               aria-label={t('Закрыть')}
               className={`rounded-full bg-surface-2 p-1.5 text-muted transition-transform active:scale-90 ${HIT_SLOP_44}`}
             >
-              <X size={18} />
+              <X size={ICON.base} />
             </button>
           </div>
         </div>

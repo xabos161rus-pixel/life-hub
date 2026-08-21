@@ -230,7 +230,7 @@ export function AiPage() {
               className="absolute right-3 bottom-40 z-10 grid size-10 place-items-center rounded-full border border-hairline bg-elevated text-accent shadow-[var(--shadow-card)] active:opacity-70"
               onClick={() => bottomRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })}
             >
-              <ArrowDown size={19} />
+              <ArrowDown size={ICON.header} />
             </button>
           )}
 
@@ -299,7 +299,7 @@ function AiWelcome({ onAsk }: { onAsk: (q: string) => void }) {
         className="mb-4 grid size-16 place-items-center rounded-[1.25rem] text-white shadow-[var(--shadow-accent)]"
         style={{ background: 'linear-gradient(150deg, var(--app-accent), var(--app-accent-2))' }}
       >
-        <GSparkle size={30} />
+        <GSparkle size={ICON.display} />
       </div>
       <p className="text-lg font-bold tracking-tight">{t('Спросите о своём')}</p>
       <p className="mt-1 mb-5 max-w-[17rem] text-sm text-muted">
@@ -358,7 +358,7 @@ function AssistantBlock({
           // видно, что случилось, и что можно сделать прямо здесь.
           <div className="rounded-xl border border-danger/25 bg-danger/10 px-3.5 py-3">
             <p className="flex items-start gap-2 text-sm">
-              <AlertCircle size={16} className="mt-0.5 shrink-0 text-danger" />
+              <AlertCircle size={ICON.action} className="mt-0.5 shrink-0 text-danger" />
               <span className="min-w-0">{message.error}</span>
             </p>
             <button
@@ -366,7 +366,7 @@ function AssistantBlock({
               disabled={busy}
               onClick={onRetry}
             >
-              <RotateCcw size={14} />
+              <RotateCcw size={ICON.inline} />
               {t('Повторить')}
             </button>
           </div>
@@ -523,7 +523,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
           onClick={onModelTap}
         >
           <span className="truncate">{modelName}</span>
-          <ChevronDown size={14} className="shrink-0 text-muted" />
+          <ChevronDown size={ICON.inline} className="shrink-0 text-muted" />
         </button>
         {/* Доступ модели к данным приложения. Включён по умолчанию — это и
             есть смысл раздела; выключатель — для разговоров «не о своём». */}
@@ -538,7 +538,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
           }`}
           onClick={() => onDataTools(!dataTools)}
         >
-          <Database size={14} />
+          <Database size={ICON.inline} />
           {t('Данные')}
         </button>
         <div className="flex-1" />
@@ -548,7 +548,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
             className="grid size-10 shrink-0 place-items-center rounded-full border border-hairline bg-surface-2 active:opacity-70"
             onClick={onStop}
           >
-            <Square size={15} />
+            <Square size={ICON.action} />
           </button>
         ) : (
           <button
@@ -561,7 +561,7 @@ function Composer({ value, busy, modelName, dataTools, onModelTap, onDataTools, 
             }}
             onClick={onSend}
           >
-            <ArrowUp size={19} />
+            <ArrowUp size={ICON.header} />
           </button>
         )}
       </div>

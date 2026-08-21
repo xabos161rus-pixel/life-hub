@@ -18,6 +18,7 @@ import {
   ImageTooLargeError,
   MAX_INPUT_BYTES,
 } from '../../lib/image';
+import { ICON } from '../../components/ui/icons';
 
 /** Числовое поле профиля: пустая строка означает «не указано», а не ноль.
  *  Ноль здесь — не значение: рост 0 см не бывает, а сохранённый ноль потом
@@ -108,7 +109,7 @@ export function ProfilePage() {
             />
           ) : (
             <div className="flex size-24 items-center justify-center rounded-full bg-surface-2 text-muted">
-              <User size={40} />
+              <User size={ICON.hero} />
             </div>
           )}
           <input
@@ -126,7 +127,7 @@ export function ProfilePage() {
               118px, и «Удалить фото» переносится внутри кнопки. */}
           <div className="flex flex-col gap-2 min-[380px]:flex-row">
             <Button variant="secondary" disabled={busy} onClick={() => fileRef.current?.click()}>
-              <Camera size={16} className="-mt-0.5 mr-1.5 inline" />
+              <Camera size={ICON.action} className="-mt-0.5 mr-1.5 inline" />
               {p?.avatar ? t('Заменить фото') : t('Добавить фото')}
             </Button>
             {p?.avatar && (
@@ -136,7 +137,7 @@ export function ProfilePage() {
                 disabled={busy}
                 onClick={() => void updateSettings({ profile: { ...p, avatar: null } })}
               >
-                <Trash2 size={16} className="-mt-0.5 mr-1.5 inline" />
+                <Trash2 size={ICON.action} className="-mt-0.5 mr-1.5 inline" />
                 {t('Удалить фото')}
               </Button>
             )}

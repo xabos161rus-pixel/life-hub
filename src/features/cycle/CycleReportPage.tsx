@@ -11,6 +11,7 @@ import { buildDoctorReport, type DoctorReportWindow } from '../../lib/cycle/repo
 import { useCycleData } from './useCycleData';
 import { CycleLock } from './CycleLock';
 import { isUnlocked, subscribeLock } from './lockState';
+import { ICON } from '../../components/ui/icons';
 
 const WINDOW_OPTIONS: { value: DoctorReportWindow; label: string }[] = [
   { value: 'last2cycles', label: '2 цикла' },
@@ -211,7 +212,7 @@ export function CycleReportPage() {
 
           <div className="print:hidden space-y-2">
             <Button className="w-full" onClick={() => window.print()}>
-              <Printer size={18} className="-mt-0.5 mr-1 inline" strokeWidth={2} />
+              <Printer size={ICON.base} className="-mt-0.5 mr-1 inline" strokeWidth={2} />
               {t('Распечатать или сохранить в PDF')}
             </Button>
             <p className="px-1 text-xs leading-snug text-muted">

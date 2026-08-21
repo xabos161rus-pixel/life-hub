@@ -10,6 +10,7 @@ import { db } from '../../db/db';
 import { pushEnabled } from '../../lib/push';
 import { HIT_SLOP_44_POSITIONED } from '../../components/ui/hitSlop';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /**
  * Мягкое напоминание на «Сегодня»: защитить данные — включить синхронизацию,
@@ -55,11 +56,11 @@ export function ProtectDataCard() {
           onClick={() => setDismissed(true)}
           className={`absolute top-2.5 right-2.5 flex size-7 items-center justify-center rounded-full text-muted active:opacity-60 ${HIT_SLOP_44_POSITIONED}`}
         >
-          <X size={16} />
+          <X size={ICON.action} />
         </button>
         <div className="flex items-start gap-3 pr-6">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-            <ShieldCheck size={20} />
+            <ShieldCheck size={ICON.header} />
           </div>
           <div className="min-w-0">
             <h3 className="font-semibold">{title}</h3>
@@ -69,7 +70,7 @@ export function ProtectDataCard() {
               className="mt-2.5 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-accent active:opacity-70"
             >
               {t('Настроить')}
-              <ChevronRight size={16} />
+              <ChevronRight size={ICON.action} />
             </Link>
           </div>
         </div>

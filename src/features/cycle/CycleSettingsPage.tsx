@@ -368,14 +368,14 @@ export function CycleSettingsPage() {
           <h2 className="mb-1.5 px-1 text-sm font-semibold text-muted">{t('Врач')}</h2>
           <div className="card">
             <Link to="/more/cycle/report" className="flex items-center gap-3 p-4">
-              <FileText size={20} className="shrink-0 text-muted" />
+              <FileText size={ICON.header} className="shrink-0 text-muted" />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{t('Отчёт для врача')}</span>
                 <span className="mt-0.5 block text-sm leading-snug text-muted">
                   {t('Сводка по циклам за период — для показа или печати на приёме.')}
                 </span>
               </span>
-              <ChevronRight size={20} className="shrink-0 text-muted" />
+              <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
             </Link>
           </div>
         </section>

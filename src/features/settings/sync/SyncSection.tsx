@@ -7,6 +7,7 @@ import { getSyncConfig } from '../../../lib/syncState';
 import { createSyncAccount, disableSync, runSync } from '../../../lib/sync';
 import { PairingSheet } from './PairingSheet';
 import { t } from '../../../lib/i18n';
+import { ICON } from '../../../components/ui/icons';
 
 function formatSyncedAt(iso: string): string {
   if (!iso) return t('ещё не синхронизировано');
@@ -77,7 +78,7 @@ export function SyncSection() {
         {config ? (
           <>
             <p className="flex items-center gap-2 text-sm">
-              <ShieldCheck size={18} className="shrink-0 text-success" />
+              <ShieldCheck size={ICON.base} className="shrink-0 text-success" />
               <span>
                 <span className="font-medium text-success">{t('Включена')}</span> · {t('E2E-шифрование')}
                 <br />
@@ -85,7 +86,7 @@ export function SyncSection() {
               </span>
             </p>
             <Button className="w-full inline-flex items-center justify-center gap-2" disabled={busy} onClick={() => void handleSyncNow()}>
-              <RefreshCw size={18} className={busy ? 'animate-spin' : ''} />
+              <RefreshCw size={ICON.base} className={busy ? 'animate-spin' : ''} />
               {t('Синхронизировать сейчас')}
             </Button>
             <Button
@@ -93,7 +94,7 @@ export function SyncSection() {
               className="w-full inline-flex items-center justify-center gap-2"
               onClick={() => setSheet('show')}
             >
-              <QrCode size={18} />
+              <QrCode size={ICON.base} />
               {t('Показать QR для другого устройства')}
             </Button>
             {/* ID аккаунта нужен для allowlist AI-прокси в Worker (AI_ALLOWED_ACCOUNTS):
@@ -106,7 +107,7 @@ export function SyncSection() {
                 <span className="block text-xs text-muted">{t('ID аккаунта')}</span>
                 <span className="block font-mono text-xs break-all">{config.accountId}</span>
               </span>
-              <Copy size={16} className="shrink-0 text-muted" />
+              <Copy size={ICON.action} className="shrink-0 text-muted" />
             </button>
             <button
               className="w-full pt-1 text-sm text-danger active:opacity-60"
@@ -128,7 +129,7 @@ export function SyncSection() {
               className="w-full inline-flex items-center justify-center gap-2"
               onClick={() => setSheet('connect')}
             >
-              <Smartphone size={18} className="shrink-0" />
+              <Smartphone size={ICON.base} className="shrink-0" />
               {t('Подключить к другому устройству')}
             </Button>
           </>

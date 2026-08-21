@@ -12,6 +12,7 @@ import { deleteDay, putDay } from '../../lib/cycle/cycleRepo';
 import { SYMPTOM_GROUP_LABELS } from '../../lib/cycle/symptoms';
 import { formatRu } from '../../lib/dates';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /** Шкала кровотечения. Пять значений вместо принятого у Apple и Google
  *  разделения на «поток» и «межменструальное кровотечение»: человеку проще
@@ -202,7 +203,7 @@ function DayLogForm({ date, onClose }: { date: string; onClose: () => void }) {
           </Button>
           {existing && (
             <Button variant="ghost" onClick={() => void clear()} className="text-danger">
-              <Trash2 size={16} /> {t('Очистить день')}
+              <Trash2 size={ICON.action} /> {t('Очистить день')}
             </Button>
           )}
         </div>

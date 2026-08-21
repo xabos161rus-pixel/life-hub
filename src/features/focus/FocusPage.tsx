@@ -21,6 +21,7 @@ import {
   type Phase,
   type SoundType,
 } from './pomodoro';
+import { ICON } from '../../components/ui/icons';
 
 const PHASE_LABEL: Record<Phase, string> = {
   work: 'Фокус',
@@ -218,7 +219,7 @@ function PresetForm({
           onClick={onDelete}
           className="flex items-center justify-center gap-1.5 rounded-2xl border border-border py-3 text-center font-medium text-danger active:opacity-70"
         >
-          <Trash2 size={16} /> {t('Удалить')}
+          <Trash2 size={ICON.action} /> {t('Удалить')}
         </button>
       )}
     </div>
@@ -384,7 +385,7 @@ export function FocusPage() {
             aria-label={t('Сбросить')}
             className="flex size-12 items-center justify-center rounded-full border border-border text-muted active:scale-90"
           >
-            <RotateCcw size={20} />
+            <RotateCcw size={ICON.header} />
           </button>
           <button
             onClick={p.running ? p.toggle : () => (p.active ? p.toggle() : p.start())}
@@ -395,14 +396,14 @@ export function FocusPage() {
             }}
             className="flex size-20 items-center justify-center rounded-full text-white active:scale-90"
           >
-            {p.running ? <Pause size={40} fill="#fff" /> : <Play size={40} fill="#fff" className="ml-1" />}
+            {p.running ? <Pause size={ICON.hero} fill="#fff" /> : <Play size={ICON.hero} fill="#fff" className="ml-1" />}
           </button>
           <button
             onClick={p.skip}
             aria-label={t('Пропустить фазу')}
             className="flex size-12 items-center justify-center rounded-full border border-border text-muted active:scale-90"
           >
-            <SkipForward size={20} />
+            <SkipForward size={ICON.header} />
           </button>
         </div>
 
@@ -411,11 +412,11 @@ export function FocusPage() {
           onClick={() => setPickerOpen(true)}
           className="card mt-8 flex w-full items-center gap-3 px-4 py-3 active:opacity-80"
         >
-          <ListChecks size={20} className="shrink-0 text-accent" />
+          <ListChecks size={ICON.header} className="shrink-0 text-accent" />
           <span className={`min-w-0 flex-1 truncate text-left ${p.taskTitle ? '' : 'text-muted'}`}>
             {p.taskTitle || t('Выбрать задачу')}
           </span>
-          <ChevronRight size={18} className="shrink-0 text-muted" />
+          <ChevronRight size={ICON.base} className="shrink-0 text-muted" />
         </button>
 
         <div className="mt-6 w-full">
@@ -461,7 +462,7 @@ export function FocusPage() {
                 onClick={() => (managing ? openEditPreset(pr) : applyPreset(pr))}
               >
                 <span className="flex items-center gap-1">
-                  {managing && <Pencil size={14} />}
+                  {managing && <Pencil size={ICON.inline} />}
                   {pr.name}
                 </span>
               </Chip>
@@ -470,7 +471,7 @@ export function FocusPage() {
               onClick={openNewPreset}
               className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-dashed border-border px-3.5 py-1.5 text-sm font-medium text-muted active:opacity-70"
             >
-              <Plus size={14} /> {t('Шаблон')}
+              <Plus size={ICON.inline} /> {t('Шаблон')}
             </button>
           </ChipRow>
         </div>

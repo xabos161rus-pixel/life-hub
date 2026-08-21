@@ -8,6 +8,7 @@ import { useToast } from '../../components/ui/toastContext';
 import type { LlmChat } from '../../db/types';
 import { chatMessages, exportChatMarkdown, patchChat, removeChat } from '../../lib/ai/llmRepo';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 interface Props {
   open: boolean;
@@ -90,7 +91,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
 
         <div className="space-y-2">
           <div className="flex min-w-0 items-center gap-2.5">
-            <Database size={18} className="shrink-0 text-accent" />
+            <Database size={ICON.base} className="shrink-0 text-accent" />
             <div className="min-w-0">
               <p className="font-medium">{t('Доступ к данным')}</p>
               <p className="text-xs text-muted">
@@ -110,7 +111,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
 
         <div className="space-y-2">
           <Button variant="secondary" className="w-full inline-flex items-center justify-center gap-2" onClick={() => void handleExport()}>
-            <FileDown size={17} />
+            <FileDown size={ICON.base} />
             {t('Экспорт в markdown')}
           </Button>
           <Button className="w-full" onClick={() => void handleSave()}>
@@ -120,7 +121,7 @@ export function ChatSettingsSheet({ open, chat, onClose, onRemoved }: Props) {
             className="w-full py-2.5 text-center text-sm text-danger active:opacity-60"
             onClick={() => void handleRemove()}
           >
-            <Trash2 size={15} className="mr-1.5 inline-block align-[-2px]" />
+            <Trash2 size={ICON.inline} className="mr-1.5 inline-block align-[-2px]" />
             {t('Удалить чат')}
           </button>
         </div>

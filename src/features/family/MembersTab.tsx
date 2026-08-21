@@ -26,6 +26,7 @@ import { FamilyInviteSheet } from './FamilyInviteSheet';
 import { ProfileNameSheet } from './ProfileNameSheet';
 import { CallDiagSheet } from './CallDiagSheet';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string; onLeft: () => void; onAddGroup?: () => void }) {
   const members = useLiveQuery(() => db.familyMembers.where('familyId').equals(familyId).toArray(), [familyId]) ?? [];
@@ -86,13 +87,13 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         onClick={() => setRenaming(true)}
         className="flex w-full items-center gap-2 card px-4 py-3 text-left active:opacity-80"
       >
-        <Pencil size={16} className="shrink-0 text-muted" />
+        <Pencil size={ICON.action} className="shrink-0 text-muted" />
         <span className="flex-1 truncate font-medium">{config?.familyName || t('Семья')}</span>
         <span className="text-sm text-muted">{t('Переименовать')}</span>
       </button>
 
       <Button onClick={() => setInvite(true)} className="w-full inline-flex items-center justify-center gap-2">
-        <UserPlus size={18} />
+        <UserPlus size={ICON.base} />
         {t('Пригласить участника')}
       </Button>
 
@@ -102,9 +103,9 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
         onClick={() => setDiag(true)}
         className="flex w-full items-center gap-2 card px-4 py-3 text-left active:opacity-80"
       >
-        <PhoneOff size={16} className="shrink-0 text-muted" />
+        <PhoneOff size={ICON.action} className="shrink-0 text-muted" />
         <span className="flex-1 truncate font-medium">{t('Почему звонок не вышел')}</span>
-        <ChevronRight size={16} className="shrink-0 text-muted" />
+        <ChevronRight size={ICON.action} className="shrink-0 text-muted" />
       </button>
 
       <div className="divide-y divide-hairline overflow-hidden card">
@@ -146,7 +147,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
                     aria-label={t('Исключить {name}', { name: m.displayName })}
                     className="flex size-10 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger active:scale-95"
                   >
-                    <UserMinus size={18} />
+                    <UserMinus size={ICON.base} />
                   </button>
                 )}
                 <button
@@ -154,7 +155,7 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
                   aria-label={t('Позвонить {name}', { name: m.displayName })}
                   className="flex size-10 shrink-0 items-center justify-center rounded-full bg-success/15 text-success active:scale-95"
                 >
-                  <Phone size={18} />
+                  <Phone size={ICON.base} />
                 </button>
               </>
             )}
@@ -183,13 +184,13 @@ export function MembersTab({ familyId, onLeft, onAddGroup }: { familyId: string;
           onClick={onAddGroup}
           className="flex w-full items-center justify-center gap-2 card px-4 py-3 text-sm font-medium active:opacity-80"
         >
-          <Plus size={16} className="shrink-0 text-muted" />
+          <Plus size={ICON.action} className="shrink-0 text-muted" />
           {t('Добавить группу')}
         </button>
       )}
 
       <button onClick={() => void leave()} className="flex w-full items-center justify-center gap-2 pt-2 text-sm text-danger active:opacity-60">
-        <LogOut size={16} />
+        <LogOut size={ICON.action} />
         {t('Выйти из группы')}
       </button>
 

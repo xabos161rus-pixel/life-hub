@@ -9,6 +9,7 @@ import { reorderFamilies } from '../../lib/family/familyState';
 import { renameFamily } from '../../lib/family/familyChat';
 import { leaveFamily } from '../../lib/family/familyLifecycle';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 const ROW_H = 60; // фиксированная высота строки — по ней считаем шаг перетаскивания
 
@@ -120,7 +121,7 @@ export function ManageGroupsSheet({
                 onPointerUp={onHandleUp}
                 className="cursor-grab touch-none p-2 text-muted active:cursor-grabbing"
               >
-                <GripVertical size={20} />
+                <GripVertical size={ICON.header} />
               </button>
               {editingId === id ? (
                 <input
@@ -139,7 +140,7 @@ export function ManageGroupsSheet({
                   className="flex min-w-0 flex-1 items-center gap-1.5 py-2 pr-1 text-left"
                 >
                   <span className="truncate font-medium">{name}</span>
-                  <Pencil size={14} className="shrink-0 text-muted" />
+                  <Pencil size={ICON.inline} className="shrink-0 text-muted" />
                 </button>
               )}
               <button
@@ -147,7 +148,7 @@ export function ManageGroupsSheet({
                 onClick={() => void leaveGroup(id, name)}
                 className="p-2 text-danger active:opacity-60"
               >
-                <LogOut size={18} />
+                <LogOut size={ICON.base} />
               </button>
             </div>
           );

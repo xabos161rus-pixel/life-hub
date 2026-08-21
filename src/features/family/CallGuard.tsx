@@ -2,6 +2,7 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { ChevronsRight, Lock } from 'lucide-react';
 import { clampKnob, slidUnlocked } from './callGuardMath';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /** Ширина ползунка (px) — синхронно с размером кнопки-ручки в разметке. */
 const KNOB = 56;
@@ -53,7 +54,7 @@ export function CallGuard({
       {/* Кто и сколько — чтобы было видно, что звонок идёт */}
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
         <span className="flex size-14 items-center justify-center rounded-full bg-surface-2 text-muted">
-          <Lock size={24} />
+          <Lock size={ICON.accent} />
         </span>
         <p className="text-lg font-semibold">{peerName}</p>
         <p className="text-sm text-muted">{t('На связи')} · {elapsed}</p>
@@ -78,7 +79,7 @@ export function CallGuard({
           style={{ transform: `translateX(${offset}px)` }}
           className="absolute top-1 left-1 flex size-12 touch-none items-center justify-center rounded-full bg-accent-fill text-white shadow-lg active:scale-95"
         >
-          <ChevronsRight size={24} />
+          <ChevronsRight size={ICON.accent} />
         </button>
       </div>
     </div>

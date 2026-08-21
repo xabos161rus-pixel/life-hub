@@ -15,6 +15,7 @@ import { useNavLayout } from '../../hooks/useNavLayout';
 import { formatRu } from '../../lib/dates';
 import { SECTION_BY_ID } from '../../lib/sections';
 import { getLang, t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 const BACKUP_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -34,7 +35,7 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
       className="flex items-center gap-3 card p-4 active:opacity-80"
     >
       <div className="relative flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-        <Icon size={20} />
+        <Icon size={ICON.header} />
         {badge && (
           <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-warning" />
         )}
@@ -57,7 +58,7 @@ function MenuCard({ to, icon: Icon, title, subtitle, subtitleWarning, badge }: M
           </p>
         )}
       </div>
-      <ChevronRight size={20} className="shrink-0 text-muted" />
+      <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
     </Link>
   );
 }
@@ -92,7 +93,7 @@ function ProfileCard() {
         />
       ) : (
         <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-surface-2 text-muted">
-          <User size={24} />
+          <User size={ICON.accent} />
         </div>
       )}
       <div className="min-w-0 flex-1">
@@ -103,7 +104,7 @@ function ProfileCard() {
           {facts.length > 0 ? facts.join(' · ') : t('Имя, фото, рост и вес')}
         </p>
       </div>
-      <ChevronRight size={20} className="shrink-0 text-muted" />
+      <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
     </Link>
   );
 }
@@ -142,7 +143,7 @@ function DataStatusCard() {
           syncOn ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
         }`}
       >
-        {syncOn ? <Cloud size={20} /> : <CloudOff size={20} />}
+        {syncOn ? <Cloud size={ICON.header} /> : <CloudOff size={ICON.header} />}
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-semibold">{syncOn ? t('Данные синхронизируются') : t('Только на этом устройстве')}</p>
@@ -153,7 +154,7 @@ function DataStatusCard() {
           {last ? t('Копия: {date}', { date: formatRu(last.slice(0, 10), 'd MMMM') }) : t('Резервную копию ещё не делали')}
         </p>
       </div>
-      <ChevronRight size={20} className="shrink-0 text-muted" />
+      <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
     </Link>
   );
 }

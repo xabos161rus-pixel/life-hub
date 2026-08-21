@@ -14,6 +14,7 @@ import { todayKey } from '../../lib/dates';
 import { SavingsGoalSheet } from './SavingsGoalSheet';
 import { getLang, t } from '../../lib/i18n';
 import { DepositSheet } from './DepositSheet';
+import { ICON } from '../../components/ui/icons';
 
 function GoalCard({
   goal,
@@ -83,7 +84,7 @@ function GoalCard({
       <div className="mt-2.5 flex items-center justify-between gap-3">
         {reached ? (
           <span className="flex items-center gap-1.5 text-sm font-semibold text-success">
-            <Check size={16} /> {t('Цель достигнута')}
+            <Check size={ICON.action} /> {t('Цель достигнута')}
           </span>
         ) : (
           // Та же болезнь в узком боксе: рядом стоит shrink-0-кнопка, строке
@@ -167,7 +168,7 @@ export function SavingsSection() {
     <section>
       <div className="mb-2 flex items-end justify-between gap-2 px-1">
         <h2 className="flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
-          <PiggyBank size={14} className="shrink-0" />
+          <PiggyBank size={ICON.inline} className="shrink-0" />
           {t('Накопления')}
         </h2>
         {goals.length > 0 && (
@@ -195,7 +196,7 @@ export function SavingsSection() {
           onClick={openNew}
           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-border py-3.5 text-sm font-semibold text-muted active:opacity-70"
         >
-          <Plus size={16} /> {goals.length === 0 ? t('Цель накопления') : t('Новая цель')}
+          <Plus size={ICON.action} /> {goals.length === 0 ? t('Цель накопления') : t('Новая цель')}
         </button>
       </div>
 

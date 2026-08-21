@@ -16,6 +16,7 @@ import {
 import { Screen } from '../../components/layout/Screen';
 import { InstallLink } from './InstallLink';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 const STEPS: { icon: LucideIcon; text: string }[] = [
   { icon: Compass, text: 'Откройте этот сайт в Safari' },
@@ -28,7 +29,7 @@ const STEPS: { icon: LucideIcon; text: string }[] = [
 function Row({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
   return (
     <div className="flex gap-3 card p-4">
-      <Icon size={20} className="mt-0.5 shrink-0 text-accent" />
+      <Icon size={ICON.header} className="mt-0.5 shrink-0 text-accent" />
       <p className="min-w-0 text-sm leading-relaxed">{children}</p>
     </div>
   );
@@ -56,7 +57,7 @@ export function InstallInstructionsPage() {
           <h2 className="text-sm font-semibold text-muted">{t('Установка на экран «Домой»')}</h2>
           {standalone ? (
             <div className="flex items-center gap-3 rounded-2xl border border-success/40 bg-success/10 p-4 text-success">
-              <CircleCheck size={24} className="shrink-0" />
+              <CircleCheck size={ICON.accent} className="shrink-0" />
               <p className="font-semibold">{t('Приложение установлено ✓')}</p>
             </div>
           ) : (
@@ -69,12 +70,12 @@ export function InstallInstructionsPage() {
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-sm font-bold text-accent">
                     {i + 1}
                   </span>
-                  <step.icon size={20} className="shrink-0 text-accent" />
+                  <step.icon size={ICON.header} className="shrink-0 text-accent" />
                   <p className="min-w-0">{t(step.text)}</p>
                 </div>
               ))}
               <div className="flex gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4">
-                <TriangleAlert size={20} className="mt-0.5 shrink-0 text-warning" />
+                <TriangleAlert size={ICON.header} className="mt-0.5 shrink-0 text-warning" />
                 <p className="text-sm leading-relaxed">
                   {t('Данные Safari и установленного приложения хранятся раздельно. Сначала установите приложение, и только потом вводите данные — иначе они останутся во вкладке Safari. Перенести уже введённые данные можно через «Экспорт/Импорт резервной копии» ниже.')}
                 </p>
@@ -88,7 +89,7 @@ export function InstallInstructionsPage() {
           <h2 className="text-sm font-semibold text-muted">{t('Данные: сохранить и вернуть')}</h2>
 
           <div className="flex gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4">
-            <TriangleAlert size={20} className="mt-0.5 shrink-0 text-warning" />
+            <TriangleAlert size={ICON.header} className="mt-0.5 shrink-0 text-warning" />
             <p className="text-sm leading-relaxed">
               <span className="font-semibold">{t('Перед удалением или переустановкой сохраните копию.')}</span>{' '}
               {t('Приложение хранит задачи, заметки, цели и финансы на самом устройстве. Если удалить значок, iOS может стереть эти данные. Сохранённая копия возвращает всё обратно — ровно с той же точки.')}

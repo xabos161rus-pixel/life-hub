@@ -14,6 +14,7 @@ import { formatRub } from '../../lib/finance';
 import { goalSaved } from '../../lib/savings';
 import { formatRu, todayKey } from '../../lib/dates';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 interface Props {
   open: boolean;
@@ -141,7 +142,7 @@ function DepositForm({ goal, onClose }: { goal: SavingsGoal; onClose: () => void
                   aria-label="Удалить запись"
                   className="p-1.5 text-muted active:text-danger"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={ICON.action} />
                 </button>
               </div>
             ))}

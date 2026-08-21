@@ -23,6 +23,7 @@ import { cancelReminder, scheduleReminder } from '../../lib/push';
 import { compressImage } from '../../lib/image';
 import { t } from '../../lib/i18n';
 import { usePomodoro } from '../focus/pomodoro';
+import { ICON } from '../../components/ui/icons';
 
 type RecType = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 type PriorityStr = '0' | '1' | '2' | '3';
@@ -365,7 +366,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               onClick={() => copyText(title)}
               className="-mr-1 p-1 text-muted active:opacity-60"
             >
-              <Copy size={14} />
+              <Copy size={ICON.inline} />
             </button>
           </div>
           <div className="flex items-start gap-2">
@@ -399,7 +400,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               onClick={() => copyText(notes)}
               className="-mr-1 p-1 text-muted active:opacity-60"
             >
-              <Copy size={14} />
+              <Copy size={ICON.inline} />
             </button>
           </div>
           <div className="flex items-start gap-2">
@@ -451,7 +452,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                   onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
                   className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full border border-border bg-elevated text-muted active:opacity-60"
                 >
-                  <X size={14} />
+                  <X size={ICON.inline} />
                 </button>
               </div>
             ))}
@@ -461,7 +462,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
               onClick={() => photoInputRef.current?.click()}
               className="flex size-20 items-center justify-center rounded-xl border border-dashed border-border text-muted active:opacity-60"
             >
-              <ImagePlus size={20} />
+              <ImagePlus size={ICON.header} />
             </button>
           </div>
           <input
@@ -774,7 +775,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
                 className="shrink-0 p-1 text-muted"
                 onClick={() => setChecklist((arr) => arr.filter((i) => i.id !== item.id))}
               >
-                <X size={16} />
+                <X size={ICON.action} />
               </button>
             </div>
           ))}
@@ -794,7 +795,7 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
             className="flex w-full items-center justify-center gap-1.5"
             onClick={handleFocus}
           >
-            <Timer size={16} /> {t('Запустить фокус')}
+            <Timer size={ICON.action} /> {t('Запустить фокус')}
           </Button>
         )}
 

@@ -17,7 +17,7 @@ import {
   normalizeInviteWord,
   parsePastedInvite,
 } from '../../lib/crypto';
-import { STROKE_HEAVY } from '../../components/ui/icons';
+import { ICON, STROKE_HEAVY } from '../../components/ui/icons';
 
 const JOIN_TABS = [
   { value: 'scan' as const, label: 'Сканировать' },
@@ -40,7 +40,7 @@ export function FamilyOnboarding({ onReady }: { onReady?: (familyId: string) => 
         aria-hidden
         className="flex size-20 items-center justify-center rounded-3xl bg-gradient-to-br from-accent-fill to-accent-2-fill text-white shadow-accent"
       >
-        <Plus size={40} strokeWidth={STROKE_HEAVY} />
+        <Plus size={ICON.hero} strokeWidth={STROKE_HEAVY} />
       </div>
       <div className="space-y-1.5">
         <p className="text-lg font-semibold">{t('Семейная группа')}</p>
@@ -346,6 +346,8 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
           <div className="space-y-2">
             <div className="relative overflow-hidden rounded-2xl bg-black">
               <video ref={videoRef} className="aspect-square w-full object-cover" muted playsInline />
+              {/* 120 — намеренно вне шкалы ICON: это не значок, а рамка
+                  видоискателя поверх камеры, её размер задаёт кадр наведения. */}
               <ScanLine className="pointer-events-none absolute inset-0 m-auto text-white/40" size={120} />
             </div>
             <p className="text-center text-sm text-muted">{t('Наведите камеру на QR приглашения')}</p>
@@ -381,7 +383,7 @@ export function JoinFamilySheet({ open, onClose, onReady }: { open: boolean; onC
           className="inline-flex w-full items-center justify-center gap-2"
           onClick={() => fileRef.current?.click()}
         >
-          <ImageUp size={18} />
+          <ImageUp size={ICON.base} />
           {t('Выбрать фото с QR-кодом')}
         </Button>
 

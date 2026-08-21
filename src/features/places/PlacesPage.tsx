@@ -19,6 +19,7 @@ import { alive } from '../../db/repo';
 import type { PlaceItem, PlaceKind, PlaceStatus } from '../../db/types';
 import { PlaceSheet } from './PlaceSheet';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 const KIND_ICONS: Record<PlaceKind, LucideIcon> = {
   place: MapPin,
@@ -70,11 +71,11 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
             }}
             className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent active:opacity-70"
           >
-            <MapPin size={20} />
+            <MapPin size={ICON.header} />
           </button>
         ) : (
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-            <Icon size={20} />
+            <Icon size={ICON.header} />
           </div>
         )}
         <div className="min-w-0 flex-1">
@@ -96,7 +97,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
           )}
           {item.location && (
             <p className="mt-1 flex items-center gap-1 text-xs text-muted">
-              <MapPin size={14} className="shrink-0" />
+              <MapPin size={ICON.inline} className="shrink-0" />
               <span className="truncate">{item.location}</span>
             </p>
           )}
@@ -120,7 +121,7 @@ function PlaceCard({ item, onOpen }: { item: PlaceItem; onOpen: () => void }) {
               onClick={(e) => e.stopPropagation()}
               className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-accent active:opacity-60"
             >
-              <ExternalLink size={14} />
+              <ExternalLink size={ICON.inline} />
               {t('Открыть ссылку')}
             </a>
           )}

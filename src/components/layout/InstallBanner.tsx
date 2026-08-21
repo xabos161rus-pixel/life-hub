@@ -6,6 +6,7 @@ import {
 import { dismissInstallBanner, useInstallBannerVisible } from '../../hooks/useInstallBanner';
 import { t } from '../../lib/i18n';
 import { HIT_SLOP_44 } from '../ui/Checkbox';
+import { ICON } from '../../components/ui/icons';
 
 /**
  * iOS не поддерживает beforeinstallprompt — показываем баннер с инструкцией,
@@ -31,7 +32,7 @@ export function InstallBanner() {
       className="card mx-auto mt-4 flex w-[calc(100%-32px)] max-w-lg shrink-0 items-center gap-3 p-3"
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-        <Share size={18} />
+        <Share size={ICON.base} />
       </span>
       <Link to="/more/settings/install" className="min-w-0 flex-1 text-sm">
         <span className="font-semibold">{t('Установите на экран «Домой»')}</span>
@@ -47,7 +48,7 @@ export function InstallBanner() {
         className={`shrink-0 p-1 text-muted ${HIT_SLOP_44}`}
         onClick={dismissInstallBanner}
       >
-        <X size={18} />
+        <X size={ICON.base} />
       </button>
     </div>
   );

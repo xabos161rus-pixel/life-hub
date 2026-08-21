@@ -14,6 +14,7 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { AutoGrowTextarea, Field, Input } from '../../components/ui/Input';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /** Закреплённые напоминания на «Сегодня»: разделы по темам (Работа и т.п.),
  *  каждый сворачивается/разворачивается по ситуации. */
@@ -48,7 +49,7 @@ export function RemindersBlock() {
           onClick={() => setSectionSheet('new')}
           className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent active:opacity-70"
         >
-          <Plus size={16} /> {t('раздел')}
+          <Plus size={ICON.action} /> {t('раздел')}
         </button>
       </div>
 
@@ -113,14 +114,14 @@ function ReminderSectionCard({
       <div className="flex items-center">
         <button onClick={onToggle} className="flex flex-1 items-center gap-2 px-4 py-3 text-left active:opacity-80">
           <ChevronDown
-            size={18}
+            size={ICON.base}
             className={`shrink-0 text-muted transition-transform ${section.collapsed ? '-rotate-90' : ''}`}
           />
           <span className="min-w-0 flex-1 truncate font-semibold">{section.title}</span>
           <span className="shrink-0 text-xs text-muted">{items.length}</span>
         </button>
         <button onClick={onEditSection} aria-label={t('Изменить раздел')} className="px-3.5 py-3 text-muted active:opacity-60">
-          <Pencil size={14} />
+          <Pencil size={ICON.inline} />
         </button>
       </div>
 
@@ -140,7 +141,7 @@ function ReminderSectionCard({
             aria-label={t('Добавить напоминание')}
             className="inline-flex items-center justify-center px-1 pt-0.5 text-accent active:opacity-70"
           >
-            <Plus size={18} />
+            <Plus size={ICON.base} />
           </button>
         </div>
       )}
@@ -185,7 +186,7 @@ function SectionSheet({
         <div className="flex gap-2">
           {section && (
             <Button variant="danger" onClick={() => void del()} className="inline-flex items-center gap-1.5">
-              <Trash2 size={16} /> {t('Удалить')}
+              <Trash2 size={ICON.action} /> {t('Удалить')}
             </Button>
           )}
           <Button className="flex-1" disabled={!title.trim()} onClick={() => void save()}>
@@ -237,7 +238,7 @@ function ItemSheet({
         <div className="flex gap-2">
           {item && (
             <Button variant="danger" onClick={() => void del()} className="inline-flex items-center gap-1.5">
-              <Trash2 size={16} /> {t('Удалить')}
+              <Trash2 size={ICON.action} /> {t('Удалить')}
             </Button>
           )}
           <Button className="flex-1" disabled={!text.trim()} onClick={() => void save()}>

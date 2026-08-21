@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { UserRound } from 'lucide-react';
 import { db } from '../../db/db';
 import { updateSettings } from '../../hooks/useSettings';
-import { STROKE_STRONG } from '../../components/ui/icons';
+import { ICON, STROKE_STRONG } from '../../components/ui/icons';
 import { getLang, t } from '../../lib/i18n';
 
 /**
@@ -39,7 +39,7 @@ export function GenderGate() {
       <div aria-hidden className="aurora pointer-events-none absolute inset-0" />
       <div className="relative flex min-h-0 flex-1 animate-fade-in flex-col items-center justify-center gap-5 px-8 text-center">
         <div className="flex size-20 items-center justify-center rounded-3xl bg-accent/15 text-accent shadow-[var(--shadow-accent)]">
-          <UserRound size={40} strokeWidth={STROKE_STRONG} />
+          <UserRound size={ICON.hero} strokeWidth={STROKE_STRONG} />
         </div>
         <h2 className="text-2xl font-bold tracking-tight">{t('Ваш пол')}</h2>
         <p className="max-w-sm text-sm leading-relaxed text-muted">

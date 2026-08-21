@@ -15,6 +15,7 @@ import { formatRu, todayKey } from '../../lib/dates';
 import { ExpenseSheet } from './ExpenseSheet';
 import { SavingsSection } from './SavingsSection';
 import { t, tPlur } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 const RECURRENCE_LABEL: Record<ExpenseRecurrence, string> = {
   monthly: 'Ежемесячно',
@@ -188,7 +189,7 @@ export function FinancePage() {
           {upcoming.length > 0 && (
             <section>
               <h2 className="mb-1.5 flex items-center gap-1.5 px-1 text-sm font-semibold text-muted">
-                <CalendarClock size={14} className="shrink-0" />
+                <CalendarClock size={ICON.inline} className="shrink-0" />
                 {t('Ближайшие списания')}
               </h2>
               <div className="card divide-y divide-hairline px-4">

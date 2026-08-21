@@ -10,6 +10,7 @@ import { Button } from '../../../components/ui/Button';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { getPairingCode, connectSync, runSync } from '../../../lib/sync';
 import { t } from '../../../lib/i18n';
+import { ICON } from '../../../components/ui/icons';
 
 interface Props {
   open: boolean;
@@ -159,16 +160,16 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
           )}
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1 inline-flex items-center justify-center gap-2" onClick={copyCode}>
-              {copied ? <Check size={18} /> : <Copy size={18} />}
+              {copied ? <Check size={ICON.base} /> : <Copy size={ICON.base} />}
               {copied ? t('Скопировано') : t('Скопировать код')}
             </Button>
             <Button variant="secondary" className="flex-1 inline-flex items-center justify-center gap-2" onClick={saveKeyFile}>
-              <Download size={18} />
+              <Download size={ICON.base} />
               {t('Сохранить ключ')}
             </Button>
           </div>
           <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
-            <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+            <AlertTriangle size={ICON.base} className="mt-0.5 shrink-0" />
             <span>
               {t('Любой, у кого есть этот код, получит доступ к данным и сможет их расшифровать. Не передавайте его и сохраните резервную копию — без ключа облачные данные не восстановить.')}
             </span>

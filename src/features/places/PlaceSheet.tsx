@@ -11,6 +11,7 @@ import { db } from '../../db/db';
 import { create, remove, update } from '../../db/repo';
 import { t } from '../../lib/i18n';
 import type { PlaceItem, PlaceKind, PlaceStatus } from '../../db/types';
+import { ICON } from '../../components/ui/icons';
 
 // Уменьшает фото до ~1280px и пережимает в JPEG — чтобы dataURL в IndexedDB
 // весил сотни КБ, а не мегабайты с камеры телефона.
@@ -186,7 +187,7 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
               onClick={() => setPhoto(null)}
               className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white active:opacity-80"
             >
-              <X size={16} />
+              <X size={ICON.action} />
             </button>
           </div>
         ) : (
@@ -195,7 +196,7 @@ function PlaceForm({ item, onClose }: { item: PlaceItem | null; onClose: () => v
             onClick={() => photoInputRef.current?.click()}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6 text-sm text-muted active:opacity-70"
           >
-            <ImagePlus size={18} />
+            <ImagePlus size={ICON.base} />
             {t('Добавить фото')}
           </button>
         )}

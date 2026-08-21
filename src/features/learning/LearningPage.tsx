@@ -15,6 +15,7 @@ import { formatNum } from '../../lib/finance';
 import { LearningItemSheet } from './LearningItemSheet';
 import { ProgressStepper } from './ProgressStepper';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 type Filter = 'inProgress' | 'planned' | 'done';
 
@@ -55,7 +56,7 @@ function LearningCard({ item, onOpen }: { item: LearningItem; onOpen: () => void
     >
       <div className="flex items-start gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-          <Icon size={20} />
+          <Icon size={ICON.header} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">

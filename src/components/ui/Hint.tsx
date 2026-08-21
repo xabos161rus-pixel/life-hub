@@ -67,7 +67,7 @@ export function Hint({
           // тап перехватывать нечего.
           className={`-m-1 shrink-0 p-1 text-muted active:opacity-60 ${HIT_SLOP_44}`}
         >
-          <X size={14} />
+          <X size={ICON.inline} />
         </button>
       </div>
       {items && items.length > 0 && (
@@ -76,7 +76,7 @@ export function Hint({
             const Icon = it.icon;
             return (
               <li key={i} className="flex items-start gap-2.5">
-                <Icon size={14} className="mt-0.5 shrink-0 text-accent/80" />
+                <Icon size={ICON.inline} className="mt-0.5 shrink-0 text-accent/80" />
                 <span className="min-w-0 flex-1 text-text/85">{it.text}</span>
               </li>
             );

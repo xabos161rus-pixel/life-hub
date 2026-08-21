@@ -6,6 +6,7 @@ import { verifyPin } from '../../lib/crypto';
 import type { CycleSettings } from '../../db/cycleTypes';
 import { unlockCycleSection } from './lockState';
 import { t } from '../../lib/i18n';
+import { ICON } from '../../components/ui/icons';
 
 /** Экран ввода кода перед разделом.
  *
@@ -79,7 +80,7 @@ export function CycleLock({
   return (
     <div className="flex min-h-[60dvh] flex-col items-center justify-center gap-4 px-6 text-center">
       <span className="flex size-14 items-center justify-center rounded-2xl bg-surface-2 text-muted">
-        <Lock size={24} />
+        <Lock size={ICON.accent} />
       </span>
       <div>
         <p className="text-lg font-semibold">{t('Раздел закрыт')}</p>
