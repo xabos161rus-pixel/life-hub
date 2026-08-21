@@ -150,10 +150,20 @@ export default function App() {
           <div className="fixed inset-0 flex flex-col overflow-hidden bg-bg">
             {/* Аврора — неподвижный слой за контентом (не fixed-attachment) */}
             <div aria-hidden className="aurora pointer-events-none absolute inset-0 -z-10" />
+            {/* Нижний отступ — полоса плавающей кнопки: пока она на экране,
+                лента заканчивается ВЫШЕ неё, и под кнопкой остаётся фон
+                каркаса. Иначе кнопка висит поверх ленты и ворует тапы у
+                того, что под неё попало: на «Сегодня» это были «отправить»
+                и микрофон строки быстрого ввода, крестик подсказки, кружок
+                оценки энергии. Переменную выставляет сама кнопка (Fab.tsx),
+                на экранах без неё полоса нулевая. margin, а не padding:
+                padding оставил бы ленту прежней высоты и только добавил бы
+                пустоту в её конец — кнопка по-прежнему стояла бы над
+                серединой прокрутки. */}
             <div
               id="app-scroll"
               className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
-              style={{ overscrollBehavior: 'contain' }}
+              style={{ overscrollBehavior: 'contain', marginBottom: 'var(--fab-strip, 0px)' }}
             >
               {/* Баннер установки — первый элемент ЛЕНТЫ, а не каркаса. Стоя над
                   таб-баром, он занимал до 150px и на столько же поднимал

@@ -1,10 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type PointerEvent } from 'react';
 import {
   GPlus as Plus,
 } from '../../components/ui/glyphs';
 import { usePomodoro } from '../../features/focus/pomodoro';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
-import { useScrollDirection } from '../../hooks/useScrollDirection';
 import { t } from '../../lib/i18n';
 import { ICON, STROKE_HEAVY } from '../ui/icons';
 
@@ -20,8 +19,12 @@ const BOTTOM_GAP = 96; // не заходить под таб-бар (+ запа
 const TIMER_SPACE = 48; // мини-помодоро — полоска над таб-баром
 const LONG_PRESS_MS = 450; // удержание без ухода пальца → режим перетаскивания
 const CANCEL_MOVE = 10; // уход пальца до срабатывания удержания = не перетаскивание
-/** Сколько кнопка резервирует под собой в контенте (совпадает с прежним pb-20). */
-const FAB_SPACE = '5rem';
+/** Высота полосы, которую лента отдаёт кнопке (см. App.tsx: нижний отступ
+ *  скролл-контейнера). Кнопка стоит на 4px выше таб-бара и сама высотой 56 —
+ *  68 накрывают её целиком и оставляют 8px воздуха над ней. При идущем
+ *  помодоро счёт тот же: клиренс растёт на 48, но ровно на столько же
+ *  поднимается низ ленты — полоску таймера каркас держит своим элементом. */
+const FAB_STRIP = '68px';
 
 /** Держит кнопку в допустимой зоне во время переноса (и, значит, в том виде, в
  *  каком позиция уходит в settings): не под шапку, не за боковые края и не под
@@ -48,19 +51,19 @@ let mounted = 0;
  *  Во время переноса двигаем через transform (без reflow) — движение плавное.
  *  Кнопка поднимается выше мини-помодоро в ЛЮБОЙ позиции, включая
  *  перенесённую руками: раньше подъём жил только в bottom-классе дефолта.
- *  При прокрутке вниз кнопка уезжает с экрана и возвращается при прокрутке
- *  вверх (поведение Material). Причина: стоя в одной точке, она перекрывала
- *  то, что под неё попадало — карандаш «Изменить раздел» на «Сегодня»
- *  (перекрытие 84-87%, тап открывал «Новая задача»), сегмент «Год» в Финансах
- *  (49%). Само по себе прятание помогает лишь наполовину: возвращаясь при
- *  прокрутке вверх, кнопка встаёт на то же место. Вторую половину закрыл
- *  переезд install-баннера в ленту — без него кнопка стоит в углу, а не в
- *  середине экрана. */
+ *
+ *  Кнопка НИЧЕГО не перекрывает: лента заканчивается выше неё (FAB_STRIP), а
+ *  под кнопкой — фон каркаса. До этого она висела поверх ленты и воровала
+ *  тапы у того, что оказывалось под ней: на «Сегодня» при прокрутке под неё
+ *  попадали «отправить» и микрофон строки быстрого ввода (100% и 22% площади),
+ *  крестик подсказки (100%), кружок оценки энергии (54%). Прятание при
+ *  прокрутке вниз, которым это лечили раньше, снято: оно спасало наполовину
+ *  (возвращаясь при движении вверх, кнопка вставала на то же место) и ценой
+ *  того, что кнопка пропадала без причины. */
 export function Fab({ onClick, label }: Props) {
   const { active } = usePomodoro();
   const settings = useSettings();
   const saved = settings.fabPosition ?? null;
-  const direction = useScrollDirection();
 
   const [dragging, setDragging] = useState(false);
   // Позиция, применённая сразу после переноса — чтобы кнопка не мигнула в момент
@@ -83,15 +86,16 @@ export function Fab({ onClick, label }: Props) {
     pointerId: 0,
   });
 
-  // Пока кнопка на экране — контент внизу страницы держит под неё отступ (его
-  // читают Screen и EmptyState). Layout-эффект, а не обычный: отступ появляется
-  // до отрисовки кадра, иначе на переходе виден скачок контента.
+  // Пока кнопка на экране — лента отдаёт ей полосу внизу (её читает нижний
+  // отступ скролл-контейнера в App.tsx), и контент физически заканчивается
+  // выше кнопки. Layout-эффект, а не обычный: полоса появляется до отрисовки
+  // кадра, иначе на переходе виден скачок ленты.
   useLayoutEffect(() => {
     mounted += 1;
-    document.documentElement.style.setProperty('--fab-space', FAB_SPACE);
+    document.documentElement.style.setProperty('--fab-strip', FAB_STRIP);
     return () => {
       mounted -= 1;
-      if (mounted === 0) document.documentElement.style.setProperty('--fab-space', '0px');
+      if (mounted === 0) document.documentElement.style.setProperty('--fab-strip', '0px');
     };
   }, []);
 
@@ -110,16 +114,6 @@ export function Fab({ onClick, label }: Props) {
   // баннера ей никто не сообщает). Во время переноса left/top остаются базой,
   // а смещение идёт через transform.
   const pos = override ?? saved;
-
-  // Во время переноса не прячем ни при каком направлении: палец на кнопке, а
-  // ленту в этот момент может прокрутить вторая рука.
-  const hidden = direction === 'down' && !dragging;
-
-  // Уехавшая кнопка не должна остаться в фокусе: на ней aria-hidden, и фокус
-  // на скрытом от скринридера элементе — это ловушка для клавиатуры.
-  useEffect(() => {
-    if (hidden && document.activeElement === ref.current) ref.current?.blur();
-  }, [hidden]);
 
   const clearTimer = () => {
     clearTimeout(timer.current);
@@ -231,21 +225,9 @@ export function Fab({ onClick, label }: Props) {
       onPointerCancel={onPointerUp}
       onClick={handleClick}
       aria-label={label ?? t('Добавить')}
-      // Спрятанная кнопка полностью выключена: pointer-events-none снимает
-      // перехват тапов (одного увода вниз мало — своя позиция может быть где
-      // угодно, и кнопка осталась бы под пальцем), tabIndex убирает её из
-      // обхода клавиатурой, aria-hidden — из дерева доступности.
-      aria-hidden={hidden || undefined}
-      tabIndex={hidden ? -1 : undefined}
       style={{
         background: 'var(--app-accent-fill)',
         touchAction: 'none', // касание кнопки не скроллит страницу — тащим её саму
-        // Свойство translate, а не transform: transform занят переносом
-        // (императивно в onPointerMove), и они бы затирали друг друга.
-        // Сдвиг = размер кнопки + её клиренс: из дефолтной позиции это ровно
-        // за нижний край экрана. '0 0' вместо отсутствия значения — чтобы
-        // браузеру было что интерполировать в обратную сторону.
-        translate: hidden ? `0 calc(${FAB_SIZE}px + ${clearance})` : '0 0',
         ...(pos
           ? {
               left: `clamp(${EDGE}px, ${pos.x}px, calc(100vw - ${FAB_SIZE + EDGE}px))`,
@@ -261,17 +243,14 @@ export function Fab({ onClick, label }: Props) {
       // bottom для дефолта, left/top для своей) — в ней CSS-функции с env() и
       // переменными, Tailwind-классы такое не покрывают. Плавность (transition)
       // выключаем на время переноса, иначе она «догоняет» transform и кнопка
-      // дёргается; top в списке — своя позиция тоже уезжает вверх при появлении
-      // баннера или таймера. active:scale-90 — только вне переноса (в переносе
-      // кнопка приподнята scale-105). opacity-0 в паре с уводом вниз: из своей
-      // позиции (левый/верхний край) сдвига может не хватить до края экрана, и
-      // без прозрачности осталась бы видимая кнопка, не реагирующая на тап.
-      // motion-reduce:transition-none — при «уменьшить движение» кнопка просто
-      // переключается, без проезда.
+      // дёргается; top и bottom в списке — кнопка уезжает вверх при появлении
+      // полоски таймера. active:scale-90 — только вне переноса (в переносе
+      // кнопка приподнята scale-105). motion-reduce:transition-none — при
+      // «уменьшить движение» кнопка просто переключается, без проезда.
       className={`fixed z-40 flex size-14 select-none items-center justify-center rounded-full text-white shadow-[var(--shadow-accent)] [-webkit-touch-callout:none] [-webkit-user-select:none] [-webkit-tap-highlight-color:transparent] ${
         dragging ? 'scale-105 shadow-2xl' : 'active:scale-90'
-      } ${hidden ? 'pointer-events-none opacity-0' : ''} ${
-        dragging ? '' : 'transition-[translate,opacity,transform,bottom,top] duration-200 motion-reduce:transition-none'
+      } ${
+        dragging ? '' : 'transition-[transform,bottom,top] duration-200 motion-reduce:transition-none'
       }`}
     >
       <Plus size={ICON.accent} strokeWidth={STROKE_HEAVY} className="pointer-events-none" />
