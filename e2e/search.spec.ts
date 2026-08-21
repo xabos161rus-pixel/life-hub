@@ -15,10 +15,17 @@ async function seed(page: Page) {
     const { db } = await import('/src/db/db.ts');
     const { generateKey } = await import('/src/lib/crypto.ts');
     const ts = new Date().toISOString();
-    await db.tasks.put({
-      id: 't1', title: 'Забрать колёса', notes: '', done: false,
-      createdAt: ts, updatedAt: ts, deletedAt: null,
-    } as never);
+    // Задачи с фотографиями: снимки лежат прямо в строке задачи, и полное
+    // чтение таблицы поднимает их все. Это и есть тяжесть, которую экран
+    // поиска не должен трогать до первого запроса.
+    const photo = 'data:image/jpeg;base64,' + 'A'.repeat(120 * 1024);
+    await db.tasks.bulkPut([
+      { id: 't1', title: 'Забрать колёса', notes: '', done: false, createdAt: ts, updatedAt: ts, deletedAt: null },
+      ...Array.from({ length: 8 }, (_, i) => ({
+        id: `p${i}`, title: `Задача со снимком ${i}`, notes: '', done: false,
+        photos: [photo], createdAt: ts, updatedAt: ts, deletedAt: null,
+      })),
+    ] as never[]);
     await db.notes.put({
       id: 'n1', title: 'Колёса и резина', content: '<p>зимние</p>',
       createdAt: ts, updatedAt: ts, deletedAt: null,
@@ -31,12 +38,10 @@ async function seed(page: Page) {
       selfMemberId: 'me', lastSeq: 60, lastReadSeq: 60, enabled: true, joinedAt: ts,
       keyEpoch: 0, keyRing: { '0': key },
     } as never);
-    const photo = 'data:image/jpeg;base64,' + 'A'.repeat(120 * 1024);
     await db.familyMessages.bulkPut(
       Array.from({ length: 60 }, (_, i) => ({
         clientMsgId: `m${i}`, familyId: 'f1', seq: i + 1, senderMemberId: 'p1',
         text: i === 7 ? 'Колёса лежат в гараже' : `Сообщение ${i}`,
-        image: i % 10 === 0 ? photo : null,
         createdAt: ts, deletedAt: null,
       })) as never[],
     );
@@ -81,7 +86,7 @@ test('открытие поиска не поднимает базу — чит�
   await expect(page.getByPlaceholder('Искать везде…')).toBeVisible();
   await page.waitForTimeout(700);
 
-  // Полное чтение подняло бы больше 700 КБ одних фотографий.
+  // Полное чтение подняло бы почти мегабайт одних снимков задач.
   expect(await readBytes(page)).toBeLessThan(200_000);
 });
 
