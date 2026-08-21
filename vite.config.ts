@@ -10,7 +10,12 @@ export default defineConfig(({ command }) => ({
   // test() при запуске под vitest падает с «did not expect test() to be called
   // here» — два раннера на одном расширении .spec.ts.
   test: {
-    exclude: ['node_modules/**', 'dist/**', 'e2e/**'],
+    // '**/node_modules/**', а не 'node_modules/**': во вложенном
+    // worker/node_modules лежат собственные тесты чужих библиотек (blake3,
+    // wrangler). Vitest подхватывал их и показывал «12 failed» — за этим
+    // шумом не было видно, что два наших теста не запускаются вовсе.
+    // .playwright — снимки экрана, они гоняются playwright'ом.
+    exclude: ['**/node_modules/**', 'dist/**', 'e2e/**', '.playwright/**'],
   },
   plugins: [
     react(),
