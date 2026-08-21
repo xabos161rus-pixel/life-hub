@@ -39,7 +39,7 @@ import type {
   SymptomDef,
 } from './cycleTypes';
 
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 19;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -315,6 +315,39 @@ export class LifeHubDB extends Dexie {
     // сообщения группы, а история остаётся на диске, пока за ней не поднимутся.
     this.version(18).stores({
       familyMessages: 'clientMsgId, familyId, seq, createdAt, [familyId+seq]',
+    });
+
+    // v19 — индекс updatedAt всем синхронизируемым таблицам.
+    //
+    // Отправка изменений читала КАЖДУЮ из двадцати таблиц целиком и отбирала
+    // свежие строки уже в памяти. Среди них noteFiles — куски вложений по
+    // 400 КиБ, и tasks с фотографиями прямо в строке. А запускается это через
+    // полторы секунды после каждой правки: печатаешь заметку — и на каждую
+    // паузу в наборе поднимается вся база.
+    //
+    // С индексом берётся ровно окно [lastPushAt, cutoff) — обычно одна-две
+    // строки. Индексы перечислены полностью: Dexie удаляет те, что не назвали.
+    this.version(19).stores({
+      projects: 'id, sortOrder, parentId, updatedAt',
+      tasks: 'id, projectId, goalId, dueDate, completedAt, *tags, origin, updatedAt',
+      goals: 'id, status, updatedAt',
+      habits: 'id, goalId, updatedAt',
+      habitLogs: 'id, habitId, date, &[habitId+date], updatedAt',
+      notes: 'id, *tags, pinned, folderId, updatedAt',
+      noteFiles: 'id, noteId, fileId, updatedAt',
+      noteFolders: 'id, sortOrder, parentId, updatedAt',
+      learningItems: 'id, status, goalId, updatedAt',
+      learningLogs: 'id, itemId, date, updatedAt',
+      expenseItems: 'id, category, kind, updatedAt',
+      savingsGoals: 'id, sortOrder, archivedAt, updatedAt',
+      savingsDeposits: 'id, goalId, date, updatedAt',
+      energyItems: 'id, category, updatedAt',
+      energyLogs: 'id, &date, updatedAt',
+      placeItems: 'id, kind, status, updatedAt',
+      metrics: 'id, updatedAt',
+      metricLogs: 'id, metricId, date, updatedAt',
+      reminderSections: 'id, sortOrder, updatedAt',
+      reminderItems: 'id, sectionId, sortOrder, updatedAt',
     });
   }
 }

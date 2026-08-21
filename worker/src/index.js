@@ -226,6 +226,23 @@ export default {
         return json({ ok: true, at }, 200, origin);
       }
 
+      // Только сведения о копии: когда обновлялась и из скольких кусков
+      // состоит. Экран настроек показывает дату, и ради неё скачивал ВСЮ
+      // копию целиком — на большой базе это мегабайты шифротекста на каждое
+      // открытие настроек.
+      if (url.pathname === '/backup/meta' && request.method === 'GET') {
+        const accountId = await authAccount(request, env);
+        if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
+        await ensureBackupTable(env);
+        const row = await env.DB.prepare(
+          'SELECT MAX(updated_at) AS u, COUNT(*) AS n FROM backups WHERE account_id = ?',
+        )
+          .bind(accountId)
+          .first();
+        const total = Number(row?.n ?? 0);
+        return json({ updatedAt: total ? row.u : null, total }, 200, origin);
+      }
+
       if (url.pathname === '/backup/get' && request.method === 'GET') {
         const accountId = await authAccount(request, env);
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
