@@ -93,6 +93,18 @@ test('заморозка из шита прячет привычку с «Сег
   await openHabitSheet(page, 'Отжимания');
   await page.getByRole('button', { name: 'Заморозить' }).click();
 
+  // Уход на другой экран обрывает асинхронную запись: без ожидания факта
+  // заморозки тест падает на собственной гонке, а не на дефекте приложения.
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const { db } = await import('/src/db/db.ts');
+        const h = await db.habits.get('h1');
+        return (h?.frozenRanges ?? []).some((r) => !r.to);
+      }),
+    )
+    .toBe(true);
+
   // ушла с «Сегодня» — блок целиком скрывается, планируемых привычек не осталось.
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Привычки' })).toHaveCount(0);

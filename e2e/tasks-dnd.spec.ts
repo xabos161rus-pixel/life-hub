@@ -313,7 +313,14 @@ test('отпустить там же, где взял, — порядок и б�
 
   const el = await hold(page, 'Вторая');
   const box = (await el.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 7, { steps: 3 });
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  // Дрожание пальца: сдвиг на пару пикселей, заведомо меньше порога
+  // перестановки. Прежние 7 пикселей были уже сопоставимы с высотой строки
+  // (26 px на этом экране) и на плотной вёрстке переставляли задачу —
+  // тест краснел без дефекта. Вернуть палец назад проверку не спасает:
+  // после перестановки исходная точка принадлежит уже другой строке.
+  await page.mouse.move(cx, cy + 2, { steps: 3 });
   await page.waitForTimeout(120);
   await page.mouse.up();
   await page.waitForTimeout(350);

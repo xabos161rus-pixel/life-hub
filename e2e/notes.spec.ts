@@ -281,12 +281,29 @@ test.describe('редактор', () => {
     await page.keyboard.type('Заголовок');
     await page.keyboard.press('Enter');
     await page.keyboard.type('Отменённый пункт');
-    await page.keyboard.press('Shift+Home');
+    // Выделяем ровно набранную строку посимвольно. Shift+Home трактуется
+    // движками по-разному: часть браузеров тянет выделение до начала
+    // документа и захватывает заголовок — тогда зачёркнутым оказывается не
+    // то, что проверяет тест.
+    for (let i = 0; i < 'Отменённый пункт'.length; i++) {
+      await page.keyboard.press('Shift+ArrowLeft');
+    }
     await fmtBtn(page, 'Зачёркнутый');
     await page.waitForTimeout(900);
     await page.reload();
     await page.waitForTimeout(900);
-    await expect(page.locator('.note-editor s, .note-editor strike')).toHaveCount(1);
+    // Проверяем смысл, а не разметку: важно, что весь выделенный текст
+    // остался зачёркнутым после перезагрузки. Число тегов — деталь движка
+    // (одни браузеры дают один <s>, другие дробят на несколько), и привязка
+    // к нему делала тест ложно-красным там, где с заметкой всё в порядке.
+    await expect
+      .poll(async () =>
+        page
+          .locator('.note-editor s, .note-editor strike')
+          .allInnerTexts()
+          .then((parts) => parts.join('').replace(/\s+/g, ' ').trim()),
+      )
+      .toBe('Отменённый пункт');
   });
 
   test('кнопка списка не уносит каретку в начало строки', async ({ page }) => {
@@ -723,12 +740,27 @@ test.describe('панель инструментов', () => {
     await page.keyboard.type('Заголовок');
     await page.keyboard.press('Enter');
     await page.keyboard.type('важное слово');
-    await page.keyboard.press('Shift+Home');
+    // Выделяем ровно набранную строку: Shift+Home в части движков тянет
+    // выделение до начала документа и захватывает заголовок.
+    for (let i = 0; i < 'важное слово'.length; i++) {
+      await page.keyboard.press('Shift+ArrowLeft');
+    }
     await fmtBtn(page, 'Жирный');
     await page.waitForTimeout(900);
     await page.reload();
     await page.waitForTimeout(400);
-    await expect(page.locator('.note-editor b, .note-editor strong')).toHaveCount(1);
+    // Смысл вместо разметки: важно, что нужный текст жирный и пережил
+    // перезагрузку, а не сколько тегов создал движок.
+    await expect
+      .poll(async () =>
+        page
+          .locator('.note-editor b, .note-editor strong')
+          .allInnerTexts()
+          .then((parts) => parts.join('').replace(/\s+/g, ' ').trim()),
+      )
+      // Первая буква строки поднимается в заглавную самим редактором —
+      // ожидаем ровно то, что человек видит на экране.
+      .toBe('Важное слово');
   });
 
   test('«Обычный» возвращает заголовок к тексту', async ({ page }) => {

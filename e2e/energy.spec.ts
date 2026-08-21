@@ -95,6 +95,19 @@ test('пропущенный день дозаполняется из разде
   await page.getByRole('button', { name: 'Прёт' }).click();
   await expect(page.getByRole('button', { name: /Прёт/ })).toHaveCount(1);
 
+  // Перезагрузка проверяет, что отметка ушла в базу, — но сама запись
+  // асинхронная, и reload прямо после клика обрывает её на медленной
+  // машине. Дожидаемся факта записи, иначе тест падает на собственной
+  // гонке, а не на дефекте приложения.
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const { db } = await import('/src/db/db.ts');
+        return (await db.energyLogs.toArray()).filter((r) => !r.deletedAt).length;
+      }),
+    )
+    .toBe(1);
+
   await page.reload();
   await expect(page.getByRole('button', { name: /Прёт/ })).toHaveCount(1);
 });
