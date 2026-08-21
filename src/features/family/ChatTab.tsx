@@ -51,6 +51,7 @@ import { linkify } from '../../lib/family/linkify';
 import { clearDraft, loadDraft, saveDraft } from '../../lib/family/draft';
 import { clearUndecrypted, subscribeUndecrypted, undecryptedCount } from '../../lib/family/undecrypted';
 import { searchMessages, type SearchHit } from '../../lib/family/searchMessages';
+import { setScreenAction } from '../../lib/ui/screenAction';
 import {
   sendMessage,
   sendImage,
@@ -821,6 +822,18 @@ export function ChatTab({ familyId }: { familyId: string }) {
     };
   }, [familyId, query, searchOpen]);
 
+  // Кнопка поиска — в шапке экрана: там её и ищут, и она не отнимает у
+  // переписки ни пикселя высоты.
+  useEffect(
+    () =>
+      setScreenAction({
+        icon: SearchIcon,
+        label: t('Искать в переписке'),
+        onPress: () => setSearchOpen(true),
+      }),
+    [],
+  );
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
@@ -856,10 +869,26 @@ export function ChatTab({ familyId }: { familyId: string }) {
   }, [list, readMark, selfId]);
 
   // Отмечаем прочитанным до последнего seq, когда чат открыт и виден.
+  //
+  // Первый раз — с паузой. Во-первых, честнее: открыл и сразу ушёл — значит
+  // не прочитал. Во-вторых, отметка мгновенно перезаписывала lastReadSeq в
+  // базе, и запись входа (entryMark выше) успевала подхватить уже НОВОЕ
+  // значение — граница непрочитанного не показывалась вовсе. Гонка редкая, но
+  // на медленной базе воспроизводилась стабильно.
+  const markedOnce = useRef(false);
   useEffect(() => {
     if (document.visibilityState !== 'visible') return;
     const maxSeq = list.reduce((mx, m) => Math.max(mx, m.seq ?? 0), 0);
-    markSeen(familyId, maxSeq);
+    if (!maxSeq) return;
+    if (markedOnce.current) {
+      markSeen(familyId, maxSeq);
+      return;
+    }
+    const id = setTimeout(() => {
+      markedOnce.current = true;
+      markSeen(familyId, maxSeq);
+    }, 1200);
+    return () => clearTimeout(id);
   }, [list, familyId]);
 
   // Автоскролл. ВАЖНО: двигаем ТОЛЬКО свой scrollRef (el.scrollTop), а не
@@ -1120,18 +1149,17 @@ export function ChatTab({ familyId }: { familyId: string }) {
     // Полная высота под чат от каркаса (Screen fill): лента растёт и скроллится,
     // композер прибит к низу. Без magic-number — высоту даёт родитель.
     <div className="flex h-full min-h-0 flex-col">
-      {/* Строка над лентой: слева присутствие, справа поиск. Для группы из
-          нескольких собеседников «0 в сети» не сообщает ничего, чего человек
-          уже не предполагает, — оставляем слева пусто, пока никто не появился
-          и не печатает. Для одного собеседника показываем всегда: «был(а) в
-          сети 2 ч назад» — это ценность, а не шум. Сама строка живёт всегда:
-          в ней кнопка поиска, и отдельная строка ради неё стоила бы чату
-          ещё двух десятков пикселей высоты. */}
-      {!searchOpen && (
+      {/* Для группы из нескольких собеседников строка «0 в сети» не сообщает
+          ничего, чего человек уже не предполагает, — прячем её, пока никто не
+          появился и не печатает. Для одного собеседника показываем всегда:
+          «был(а) в сети 2 ч назад» — это ценность, а не шум. Кнопка поиска
+          живёт в шапке экрана: отдельная строка ради неё стоила бы переписке
+          два десятка пикселей на каждом экране. */}
+      {!searchOpen &&
+        others.length > 0 &&
+        (others.length === 1 || typers.length > 0 || others.some((o) => onlineSet.has(o.id))) && (
         <div className="flex shrink-0 items-center gap-1.5 px-1 pb-1.5 text-xs">
-          {others.length > 0 &&
-          (others.length === 1 || typers.length > 0 || others.some((o) => onlineSet.has(o.id))) ? (
-            others.length === 1 ? (
+          {others.length === 1 ? (
             <>
               <span
                 className={`size-2 shrink-0 rounded-full ${onlineSet.has(others[0].id) ? 'bg-success' : 'bg-muted'}`}
@@ -1150,15 +1178,7 @@ export function ChatTab({ familyId }: { familyId: string }) {
               />
               <span className={typers.length > 0 ? 'text-accent' : 'text-muted'}>{headerStatus}</span>
             </>
-            )
-          ) : null}
-          <button
-            onClick={() => setSearchOpen(true)}
-            aria-label={t('Искать в переписке')}
-            className={`ml-auto shrink-0 p-1 text-muted active:text-accent ${HIT_SLOP_44}`}
-          >
-            <SearchIcon size={ICON.action} />
-          </button>
+          )}
         </div>
       )}
       {searchOpen && (

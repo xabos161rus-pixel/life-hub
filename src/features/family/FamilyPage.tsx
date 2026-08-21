@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import {
   GPlus as Plus,
 } from '../../components/ui/glyphs';
@@ -11,6 +11,8 @@ import { Sheet } from '../../components/ui/Sheet';
 import { Button } from '../../components/ui/Button';
 import { listFamilyConfigs } from '../../lib/family/familyState';
 import { countUnread } from '../../lib/family/unread';
+import { screenAction, subscribeScreenAction } from '../../lib/ui/screenAction';
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
 import { FamilyOnboarding, CreateFamilySheet, JoinFamilySheet } from './FamilyOnboarding';
 import { FamilyScreen, useFamilyStatusLine } from './FamilyScreen';
 import { CallButton } from './CallButton';
@@ -148,12 +150,30 @@ function ScreenWithStatus({
   children: ReactNode;
 }) {
   const status = useFamilyStatusLine(selected);
+  // Действие от открытой вкладки (сейчас это поиск на «Чате»): вкладка сама
+  // объявляет о нём, шапка только показывает. Своя строка под такую кнопку
+  // стоила бы переписке два десятка пикселей высоты.
+  const action = useSyncExternalStore(subscribeScreenAction, screenAction, () => null);
+  const ActionIcon = action?.icon as LucideIcon | undefined;
   return (
     <Screen
       title={current.familyName}
       subtitle={current.removedAt ? undefined : status}
       backTo="/home"
-      right={<CallButton familyId={selected} />}
+      right={
+        <div className="flex items-center gap-1">
+          {action && ActionIcon && (
+            <button
+              onClick={action.onPress}
+              aria-label={action.label}
+              className={`flex size-9 items-center justify-center rounded-full text-muted active:text-accent ${HIT_SLOP_44}`}
+            >
+              <ActionIcon size={ICON.header} />
+            </button>
+          )}
+          <CallButton familyId={selected} />
+        </div>
+      }
       fill
     >
       {children}
