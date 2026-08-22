@@ -17,7 +17,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { db } = await import('../db/db');
 const { generateKey } = await import('./crypto');
-const { encryptJSON } = await import('./crypto');
+const { encryptJSON, decryptJSON } = await import('./crypto');
 const { pushAccountSnapshot, BackupWouldLoseDataError } = await import('./cloudBackup');
 
 const realFetch = globalThis.fetch;
@@ -239,5 +239,38 @@ describe('защита копии не зависит от её размера',
 
     await pushAccountSnapshot();
     expect(putCalls).toBe(1);
+  });
+});
+
+describe('манифест уезжает вместе с копией', () => {
+  it('в записи есть манифест, и в нём настоящие числа', async () => {
+    // Без этого защита деградирует к старому пути молча: следующая проверка
+    // не найдёт манифеста и снова пойдёт скачивать копию целиком.
+    let body: string | null = null;
+    const key = await seedSync();
+    await db.cycleDays.bulkPut([
+      { id: 'd1', date: '2026-08-01', updatedAt: '2026-08-01T00:00:00.000Z', deletedAt: null },
+      { id: 'd2', date: '2026-08-02', updatedAt: '2026-08-02T00:00:00.000Z', deletedAt: null },
+    ] as never[]);
+
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : String(input);
+      if (url.endsWith('/backup/meta')) {
+        return Promise.resolve(new Response(JSON.stringify({ updatedAt: null, total: 0, manifest: null }), { status: 200 }));
+      }
+      if (url.endsWith('/backup/put')) {
+        body = String(init?.body ?? '');
+        return Promise.resolve(new Response('{"ok":true}', { status: 200 }));
+      }
+      return realFetch(input as RequestInfo, init);
+    }) as typeof fetch;
+
+    await pushAccountSnapshot();
+
+    expect(body).toBeTruthy();
+    const parsed = JSON.parse(body!) as { manifest?: string };
+    expect(parsed.manifest, 'манифест обязан уехать вместе с копией').toBeTruthy();
+    const counts = await decryptJSON<Record<string, number>>(key, parsed.manifest!);
+    expect(counts.cycleDays).toBe(2);
   });
 });
