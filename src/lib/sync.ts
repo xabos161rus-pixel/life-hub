@@ -22,6 +22,9 @@ import { getSyncConfig, patchSyncConfig, saveSyncConfig, clearSyncConfig } from 
 // Экспорт: адрес воркера переиспользует клиент AI-прокси (lib/ai/aiClient.ts).
 export const WORKER_URL = 'https://life-hub-push.xabos161rus.workers.dev';
 const PUSH_CHUNK = 200;
+// Потолок пачки по объёму — по той же причине, что и на приёме: двести кусков
+// вложений в одном теле запроса это сто мегабайт, которые не уйдут никогда.
+const PUSH_MAX_BYTES = 3 * 1024 * 1024;
 
 // Таблицы, которые синхронизируются. settings (device-local) и sync (секреты)
 // сюда НЕ входят намеренно. Включены legacy habits/metrics (пустые) — безвредно.
@@ -379,11 +382,11 @@ async function push(c: SyncConfig): Promise<number> {
       ciphertext: await encryptJSON(c.key, payload),
     });
   }
-  for (let i = 0; i < out.length; i += PUSH_CHUNK) {
+  for (const batch of batchByBytes(out)) {
     const res = await fetch(`${WORKER_URL}/sync/push`, {
       method: 'POST',
       headers: authHeaders(c),
-      body: JSON.stringify({ records: out.slice(i, i + PUSH_CHUNK) }),
+      body: JSON.stringify({ records: batch }),
     });
     if (!res.ok) throw new Error(`push ${res.status}`);
   }
@@ -446,6 +449,27 @@ async function clearSyncFailure(): Promise<void> {
   } catch {
     /* негде отметить — не беда */
   }
+}
+
+/** Разбить записи на пачки: не длиннее PUSH_CHUNK и не тяжелее
+ *  PUSH_MAX_BYTES. Одна запись, которая сама больше потолка, едет в
+ *  собственной пачке — иначе она заблокировала бы обмен навсегда. */
+export function batchByBytes(rows: RemoteRecord[]): RemoteRecord[][] {
+  const out: RemoteRecord[][] = [];
+  let cur: RemoteRecord[] = [];
+  let bytes = 0;
+  for (const r of rows) {
+    const size = r.ciphertext.length;
+    if (cur.length && (cur.length >= PUSH_CHUNK || bytes + size > PUSH_MAX_BYTES)) {
+      out.push(cur);
+      cur = [];
+      bytes = 0;
+    }
+    cur.push(r);
+    bytes += size;
+  }
+  if (cur.length) out.push(cur);
+  return out;
 }
 
 export function syncRunning(): boolean {

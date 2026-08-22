@@ -123,3 +123,44 @@ describe('/sync/pull: составной курсор', () => {
     expect(data.nextSince).toBe('2026-08-16T10:00:00.000Z|rec-42');
   });
 });
+
+describe('/sync/pull: страница ограничена объёмом', () => {
+  const row = (id: string, size: number): PullRow => ({
+    tbl: 'noteFiles',
+    id,
+    u: '2026-08-22T00:00:00.000Z',
+    d: null,
+    c: 'x'.repeat(size),
+  });
+
+  it('тяжёлые строки режутся по объёму, остаток остаётся на следующую страницу', async () => {
+    // Строки бывают очень разные: обычная задача — сотни байт, кусок вложения
+    // заметки — больше полумегабайта после шифрования. Пятьсот таких кусков в
+    // одном ответе это сотни мегабайт, которые не доедут никогда: обмен падает
+    // на каждой попытке, курсор стоит, синхронизация мертва навсегда.
+    const db = makeDb([row('a', 1_200_000), row('b', 1_200_000), row('c', 1_200_000), row('d', 1_200_000)]);
+    const res = await pull(db, '');
+    const body = (await res.json()) as { records: PullRow[]; hasMore: boolean; nextSince: string };
+
+    expect(body.records.length).toBeLessThan(4);
+    expect(body.hasMore).toBe(true);
+    // Курсор указывает на последнюю отданную запись — остаток приедет следом.
+    expect(body.nextSince.endsWith(`|${body.records[body.records.length - 1].id}`)).toBe(true);
+  });
+
+  it('одна строка тяжелее потолка всё равно отдаётся — иначе обмен встанет намертво', async () => {
+    const db = makeDb([row('big', 5 * 1024 * 1024), row('next', 100)]);
+    const res = await pull(db, '');
+    const body = (await res.json()) as { records: PullRow[]; hasMore: boolean };
+    expect(body.records.map((r) => r.id)).toEqual(['big']);
+    expect(body.hasMore).toBe(true);
+  });
+
+  it('лёгкие строки отдаются одной страницей, как раньше', async () => {
+    const db = makeDb(Array.from({ length: 50 }, (_, i) => row(`t${i}`, 200)));
+    const res = await pull(db, '');
+    const body = (await res.json()) as { records: PullRow[]; hasMore: boolean };
+    expect(body.records).toHaveLength(50);
+    expect(body.hasMore).toBe(false);
+  });
+});

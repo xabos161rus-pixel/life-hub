@@ -17,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { db } = await import('../db/db');
 const { generateKey, encryptJSON } = await import('./crypto');
 const { getSyncConfig, patchSyncConfig } = await import('./syncState');
-const { runSync } = await import('./sync');
+const { runSync, batchByBytes } = await import('./sync');
 
 const realFetch = globalThis.fetch;
 
@@ -378,5 +378,54 @@ describe('семейные подключения уезжают на други
 
     const shares = sent.filter((r) => r.table === 'familyShare');
     expect(shares.map((r) => r.id)).toEqual(['new']);
+  });
+});
+
+describe('пачки отправки ограничены объёмом, а не только числом записей', () => {
+  it('тяжёлые записи едут порознь — иначе тело запроса вырастает до сотен мегабайт', () => {
+    // Строки бывают очень разные: обычная задача — сотни байт, кусок вложения
+    // заметки — больше полумегабайта после шифрования. Двести таких кусков в
+    // одном теле запроса не уйдут никогда: обмен падает на каждой попытке,
+    // курсор стоит, синхронизация мертва навсегда.
+    const heavy = (id: string) => ({
+      table: 'noteFiles',
+      id,
+      updatedAt: '2026-08-22T00:00:00.000Z',
+      deletedAt: null,
+      ciphertext: 'x'.repeat(1_200_000),
+    });
+    const batches = batchByBytes([heavy('a'), heavy('b'), heavy('c'), heavy('d')]);
+
+    // По три штуки в пачку не влезает — потолок три мегабайта.
+    expect(batches.length).toBeGreaterThan(1);
+    for (const b of batches) {
+      const size = b.reduce((n, r) => n + r.ciphertext.length, 0);
+      // Пачка либо в пределах потолка, либо состоит из одной записи.
+      expect(size <= 3 * 1024 * 1024 || b.length === 1).toBe(true);
+    }
+    // Ничего не потеряли и порядок сохранён.
+    expect(batches.flat().map((r) => r.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('запись тяжелее потолка едет одна, а не блокирует обмен', () => {
+    const giant = {
+      table: 'noteFiles', id: 'big', updatedAt: '2026-08-22T00:00:00.000Z',
+      deletedAt: null, ciphertext: 'x'.repeat(5 * 1024 * 1024),
+    };
+    const small = {
+      table: 'tasks', id: 't1', updatedAt: '2026-08-22T00:00:01.000Z',
+      deletedAt: null, ciphertext: 'привет',
+    };
+    const batches = batchByBytes([giant, small]);
+    expect(batches[0].map((r) => r.id)).toEqual(['big']);
+    expect(batches[1].map((r) => r.id)).toEqual(['t1']);
+  });
+
+  it('лёгкие записи собираются в пачку, а не по одной', () => {
+    const rows = Array.from({ length: 50 }, (_, i) => ({
+      table: 'tasks', id: `t${i}`, updatedAt: '2026-08-22T00:00:00.000Z',
+      deletedAt: null, ciphertext: 'короткая строка',
+    }));
+    expect(batchByBytes(rows)).toHaveLength(1);
   });
 });

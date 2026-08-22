@@ -53,6 +53,13 @@ async function authAccount(request, env) {
 }
 
 const PULL_LIMIT = 500;
+// Потолок страницы по объёму. Строки бывают очень разные: обычная задача —
+// сотни байт, а кусок вложения заметки — больше полумегабайта после шифрования.
+// Пятьсот таких кусков в одном ответе — это сотни мегабайт, которые не
+// доедут никогда: обмен падает на каждой попытке, курсор стоит, и синхронизация
+// мертва навсегда. Курсор составной (updated_at|id), поэтому дорезать страницу
+// безопасно — остаток приедет следующей.
+const PULL_MAX_BYTES = 3 * 1024 * 1024;
 
 // Таблицу резервных копий создаём лениво (миграции D1 в этом проекте применяются
 // вручную; ленивое создание убирает этот шаг — фича работает сразу после деплоя).
@@ -184,8 +191,19 @@ export default {
           .bind(accountId, sinceU, sinceId, PULL_LIMIT + 1)
           .all();
         const rows = res.results || [];
-        const hasMore = rows.length > PULL_LIMIT;
-        const page = hasMore ? rows.slice(0, PULL_LIMIT) : rows;
+        let hasMore = rows.length > PULL_LIMIT;
+        let page = hasMore ? rows.slice(0, PULL_LIMIT) : rows;
+        // Режем по объёму, но всегда отдаём хотя бы одну запись: иначе
+        // единственный кусок больше потолка встал бы намертво.
+        let bytes = 0;
+        for (let i = 0; i < page.length; i++) {
+          bytes += (page[i].c || '').length;
+          if (bytes > PULL_MAX_BYTES && i > 0) {
+            page = page.slice(0, i);
+            hasMore = true;
+            break;
+          }
+        }
         const out = page.map((r) => ({
           table: r.tbl,
           id: r.id,
