@@ -136,6 +136,21 @@ describe('перекладывание старых задач', () => {
     expect(await migrateTaskPhotos(10)).toBe(0);
   });
 
+  it('замена снимка на другой замечена, хотя число не изменилось', async () => {
+    // Сравнение по счёту здесь врёт: снимок был один и остался один, но это
+    // ДРУГОЙ снимок. Правка могла прийти со второго устройства — там сохранили
+    // задачу, заменив фотографию, а куски пришли бы от прежней.
+    await seedTask('t1', [photo('A')]);
+    await migrateTaskPhotos(10);
+    expect(assemblePhotos(await chunksOf('t1'))).toEqual([photo('A')]);
+
+    // Снимок в строке заменили (приехало синком со старого устройства).
+    await db.tasks.update('t1', { photos: [photo('B')] });
+
+    expect(await migrateTaskPhotos(10)).toBe(1);
+    expect(assemblePhotos(await chunksOf('t1'))).toEqual([photo('B')]);
+  });
+
   it('строки задач остаются нетронутыми', async () => {
     const ts = '2026-08-01T10:00:00.000Z';
     await seedTask('t1', [photo('A')]);
