@@ -41,6 +41,7 @@ import { CycleReportPage } from './features/cycle/CycleReportPage';
 import { TrashPage } from './features/trash/TrashPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { InstallInstructionsPage } from './features/settings/InstallInstructionsPage';
+import { BackupPage } from './features/settings/BackupPage';
 import { SectionsSettingsPage } from './features/settings/SectionsSettingsPage';
 import { FocusPage } from './features/focus/FocusPage';
 import { FamilyPage } from './features/family/FamilyPage';
@@ -214,6 +215,7 @@ export default function App() {
                 <Route path="/more/places" element={<PlacesPage />} />
                 <Route path="/more/settings" element={<SettingsPage />} />
                 <Route path="/more/settings/install" element={<InstallInstructionsPage />} />
+                <Route path="/more/settings/backup" element={<BackupPage />} />
                 <Route path="/more/settings/sections" element={<SectionsSettingsPage />} />
                 {/* Неизвестный адрес (битый дип-линк из пуша, старая закладка)
                     рендерил немую пустоту — ни шапки, ни объяснения. Честный

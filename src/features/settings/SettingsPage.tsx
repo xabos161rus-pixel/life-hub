@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import {
   PhoneCall,
@@ -7,7 +6,6 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import {
-  GCheck,
   GChevronRight as ChevronRight,
   GTrash as Trash2,
   GBot as Bot,
@@ -20,99 +18,27 @@ import { APP_VERSION } from '../../lib/changelog';
 import { MESSAGE_SOUNDS, playMessageSound, type MessageSound } from '../../lib/sounds';
 import { RINGTONES, previewRingtone, type RingtoneKind } from '../../lib/family/ringtone';
 import { Screen } from '../../components/layout/Screen';
-import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Input';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { useToast } from '../../components/ui/toastContext';
 import { useSettings, updateSettings } from '../../hooks/useSettings';
 import { db } from '../../db/db';
-import { alive, now } from '../../db/repo';
+import { alive } from '../../db/repo';
 import { enablePush, isIOS, isStandalone, pushEnabled, pushSupported, rescheduleAll } from '../../lib/push';
-import {
-  exportBackup,
-  backupFilename,
-  validateBackup,
-  previewBackup,
-  importBackup,
-  type BackupFile,
-} from '../../db/backup';
-import {
-  BackupWouldLoseDataError,
-  cloudBackupDate,
-  pushAccountSnapshot,
-  pullAccountSnapshot,
-} from '../../lib/cloudBackup';
 import { formatRu } from '../../lib/dates';
-import { ensurePersistentStorage, formatBytes, type StorageState } from '../../lib/storage';
 import { HINT_IDS, resetSessionHints } from '../../hooks/useHint';
-import { usePersistentStorage } from './usePersistentStorage';
 import { SyncSection } from './sync/SyncSection';
-import { InstallLink } from './InstallLink';
 import type { Settings } from '../../db/types';
 import { ICON } from '../../components/ui/icons';
-
-/** Имена таблиц человеческим языком — они уходят в диалог о перезаписи копии,
- *  и «cycleDays: 214 → 0» там читалось бы как сообщение об ошибке. */
-const TABLE_RU: Record<string, string> = {
-  cycleDays: 'дни цикла',
-  cycleOverrides: 'правки цикла',
-  cycleEpisodes: 'эпизоды цикла',
-  cycleSettings: 'настройки цикла',
-  cycleSymptoms: 'симптомы',
-  cyclePredictions: 'прогнозы цикла',
-  familyMessages: 'сообщения в семье',
-  familyTasks: 'семейные задачи',
-  familyMembers: 'участники семьи',
-};
-
+import { HIT_SLOP_44 } from '../../components/ui/hitSlop';
+import { Switch } from '../../components/ui/Switch';
+import { ButtonRow, LinkRow, Row, Section } from './SettingsSection';
 
 const THEME_OPTIONS: { value: Settings['theme']; label: string }[] = [
   { value: 'dark', label: 'Тёмная' },
   { value: 'light', label: 'Светлая' },
   { value: 'system', label: 'Системная' },
 ];
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section>
-      <h2 className="mb-2 px-1 text-sm font-semibold text-muted">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-/** Состояние локального хранилища. Показываем ровно тогда, когда есть что
- *  сказать: браузер отказал в постоянном хранении — значит данные могут быть
- *  стёрты системой, и копия становится не рекомендацией, а необходимостью. */
-function StorageStatus() {
-  const [state, setState] = useState<StorageState | null>(null);
-  useEffect(() => {
-    void ensurePersistentStorage().then(setState);
-  }, []);
-
-  if (!state || state.persisted === undefined) return null;
-  const used = state.usage !== undefined ? formatBytes(state.usage) : null;
-
-  return state.persisted ? (
-    <p className="text-sm text-muted">
-      {t('Данные защищены от автоочистки браузером{suffix}.', {
-        suffix: used ? t(', занято {used}', { used }) : '',
-      })}
-    </p>
-  ) : (
-    <p className="text-sm leading-snug">
-      <span className="font-semibold text-warning">
-        {t('Браузер не гарантирует сохранность данных.')}
-      </span>{' '}
-      <span className="text-muted">
-        {t(
-          'Если открывать приложение как обычную вкладку, Safari стирает данные сайта после недели без визитов. Установите приложение на экран «Домой» и держите копию{suffix}.',
-          { suffix: used ? t(' (сейчас занято {used})', { used }) : '' },
-        )}
-      </span>
-    </p>
-  );
-}
 
 /** Возврат скрытых подсказок. Отдельной строкой от сброса обучения, с живым
  *  счётчиком: кнопка без обратной связи выглядит как сломанная — нажал, ничего
@@ -148,31 +74,22 @@ function HintsResetRow() {
   );
 }
 
+/** Что показать справа у строки «Копии и восстановление»: когда копию делали
+ *  в последний раз. Смысл строки в списке — не открывать её без нужды, поэтому
+ *  главное («копии нет») видно сразу, жёлтым. */
+function BackupStatus() {
+  const settings = useSettings();
+  const last = settings.lastBackupAt;
+  if (!last) return <span className="shrink-0 text-sm font-medium text-warning">{t('нет копии')}</span>;
+  return <span className="shrink-0 text-sm text-muted">{formatRu(last.slice(0, 10))}</span>;
+}
+
 export function SettingsPage() {
   const settings = useSettings();
-  const { persisted, usageMb } = usePersistentStorage();
   const toast = useToast();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [pushOn, setPushOn] = useState(pushEnabled());
   // Защита от повторного запуска async-операций при быстрых повторных кликах.
   const pushingRef = useRef(false);
-  const exportingRef = useRef(false);
-  const cloudRef = useRef(false);
-  const syncCfg = useLiveQuery(() => db.sync.get('config'), []);
-  const syncOn = Boolean(syncCfg?.enabled);
-  // undefined — ещё спрашиваем сервер, null — копии нет, строка — дата.
-  const [cloudDate, setCloudDate] = useState<string | null | undefined>(undefined);
-  useEffect(() => {
-    if (!syncOn) return;
-    let live = true;
-    void cloudBackupDate().then((d) => {
-      if (live) setCloudDate(d);
-    });
-    return () => {
-      live = false;
-    };
-  }, [syncOn]);
-
   async function handleEnablePush() {
     if (!pushSupported()) {
       toast(t('Уведомления не поддерживаются этим браузером.'));
@@ -207,141 +124,12 @@ export function SettingsPage() {
     }
   }
 
-  async function handleExport() {
-    if (exportingRef.current) return;
-    exportingRef.current = true;
-    try {
-      const backup = await exportBackup();
-      const json = JSON.stringify(backup, null, 2);
-      const file = new File([json], backupFilename(), { type: 'application/json' });
-
-      // share-шит — только на iOS (там это путь в «Файлы»); на десктопе
-      // системный share-диалог блокирует страницу, качаем напрямую
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS && navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file] });
-        } catch (err) {
-          // AbortError — пользователь закрыл шит шаринга, это не ошибка
-          if (!(err instanceof DOMException && err.name === 'AbortError')) {
-            toast(t('Не удалось поделиться файлом резервной копии. Он сохранён — найдите его в «Файлах»'));
-          }
-          return;
-        }
-      } else {
-        const url = URL.createObjectURL(file);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      }
-
-      await updateSettings({ lastBackupAt: now() });
-      toast(t('Резервная копия сохранена'));
-    } finally {
-      exportingRef.current = false;
-    }
-  }
-
-  // Подтверждение + применение копии (файл или облако) — общая логика.
-  async function confirmAndImport(backup: BackupFile): Promise<void> {
-    const p = previewBackup(backup);
-    const msg = t(
-      'Импорт заменит ВСЕ текущие данные.\n\nВ резервной копии:\n• проектов: {projects}\n• задач: {tasks}\n• целей: {goals}\n• привычек: {habits}\n• отметок привычек: {habitLogs}\n• заметок: {notes}\n• материалов обучения: {learningItems}\n• записей прогресса: {learningLogs}\n• расходов: {expenseItems}\n• способов восстановления: {energyItems}\n• отметок энергии: {energyLogs}\n• мест: {placeItems}\n• метрик: {metrics}\n• замеров метрик: {metricLogs}\n• семейных сообщений: {familyMessages}\n• семейных задач: {familyTasks}\n\nПродолжить?',
-      {
-        projects: p.counts.projects,
-        tasks: p.counts.tasks,
-        goals: p.counts.goals,
-        habits: p.counts.habits,
-        habitLogs: p.counts.habitLogs,
-        notes: p.counts.notes,
-        learningItems: p.counts.learningItems,
-        learningLogs: p.counts.learningLogs,
-        expenseItems: p.counts.expenseItems,
-        energyItems: p.counts.energyItems,
-        energyLogs: p.counts.energyLogs ?? 0,
-        placeItems: p.counts.placeItems,
-        metrics: p.counts.metrics,
-        metricLogs: p.counts.metricLogs,
-        familyMessages: p.counts.familyMessages ?? 0,
-        familyTasks: p.counts.familyTasks ?? 0,
-      },
-    );
-    if (!window.confirm(msg)) return;
-    await importBackup(backup);
-    toast(t('Данные восстановлены'));
-  }
-
-  async function handleImport(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // позволяет выбрать тот же файл повторно
-    if (!file) return;
-    try {
-      const parsed: unknown = JSON.parse(await file.text());
-      await confirmAndImport(validateBackup(parsed));
-    } catch (err) {
-      toast(err instanceof Error ? err.message : t('Не удалось прочитать файл резервной копии'));
-    }
-  }
-
-  async function handleCloudBackupNow(force = false) {
-    if (cloudRef.current) return;
-    cloudRef.current = true;
-    try {
-      const n = await pushAccountSnapshot(force);
-      if (!n) {
-        toast(t('Сначала включите синхронизацию — облачная копия хранится под вашим ключом.'));
-        return;
-      }
-      await updateSettings({ lastCloudBackupAt: now(), cloudBackupBlocked: null });
-      setCloudDate(new Date().toISOString());
-      toast(t('Копия сохранена в облако'));
-    } catch (e) {
-      // Копия в облаке полнее, чем данные здесь. Хранение latest-only: запись
-      // сотрёт её без следа, а история цикла и старая переписка не приедут
-      // обратно ниоткуда — дельта-синк их не возит. Поэтому не «не удалось»,
-      // а прямой вопрос с числами: сколько записей исчезнет.
-      if (e instanceof BackupWouldLoseDataError) {
-        const lines = e.losing.map((l) =>
-          t('{table}: {had} → {now}', { table: t(TABLE_RU[l.table] ?? l.table), had: l.had, now: l.now }),
-        );
-        const when = e.remoteDate
-          ? t(' от {date}', { date: formatRu(e.remoteDate.slice(0, 10), 'd MMMM yyyy') })
-          : '';
-        const ok = window.confirm(
-          t(
-            'В облаке лежит копия{when}, и в ней БОЛЬШЕ данных, чем на этом устройстве:\n\n{lines}\n\nЗаменить её копией с этого устройства? Разницу вернуть будет неоткуда.',
-            { when, lines: lines.join('\n') },
-          ),
-        );
-        if (ok) await handleCloudBackupNow(true);
-        return;
-      }
-      toast(t('Не удалось сохранить копию в облако. Проверьте связь и попробуйте ещё раз.'));
-    } finally {
-      cloudRef.current = false;
-    }
-  }
-
-  async function handleCloudRestore() {
-    if (cloudRef.current) return;
-    cloudRef.current = true;
-    try {
-      const backup = await pullAccountSnapshot();
-      if (!backup) {
-        toast(t('В облаке пока нет резервной копии.'));
-        return;
-      }
-      await confirmAndImport(backup);
-    } catch {
-      toast(t('Не удалось получить копию из облака. Проверьте связь и попробуйте ещё раз.'));
-    } finally {
-      cloudRef.current = false;
-    }
-  }
+  // Светлая ли тема прямо сейчас: образцы акцентов рисуются цветами ТЕКУЩЕЙ
+  // темы, иначе превью обещает не те цвета, что человек получит.
+  const light =
+    settings.theme === 'light' ||
+    (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: light)').matches);
+  const selectedAccent = ACCENTS.find((a) => a.id === (settings.accent ?? 'indigo')) ?? ACCENTS[0];
 
   return (
     <Screen title={t('Настройки')} backTo="/home">
@@ -355,41 +143,52 @@ export function SettingsPage() {
                 onChange={(theme) => void updateSettings({ theme })}
               />
             </div>
-            {/* Акцент применяется мгновенно — сам экран и есть превью. Кружки
-                показывают палитру каждого акцента (акцент, пара, заливка) в
-                цветах текущей темы: превью в чужой теме обещало бы не те
-                цвета, что человек получит. */}
-            {ACCENTS.map((a) => {
-              const selected = (settings.accent ?? 'indigo') === a.id;
-              const light =
-                settings.theme === 'light' ||
-                (settings.theme === 'system' &&
-                  window.matchMedia('(prefers-color-scheme: light)').matches);
-              return (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => void updateSettings({ accent: a.id })}
-                  aria-pressed={selected}
-                  className="flex w-full items-center gap-3 border-t border-hairline p-4 text-left active:opacity-80"
-                >
-                  <span className="flex shrink-0 -space-x-1.5">
-                    {(light ? a.light : a.dark).map((c, i) => (
-                      <span
-                        key={i}
-                        className="size-5 rounded-full ring-2 ring-surface"
-                        style={{ background: c }}
-                      />
-                    ))}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{t(a.label)}</span>
-                    <span className="block text-sm text-muted">{t(a.hint)}</span>
-                  </span>
-                  {selected && <GCheck size={ICON.base} className="shrink-0 text-accent" />}
-                </button>
-              );
-            })}
+            {/* ВЫБОР ЦВЕТА — РЯД ОБРАЗЦОВ, А НЕ СПИСОК СТРОК.
+                Раньше каждый акцент был строкой с названием, описанием и
+                галочкой: 262px на три варианта, и сравнить цвета было нельзя —
+                они разнесены по вертикали, глаз держит только соседние. Цвет
+                объясняет себя сам, названию место у выбранного.
+
+                Образец показывает акцент и его пару градиентом — те же два
+                цвета, которыми потом красится интерфейс. Цвета берутся для
+                ТЕКУЩЕЙ темы: превью в чужой теме обещало бы не то, что человек
+                получит. Акцент применяется мгновенно, так что сам экран и есть
+                предпросмотр. */}
+            <div className="flex items-center gap-3.5 border-t border-hairline p-3.5">
+              {ACCENTS.map((a) => {
+                const selected = (settings.accent ?? 'indigo') === a.id;
+                const [c1, c2] = light ? a.light : a.dark;
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => void updateSettings({ accent: a.id })}
+                    aria-pressed={selected}
+                    aria-label={t(a.label)}
+                    // Кольцо цветом самого акцента, с зазором цвета карточки —
+                    // белая обводка спорила бы с палитрой, а без зазора кольцо
+                    // сливается с образцом.
+                    // Выбор показывает КОЛЬЦО, а не галочка внутри образца:
+                    // белый глиф на светлом акценте дал 2.62:1 при норме 3 для
+                    // иконок (поймал прогон контраста), а перекрашивать его в
+                    // тёмный пришлось бы по-разному для каждого акцента.
+                    // Кольцо ничего не перекрывает и читается на любом цвете:
+                    // зазор цвета карточки отделяет его от самого образца.
+                    className="size-11 shrink-0 rounded-full transition-transform active:scale-95"
+                    style={{
+                      background: `linear-gradient(135deg, ${c1}, ${c2})`,
+                      boxShadow: selected ? `0 0 0 2.5px var(--app-surface), 0 0 0 5px ${c1}` : undefined,
+                    }}
+                  />
+                );
+              })}
+              {/* Подпись выбранного — справа: она объясняет ровно один образец,
+                  и повторять её у каждого незачем. */}
+              <span className="min-w-0 flex-1 text-right">
+                <span className="block truncate font-semibold">{t(selectedAccent.label)}</span>
+                <span className="block truncate text-xs text-muted">{t(selectedAccent.hint)}</span>
+              </span>
+            </div>
             {/* Смена языка перерисовывает приложение перезагрузкой: строки
                 читаются в момент рендера, reload — честный способ обновить
                 каждую (язык меняют раз в жизни, цена приемлема). */}
@@ -415,27 +214,29 @@ export function SettingsPage() {
           </div>
         </Section>
 
-        <Section title={t('Уведомления')}>
+        <Section
+          title={t('Уведомления')}
+          footnote={t(
+            'Напоминания о задачах, сообщения семейного чата и звонки. На iPhone работают только в установленном приложении.',
+          )}
+        >
           <div className="card">
-            <div className="p-4">
+            <Row icon={BellRing} label={t('Уведомления')}>
               {pushOn ? (
-                <p className="text-sm">
-                  <span className="font-medium text-success">{t('Включены')}</span>{' · '}
-                  {t('напоминания о задачах придут даже при закрытом приложении')}
-                </p>
+                <span className="shrink-0 text-sm font-medium text-success">{t('Включены')}</span>
               ) : (
-                <>
-                  <Button className="w-full" onClick={() => void handleEnablePush()}>
-                    {t('Включить уведомления')}
-                  </Button>
-                  <p className="mt-2 text-sm text-muted">
-                    {t(
-                      'Нужны для напоминаний о задачах («напомнить за 15 минут»). На iPhone работают только в установленном приложении.',
-                    )}
-                  </p>
-                </>
+                // Кнопка, а не переключатель: включение уходит в системный
+                // запрос разрешения, и отменить его приложение не может —
+                // переключатель обещал бы обратимость, которой нет.
+                <button
+                  type="button"
+                  onClick={() => void handleEnablePush()}
+                  className={`shrink-0 rounded-full bg-accent-fill px-3.5 py-2 text-sm font-semibold text-white active:opacity-80 ${HIT_SLOP_44}`}
+                >
+                  {t('Включить')}
+                </button>
               )}
-            </div>
+            </Row>
             {/* Подписи строк ниже намеренно без truncate: обрезать их нельзя —
                 из «Класс…» вместо «Классический» непонятно, какой звук выбран.
                 Но и min-w-0 у подписи стоять не должно: с ним она сжималась ниже
@@ -448,9 +249,7 @@ export function SettingsPage() {
                 доступных — чип уезжает на вторую строку целиком. На широких
                 экранах ничего не меняется: всё влезает в одну строку, и flex-1
                 подписи по-прежнему прижимает селект к правому краю. */}
-            <div className="flex flex-wrap items-center gap-2 border-t border-hairline p-4">
-              <BellRing size={ICON.header} className="shrink-0 text-muted" />
-              <span className="flex-1">{t('Звук сообщений')}</span>
+            <Row icon={BellRing} label={t('Сообщения')}>
               {/* Выбор сразу проигрывает звук — слышно, что выбираешь. */}
               {/* compact-Select вместо голого <select>: он снимает системную
                   стрелку, съедавшую ~40px внутри поля, и берёт ширину по самому
@@ -472,10 +271,8 @@ export function SettingsPage() {
                   </option>
                 ))}
               </Select>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 border-t border-hairline p-4">
-              <PhoneCall size={ICON.header} className="shrink-0 text-muted" />
-              <span className="flex-1">{t('Звук звонка')}</span>
+            </Row>
+            <Row icon={PhoneCall} label={t('Звонки')}>
               {/* Выбор сразу проигрывает короткий фрагмент рингтона. */}
               <Select
                 compact
@@ -492,256 +289,70 @@ export function SettingsPage() {
                   </option>
                 ))}
               </Select>
-            </div>
+            </Row>
           </div>
         </Section>
 
-        <Section title={t('Синхронизация')}>
+        <Section
+          title={t('Синхронизация')}
+          footnote={t('Задачи, заметки, цели и финансы на всех ваших устройствах. Содержимое шифруется на устройстве — на сервере только шифротекст.')}
+        >
           <SyncSection />
         </Section>
 
-        <Section title={t('Данные')}>
-          <div className="card space-y-3 p-4">
-            {/* Автоматическая облачная копия — переживает потерю телефона */}
-            <div className="flex items-center justify-between gap-3">
-              <span className="min-w-0 text-base font-medium">{t('Копия в облаке')}</span>
-              {syncOn && (
-                <div className="w-32 shrink-0">
-                  <SegmentedControl<'off' | 'cloud'>
-                    options={[
-                      { value: 'off', label: t('Выкл') },
-                      { value: 'cloud', label: t('Вкл') },
-                    ]}
-                    value={settings.autoBackup === 'cloud' ? 'cloud' : 'off'}
-                    onChange={(v) => void updateSettings({ autoBackup: v })}
-                  />
-                </div>
-              )}
-            </div>
-            {!syncOn ? (
-              <p className="text-sm text-muted">
-                {t(
-                  'Доступна при включённой синхронизации: зашифрованная копия всех данных хранится в облаке под вашим ключом и переживает потерю или замену телефона.',
-                )}
-              </p>
-            ) : settings.autoBackup === 'cloud' ? (
-              <>
-                <label className="flex items-center justify-between gap-3 text-sm">
-                  <span className="min-w-0 truncate text-muted">{t('Как часто')}</span>
-                  {/* Тот же дефект, что у звуков: под системную стрелку уходило
-                      ~40px внутри поля, и «Каждую неделю» (105px) не помещалось в
-                      оставшиеся 76px — читалось «Каждую не…». compact-Select даёт
-                      ширину по контенту (125px), подпись рядом занимает 72px из
-                      250px строки — на 320px влезает целиком, без переноса. */}
-                  <Select
-                    compact
-                    className="font-medium"
-                    value={settings.autoBackupEvery ?? 'daily'}
-                    onChange={(e) =>
-                      void updateSettings({
-                        autoBackupEvery: e.target.value as 'daily' | 'weekly',
-                      })
-                    }
-                  >
-                    <option value="daily">{t('Каждый день')}</option>
-                    <option value="weekly">{t('Каждую неделю')}</option>
-                  </Select>
-                </label>
-                {/* Дата — С СЕРВЕРА, а не из settings. Локальная отметка между
-                    устройствами не синхронизируется, и на втором телефоне тут
-                    всегда горело «ещё не создана» — ровно тот текст, который
-                    толкает нажать «Сохранить сейчас» и затереть единственную
-                    полную копию снапшотом пустого устройства. Пока ответ не
-                    пришёл, не пишем ничего: «не создана» на секунду — то же
-                    самое ложное сообщение, только мельком. */}
-                <p className="text-sm text-muted">
-                  {t('Копия в облаке:')}{' '}
-                  {cloudDate === undefined ? (
-                    <span className="opacity-60">{t('проверяем…')}</span>
-                  ) : cloudDate ? (
-                    formatRu(cloudDate.slice(0, 10), 'd MMMM yyyy')
-                  ) : (
-                    <span className="font-bold text-warning">{t('ещё не создана')}</span>
-                  )}
-                </p>
-                {settings.cloudBackupBlocked && (
-                  <p className="text-sm text-warning">
-                    {t(
-                      'Автокопия приостановлена: в облаке лежит копия полнее, чем данные на этом устройстве. Нажмите «Сохранить сейчас», чтобы решить, что с этим делать.',
-                    )}
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={() => void handleCloudBackupNow()}
-                  >
-                    {t('Сохранить сейчас')}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={() => void handleCloudRestore()}
-                  >
-                    {t('Восстановить')}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted">
-                {t('Зашифрованная копия всех данных будет сама сохраняться в облако.')}
-              </p>
-            )}
-            <div className="h-px bg-hairline" />
-            <StorageStatus />
-            <div className="h-px bg-hairline" />
-            <Button className="w-full" onClick={() => void handleExport()}>
-              {t('Экспортировать резервную копию')}
-            </Button>
-            {/* Прямо о том, что в файле. Копия в облако шифруется ключом на
-                устройстве, а файл — обычный JSON: он читается любым, кто его
-                откроет. Человек имеет право знать это ДО того, как отправит
-                файл себе в мессенджер. */}
-            <p className="text-sm leading-snug text-muted">
-              {t(
-                'В копию входит всё: задачи, заметки, финансы, семейный чат, а также раздел «Женские дни», если вы им пользуетесь. Файл не зашифрован — храните его там, куда нет доступа у посторонних. Копия в облако, в отличие от файла, шифруется на устройстве.',
-              )}
-            </p>
-            <p className="text-sm text-muted">
-              {t('Последняя резервная копия:')}{' '}
-              {settings.lastBackupAt ? (
-                formatRu(settings.lastBackupAt.slice(0, 10), 'd MMMM yyyy')
-              ) : (
-                <span className="font-bold text-warning">{t('никогда')}</span>
-              )}
-            </p>
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => fileRef.current?.click()}
-            >
-              {t('Импортировать резервную копию')}
-            </Button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json,.json"
-              className="hidden"
-              onChange={(e) => void handleImport(e)}
-            />
-          </div>
-        </Section>
-
-        <Section title={t('Хранилище')}>
-          <div className="card space-y-1.5 p-4 text-sm">
-            <p>
-              {t('Защищённое хранилище:')}{' '}
-              <span className="font-medium">
-                {/* «Нет» — омоним ключа приоритета задач (None); здесь ответ
-                    «да/нет» — явная ветка языка. */}
-                {persisted === null
-                  ? t('Неизвестно')
-                  : persisted
-                    ? t('Да')
-                    : getLang() === 'en'
-                      ? 'No'
-                      : 'Нет'}
-              </span>
-            </p>
-            <p>
-              {t('Занято:')}{' '}
-              <span className="font-medium">
-                {usageMb === null
-                  ? t('неизвестно')
-                  : t('{n}\u00A0МБ', {
-                      n: getLang() === 'en' ? usageMb.toFixed(1) : usageMb.toFixed(1).replace('.', ','),
-                    })}
-              </span>
-            </p>
-            {(persisted === false || settings.lastBackupAt === null) && (
-              <p className="text-warning">{t('Регулярно делайте резервную копию.')}</p>
-            )}
-          </div>
-        </Section>
-
-        <Section title={t('Приложение')}>
+        <Section
+          title={t('Данные')}
+          footnote={t('Копия переживает потерю телефона. Синхронизация держит устройства в одном состоянии.')}
+        >
           <div className="card">
             <Link
-              to="/more/settings/sections"
-              className="flex items-center gap-2 border-b border-hairline p-4"
+              to="/more/settings/backup"
+              className="flex min-h-11 items-center gap-2 border-t border-hairline px-4 py-2.5 active:bg-surface-2"
             >
-              <SlidersHorizontal size={ICON.header} className="shrink-0 text-muted" />
-              <span className="min-w-0 flex-1 truncate">{t('Настроить разделы')}</span>
-              <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
+              <span className="flex-1">{t('Копии и восстановление')}</span>
+              <BackupStatus />
+              <ChevronRight size={ICON.action} className="shrink-0 text-muted" />
             </Link>
+          </div>
+        </Section>
+
+        <Section
+          title={t('Приложение')}
+          footnote={t('Версия {v} · данные хранятся только на этом устройстве', { v: APP_VERSION })}
+        >
+          <div className="card">
+            <LinkRow icon={SlidersHorizontal} label={t('Разделы')} to="/more/settings/sections" />
             {/* Раздел ИИ за флагом: пока фича дописывается, её можно мержить в
-                main рабочего приложения, не показывая на «Главной». */}
-            <div className="border-b border-hairline p-4">
-              <div className="mb-2.5 flex items-center gap-2">
-                <Bot size={ICON.header} className="shrink-0 text-muted" />
-                <span className="flex-1">
-                  {t('Раздел «ИИ»')}
-                  <span className="block text-sm text-muted">
-                    {t('Чат с языковой моделью. Нужна включённая синхронизация — ею идёт авторизация.')}
-                  </span>
-                </span>
-              </div>
-              <SegmentedControl<'off' | 'on'>
-                options={[
-                  { value: 'off', label: t('Скрыт') },
-                  { value: 'on', label: t('Показать') },
-                ]}
-                value={settings.aiEnabled ? 'on' : 'off'}
-                onChange={(v) => void updateSettings({ aiEnabled: v === 'on' })}
+                main рабочего приложения, не показывая на «Главной».
+                Переключатель вместо сегментов «Скрыт / Показать»: это выбор из
+                двух состояний одного и того же, а не выбор варианта. */}
+            <Row icon={Bot} label={t('Раздел «ИИ»')}>
+              <Switch
+                checked={Boolean(settings.aiEnabled)}
+                onChange={(on) => void updateSettings({ aiEnabled: on })}
+                label={t('Раздел «ИИ»')}
               />
-            </div>
-            <Link to="/more/trash" className="flex items-center gap-2 border-b border-hairline p-4">
-              <Trash2 size={ICON.header} className="shrink-0 text-muted" />
-              <span className="min-w-0 flex-1 truncate">{t('Корзина')}</span>
-              <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
-            </Link>
-            <button
-              type="button"
-              // Только тур. Подсказки возвращаются отдельной строкой ниже:
-              // раньше одна кнопка делала два дела, и человек, которому нужен
-              // был тур, заодно получал обратно все скрытые советы.
+            </Row>
+            <LinkRow icon={Trash2} label={t('Корзина')} to="/more/trash" />
+            {/* Только тур. Подсказки — отдельной строкой ниже: раньше одна
+                кнопка делала два дела, и человек, которому нужен был тур,
+                заодно получал обратно все скрытые советы. */}
+            <ButtonRow
+              icon={GraduationCap}
+              label={t('Обучение')}
+              action={t('Показать заново')}
               onClick={() => void updateSettings({ onboardingDone: null })}
-              className="flex w-full items-center gap-2 border-b border-hairline p-4 text-left"
-            >
-              <GraduationCap size={ICON.header} className="shrink-0 text-muted" />
-              <span className="min-w-0 flex-1 truncate">{t('Показать обучение заново')}</span>
-              <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
-            </button>
+            />
             <HintsResetRow />
-            <Link
-              to="/more/settings/install"
-              className="flex items-center justify-between gap-2 border-b border-hairline p-4"
-            >
-              <span className="min-w-0">{t('Установка и восстановление данных')}</span>
-              <ChevronRight size={ICON.header} className="shrink-0 text-muted" />
-            </Link>
-            <div className="p-4">
-              <p className="mb-2.5 text-sm text-muted">
-                {t(
-                  'Ссылка для установки — открыть в Safari и добавить на «Домой», переустановить или поделиться приложением:',
-                )}
-              </p>
-              <InstallLink />
-            </div>
+            <LinkRow label={t('Установка и восстановление')} to="/more/settings/install" />
             {/* Версия — из changelog, а не хардкод: прежняя строка «1.0.0»
                 застыла навсегда и врала. Тап открывает окно «Что нового»
                 (сброс lastSeenVersion — WhatsNew сам покажется). */}
-            <button
-              type="button"
+            <ButtonRow
+              label={t('Что нового')}
+              action={t('Открыть')}
               onClick={() => void updateSettings({ lastSeenVersion: '' })}
-              className="flex w-full items-center gap-2 border-t border-hairline px-4 py-3 text-left"
-            >
-              <span className="min-w-0 flex-1 text-sm text-muted">
-                {t('Версия {v} · данные хранятся только на этом устройстве', { v: APP_VERSION })}
-              </span>
-              <span className="shrink-0 text-sm font-medium text-accent">{t('Что нового')}</span>
-            </button>
+            />
           </div>
         </Section>
       </div>

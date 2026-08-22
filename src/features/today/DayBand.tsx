@@ -157,6 +157,32 @@ export function DayBand({
     return w === 'loading' ? <section className="card mb-4 h-[60px] animate-pulse" aria-hidden /> : null;
   }
 
+  // ОДНА ЯЧЕЙКА — ОДНА СТРОКА. Пока силы не отмечены и привычки не закрыты, в
+  // полосе стоит только погода, и три её столбика занимали левую треть,
+  // оставляя справа пустоту. На всю ширину та же информация читается лучше:
+  // температура крупно слева, прогноз прижат к правому краю. Как только
+  // появляется вторая ячейка, обе возвращаются к столбикам — там ширина уже
+  // поделена, и выравнивать нечего.
+  if (weather && !showEnergy && !showHabits) {
+    return (
+      <section className="card mb-4 flex items-center gap-3 px-3.5 py-2.5" aria-label={t('Сегодня коротко')}>
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl tile-accent text-accent">
+          {weatherIcon(weather.code, weather.isDay)}
+        </span>
+        <span className="flex min-w-0 flex-1 items-baseline gap-2">
+          <span className="text-2xl leading-none font-bold tracking-tight">{weather.tempC}°</span>
+          <span className="truncate text-sm text-muted">{weatherLabel(weather.code)}</span>
+        </span>
+        <span className="shrink-0 text-right text-xs text-muted">
+          <span className="block">{t('как {feels}°', { feels: weather.feelsC })}</span>
+          <span className="block tabular-nums">
+            {t('↑{max}° ↓{min}°', { max: weather.maxC, min: weather.minC })}
+          </span>
+        </span>
+      </section>
+    );
+  }
+
   return (
     <section className="card mb-4 flex items-stretch divide-x divide-hairline" aria-label={t('Сегодня коротко')}>
       {weather && (
