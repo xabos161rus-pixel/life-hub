@@ -17,7 +17,7 @@ import { QuickAddBar } from '../tasks/QuickAddBar';
 import { CycleTodayLine } from '../cycle/CycleTodayLine';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
-import { WeatherWidget } from './widgets/WeatherWidget';
+import { DayBand } from './DayBand';
 import { RemindersBlock } from './RemindersBlock';
 import { HabitsToday } from '../habits/HabitsToday';
 import { EnergyTodayLine } from '../energy/EnergyTodayLine';
@@ -53,6 +53,10 @@ function TaskList({
 
 /** Главный экран — погода, напоминания (далее) и задачи на сегодня. */
 export function TodayPage() {
+  // Раскрытие свёрнутых блоков по тапу на ячейку полосы дня. Живёт здесь, а не
+  // внутри блоков: полоса и блок — разные поддеревья, общего родителя ближе нет.
+  const [energyOpen, setEnergyOpen] = useState(false);
+  const [habitsOpen, setHabitsOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const today = todayKey();
@@ -108,7 +112,16 @@ export function TodayPage() {
           ради чего на него заходят.
           Погода осталась первой намеренно: это одна строка про сегодняшний
           день, а не служебная просьба, и с неё день и начинают смотреть. */}
-      <WeatherWidget />
+      {/* Полоса дня вместо трёх отдельных блоков — но только для того, что уже
+          сделано: отмеченные силы и закрытые привычки. Несделанное остаётся
+          развёрнутым, потому что и то, и другое ставится одним тапом прямо
+          отсюда. Подробности — в DayBand. */}
+      <DayBand
+        energyOpen={energyOpen}
+        habitsOpen={habitsOpen}
+        onToggleEnergy={() => setEnergyOpen((v) => !v)}
+        onToggleHabits={() => setHabitsOpen((v) => !v)}
+      />
 
       {overdue.length > 0 && (
         <section className="mb-5">
@@ -145,9 +158,9 @@ export function TodayPage() {
 
       {/* Выше привычек намеренно: отметка энергии — одна строка и один тап,
           а список привычек бывает длинным и утаскивает её под сгиб. */}
-      <EnergyTodayLine />
+      <EnergyTodayLine open={energyOpen} />
 
-      <HabitsToday />
+      <HabitsToday open={habitsOpen} />
 
       <RemindersBlock />
 

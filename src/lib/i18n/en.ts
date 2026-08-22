@@ -1556,6 +1556,12 @@ export const EN: Record<string, string> = {
   // Фокус, погода, пуши
   'мин': 'min',
   'ч': 'h',
+  '↑{max}° ↓{min}°': '↑{max}° ↓{min}°',
+  'как {feels}° · ↑{max}° ↓{min}°': 'feels {feels}° · ↑{max}° ↓{min}°',
+  'Сегодня коротко': 'Today at a glance',
+  'Силы': 'Energy',
+  'Изменить отметку сил': 'Change energy mark',
+  'Показать привычки': 'Show habits',
   'Ощущается {feels}° · день ↑{max}° ночь ↓{min}°':
     'Feels like {feels}° · day ↑{max}° night ↓{min}°',
   'Через {n} мин · {time}': 'In {n} min · {time}',

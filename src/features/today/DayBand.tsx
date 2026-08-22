@@ -1,0 +1,205 @@
+import { useEffect, useState } from 'react';
+import {
+  Sun,
+  Moon,
+  CloudSun,
+  CloudMoon,
+  Cloud,
+  CloudFog,
+  CloudDrizzle,
+  CloudRain,
+  CloudSnow,
+  CloudRainWind,
+  CloudLightning,
+} from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/db';
+import { alive } from '../../db/repo';
+import { todayKey } from '../../lib/dates';
+import { ENERGY_LABEL, levelByDate } from '../../lib/energy';
+import { useTodayHabits } from '../habits/useTodayHabits';
+import { useNavLayout } from '../../hooks/useNavLayout';
+import {
+  // Те же знаки, что у разделов «Энергия» и «Привычки» в списке разделов:
+  // ячейка полосы ведёт именно туда, и знак должен совпадать.
+  GEnergy,
+  GHabits,
+} from '../../components/ui/glyphs';
+import { getWeather, weatherLabel, type Weather } from '../../lib/weather';
+import { ICON, STROKE_STRONG } from '../../components/ui/icons';
+import { t } from '../../lib/i18n';
+
+// Готовый элемент, а не тип компонента: динамический <Icon/> в рендере ловит
+// eslint-правило react-hooks/static-components.
+function weatherIcon(code: number, isDay: boolean) {
+  const p = { size: ICON.header, strokeWidth: STROKE_STRONG };
+  if (code === 0) return isDay ? <Sun {...p} /> : <Moon {...p} />;
+  if (code <= 2) return isDay ? <CloudSun {...p} /> : <CloudMoon {...p} />;
+  if (code === 3) return <Cloud {...p} />;
+  if (code <= 48) return <CloudFog {...p} />;
+  if (code <= 57) return <CloudDrizzle {...p} />;
+  if (code <= 67) return <CloudRain {...p} />;
+  if (code <= 77) return <CloudSnow {...p} />;
+  if (code <= 82) return <CloudRainWind {...p} />;
+  if (code <= 86) return <CloudSnow {...p} />;
+  return <CloudLightning {...p} />;
+}
+
+/** Ячейка полосы: подпись сверху, значение снизу. Кликабельна только там,
+ *  где есть что открыть — погода никуда не ведёт и кнопкой не притворяется. */
+function Cell({
+  icon,
+  label,
+  value,
+  extra,
+  wide = false,
+  tight = false,
+  onClick,
+  ariaLabel,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  /** Ячейка погоды: ей нужно чуть больше места — три строки и самая длинная
+   *  подпись («Малооблачно» против «Силы»). */
+  wide?: boolean;
+  /** Три ячейки в ряд: подпись идёт ступенью мельче, иначе «Малооблачно» и
+   *  «Привычки» упираются в край и обрезаются многоточием. */
+  tight?: boolean;
+  /** Третья строка — только у погоды: прогноз на день, ради которого на неё и
+   *  смотрят утром. Без неё полоса теряла бы то, что прежняя карточка давала. */
+  extra?: string;
+  onClick?: () => void;
+  ariaLabel?: string;
+}) {
+  const inner = (
+    <>
+      <span className={`flex items-center gap-1.5 text-muted ${tight ? 'text-2xs' : 'text-xs'}`}>
+        {icon}
+        <span className="truncate">{label}</span>
+      </span>
+      <span className="mt-0.5 block truncate text-base font-semibold">{value}</span>
+      {extra && <span className="mt-0.5 block truncate text-2xs text-muted">{extra}</span>}
+    </>
+  );
+  // min-h-11: ячейка — зона касания, а не просто текст.
+  const cls = `min-w-0 px-3 py-2 text-left min-h-11 ${wide ? 'flex-[1.25]' : 'flex-1'}`;
+  return onClick ? (
+    <button type="button" onClick={onClick} aria-label={ariaLabel} className={`${cls} active:bg-surface-2`}>
+      {inner}
+    </button>
+  ) : (
+    <div className={cls}>{inner}</div>
+  );
+}
+
+/**
+ * Полоса дня: погода, силы и привычки одной строкой из ячеек.
+ *
+ * ЧТО ЗДЕСЬ ПОКАЗЫВАЕТСЯ, А ЧТО НЕТ. Полоса берёт на себя только то, что УЖЕ
+ * СДЕЛАНО: отмеченный уровень сил и закрытый список привычек. Пока отметки
+ * нет, шкала 1–5 остаётся отдельной строкой, а невыполненные привычки —
+ * списком с галочками: и то, и другое ставится одним тапом прямо с «Сегодня»,
+ * и прятать их в ячейку значило бы менять один жест на два. Ежедневный ритуал
+ * этого не переживает (в EnergyTodayLine это записано прямым текстом).
+ *
+ * То есть утром экран выглядит как раньше — всё под рукой, — а по мере того
+ * как дела закрываются, три блока сжимаются в одну строку и место уходит
+ * задачам. Тап по ячейке возвращает развёрнутый вид: изменить отметку или
+ * заглянуть в привычки можно в любой момент.
+ *
+ * Погода всегда живёт здесь: она ничего не требует, только сообщает.
+ */
+export function DayBand({
+  energyOpen,
+  habitsOpen,
+  onToggleEnergy,
+  onToggleHabits,
+}: {
+  energyOpen: boolean;
+  habitsOpen: boolean;
+  onToggleEnergy: () => void;
+  onToggleHabits: () => void;
+}) {
+  const [w, setW] = useState<Weather | null | 'loading'>('loading');
+  const { hidden } = useNavLayout();
+  const today = todayKey();
+  const logs = useLiveQuery(() => db.energyLogs.toArray(), []);
+  const energy = levelByDate(alive(logs ?? [])).get(today) ?? null;
+  const { planned, doneCount, allDone } = useTodayHabits();
+
+  useEffect(() => {
+    let live = true;
+    void getWeather().then((res) => {
+      if (live) setW(res);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const showEnergy = !hidden.includes('energy') && energy != null && !energyOpen;
+  const showHabits = !hidden.includes('habits') && allDone && !habitsOpen;
+  const weather = w !== 'loading' && w ? w : null;
+
+  // На троих ячейках каждой достаётся треть экрана, и полные значения там
+  // обрезаются многоточием — а обрезанное значение хуже краткого: «4 — Хорош…»
+  // не читается вовсе. Поэтому при трёх ячейках значения короче: у сил цифра
+  // отдельно от слова, у погоды остаётся прогноз без ощущаемой.
+  const tight = [weather, showEnergy, showHabits].filter(Boolean).length >= 3;
+
+  // Полоса без единой ячейки — это пустая карточка: не рисуем ничего.
+  if (!weather && !showEnergy && !showHabits) {
+    // Пока погода едет, держим место под неё — иначе лента дёргается, когда
+    // ответ приходит (та же причина, что у прежней заглушки виджета).
+    return w === 'loading' ? <section className="card mb-4 h-[60px] animate-pulse" aria-hidden /> : null;
+  }
+
+  return (
+    <section className="card mb-4 flex items-stretch divide-x divide-hairline" aria-label={t('Сегодня коротко')}>
+      {weather && (
+        <Cell
+          icon={weatherIcon(weather.code, weather.isDay)}
+          label={weatherLabel(weather.code)}
+          wide
+          tight={tight}
+          value={`${weather.tempC}°`}
+          // Ощущаемая, максимум и минимум — тем же порядком, что в прежней
+          // карточке, но стрелками вместо слов: в ячейке шириной с треть
+          // экрана «день ↑22° ночь ↓13°» не помещается, а ↑ и ↓ читаются без
+          // подписи. Ощущаемая идёт первой — по ней и решают, что надеть.
+          extra={
+            tight
+              ? t('↑{max}° ↓{min}°', { max: weather.maxC, min: weather.minC })
+              : t('как {feels}° · ↑{max}° ↓{min}°', {
+                  feels: weather.feelsC,
+                  max: weather.maxC,
+                  min: weather.minC,
+                })
+          }
+        />
+      )}
+      {showEnergy && (
+        <Cell
+          icon={<GEnergy size={ICON.inline} />}
+          tight={tight}
+          label={t('Силы')}
+          value={tight ? String(energy) : `${energy} — ${t(ENERGY_LABEL[energy])}`}
+          extra={tight ? t(ENERGY_LABEL[energy]) : undefined}
+          onClick={onToggleEnergy}
+          ariaLabel={t('Изменить отметку сил')}
+        />
+      )}
+      {showHabits && (
+        <Cell
+          icon={<GHabits size={ICON.inline} />}
+          tight={tight}
+          label={t('Привычки')}
+          value={t('{done} из {total}', { done: doneCount, total: planned.length })}
+          onClick={onToggleHabits}
+          ariaLabel={t('Показать привычки')}
+        />
+      )}
+    </section>
+  );
+}

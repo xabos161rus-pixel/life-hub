@@ -21,7 +21,7 @@ import { t } from '../../lib/i18n';
  *  привычки разом (см. freezeAllForSection в habitRepo) — за паузу серии не
  *  сгорают, а isActiveOn ниже дополнительно прячет с «Сегодня» и привычки,
  *  замороженные вручную из шита. */
-export function HabitsToday() {
+export function HabitsToday({ open = false }: { open?: boolean }) {
   const { hidden } = useNavLayout();
   const today = todayKey();
   const [logHabit, setLogHabit] = useState<Habit | null>(null);
@@ -40,15 +40,19 @@ export function HabitsToday() {
     .filter((h) => isActiveOn(h, today))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
-  // После хуков, не раньше: порядок хуков в React не может зависеть от условия.
-  if (hidden.includes('habits')) return null;
-  if (planned.length === 0) return null;
-
   const isDone = (h: Habit) => {
     const log = todayLogByHabit.get(h.id);
     return log ? isLogDone(h, log.value) : false;
   };
   const doneCount = planned.filter(isDone).length;
+
+  // После хуков, не раньше: порядок хуков в React не может зависеть от условия.
+  if (hidden.includes('habits')) return null;
+  if (planned.length === 0) return null;
+  // Всё на сегодня закрыто — счётчик показывает полоса дня, а список
+  // сворачивается: галочки, по которым уже нечего нажимать, занимали место
+  // до конца суток. Тап по ячейке полосы разворачивает обратно (open).
+  if (doneCount === planned.length && !open) return null;
   const logValue = logHabit ? (todayLogByHabit.get(logHabit.id)?.value ?? 0) : 0;
 
   return (

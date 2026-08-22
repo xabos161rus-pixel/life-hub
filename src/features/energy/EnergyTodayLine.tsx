@@ -10,8 +10,13 @@ import type { EnergyLevel } from '../../db/types';
 
 /** Шкала 1–5 одной строкой: отметка ставится одним тапом прямо с «Сегодня».
  *  Ежедневный ритуал выживает, только если он в один жест — переход в раздел
- *  ради отметки его бы убил. */
-export function EnergyTodayLine() {
+ *  ради отметки его бы убил.
+ *
+ *  Поэтому пока отметки НЕТ, шкала всегда здесь, во всю ширину. Как только
+ *  она поставлена, строка сворачивается: значение переезжает в ячейку полосы
+ *  дня, а 113px возвращаются задачам. `open` — это раскрытие обратно по тапу
+ *  на ту ячейку: изменить отметку можно в любой момент, и снова одним тапом. */
+export function EnergyTodayLine({ open = false }: { open?: boolean }) {
   const { hidden } = useNavLayout();
   const today = todayKey();
   const logs = useLiveQuery(() => db.energyLogs.toArray(), []);
@@ -21,6 +26,8 @@ export function EnergyTodayLine() {
   // Скрытый раздел молчит — выключивший «Энергию» не должен видеть ни строку
   // ввода, ни намёков на неё (то же правило, что у привычек в HabitsToday).
   if (hidden.includes('energy')) return null;
+  // Отмеченный день показывает полоса — здесь дублировать нечего.
+  if (current != null && !open) return null;
 
   return (
     <section className="mb-5">
