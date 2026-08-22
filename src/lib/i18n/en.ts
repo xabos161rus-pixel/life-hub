@@ -1587,6 +1587,18 @@ export const EN: Record<string, string> = {
   'Сохранить в файл': 'Save to file',
   'Восстановить из облака': 'Restore from cloud',
   'Защищённое хранилище': 'Protected storage',
+  'Напоминания о задачах, сообщения семейного чата и звонки. На iPhone работают только в установленном приложении.':
+    'Task reminders, family chat messages and calls. On iPhone they only work in the installed app.',
+  'Задачи, заметки, цели и финансы на всех ваших устройствах. Содержимое шифруется на устройстве — на сервере только шифротекст.':
+    'Tasks, notes, goals and finances on all your devices. Content is encrypted on the device — the server only ever sees ciphertext.',
+  'Копия переживает потерю телефона. Синхронизация держит устройства в одном состоянии.':
+    'A backup survives a lost phone. Sync keeps every device in the same state.',
+  'Зашифрована вашим ключом: на сервере только шифротекст. Переживает потерю или замену телефона.':
+    'Encrypted with your key: the server only sees ciphertext. Survives a lost or replaced phone.',
+  'Доступна при включённой синхронизации — ею идёт авторизация.':
+    'Available when sync is on — it provides authorization.',
+  'В файл входит всё: задачи, заметки, финансы, семейный чат и «Женские дни», если вы им пользуетесь. Файл НЕ зашифрован — храните там, куда нет доступа у посторонних.':
+    'The file holds everything: tasks, notes, finances, family chat and Cycle if you use it. The file is NOT encrypted — keep it where strangers cannot reach it.',
   'Сегодня коротко': 'Today at a glance',
   'Силы': 'Energy',
   'Изменить отметку сил': 'Change energy mark',
