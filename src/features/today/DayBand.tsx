@@ -174,7 +174,7 @@ export function DayBand({
           <span className="truncate text-sm text-muted">{weatherLabel(weather.code)}</span>
         </span>
         <span className="shrink-0 text-right text-xs text-muted">
-          <span className="block">{t('как {feels}°', { feels: weather.feelsC })}</span>
+          <span className="block">{t('ощущается {feels}°', { feels: weather.feelsC })}</span>
           <span className="block tabular-nums">
             {t('↑{max}° ↓{min}°', { max: weather.maxC, min: weather.minC })}
           </span>
@@ -192,18 +192,16 @@ export function DayBand({
           wide
           tight={tight}
           value={`${weather.tempC}°`}
-          // Ощущаемая, максимум и минимум — тем же порядком, что в прежней
-          // карточке, но стрелками вместо слов: в ячейке шириной с треть
-          // экрана «день ↑22° ночь ↓13°» не помещается, а ↑ и ↓ читаются без
-          // подписи. Ощущаемая идёт первой — по ней и решают, что надеть.
+          // Что показывать третьей строкой, зависит от того, сколько места
+          // осталось. Сокращать до «как 22°» больше не пробуем: владелец
+          // приложения прочитал это и спросил, что значит «как», — сокращение,
+          // которое надо расшифровывать, хуже отсутствующей строки.
+          // Три ячейки: только прогноз стрелками (↑ и ↓ читаются без подписи).
+          // Две: ощущаемая словом — по ней решают, что надеть.
           extra={
             tight
               ? t('↑{max}° ↓{min}°', { max: weather.maxC, min: weather.minC })
-              : t('как {feels}° · ↑{max}° ↓{min}°', {
-                  feels: weather.feelsC,
-                  max: weather.maxC,
-                  min: weather.minC,
-                })
+              : t('ощущается {feels}°', { feels: weather.feelsC })
           }
         />
       )}
