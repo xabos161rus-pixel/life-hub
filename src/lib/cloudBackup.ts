@@ -92,21 +92,45 @@ export async function pushAccountSnapshot(force = false): Promise<number> {
   if (!c?.enabled) return 0;
   const snapshot = await exportBackup();
 
+  const nowCounts = counts(snapshot);
+
   if (!force) {
-    // Не смогли прочитать удалённую копию — пишем свою. Иначе повреждённая
-    // или чужая копия заблокировала бы резервное копирование навсегда, а это
-    // хуже: остаться совсем без копии опаснее, чем заменить непонятную.
-    const got = await fetchRemote(c).catch(() => null);
-    const remote = got?.file ?? null;
-    if (remote) {
-      const was = counts(remote);
-      const nowC = counts(snapshot);
-      const losing = UNSYNCED_TABLES.filter((t) => was[t] > nowC[t]).map((t) => ({
+    // Сверяемся с МАНИФЕСТОМ — несколькими числами о содержимом копии, — а не
+    // скачиваем её целиком.
+    //
+    // Раньше для этой проверки качалась вся копия, и ошибка скачивания
+    // означала «пиши так»: чем больше копия, тем вероятнее было, что
+    // скачивание упадёт по памяти или таймауту, и тем вероятнее защита
+    // отключалась ровно тогда, когда была нужна. Манифест маленький, его
+    // получение не зависит от объёма данных.
+    //
+    // Копия, снятая прежней версией, манифеста не имеет — для неё остаётся
+    // старый путь со скачиванием.
+    const meta = await fetchMeta(c).catch(() => null);
+    const remoteCounts = meta?.manifest
+      ? await decryptJSON<Record<string, number>>(c.key, meta.manifest).catch(() => null)
+      : null;
+
+    if (remoteCounts) {
+      const losing = UNSYNCED_TABLES.filter((t) => (remoteCounts[t] ?? 0) > nowCounts[t]).map((t) => ({
         table: t,
-        had: was[t],
-        now: nowC[t],
+        had: remoteCounts[t] ?? 0,
+        now: nowCounts[t],
       }));
-      if (losing.length) throw new BackupWouldLoseDataError(losing, got?.updatedAt ?? null);
+      if (losing.length) throw new BackupWouldLoseDataError(losing, meta?.updatedAt ?? null);
+    } else if (meta?.total) {
+      // Манифеста нет, но копия есть: старый путь — скачать и сверить.
+      const got = await fetchRemote(c).catch(() => null);
+      const remote = got?.file ?? null;
+      if (remote) {
+        const was = counts(remote);
+        const losing = UNSYNCED_TABLES.filter((t) => was[t] > nowCounts[t]).map((t) => ({
+          table: t,
+          had: was[t],
+          now: nowCounts[t],
+        }));
+        if (losing.length) throw new BackupWouldLoseDataError(losing, got?.updatedAt ?? null);
+      }
     }
   }
 
@@ -117,10 +141,25 @@ export async function pushAccountSnapshot(force = false): Promise<number> {
   const res = await fetch(`${WORKER_URL}/backup/put`, {
     method: 'POST',
     headers: authHeaders(c),
-    body: JSON.stringify({ chunks, total: chunks.length }),
+    body: JSON.stringify({
+      chunks,
+      total: chunks.length,
+      // Манифест шифруется тем же ключом: серверу видны только числа под
+      // шифром, как и всё остальное.
+      manifest: await encryptJSON(c.key, nowCounts),
+    }),
   });
   if (!res.ok) throw new Error(`backup put ${res.status}`);
   return chunks.length;
+}
+
+/** Сведения о копии без её скачивания: дата, число кусков и манифест. */
+async function fetchMeta(
+  c: SyncConfig,
+): Promise<{ updatedAt: string | null; total: number; manifest: string | null }> {
+  const res = await fetch(`${WORKER_URL}/backup/meta`, { headers: authHeaders(c) });
+  if (!res.ok) throw new Error(`backup meta ${res.status}`);
+  return (await res.json()) as { updatedAt: string | null; total: number; manifest: string | null };
 }
 
 /** Скачать, склеить и расшифровать копию. Дата — та, что помнит сервер, а не

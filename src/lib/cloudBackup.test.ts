@@ -27,6 +27,9 @@ let remote: { chunks: { chunk: number; ciphertext: string }[]; updatedAt: string
   chunks: [],
   updatedAt: null,
 };
+/** Манифест копии: несколько чисел о её содержимом под шифром. null — копия
+ *  снята прежней версией и манифеста не имеет. */
+let remoteManifest: string | null = null;
 let putCalls = 0;
 
 async function seedSync() {
@@ -63,9 +66,22 @@ describe('перезапись облачной копии', () => {
   beforeEach(async () => {
     putCalls = 0;
     remote = { chunks: [], updatedAt: null };
+    remoteManifest = null;
     await Promise.all([db.sync.clear(), db.cycleDays.clear(), db.cycleSettings.clear()]);
     globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : String(input);
+      if (url.endsWith('/backup/meta')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              updatedAt: remote.updatedAt,
+              total: remote.chunks.length,
+              manifest: remoteManifest,
+            }),
+            { status: 200 },
+          ),
+        );
+      }
       if (url.endsWith('/backup/get')) {
         return Promise.resolve(new Response(JSON.stringify(remote), { status: 200 }));
       }
@@ -147,5 +163,81 @@ describe('перезапись облачной копии', () => {
     globalThis.fetch = spy as unknown as typeof fetch;
     await expect(pushAccountSnapshot()).resolves.toBe(0);
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('защита копии не зависит от её размера', () => {
+  beforeEach(async () => {
+    putCalls = 0;
+    remote = { chunks: [], updatedAt: null };
+    remoteManifest = null;
+    await Promise.all([db.sync.clear(), db.cycleDays.clear(), db.cycleSettings.clear()]);
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : String(input);
+      if (url.endsWith('/backup/meta')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ updatedAt: remote.updatedAt, total: remote.chunks.length, manifest: remoteManifest }),
+            { status: 200 },
+          ),
+        );
+      }
+      // Скачивание копии ПАДАЕТ — ровно то, что случается, когда копия
+      // большая: не хватило памяти или вышел таймаут.
+      if (url.endsWith('/backup/get')) return Promise.reject(new Error('слишком большая копия'));
+      if (url.endsWith('/backup/put')) {
+        putCalls++;
+        return Promise.resolve(new Response('{"ok":true}', { status: 200 }));
+      }
+      return realFetch(input as RequestInfo, init);
+    }) as typeof fetch;
+  });
+
+  it('копия не затирается, даже когда скачать её не удалось', async () => {
+    // Раньше это и был самый опасный случай: ошибка скачивания означала
+    // «пиши так», и защита молча отключалась тем вернее, чем больше данных
+    // было под угрозой.
+    const key = await seedSync();
+    remote.chunks = [{ chunk: 0, ciphertext: 'неважно' }];
+    remote.updatedAt = '2026-07-01T00:00:00.000Z';
+    remoteManifest = await encryptJSON(key, { cycleDays: 214, familyMessages: 900 });
+
+    await expect(pushAccountSnapshot()).rejects.toThrow(BackupWouldLoseDataError);
+    expect(putCalls, 'запись не должна была уйти').toBe(0);
+  });
+
+  it('в ошибке видно, чего именно лишились бы', async () => {
+    const key = await seedSync();
+    remote.chunks = [{ chunk: 0, ciphertext: 'неважно' }];
+    remoteManifest = await encryptJSON(key, { cycleDays: 214 });
+
+    try {
+      await pushAccountSnapshot();
+      throw new Error('ожидали отказ');
+    } catch (e) {
+      expect(e).toBeInstanceOf(BackupWouldLoseDataError);
+      const err = e as InstanceType<typeof BackupWouldLoseDataError>;
+      expect(err.losing.find((l) => l.table === 'cycleDays')?.had).toBe(214);
+    }
+  });
+
+  it('когда терять нечего — копия пишется', async () => {
+    const key = await seedSync();
+    remote.chunks = [{ chunk: 0, ciphertext: 'неважно' }];
+    remoteManifest = await encryptJSON(key, { cycleDays: 0, familyMessages: 0 });
+
+    await pushAccountSnapshot();
+    expect(putCalls).toBe(1);
+  });
+
+  it('копия прежней версии без манифеста не блокирует запись навсегда', async () => {
+    // Скачать её не удалось, манифеста нет — остаться совсем без копии
+    // опаснее, чем заменить непонятную.
+    await seedSync();
+    remote.chunks = [{ chunk: 0, ciphertext: 'неважно' }];
+    remoteManifest = null;
+
+    await pushAccountSnapshot();
+    expect(putCalls).toBe(1);
   });
 });

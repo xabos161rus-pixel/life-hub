@@ -64,6 +64,26 @@ const PULL_MAX_BYTES = 3 * 1024 * 1024;
 // Таблицу резервных копий создаём лениво (миграции D1 в этом проекте применяются
 // вручную; ленивое создание убирает этот шаг — фича работает сразу после деплоя).
 let backupTableReady = false;
+let backupMetaReady = false;
+
+// Манифест копии: несколько чисел о её содержимом, зашифрованных клиентом.
+//
+// Он нужен, чтобы устройство перед перезаписью могло понять, не потеряет ли
+// облачная копия данные, — НЕ скачивая её целиком. Раньше для этой проверки
+// качалась вся копия, и чем она больше, тем вероятнее было, что скачивание
+// упадёт. А падение проверки означало «пиши так»: защита молча отключалась
+// ровно тогда, когда была нужнее всего.
+async function ensureBackupMeta(env) {
+  if (backupMetaReady) return;
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS backup_meta (
+       account_id TEXT PRIMARY KEY,
+       manifest TEXT NOT NULL,
+       updated_at TEXT NOT NULL
+     )`,
+  ).run();
+  backupMetaReady = true;
+}
 async function ensureBackupTable(env) {
   if (backupTableReady) return;
   await env.DB.prepare(
@@ -317,7 +337,7 @@ export default {
         const accountId = await authAccount(request, env);
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);
         await ensureBackupTable(env);
-        const { chunks, total } = await request.json();
+        const { chunks, total, manifest } = await request.json();
         if (!Array.isArray(chunks) || typeof total !== 'number') {
           return json({ error: 'bad request' }, 400, origin);
         }
@@ -332,6 +352,17 @@ export default {
         for (const c of chunks) {
           if (!c || typeof c.chunk !== 'number' || typeof c.ciphertext !== 'string') continue;
           batch.push(put.bind(accountId, c.chunk, at, c.ciphertext));
+        }
+        // Манифест пишем в той же пачке: он обязан меняться вместе с копией,
+        // иначе следующая проверка будет сверяться с чужими числами.
+        if (typeof manifest === 'string' && manifest) {
+          await ensureBackupMeta(env);
+          batch.push(
+            env.DB.prepare(
+              `INSERT INTO backup_meta (account_id, manifest, updated_at) VALUES (?, ?, ?)
+               ON CONFLICT(account_id) DO UPDATE SET manifest = excluded.manifest, updated_at = excluded.updated_at`,
+            ).bind(accountId, manifest, at),
+          );
         }
         await env.DB.batch(batch);
         return json({ ok: true, at }, 200, origin);
@@ -351,7 +382,17 @@ export default {
           .bind(accountId)
           .first();
         const total = Number(row?.n ?? 0);
-        return json({ updatedAt: total ? row.u : null, total }, 200, origin);
+        await ensureBackupMeta(env);
+        const meta = await env.DB.prepare(
+          'SELECT manifest FROM backup_meta WHERE account_id = ?',
+        )
+          .bind(accountId)
+          .first();
+        return json(
+          { updatedAt: total ? row.u : null, total, manifest: meta?.manifest ?? null },
+          200,
+          origin,
+        );
       }
 
       if (url.pathname === '/backup/get' && request.method === 'GET') {
