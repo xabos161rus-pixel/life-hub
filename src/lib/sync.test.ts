@@ -18,6 +18,7 @@ const { db } = await import('../db/db');
 const { generateKey, encryptJSON } = await import('./crypto');
 const { getSyncConfig, patchSyncConfig } = await import('./syncState');
 const { runSync, batchByBytes } = await import('./sync');
+const { liveQuery } = await import('dexie');
 
 const realFetch = globalThis.fetch;
 
@@ -514,5 +515,76 @@ describe('перечитывание истории не теряет прогр
     expect(await db.notes.get('n1')).toBeTruthy();
     const c = await getSyncConfig();
     expect(c?.lastPullAt).toBe(`${t1}|n1`);
+  });
+});
+
+describe('страница входящих применяется одной пачкой', () => {
+  it('подписки экранов просыпаются раз на страницу, а не на каждую запись', async () => {
+    // После релиза, добавившего таблицу в обмен, приложение перечитывает всю
+    // историю. Пятьсот записей, применённых по одной, — это пятьсот пробуждений
+    // подписок и столько же перерисовок подряд: на телефоне выглядит как
+    // зависший экран.
+    const key = await seedSync();
+    const t = '2026-08-22T09:00:00.000Z';
+    const records = await Promise.all(
+      Array.from({ length: 12 }, async (_, i) => ({
+        table: 'tasks',
+        id: `t${i}`,
+        updatedAt: `2026-08-22T09:00:${String(i).padStart(2, '0')}.000Z`,
+        deletedAt: null,
+        ciphertext: await encryptJSON(key, {
+          id: `t${i}`, title: `Задача ${i}`,
+          createdAt: t, updatedAt: `2026-08-22T09:00:${String(i).padStart(2, '0')}.000Z`, deletedAt: null,
+        }),
+      })),
+    );
+
+    // Считаем пробуждения живой подписки — ровно то, от чего перерисовываются
+    // экраны.
+    let wakes = 0;
+    const sub = liveQuery(() => db.tasks.count()).subscribe(() => {
+      wakes++;
+    });
+    await new Promise((r) => setTimeout(r, 50)); // первое срабатывание — начальное
+
+    mockFetch((url) => {
+      if (url.includes('/sync/pull'))
+        return jsonRes({ records, hasMore: false, nextSince: `${records[11].updatedAt}|t11` });
+      return jsonRes({ ok: true });
+    });
+
+    const r = await runSync();
+    await new Promise((r) => setTimeout(r, 100));
+    sub.unsubscribe();
+
+    // Все двенадцать записей применены.
+    expect(r?.pulled).toBe(12);
+    expect(await db.tasks.count()).toBe(12);
+    // Пробуждений заметно меньше, чем записей: страница применена пачкой.
+    // По одной было бы не меньше двенадцати.
+    expect(wakes).toBeLessThan(6);
+  });
+
+  it('битая запись пропускается, остальные с той же страницы применяются', async () => {
+    const key = await seedSync();
+    const t = '2026-08-22T09:00:00.000Z';
+    const good = await encryptJSON(key, { id: 'ok', title: 'Целая', createdAt: t, updatedAt: t, deletedAt: null });
+    mockFetch((url) => {
+      if (url.includes('/sync/pull'))
+        return jsonRes({
+          records: [
+            { table: 'tasks', id: 'bad', updatedAt: t, deletedAt: null, ciphertext: 'мусор' },
+            { table: 'tasks', id: 'ok', updatedAt: t, deletedAt: null, ciphertext: good },
+          ],
+          hasMore: false,
+          nextSince: `${t}|ok`,
+        });
+      return jsonRes({ ok: true });
+    });
+
+    const r = await runSync();
+    expect(r?.skipped).toBe(1);
+    expect(await db.tasks.get('ok')).toBeTruthy();
+    expect(await db.tasks.get('bad')).toBeUndefined();
   });
 });
