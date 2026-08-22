@@ -1555,7 +1555,6 @@ export const EN: Record<string, string> = {
   'Не удалось синхронизировать. Проверьте связь и попробуйте ещё раз':
     'Could not sync. Check your connection and try again',
   'Синхронизация отключена': 'Sync is off',
-  'Устройство подключено': 'Device connected',
   // Настройки и системное
   'выше — панель · ниже — «Главная»': 'above — the bottom bar · below — Home',
   'Версия': 'Version',

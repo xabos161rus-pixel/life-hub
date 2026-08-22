@@ -111,13 +111,15 @@ function Cell({
  * Погода всегда живёт здесь: она ничего не требует, только сообщает.
  */
 export function DayBand({
-  energyOpen,
-  habitsOpen,
+  showEnergy: wantEnergy,
+  showHabits: wantHabits,
   onToggleEnergy,
   onToggleHabits,
 }: {
-  energyOpen: boolean;
-  habitsOpen: boolean;
+  /** Показывать ячейку сил: решает TodayPage по снимку дня — ровно тогда,
+   *  когда свёрнут блок со шкалой. Иначе значение видно дважды. */
+  showEnergy: boolean;
+  showHabits: boolean;
   onToggleEnergy: () => void;
   onToggleHabits: () => void;
 }) {
@@ -138,8 +140,8 @@ export function DayBand({
     };
   }, []);
 
-  const showEnergy = !hidden.includes('energy') && energy != null && !energyOpen;
-  const showHabits = !hidden.includes('habits') && allDone && !habitsOpen;
+  const showEnergy = wantEnergy && !hidden.includes('energy') && energy != null;
+  const showHabits = wantHabits && !hidden.includes('habits') && allDone;
   const weather = w !== 'loading' && w ? w : null;
 
   // На троих ячейках каждой достаётся треть экрана, и полные значения там

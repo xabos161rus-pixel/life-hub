@@ -50,8 +50,14 @@ test('отметка ставится одним тапом с «Сегодня�
   await page.getByRole('button', { name: '4 — Хорошо' }).click();
   await expect(page.getByText('Хорошо')).toBeVisible();
 
+  // После перезагрузки отметка на месте — но шкала свёрнута, а значение
+  // показывает полоса дня: экран встречает свёрнутым того, кто уже отметился.
   await page.reload();
-  await expect(page.getByText('Хорошо')).toBeVisible();
+  const cell = page.getByRole('button', { name: 'Изменить отметку сил' });
+  await expect(cell).toContainText('Хорошо');
+
+  // Разворачиваем — отметка на своей цифре.
+  await cell.click();
   await expect(page.getByRole('button', { name: '4 — Хорошо' })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -62,8 +68,9 @@ test('повторный тап по той же точке снимает от�
   await openApp(page, '/');
 
   await page.getByRole('button', { name: '2 — Тяжеловато' }).click();
-  await expect(page.getByText('Тяжеловато')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Энергия/ })).toContainText('Тяжеловато');
 
+  // Повторный тап по той же цифре — прямо здесь, без разворачиваний.
   await page.getByRole('button', { name: '2 — Тяжеловато' }).click();
   await expect(page.getByText('не отмечено')).toBeVisible();
 

@@ -21,7 +21,7 @@ import { t } from '../../lib/i18n';
  *  привычки разом (см. freezeAllForSection в habitRepo) — за паузу серии не
  *  сгорают, а isActiveOn ниже дополнительно прячет с «Сегодня» и привычки,
  *  замороженные вручную из шита. */
-export function HabitsToday({ open = false }: { open?: boolean }) {
+export function HabitsToday({ collapsed = false }: { collapsed?: boolean }) {
   const { hidden } = useNavLayout();
   const today = todayKey();
   const [logHabit, setLogHabit] = useState<Habit | null>(null);
@@ -40,6 +40,7 @@ export function HabitsToday({ open = false }: { open?: boolean }) {
     .filter((h) => isActiveOn(h, today))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
+
   const isDone = (h: Habit) => {
     const log = todayLogByHabit.get(h.id);
     return log ? isLogDone(h, log.value) : false;
@@ -52,7 +53,11 @@ export function HabitsToday({ open = false }: { open?: boolean }) {
   // Всё на сегодня закрыто — счётчик показывает полоса дня, а список
   // сворачивается: галочки, по которым уже нечего нажимать, занимали место
   // до конца суток. Тап по ячейке полосы разворачивает обратно (open).
-  if (doneCount === planned.length && !open) return null;
+  //
+  // Но только если список был закрыт УЖЕ при открытии экрана: снять галочку,
+  // поставленную по ошибке, надо там же, где её поставили, а не после
+  // разворачивания. Решение приходит сверху, от общего снимка дня.
+  if (collapsed && doneCount === planned.length) return null;
   const logValue = logHabit ? (todayLogByHabit.get(logHabit.id)?.value ?? 0) : 0;
 
   return (

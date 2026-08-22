@@ -12,25 +12,27 @@ import { test, expect, openApp } from './fixtures';
 // которой в тестах нет, но ответ прошлого запуска мог осесть в кэше. Поэтому
 // проверяются ячейки сил и привычек, а не полоса целиком.
 
-test('силы: пока не отмечено — шкала на месте, после отметки уходит в полосу', async ({ page }) => {
+test('силы: отметка не убирает шкалу из-под пальца, но при следующем заходе она свёрнута', async ({ page }) => {
   await openApp(page, './');
 
   // Пока отметки нет — шкала 1–5 развёрнута, отметка в один тап.
   const scale = page.getByRole('button', { name: /^[1-5] — / });
   await expect(scale).toHaveCount(5);
-  // Ячейки «Силы» в полосе ещё нет: показывать нечего. Саму полосу не
-  // проверяем на отсутствие — в ней может стоять погода, если ответ пришёл
-  // из кэша прошлого запуска.
   await expect(page.getByRole('button', { name: 'Изменить отметку сил' })).toHaveCount(0);
 
   await page.getByRole('button', { name: /^4 — / }).click();
 
-  // Отметка сделана: шкала свернулась, значение переехало в полосу.
-  await expect(scale).toHaveCount(0);
+  // Шкала ОСТАЛАСЬ: ошибочную отметку снимают повторным тапом по той же цифре,
+  // и исчезнуть под пальцем она не имеет права.
+  await expect(scale).toHaveCount(5);
+  await expect(page.getByRole('button', { name: '4 — Хорошо' })).toHaveAttribute('aria-pressed', 'true');
+
+  // А вот при следующем открытии экрана значение уже в полосе, шкалы нет.
+  await page.reload();
   const band = page.getByLabel('Сегодня коротко');
-  await expect(band).toBeVisible();
+  await expect(band.getByRole('button', { name: 'Изменить отметку сил' })).toBeVisible();
   await expect(band).toContainText('Силы');
-  await expect(band).toContainText('4');
+  await expect(scale).toHaveCount(0);
 
   // Тап по ячейке возвращает шкалу — изменить отметку можно в любой момент.
   await band.getByRole('button', { name: 'Изменить отметку сил' }).click();
@@ -55,11 +57,21 @@ test('привычки: список сворачивается только к�
   await expect(page.getByText('Дыхание')).toBeVisible();
 
   // Закрываем одну: список ОСТАЁТСЯ — вторая ещё ждёт.
+  const counter = page.getByRole('heading', { name: /Привычки/ });
   await page.getByText('Отжимания').click();
+  // Ждём отметку по счётчику, а не по таймеру: клик по строке перерисовывает
+  // список, и второй клик вслепую уходит мимо движущегося элемента.
+  await expect(counter).toContainText('1/2');
   await expect(page.getByText('Дыхание')).toBeVisible();
 
-  // Закрываем вторую: теперь сворачивается в ячейку со счётчиком.
+  // Закрываем вторую: список ОСТАЁТСЯ на месте — галочку, поставленную по
+  // ошибке, снимают там же, где поставили.
   await page.getByText('Дыхание').click();
+  await expect(counter).toContainText('2/2');
+  await expect(page.getByText('Отжимания')).toBeVisible();
+
+  // Сворачивается со следующего открытия экрана.
+  await page.reload();
   const band = page.getByLabel('Сегодня коротко');
   await expect(band).toContainText('Привычки');
   await expect(band).toContainText('2 из 2');

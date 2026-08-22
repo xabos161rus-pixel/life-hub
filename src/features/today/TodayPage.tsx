@@ -18,6 +18,7 @@ import { CycleTodayLine } from '../cycle/CycleTodayLine';
 import { TaskItem } from '../tasks/TaskItem';
 import { TaskEditSheet } from '../tasks/TaskEditSheet';
 import { DayBand } from './DayBand';
+import { useDayOpenSnapshot } from './useDayOpenSnapshot';
 import { RemindersBlock } from './RemindersBlock';
 import { HabitsToday } from '../habits/HabitsToday';
 import { EnergyTodayLine } from '../energy/EnergyTodayLine';
@@ -53,10 +54,16 @@ function TaskList({
 
 /** Главный экран — погода, напоминания (далее) и задачи на сегодня. */
 export function TodayPage() {
+  // Что было сделано на момент открытия экрана — по этому снимку сворачиваются
+  // силы и привычки. Одно решение на полосу и на блоки: иначе они расходятся, и
+  // значение показывается дважды.
+  const day = useDayOpenSnapshot();
   // Раскрытие свёрнутых блоков по тапу на ячейку полосы дня. Живёт здесь, а не
   // внутри блоков: полоса и блок — разные поддеревья, общего родителя ближе нет.
   const [energyOpen, setEnergyOpen] = useState(false);
   const [habitsOpen, setHabitsOpen] = useState(false);
+  const energyCollapsed = day.ready && day.energyMarked && !energyOpen;
+  const habitsCollapsed = day.ready && day.habitsClosed && !habitsOpen;
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const today = todayKey();
@@ -117,8 +124,8 @@ export function TodayPage() {
           развёрнутым, потому что и то, и другое ставится одним тапом прямо
           отсюда. Подробности — в DayBand. */}
       <DayBand
-        energyOpen={energyOpen}
-        habitsOpen={habitsOpen}
+        showEnergy={energyCollapsed}
+        showHabits={habitsCollapsed}
         onToggleEnergy={() => setEnergyOpen((v) => !v)}
         onToggleHabits={() => setHabitsOpen((v) => !v)}
       />
@@ -158,9 +165,9 @@ export function TodayPage() {
 
       {/* Выше привычек намеренно: отметка энергии — одна строка и один тап,
           а список привычек бывает длинным и утаскивает её под сгиб. */}
-      <EnergyTodayLine open={energyOpen} />
+      <EnergyTodayLine collapsed={energyCollapsed} />
 
-      <HabitsToday open={habitsOpen} />
+      <HabitsToday collapsed={habitsCollapsed} />
 
       <RemindersBlock />
 
