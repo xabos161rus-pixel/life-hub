@@ -16,6 +16,7 @@ import { getFamilyConfig, patchFamilyConfig, listFamilyConfigs } from './familyS
 import { assembleFile, splitDataUrl } from './fileTransfer';
 import { systemEventText } from './systemMessage';
 import { t } from '../i18n';
+import { importBoxPrivate, importBoxPublic, openFrom } from '../crypto';
 import {
   WORKER_URL,
   adoptSealedKey,
@@ -572,12 +573,58 @@ class FamilyEngine {
   }
 
   /** Одноразовый тикет на WebSocket. memberId в запросе — чтобы сервер отсёк
-   *  исключённого сразу, не дожидаясь, пока до него дойдёт смена токена. */
-  private fetchTicket(c: FamilyConfig): Promise<Response> {
-    return fetch(
-      `${WORKER_URL}/family/ticket?familyId=${c.familyId}&memberId=${encodeURIComponent(c.selfMemberId)}`,
-      { method: 'POST', headers: { Authorization: `Bearer ${c.familyToken}` } },
+   *  исключённого сразу, не дожидаясь, пока до него дойдёт смена токена.
+   *
+   *  Перед тикетом сервер задаёт задачу: присылает случайное слово,
+   *  запечатанное личным ключом участника. Открыть его может только тот, у
+   *  кого есть парный приватный ключ, — и тикет тогда ПРИВЯЗЫВАЕТСЯ к этому
+   *  участнику. Без привязки любой из группы (токен есть у всех) мог назваться
+   *  чужим memberId в hello и получать адресованные тому сигналы звонка.
+   *
+   *  Для человека не меняется ничего: ни одного нового экрана, кода или
+   *  подтверждения — всё внутри подключения. Любая осечка (нет ключа, старый
+   *  сервер, чужой формат конверта) молча возвращает прежний путь: лучше
+   *  соединение без привязки, чем семья, запертая снаружи собственного чата. */
+  private async fetchTicket(c: FamilyConfig): Promise<Response> {
+    const base = `familyId=${c.familyId}&memberId=${encodeURIComponent(c.selfMemberId)}`;
+    const auth = { Authorization: `Bearer ${c.familyToken}` };
+    let answer: { challengeId: string; nonce: string } | null = null;
+    try {
+      answer = await this.solveChallenge(c, base, auth);
+    } catch {
+      answer = null; // см. комментарий выше: осечка не должна запирать вход
+    }
+    return fetch(`${WORKER_URL}/family/ticket?${base}`, {
+      method: 'POST',
+      headers: answer ? { ...auth, 'Content-Type': 'application/json' } : auth,
+      ...(answer ? { body: JSON.stringify(answer) } : {}),
+    });
+  }
+
+  /** Открыть присланный сервером конверт своим ключом. null — задача не
+   *  выдана (у сервера нет нашего публичного ключа) или её нечем открыть. */
+  private async solveChallenge(
+    c: FamilyConfig,
+    base: string,
+    auth: Record<string, string>,
+  ): Promise<{ challengeId: string; nonce: string } | null> {
+    if (!c.boxPriv) return null;
+    const res = await fetch(`${WORKER_URL}/family/challenge?${base}`, {
+      method: 'POST',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memberId: c.selfMemberId }),
+    });
+    if (!res.ok) return null; // сервер ещё не умеет задачи — идём прежним путём
+    const { challenge } = (await res.json()) as {
+      challenge: { challengeId: string; ephPub: string; sealed: string } | null;
+    };
+    if (!challenge) return null;
+    const { nonce } = await openFrom<{ nonce: string }>(
+      await importBoxPublic(challenge.ephPub),
+      await importBoxPrivate(c.boxPriv),
+      challenge.sealed,
     );
+    return { challengeId: challenge.challengeId, nonce };
   }
 
   // Регистрируем push-подписку этого участника в DO — чтобы получать

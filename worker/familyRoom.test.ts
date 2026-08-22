@@ -32,6 +32,11 @@ async function sha256hex(s: string) {
 
 interface FakeSocket {
   memberId: string | null;
+  /** Вложение целиком, как его хранит настоящий сокет: не только memberId, но
+   *  и признак подтверждённой личности. Раньше двойник помнил одно имя — и
+   *  проверка подмены проходила «успешно» просто потому, что признак терялся
+   *  по дороге. */
+  att: Record<string, unknown> | null;
   closed: { code: number; reason: string } | null;
   sent: string[];
 }
@@ -60,12 +65,13 @@ function makeRoom() {
   };
   const room = new FamilyRoom(ctx, {});
   const addSocket = (memberId: string | null): FakeSocket => {
-    const s: FakeSocket = { memberId, closed: null, sent: [] };
+    const s: FakeSocket = { memberId, att: memberId ? { memberId } : null, closed: null, sent: [] };
     sockets.push(
       Object.assign(s, {
-        deserializeAttachment: () => ({ memberId: s.memberId }),
-        serializeAttachment: (a: { memberId: string | null }) => {
-          s.memberId = a.memberId;
+        deserializeAttachment: () => s.att,
+        serializeAttachment: (a: Record<string, unknown>) => {
+          s.att = a;
+          s.memberId = (a?.memberId as string | null) ?? null;
         },
         close: (code: number, reason: string) => {
           s.closed = { code, reason };
@@ -291,5 +297,94 @@ describe('авторство сообщения', () => {
     const res = await r.call('messages?since=0', { token: TOKEN });
     const page = (await res.json()) as { items: { itemId: string; senderMemberId: string | null }[] };
     expect(page.items.find((i) => i.itemId === 'early-1')?.senderMemberId).toBe(ALICE);
+  });
+});
+
+describe('подтверждение личности при подключении', () => {
+  // Полный цикл настоящей криптографией: участник регистрирует публичный ключ,
+  // сервер запечатывает им случайное слово, участник открывает его своим
+  // приватным — и только тогда тикет привязывается к нему.
+  async function joinWithKeys(r: Awaited<ReturnType<typeof setup>>, memberId: string) {
+    const { generateBoxKeyPair, exportBoxPublic, exportBoxPrivate, importBoxPublic, importBoxPrivate, openFrom } =
+      await import('../src/lib/crypto');
+    const pair = await generateBoxKeyPair();
+    const pub = await exportBoxPublic(pair.publicKey);
+    const priv = await exportBoxPrivate(pair.privateKey);
+    await r.call('register', { method: 'POST', token: TOKEN, body: { memberId, boxPub: pub } });
+
+    const chRes = await r.call('challenge', { method: 'POST', token: TOKEN, body: { memberId } });
+    const { challenge } = (await chRes.json()) as {
+      challenge: { challengeId: string; ephPub: string; sealed: string } | null;
+    };
+    if (!challenge) return { ticket: null as string | null, priv };
+    const { nonce } = await openFrom<{ nonce: string }>(
+      await importBoxPublic(challenge.ephPub),
+      await importBoxPrivate(priv),
+      challenge.sealed,
+    );
+    const tRes = await r.call('ticket', {
+      method: 'POST',
+      token: TOKEN,
+      body: { challengeId: challenge.challengeId, nonce },
+    });
+    const { ticket, bound } = (await tRes.json()) as { ticket: string; bound: boolean };
+    expect(bound, 'ответ на задачу не привязал тикет').toBe(true);
+    return { ticket, priv };
+  }
+
+  it('участник, назвавшийся чужим именем, остаётся собой', async () => {
+    const r = await setup();
+    // Новый участник, а не ALICE из фикстуры: там публичный ключ уже закреплён
+    // строкой-заглушкой, а TOFU не даёт заменить его настоящим — и правильно
+    // делает, иначе любой с токеном подменял бы чужой ключ.
+    const NEWCOMER = 'newcomer-1';
+    const { ticket } = await joinWithKeys(r, NEWCOMER);
+    expect(ticket).toBeTruthy();
+
+    // Соединение поднято по привязанному тикету — как это делает воркер.
+    const ws = r.addSocket(null);
+    ws.serializeAttachment({ memberId: NEWCOMER, bound: true });
+
+    // ...и в hello он называется владельцем группы.
+    await r.room.webSocketMessage(ws, JSON.stringify({ type: 'hello', memberId: OWNER, lastSeq: 0 }));
+
+    // Сервер не послушал: соединение осталось тем, чью личность подтвердила задача.
+    expect(ws.memberId, 'подмена личности прошла').toBe(NEWCOMER);
+  });
+
+  it('без ответа на задачу тикет остаётся обычным — старый клиент не заперт', async () => {
+    const r = await setup();
+    const res = await r.call('ticket', { method: 'POST', token: TOKEN });
+    const { ticket, bound } = (await res.json()) as { ticket: string; bound: boolean };
+    expect(ticket).toBeTruthy();
+    expect(bound).toBe(false);
+
+    // Такое соединение по-прежнему представляется само — иначе устройства,
+    // которые ещё не обновились, потеряли бы доступ к семейному чату.
+    const ws = r.addSocket(null);
+    await r.room.webSocketMessage(ws, JSON.stringify({ type: 'hello', memberId: ALICE, lastSeq: 0 }));
+    expect(ws.memberId).toBe(ALICE);
+  });
+
+  it('неверный ответ на задачу не привязывает тикет', async () => {
+    const r = await setup();
+    await r.call('register', { method: 'POST', token: TOKEN, body: { memberId: ALICE, boxPub: 'pub-alice-raw' } });
+    const chRes = await r.call('challenge', { method: 'POST', token: TOKEN, body: { memberId: ALICE } });
+    const { challenge } = (await chRes.json()) as { challenge: { challengeId: string } | null };
+    // Ключ участника нечитаемый — сервер честно отвечает «задачи нет», вместо
+    // того чтобы запереть человека снаружи.
+    if (!challenge) {
+      const res = await r.call('ticket', { method: 'POST', token: TOKEN, body: { challengeId: 'x', nonce: 'y' } });
+      const { bound } = (await res.json()) as { bound: boolean };
+      expect(bound).toBe(false);
+      return;
+    }
+    const res = await r.call('ticket', {
+      method: 'POST',
+      token: TOKEN,
+      body: { challengeId: challenge.challengeId, nonce: 'наугад' },
+    });
+    const { bound } = (await res.json()) as { bound: boolean };
+    expect(bound, 'сервер принял неверный ответ').toBe(false);
   });
 });

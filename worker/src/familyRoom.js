@@ -17,6 +17,56 @@ const MSG_RETENTION_DAYS = 180;
 const MSG_RETENTION_MAX = 5000;
 const PRUNE_EVERY = 50; // прунить раз в N вставок сообщений
 
+const IV_BYTES = 12;
+const BOX_CURVE = { name: 'ECDH', namedCurve: 'P-256' };
+/** Задача на подтверждение личности живёт минуту: этого хватает на медленную
+ *  сеть и мало на то, чтобы её где-то перехватить и переиспользовать. */
+const CHALLENGE_TTL_MS = 60_000;
+
+function b64urlToBytes(s) {
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function bytesToB64url(bytes) {
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** Запечатать данные так, чтобы открыл только владелец boxPub.
+ *
+ *  Тот же конверт, что участники раскладывают друг другу с ключом группы
+ *  (ECDH P-256 → AES-256-GCM, base64url(IV+шифротекст)), — но отправитель
+ *  здесь эфемерный: серверу незачем иметь постоянный ключ, ему нужно ровно
+ *  один раз спросить «а ты правда тот, кем представляешься». Формат совпадает
+ *  с lib/crypto.ts на клиенте, иначе openFrom его не откроет. */
+async function sealForMember(boxPubB64, data) {
+  const theirPub = await crypto.subtle.importKey('raw', b64urlToBytes(boxPubB64), BOX_CURVE, false, []);
+  const eph = await crypto.subtle.generateKey(BOX_CURVE, true, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey(
+    { name: 'ECDH', public: theirPub },
+    eph.privateKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt'],
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(data))),
+  );
+  const combined = new Uint8Array(iv.length + ct.length);
+  combined.set(iv, 0);
+  combined.set(ct, iv.length);
+  return {
+    ephPub: bytesToB64url(new Uint8Array(await crypto.subtle.exportKey('raw', eph.publicKey))),
+    sealed: bytesToB64url(combined),
+  };
+}
+
 async function sha256hex(s) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -145,9 +195,16 @@ export class FamilyRoom extends DurableObject {
     // WebSocket upgrade — проверяем одноразовый тикет (браузерный WS не шлёт заголовки)
     if (path.endsWith('/ws')) {
       const ticket = url.searchParams.get('ticket');
-      if (!ticket || !this.consumeTicket(ticket)) return new Response('unauthorized', { status: 401 });
+      const pass = ticket ? this.consumeTicket(ticket) : null;
+      if (!pass) return new Response('unauthorized', { status: 401 });
       const pair = new WebSocketPair();
       this.ctx.acceptWebSocket(pair[1]);
+      // Личность подтверждена задачей — записываем её В СОЕДИНЕНИЕ сразу, до
+      // единого кадра от клиента. Дальше hello уже ничего не решает: раньше он
+      // просто заявлял memberId, и любой участник группы (токен есть у всех)
+      // мог назваться другим — а по этому имени доставляются адресные сигналы
+      // звонка и отмечается прочтение.
+      if (pass.memberId) pair[1].serializeAttachment({ memberId: pass.memberId, bound: true });
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
 
@@ -179,10 +236,60 @@ export class FamilyRoom extends DurableObject {
     // Остальное — Bearer-токен
     if (!(await this.checkToken(token))) return this.json({ error: 'unauthorized' }, 401);
 
+    // Задача на подтверждение личности: сервер запечатывает случайное слово
+    // ключом участника. Открыть его может только тот, у кого есть парный
+    // приватный ключ, — то есть сам участник. Человек об этом не знает и
+    // ничего не делает: всё происходит внутри подключения.
+    if (path.endsWith('/challenge') && request.method === 'POST') {
+      const { memberId } = await request.json();
+      if (!memberId) return this.json({ error: 'bad request' }, 400);
+      const row = this.sql.exec('SELECT box_pub FROM members WHERE member_id=?', memberId).toArray()[0];
+      // Ключа нет — участник ещё не регистрировался (первый заход) или пришёл
+      // со сборки, которая ключей не заводила. Спрашивать нечего: пусть берёт
+      // обычный тикет, как раньше. Это осознанный компромисс на время, пока
+      // обновятся все устройства семьи, а не дыра «навсегда».
+      if (!row?.box_pub) return this.json({ challenge: null });
+      const nonce = crypto.randomUUID();
+      const challengeId = crypto.randomUUID();
+      this.sql.exec(
+        'INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)',
+        `chal:${challengeId}`,
+        JSON.stringify({ memberId, nonce, exp: Date.now() + CHALLENGE_TTL_MS }),
+      );
+      try {
+        const { ephPub, sealed } = await sealForMember(row.box_pub, { nonce });
+        return this.json({ challenge: { challengeId, ephPub, sealed } });
+      } catch {
+        // Ключ участника не читается (битая запись, чужой формат) — не запираем
+        // человека снаружи из-за нашей же криптографии.
+        this.sql.exec('DELETE FROM meta WHERE k=?', `chal:${challengeId}`);
+        return this.json({ challenge: null });
+      }
+    }
+
     if (path.endsWith('/ticket') && request.method === 'POST') {
+      // Тикет с ответом на задачу ПРИВЯЗЫВАЕТСЯ к участнику: дальше сервер
+      // знает, кто на том конце сокета, и заявленный в hello memberId уже
+      // ничего не решает. Без ответа тикет остаётся обычным — так же, как до
+      // этой правки.
+      let bound = null;
+      const body = await request.json().catch(() => null);
+      if (body?.challengeId && body?.nonce) {
+        const key = `chal:${body.challengeId}`;
+        const raw = this.sql.exec('SELECT v FROM meta WHERE k=?', key).toArray()[0];
+        this.sql.exec('DELETE FROM meta WHERE k=?', key); // одноразовая
+        if (raw) {
+          const chal = JSON.parse(raw.v);
+          if (chal.exp > Date.now() && chal.nonce === body.nonce) bound = chal.memberId;
+        }
+      }
       const ticket = crypto.randomUUID();
-      this.sql.exec('INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)', `ticket:${ticket}`, String(Date.now() + TICKET_TTL_MS));
-      return this.json({ ticket });
+      this.sql.exec(
+        'INSERT OR REPLACE INTO meta (k, v) VALUES (?, ?)',
+        `ticket:${ticket}`,
+        JSON.stringify({ exp: Date.now() + TICKET_TTL_MS, memberId: bound }),
+      );
+      return this.json({ ticket, bound: bound != null });
     }
 
     // Регистрация участника: публичный ключ для адресных конвертов. TOFU —
@@ -298,12 +405,30 @@ export class FamilyRoom extends DurableObject {
     return this.json({ error: 'not found' }, 404);
   }
 
+  /** Проверить и погасить тикет. Возвращает null, если тикет негоден, иначе
+   *  `{ memberId }` — участник, чью личность подтвердила задача (или null,
+   *  если тикет обычный, без подтверждения).
+   *
+   *  Значение раньше было просто временем жизни числом; сборки, чьи тикеты
+   *  выданы до этой правки, читаются тем же кодом — иначе при выкате у всех,
+   *  кто держал тикет в руках, соединение оборвалось бы на ровном месте. */
   consumeTicket(ticket) {
     const key = `ticket:${ticket}`;
     const row = this.sql.exec('SELECT v FROM meta WHERE k=?', key).toArray()[0];
-    if (!row) return false;
+    if (!row) return null;
     this.sql.exec('DELETE FROM meta WHERE k=?', key); // одноразовый
-    return Number(row.v) > Date.now();
+    let exp = Number(row.v);
+    let memberId = null;
+    if (Number.isNaN(exp)) {
+      try {
+        const parsed = JSON.parse(row.v);
+        exp = Number(parsed.exp);
+        memberId = parsed.memberId ?? null;
+      } catch {
+        return null;
+      }
+    }
+    return exp > Date.now() ? { memberId } : null;
   }
 
   // === Запись (идемпотентная по client_msg_id для msg; новый seq для версии task/member) ===
@@ -413,16 +538,21 @@ export class FamilyRoom extends DurableObject {
       return;
     }
     if (msg.type === 'hello') {
+      // Кто на том конце: подтверждённая личность из тикета важнее заявленной
+      // в кадре. Заявленная остаётся в силе только для соединений без
+      // подтверждения — их дают клиентам, которые ещё не обновились.
+      const prior = ws.deserializeAttachment();
+      const memberId = prior?.bound ? prior.memberId : msg.memberId || null;
       // Исключённый мог держать тикет, взятый за секунду до исключения.
-      if (this.isRemoved(msg.memberId)) {
+      if (this.isRemoved(memberId)) {
         ws.close(4403, 'removed');
         return;
       }
-      ws.serializeAttachment({ memberId: msg.memberId || null });
-      if (msg.memberId) {
+      ws.serializeAttachment({ memberId, bound: prior?.bound === true });
+      if (memberId) {
         this.sql.exec(
           'INSERT INTO members (member_id, joined_at) VALUES (?, ?) ON CONFLICT(member_id) DO NOTHING',
-          msg.memberId,
+          memberId,
           new Date().toISOString(),
         );
       }
