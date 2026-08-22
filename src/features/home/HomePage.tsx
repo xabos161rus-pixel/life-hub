@@ -13,6 +13,7 @@ import { db } from '../../db/db';
 import { alive } from '../../db/repo';
 import { useNavLayout } from '../../hooks/useNavLayout';
 import { formatRu } from '../../lib/dates';
+import { ageFrom, yearsLabel } from '../../lib/profile';
 import { SECTION_BY_ID } from '../../lib/sections';
 import { getLang, t } from '../../lib/i18n';
 import { ICON } from '../../components/ui/icons';
@@ -72,12 +73,17 @@ function ProfileCard() {
   const p = settings?.profile;
   const hasAny = Boolean(p?.name || p?.avatar || p?.heightCm || p?.weightKg);
 
+  // Возраст, а не дата рождения: «28 лет» отвечает на вопрос, который человек
+  // задаёт себе, глядя на карточку, а «29 июня 1998» заставляет считать в уме.
+  // Порядок тот же, что в шапке самого профиля, — карточка и экран за ней
+  // должны говорить одно и то же одними словами.
+  const age = ageFrom(p?.birthDate);
   const facts = [
+    age != null ? yearsLabel(age) : null,
     p?.heightCm ? t('{n}\u00A0см', { n: p.heightCm }) : null,
     p?.weightKg
       ? t('{n}\u00A0кг', { n: getLang() === 'en' ? String(p.weightKg) : String(p.weightKg).replace('.', ',') })
       : null,
-    p?.birthDate ? formatRu(p.birthDate, 'd MMMM yyyy') : null,
   ].filter(Boolean);
 
   return (
