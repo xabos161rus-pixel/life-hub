@@ -69,3 +69,39 @@ describe('восстановление из копии и синхронизац
     expect((await db.tasks.get('t1'))?.title).toBe('Забрать колёса');
   });
 });
+
+describe('восстановление и куски вложений', () => {
+  beforeEach(async () => {
+    await db.open();
+    await Promise.all(db.tables.map((t) => t.clear()));
+  });
+
+  it('пустой список кусков в копии не стирает то, что есть на устройстве', async () => {
+    // Куски приезжают синком отдельно от своих записей. Копия, снятая
+    // устройством, до которого они не доехали, содержит пустой список — и
+    // очистка по нему стёрла бы фотографии, которые на этом устройстве есть.
+    await db.taskPhotos.put({
+      id: 'p_0', taskId: 't1', photoId: 'p', idx: 0, total: 1, data: 'кусок',
+      createdAt: '2026-08-22T00:00:00.000Z', updatedAt: '2026-08-22T00:00:00.000Z', deletedAt: null,
+    } as never);
+    const backup = await exportBackup();
+    // Копия снята другим устройством: снимков там ещё нет.
+    (backup.data as Record<string, unknown[]>).taskPhotos = [];
+
+    await importBackup(backup);
+
+    expect(await db.taskPhotos.get('p_0')).toBeTruthy();
+  });
+
+  it('непустой список кусков в копии применяется как обычно', async () => {
+    const backup = await exportBackup();
+    (backup.data as Record<string, unknown[]>).taskPhotos = [
+      {
+        id: 'from_backup', taskId: 't9', photoId: 'q', idx: 0, total: 1, data: 'из копии',
+        createdAt: '2026-08-22T00:00:00.000Z', updatedAt: '2026-08-22T00:00:00.000Z', deletedAt: null,
+      },
+    ];
+    await importBackup(backup);
+    expect((await db.taskPhotos.get('from_backup'))?.data).toBe('из копии');
+  });
+});

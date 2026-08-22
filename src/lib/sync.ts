@@ -70,6 +70,7 @@ const SYNCED_TABLES = [
   'metricLogs',
   'reminderSections',
   'reminderItems',
+  'taskPhotos',
 ] as const;
 type SyncedTable = (typeof SYNCED_TABLES)[number];
 const isSynced = (t: string): t is SyncedTable => (SYNCED_TABLES as readonly string[]).includes(t);

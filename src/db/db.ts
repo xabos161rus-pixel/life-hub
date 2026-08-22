@@ -7,6 +7,7 @@ import type {
   HabitLog,
   Note,
   NoteFile,
+  TaskPhoto,
   NoteFolder,
   LearningItem,
   LearningLog,
@@ -39,7 +40,7 @@ import type {
   SymptomDef,
 } from './cycleTypes';
 
-export const SCHEMA_VERSION = 19;
+export const SCHEMA_VERSION = 20;
 
 export class LifeHubDB extends Dexie {
   projects!: Table<Project, string>;
@@ -57,6 +58,7 @@ export class LifeHubDB extends Dexie {
   savingsDeposits!: Table<SavingsDeposit, string>;
   energyItems!: Table<EnergyItem, string>;
   energyLogs!: Table<EnergyLog, string>;
+  taskPhotos!: Table<TaskPhoto, string>;
   placeItems!: Table<PlaceItem, string>;
   metrics!: Table<Metric, string>;
   metricLogs!: Table<MetricLog, string>;
@@ -348,6 +350,21 @@ export class LifeHubDB extends Dexie {
       metricLogs: 'id, metricId, date, updatedAt',
       reminderSections: 'id, sortOrder, updatedAt',
       reminderItems: 'id, sectionId, sortOrder, updatedAt',
+    });
+
+    // v20 — фотографии задач переезжают из строки задачи в свою таблицу.
+    //
+    // Раньше снимки лежали полем `photos` прямо в задаче. Списки задач читают
+    // таблицу целиком на десятке экранов живыми подписками — и поднимали в
+    // память все фотографии ради заголовков и дат. А синхронизация шифрует
+    // строку задачи одним куском: десяток снимков перерастал лимит колонки на
+    // сервере, и такая задача не уезжала на второе устройство никогда.
+    //
+    // Индексы: taskId — выбрать снимки одной задачи; photoId — собрать один
+    // снимок из кусков; updatedAt — обязателен, по нему синхронизация ищет
+    // свежие записи (без него push падает с ошибкой схемы).
+    this.version(20).stores({
+      taskPhotos: 'id, taskId, photoId, updatedAt',
     });
   }
 }

@@ -50,6 +50,7 @@ const TABLES = [
   // не возвращает приложение в привычный вид. Секреты сюда не попадают: ключи
   // синхронизации живут в отдельной таблице sync, её в копии нет.
   'settings',
+  'taskPhotos',
 ] as const;
 
 type TableName = (typeof TABLES)[number];
@@ -168,6 +169,10 @@ function normalizeRow(name: TableName, row: unknown): unknown {
   return row;
 }
 
+/** Таблицы кусков: их содержимое приезжает синком отдельно от «своих» записей,
+ *  поэтому пустой список в копии значит «ещё не доехало», а не «пусто». */
+const CHUNK_TABLES = new Set(['taskPhotos', 'noteFiles']);
+
 /** Замена данных содержимым бэкапа, в одной транзакции. */
 export async function importBackup(b: BackupFile): Promise<void> {
   const tables = TABLES.map((name) => db.table(name));
@@ -177,6 +182,14 @@ export async function importBackup(b: BackupFile): Promise<void> {
       // Таблицу, отсутствующую в файле, НЕ трогаем — иначе частичный или
       // старый бэкап молча затёр бы её текущие данные без возможности отката.
       if (rows === undefined) continue;
+      // Пустой список кусков вложений — тоже «нет данных», а не «сотри всё».
+      //
+      // Куски приезжают синком отдельно от своих записей и могут ещё быть в
+      // пути. Копия, снятая устройством, до которого они не доехали, содержит
+      // пустой список — и очистка по нему стёрла бы на этом устройстве
+      // фотографии и вложения, которые здесь есть. Данные при этом целы на
+      // сервере, но локально исчезают, а человек об этом не узнает.
+      if (rows.length === 0 && CHUNK_TABLES.has(name)) continue;
       const table = db.table(name);
       await table.clear();
       // bulkPut идемпотентен по первичному ключу id — переносит дубли id
