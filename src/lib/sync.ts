@@ -25,6 +25,16 @@ const PUSH_CHUNK = 200;
 // Потолок пачки по объёму — по той же причине, что и на приёме: двести кусков
 // вложений в одном теле запроса это сто мегабайт, которые не уйдут никогда.
 const PUSH_MAX_BYTES = 3 * 1024 * 1024;
+// Потолок ОДНОЙ записи. На сервере шифротекст ложится в колонку D1, а там
+// значение не больше 2 МБ. Запись крупнее сервер не примет никогда: пачка
+// падает целиком, клиент роняет цикл, курсор не двигается — и на следующем
+// круге всё повторяется. Синхронизация встаёт насовсем, причём молча.
+//
+// Сейчас так может выйти у задачи: фотографии лежат прямо в её строке, и
+// десяток снимков перерастает лимит. Пока снимки не переехали в отдельную
+// таблицу чанками, такую запись просто не отправляем: она остаётся на
+// устройстве, а обмен продолжает работать. Про пропуск честно сообщаем.
+const RECORD_MAX_BYTES = 1_600_000;
 
 // Таблицы, которые синхронизируются. settings (device-local) и sync (секреты)
 // сюда НЕ входят намеренно. Включены legacy habits/metrics (пустые) — безвредно.
@@ -309,7 +319,7 @@ async function pull(c: SyncConfig): Promise<{ applied: number; skipped: number }
 // прямо в строке, а запускается отправка через полторы секунды после каждой
 // правки: пока пишешь заметку, на каждую паузу поднималась вся база. Индекс
 // добавлен в v19.
-async function push(c: SyncConfig): Promise<number> {
+async function push(c: SyncConfig): Promise<{ pushed: number; oversized: number }> {
   // Курсор снимаем ДО скана и двигаем ровно на него — а НЕ на максимум
   // updatedAt среди найденных строк. Иначе правка, сделанная во время скана в
   // уже прочитанную таблицу, получает штамп МЕНЬШЕ нового курсора и не уедет
@@ -382,7 +392,17 @@ async function push(c: SyncConfig): Promise<number> {
       ciphertext: await encryptJSON(c.key, payload),
     });
   }
-  for (const batch of batchByBytes(out)) {
+  // Отсев неподъёмных. Считаем по шифротексту — именно он ложится в колонку.
+  const sendable = out.filter((r) => r.ciphertext.length <= RECORD_MAX_BYTES);
+  const oversized = out.length - sendable.length;
+  if (oversized > 0) {
+    await noteOversized(oversized);
+    console.warn(`sync: пропущено записей, слишком больших для сервера: ${oversized}`);
+  } else {
+    await noteOversized(0);
+  }
+
+  for (const batch of batchByBytes(sendable)) {
     const res = await fetch(`${WORKER_URL}/sync/push`, {
       method: 'POST',
       headers: authHeaders(c),
@@ -391,7 +411,7 @@ async function push(c: SyncConfig): Promise<number> {
     if (!res.ok) throw new Error(`push ${res.status}`);
   }
   await patchSyncConfig({ lastPushAt: cutoff });
-  return out.length;
+  return { pushed: sendable.length, oversized };
 }
 
 // === Оркестрация ===
@@ -399,7 +419,13 @@ let running = false;
 let lastError: string | null = null;
 
 /** Один цикл: pull → push. Возвращает null, если синк выключен или уже идёт. */
-export async function runSync(): Promise<{ pulled: number; pushed: number; skipped: number } | null> {
+export async function runSync(): Promise<{
+  pulled: number;
+  pushed: number;
+  skipped: number;
+  /** Записи, которые сервер не примет никогда: больше лимита колонки. */
+  oversized: number;
+} | null> {
   // Флаг — СРАЗУ после синхронной проверки, до первого await: если между
   // проверкой и установкой оказывается await-разрыв (раньше здесь стоял
   // getSyncConfig), второй конкурентный вызов (visibilitychange + интервал,
@@ -414,11 +440,11 @@ export async function runSync(): Promise<{ pulled: number; pushed: number; skipp
     if (!c || !c.enabled) return null;
     const { applied: pulled, skipped } = await pull(c);
     const fresh = await getSyncConfig(); // курсор pull обновился
-    const pushed = fresh ? await push(fresh) : 0;
+    const sent = fresh ? await push(fresh) : { pushed: 0, oversized: 0 };
     await patchSyncConfig({ lastSyncedAt: new Date().toISOString() });
     // Прошлая неудача больше не актуальна — снимаем отметку.
     await clearSyncFailure();
-    return { pulled, pushed, skipped };
+    return { pulled, pushed: sent.pushed, skipped, oversized: sent.oversized };
   } catch (e) {
     lastError = String(e);
     // Фоновый цикл запускается сам и ошибку никому не показывает: раньше она
@@ -428,6 +454,20 @@ export async function runSync(): Promise<{ pulled: number; pushed: number; skipp
     throw e;
   } finally {
     running = false;
+  }
+}
+
+/** Сколько записей не влезает в сервер. Ноль стирает прежнюю отметку: чинить
+ *  такую запись человек может только сам (убрать часть фотографий), и держать
+ *  предупреждение после того, как он это сделал, было бы враньём. */
+async function noteOversized(count: number): Promise<void> {
+  try {
+    const s = await db.settings.get('app');
+    if (!s) return;
+    if ((s.syncOversized ?? 0) === count) return;
+    await db.settings.put({ ...s, syncOversized: count });
+  } catch {
+    /* негде отметить — не беда */
   }
 }
 

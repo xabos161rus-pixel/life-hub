@@ -204,6 +204,10 @@ export const EN: Record<string, string> = {
   'изменено': 'edited',
   'Загружаю прошлые сообщения…': 'Loading earlier messages…',
   'Непрочитанные': 'Unread',
+  'Не уезжает записей: {n} — слишком тяжёлые. Обычно это задача с фотографиями: часть снимков лучше положить в заметку.':
+    'Records not syncing: {n} — too heavy. Usually a task with photos: better to move some shots to a note.',
+  'Не добавлено фото: {n}. Задача не влезет в синхронизацию — часть снимков лучше положить в заметку':
+    'Photos not added: {n}. This task would not fit sync — better to put some shots in a note',
   'Не удалось открыть данные': 'Could not open your data',
   'Данные на устройстве новее, чем это приложение. Обновите приложение до последней версии — записи целы.':
     'The data on this device is newer than this version of the app. Update to the latest version — your records are safe.',

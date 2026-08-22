@@ -429,3 +429,52 @@ describe('пачки отправки ограничены объёмом, а н
     expect(batchByBytes(rows)).toHaveLength(1);
   });
 });
+
+describe('запись, которую сервер не примет, не вешает обмен навсегда', () => {
+  it('слишком большая запись пропускается, остальное уезжает, курсор двигается', async () => {
+    // У задачи фотографии лежат прямо в строке. Десяток снимков — и шифротекст
+    // одной записи перерастает то, что колонка на сервере способна принять
+    // (D1: значение колонки ≤ 2 МБ). Сервер отказывает на всей пачке, клиент
+    // роняет цикл, курсор не двигается — и на следующем круге всё повторяется.
+    // Синхронизация встаёт НАСОВСЕМ: перестают ездить и заметки, и цели, и
+    // финансы, причём молча.
+    await seedSync();
+    const t = new Date().toISOString();
+    // Задача с «фотографиями»: одна строка заведомо больше лимита.
+    await db.tasks.put({
+      id: 'heavy', title: 'Товар для РТЭ', photos: ['x'.repeat(2_500_000)],
+      createdAt: t, updatedAt: t, deletedAt: null,
+    } as never);
+    await db.tasks.put({
+      id: 'light', title: 'Обычная задача',
+      createdAt: t, updatedAt: t, deletedAt: null,
+    } as never);
+
+    const sent: { table: string; id: string; updatedAt: string }[] = [];
+    mockQuietNetwork(sent);
+
+    const r = await runSync();
+
+    // Лёгкая задача уехала.
+    expect(sent.map((x) => x.id)).toContain('light');
+    // Неподъёмная — нет, и это не помешало циклу дойти до конца.
+    expect(sent.map((x) => x.id)).not.toContain('heavy');
+    expect(r).toBeTruthy();
+    // Курсор двинулся — следующий цикл пойдёт дальше, а не упрётся в ту же запись.
+    const c = await getSyncConfig();
+    expect(c?.lastPushAt).not.toBe('');
+  });
+
+  it('о непосланных записях сказано, а не проглочено', async () => {
+    await seedSync();
+    const t = new Date().toISOString();
+    await db.tasks.put({
+      id: 'heavy', title: 'Товар', photos: ['x'.repeat(2_500_000)],
+      createdAt: t, updatedAt: t, deletedAt: null,
+    } as never);
+    mockQuietNetwork();
+
+    const r = await runSync();
+    expect(r?.oversized).toBe(1);
+  });
+});
