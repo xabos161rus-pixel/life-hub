@@ -262,20 +262,63 @@ async function pullPage(
   const data = (await res.json()) as { records: RemoteRecord[]; hasMore: boolean; nextSince: string };
   let applied = 0;
   let skipped = 0;
+
+  // Расшифровка — ВНЕ транзакции, запись — в ОДНОЙ.
+  //
+  // Раньше каждая запись применялась сама по себе, и каждая будила подписки
+  // экранов. Страница — это до пятисот записей: после релиза, добавившего
+  // таблицу в обмен, приложение перечитывает всю историю и получает сотни
+  // перерисовок подряд. На телефоне это выглядит как зависший экран.
+  //
+  // Транзакция Dexie не переживает ожидания не-Dexie операций, а расшифровка
+  // как раз такая. Поэтому сначала разбираем всю страницу, потом пишем пачкой —
+  // тот же приём, что в семейном чате (family/familyChat.ts, applyBatch).
+  const decoded: { r: RemoteRecord; obj: Row }[] = [];
   for (const r of data.records) {
+    // Записи семейных подключений применяются особо (импорт ключей — тоже
+    // ожидание не-Dexie), поэтому идут прежним путём, по одной.
+    if (r.table === 'familyShare') {
+      try {
+        if (await applyRecord(c, r)) applied++;
+      } catch (e) {
+        if (!isPoisonRecord(e)) throw e;
+        skipped++;
+        console.warn(`sync: пропущена запись ${r.table}/${r.id}`, e);
+      }
+      continue;
+    }
+    if (!isSynced(r.table)) continue; // незнакомая таблица — пропускаем
     // Сбой на ОДНОЙ «ядовитой» записи (битый шифротекст, не-JSON внутри) не
     // должен ронять весь цикл: иначе курсор lastPullAt не сдвинется и синк
     // встанет навсегда — перестанут приходить и задачи, и заметки, и семья.
-    // Но сбой ХРАНИЛИЩА пропускать нельзя: там не применится ничего, и
-    // сдвинутый курсор увёл бы за собой записи, которые не записаны.
     try {
-      if (await applyRecord(c, r)) applied++;
+      decoded.push({ r, obj: await decryptJSON<Row>(c.key, r.ciphertext) });
     } catch (e) {
       if (!isPoisonRecord(e)) throw e;
       skipped++;
       console.warn(`sync: пропущена запись ${r.table}/${r.id}`, e);
     }
   }
+
+  if (decoded.length) {
+    const tables = [...new Set(decoded.map((d) => d.r.table))].map((name) => db.table(name));
+    // Сбой ХРАНИЛИЩА пропускать нельзя: там не применится ничего, и сдвинутый
+    // курсор увёл бы за собой записи, которые не записаны. Поэтому ошибка
+    // транзакции летит наружу, как и раньше.
+    await db.transaction('rw', tables, async () => {
+      for (const { r, obj } of decoded) {
+        const table = db.table<Row>(r.table);
+        const local = await table.get(r.id);
+        if (!shouldApply(local?.updatedAt, r.updatedAt)) continue;
+        if (!(await resolveUniqueConflicts(table, obj))) continue;
+        // Пишем НАПРЯМУЮ (минуя repo) — сохраняем серверный updatedAt, иначе
+        // синк зациклится (repo проставил бы новый updatedAt).
+        await table.put(obj);
+        applied++;
+      }
+    });
+  }
+
   return { applied, skipped, nextSince: data.nextSince, hasMore: data.hasMore };
 }
 
