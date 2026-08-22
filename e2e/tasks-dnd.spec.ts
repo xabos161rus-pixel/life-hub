@@ -264,25 +264,33 @@ test('авто-скролл не включается, пока палец не 
   // чей-нибудь центр в это окно — вопрос вёрстки, а не проверяемого
   // поведения. Стоило уплотнить списки, и тест перестал находить строку,
   // хотя авто-скролл был совершенно исправен.
-  const inZone = await page.evaluate(() => {
-    const sec = document.querySelector('[data-drop-key]');
-    let scroller: HTMLElement | null = (sec?.parentElement as HTMLElement) ?? null;
-    while (scroller) {
-      const oy = getComputedStyle(scroller).overflowY;
-      if ((oy === 'auto' || oy === 'scroll') && scroller.scrollHeight > scroller.clientHeight) break;
-      scroller = scroller.parentElement;
-    }
-    if (!scroller) return null;
-    const rows = Array.from(document.querySelectorAll('[data-task-id]'));
-    const row = rows[Math.floor(rows.length / 2)] as HTMLElement | undefined;
-    if (!row) return null;
-    // Целимся в середину краевой зоны: нижний край минус её половина.
-    const target = scroller.getBoundingClientRect().bottom - 36;
-    const r0 = row.getBoundingClientRect();
-    scroller.scrollTop += r0.top + r0.height / 2 - target;
-    const r = row.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  });
+  // Ждём, пока список станет прокручиваемым: в CI разметка доезжает позже, и
+  // разовый замер ловил момент, когда строки уже есть, а прокрутки ещё нет.
+  const findPoint = () =>
+    page.evaluate(() => {
+      const sec = document.querySelector('[data-drop-key]');
+      let scroller: HTMLElement | null = (sec?.parentElement as HTMLElement) ?? null;
+      while (scroller) {
+        const oy = getComputedStyle(scroller).overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && scroller.scrollHeight > scroller.clientHeight) break;
+        scroller = scroller.parentElement;
+      }
+      if (!scroller) return null;
+      const rows = Array.from(document.querySelectorAll('[data-task-id]'));
+      const row = rows[Math.floor(rows.length / 2)] as HTMLElement | undefined;
+      if (!row) return null;
+      // Целимся в середину краевой зоны: нижний край минус её половина.
+      const target = scroller.getBoundingClientRect().bottom - 36;
+      const r0 = row.getBoundingClientRect();
+      scroller.scrollTop += r0.top + r0.height / 2 - target;
+      const r = row.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      });
+
+  await expect
+    .poll(async () => (await findPoint()) !== null, { timeout: 15_000, intervals: [200] })
+    .toBe(true);
+  const inZone = await findPoint();
   expect(inZone, 'не нашлось строки, которую можно поставить в краевую зону').not.toBeNull();
 
   // Без hover(): он может доскроллить страницу, а нам нужен палец ровно там,
