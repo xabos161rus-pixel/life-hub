@@ -316,9 +316,17 @@ async function pull(c: SyncConfig): Promise<{ applied: number; skipped: number }
     applied += page.applied;
     skipped += page.skipped;
     since = page.nextSince;
+    // Курсор двигаем ПОСТРАНИЧНО, а не после всего цикла. Иначе обрыв на
+    // середине (закрыли вкладку, пропала сеть) стирает весь прогресс, и
+    // следующий заход начинает с начала. На полном перечитывании истории —
+    // а оно случается после каждого релиза, добавившего таблицу в обмен, —
+    // телефон может не досидеть до конца НИКОГДА и качать одно и то же.
+    //
+    // Безопасно по той же причине, что и сам ре-pull: запись применяется,
+    // только если свежее локальной, так что повтор ничего не портит.
+    await patchSyncConfig({ lastPullAt: since });
     if (!page.hasMore) break;
   }
-  await patchSyncConfig({ lastPullAt: since });
   return { applied, skipped };
 }
 

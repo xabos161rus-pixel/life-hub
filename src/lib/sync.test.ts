@@ -478,3 +478,41 @@ describe('запись, которую сервер не примет, не ве
     expect(r?.oversized).toBe(1);
   });
 });
+
+describe('перечитывание истории не теряет прогресс при обрыве', () => {
+  it('курсор двигается после каждой страницы, а не только в конце', async () => {
+    // Полное перечитывание случается после каждого релиза, добавившего таблицу
+    // в обмен. Оно идёт страницами, и если курсор сохранять только в самом
+    // конце, обрыв посередине (закрыли вкладку, пропала сеть) стирает весь
+    // прогресс. На большой истории с вложениями телефон может не досидеть до
+    // конца никогда и качать одно и то же.
+    const key = await seedSync();
+    const t1 = '2026-08-22T00:00:01.000Z';
+    const ct = await encryptJSON(key, { id: 'n1', title: 'Заметка', content: '', updatedAt: t1, deletedAt: null });
+
+    let pulls = 0;
+    mockFetch((url) => {
+      if (url.includes('/sync/pull')) {
+        pulls++;
+        if (pulls === 1) {
+          return jsonRes({
+            records: [{ table: 'notes', id: 'n1', updatedAt: t1, deletedAt: null, ciphertext: ct }],
+            hasMore: true,
+            nextSince: `${t1}|n1`,
+          });
+        }
+        // Вторая страница не доехала — обрыв связи.
+        return new Response('', { status: 500 });
+      }
+      return jsonRes({ ok: true });
+    });
+
+    await expect(runSync()).rejects.toThrow();
+
+    // Первая страница применена и ЗАСЧИТАНА: следующий заход продолжит с неё,
+    // а не начнёт всё сначала.
+    expect(await db.notes.get('n1')).toBeTruthy();
+    const c = await getSyncConfig();
+    expect(c?.lastPullAt).toBe(`${t1}|n1`);
+  });
+});
