@@ -83,6 +83,14 @@ type TaskEditProps = {
 };
 
 /** Шит создания/редактирования задачи. task=null → создание с defaults. */
+// Потолок суммарного веса снимков одной задачи (в символах dataURL).
+//
+// Снимки лежат в строке задачи, а строку целиком забирает синхронизация: на
+// сервере шифротекст ложится в колонку с лимитом 2 МБ. Задача тяжелее этого не
+// уедет на второе устройство никогда. Держим с запасом на шифрование и на
+// остальные поля задачи.
+const PHOTOS_MAX_CHARS = 1_200_000;
+
 export function TaskEditSheet({ open, ...rest }: TaskEditProps & { open: boolean }) {
   // Форма монтируется заново на каждое открытие: состояние инициализируется
   // из props, поэтому сброс через эффект не нужен.
@@ -304,14 +312,33 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
   const addPhotos = async (files: FileList | null) => {
     if (!files?.length) return;
     const added: string[] = [];
+    // Считаем суммарный вес прямо здесь: снимки лежат в строке самой задачи, а
+    // строку целиком забирает синхронизация. Перерасти лимит сервера — значит
+    // получить задачу, которая не уедет на второе устройство никогда. Лучше
+    // сказать об этом сразу, чем сохранить и молчать.
+    let weight = photos.reduce((n, p) => n + p.length, 0);
+    let refused = 0;
     for (const f of Array.from(files).slice(0, 10)) {
       try {
-        added.push(await compressImage(f, 1280, 0.72));
+        const photo = await compressImage(f, 1280, 0.72);
+        if (weight + photo.length > PHOTOS_MAX_CHARS) {
+          refused++;
+          continue;
+        }
+        weight += photo.length;
+        added.push(photo);
       } catch {
         /* нечитаемый файл — пропускаем */
       }
     }
     if (added.length) setPhotos((prev) => [...prev, ...added]);
+    if (refused > 0) {
+      toast(
+        t('Не добавлено фото: {n}. Задача не влезет в синхронизацию — часть снимков лучше положить в заметку', {
+          n: refused,
+        }),
+      );
+    }
   };
 
   const handleNewItemKey = (e: KeyboardEvent<HTMLInputElement>) => {

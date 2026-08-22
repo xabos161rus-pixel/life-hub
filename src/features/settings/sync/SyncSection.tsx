@@ -34,6 +34,10 @@ export function SyncSection() {
   // Отметку о неудаче ставит фоновый цикл — читаем её живым запросом, чтобы
   // строка исчезла сама, как только обмен пройдёт.
   const failedAt = useLiveQuery(async () => (await db.settings.get('app'))?.syncFailedAt ?? null, []);
+  // Записи, которые сервер не примет никогда (сейчас это задачи с десятком
+  // фотографий: снимки лежат прямо в строке задачи). Обмен из-за них больше не
+  // встаёт, но человек должен знать, что эти задачи живут только здесь.
+  const oversized = useLiveQuery(async () => (await db.settings.get('app'))?.syncOversized ?? 0, []);
   const [sheet, setSheet] = useState<null | 'show' | 'connect'>(null);
   const [busy, setBusy] = useState(false);
 
@@ -95,6 +99,16 @@ export function SyncSection() {
                 <span className="font-medium text-success">{t('Включена')}</span> · {t('E2E-шифрование')}
                 <br />
                 <span className="text-muted">{t('Последняя: {when}', { when: formatSyncedAt(config.lastSyncedAt) })}</span>
+                {!!oversized && (
+                  <>
+                    <br />
+                    <span className="text-warning">
+                      {t('Не уезжает записей: {n} — слишком тяжёлые. Обычно это задача с фотографиями: часть снимков лучше положить в заметку.', {
+                        n: oversized,
+                      })}
+                    </span>
+                  </>
+                )}
                 {failedAt && (
                   <>
                     <br />
