@@ -588,12 +588,8 @@ class FamilyEngine {
   private async fetchTicket(c: FamilyConfig): Promise<Response> {
     const base = `familyId=${c.familyId}&memberId=${encodeURIComponent(c.selfMemberId)}`;
     const auth = { Authorization: `Bearer ${c.familyToken}` };
-    let answer: { challengeId: string; nonce: string } | null = null;
-    try {
-      answer = await this.solveChallenge(c, base, auth);
-    } catch {
-      answer = null; // см. комментарий выше: осечка не должна запирать вход
-    }
+    // Осечка не должна запирать вход — см. комментарий выше.
+    const answer = await this.solveChallenge(c, base, auth).catch(() => null);
     return fetch(`${WORKER_URL}/family/ticket?${base}`, {
       method: 'POST',
       headers: answer ? { ...auth, 'Content-Type': 'application/json' } : auth,

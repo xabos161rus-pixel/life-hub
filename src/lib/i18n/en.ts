@@ -1222,6 +1222,15 @@ export const EN: Record<string, string> = {
     "Couldn't connect. Check the code and try again.",
   'Код для другого устройства': 'Code for your other device',
   'Подключить устройство': 'Connect a device',
+  'Код действует 15 минут и только один раз': 'The code works for 15 minutes, once',
+  'Устройство подключено': 'Device connected',
+  'Файл с ключом открывает все ваши данные — храните его как ключ от квартиры. Но сохранить его нужно обязательно: без ключа облачные данные не восстановить.':
+    'The key file unlocks all your data — keep it like your house keys. But do save it: without the key, cloud data cannot be restored.',
+  'Этот код уже использован. Покажите новый на первом устройстве.':
+    'This code has already been used. Show a new one on the first device.',
+  'Код устарел. Покажите новый на первом устройстве.': 'The code expired. Show a new one on the first device.',
+  'Не удалось подключиться. Проверьте связь и попробуйте снова.': 'Could not connect. Check your connection and try again.',
+  'Первое устройство не ответило. Попробуйте ещё раз.': 'The first device did not respond. Try again.',
   'QR-код сопряжения': 'Pairing QR code',
   'Наведите камеру на QR-код первого устройства': "Point the camera at the first device's QR code",
   'Вставьте код сопряжения': 'Paste the pairing code',

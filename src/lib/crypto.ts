@@ -75,14 +75,47 @@ export function randomToken(bytes = 32): string {
   return bytesToB64url(crypto.getRandomValues(new Uint8Array(bytes)));
 }
 
-// === Пакет сопряжения (переносится между устройствами через QR / строку) ===
+// === Пакет доступа к аккаунту (v:1) ===
+//
 // Содержит всё нужное второму устройству: id аккаунта, токен доступа и ключ.
-// Ключ внутри пакета — поэтому пакет так же секретен, как сам ключ.
+// Ключ внутри пакета — поэтому пакет так же секретен, как сам ключ, и живёт
+// он вечно.
+//
+// Теперь у этого пакета одна роль: РЕЗЕРВНАЯ КОПИЯ ДОСТУПА, которую человек
+// сохраняет файлом на случай потери телефона («без ключа облачные данные не
+// восстановить» — так и написано на экране). Для сопряжения соседнего
+// устройства он больше не показывается: там встреча через сервер (v:3, ниже),
+// после которой перехваченный код уже ничего не открывает.
 export interface PairingData {
   v: 1;
   accountId: string;
   authToken: string;
   key: string; // raw-ключ в base64url
+}
+
+// === Приглашение на встречу устройств (v:3) ===
+//
+// Это НЕ секрет: одноразовый публичный ключ и номер встречи. Подсмотренный
+// код не даёт ничего — секреты аккаунта поедут отдельно, зашифрованные общим
+// секретом, который выводится из пары ключей и на сервере не появляется.
+export interface PairingMeet {
+  v: 3;
+  pairId: string;
+  pub: string; // публичный ключ первого устройства, base64url (raw P-256)
+}
+
+export function encodeMeet(d: PairingMeet): string {
+  return bytesToB64url(new TextEncoder().encode(JSON.stringify(d)));
+}
+
+/** Разобрать код встречи. null — это не встреча (например, старый пакет v:1). */
+export function decodeMeet(code: string): PairingMeet | null {
+  try {
+    const d = JSON.parse(new TextDecoder().decode(b64urlToBytes(code.trim()))) as PairingMeet;
+    return d?.v === 3 && d.pairId && d.pub ? d : null;
+  } catch {
+    return null;
+  }
 }
 
 export function encodePairing(d: PairingData): string {

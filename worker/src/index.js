@@ -78,6 +78,11 @@ async function ensureBackupTable(env) {
   backupTableReady = true;
 }
 
+/** Встреча двух устройств живёт пятнадцать минут: хватает, чтобы дойти до
+ *  второго телефона и открыть нужный экран, и мало, чтобы подсмотренный QR
+ *  пригодился кому-то потом. */
+const PAIR_TTL_MS = 15 * 60_000;
+
 export default {
   async fetch(request, env) {
     const origin = env.ALLOW_ORIGIN || '*';
@@ -139,6 +144,94 @@ export default {
       }
 
       // === Синхронизация (E2E) ===
+      // === Сопряжение устройств: встреча двух телефонов через сервер ===
+      //
+      // Зачем понадобилось. Раньше код сопряжения СОДЕРЖАЛ ключ шифрования
+      // аккаунта и жил вечно: кто увидел QR (скриншот в галерее, код в буфере,
+      // пересланный себе в мессенджер) — получил доступ ко всем данным
+      // навсегда. При этом тот же код служил резервной копией доступа, и
+      // просто «сделать его одноразовым» было нельзя: люди сохраняют его
+      // именно на случай потери телефона.
+      //
+      // Поэтому сценарии разведены. Резервная копия ключа осталась файлом,
+      // который сохраняют осознанно, а сопряжение устройства идёт через
+      // короткую встречу здесь: оба телефона кладут по одноразовому
+      // публичному ключу, выводят общий секрет (ECDH) и передают им секреты
+      // аккаунта. Сервер видит только шифротекст и два публичных ключа —
+      // расшифровать не может.
+      //
+      // Записи живут пятнадцать минут и гаснут после первого получения:
+      // перехваченный позже код бесполезен, потому что и встречи уже нет.
+      if (url.pathname.startsWith('/pair/')) {
+        const pairKey = (id) => `pair:${id}`;
+        const readPair = async (id) => {
+          if (!id || !/^[A-Za-z0-9_-]{8,64}$/.test(id)) return null;
+          const row = await env.DB.prepare('SELECT v FROM app_meta WHERE k = ?').bind(pairKey(id)).first();
+          if (!row) return null;
+          const rec = JSON.parse(row.v);
+          if (rec.exp < Date.now()) {
+            await env.DB.prepare('DELETE FROM app_meta WHERE k = ?').bind(pairKey(id)).run();
+            return null;
+          }
+          return rec;
+        };
+        const writePair = (id, rec) =>
+          env.DB.prepare('INSERT OR REPLACE INTO app_meta (k, v) VALUES (?, ?)')
+            .bind(pairKey(id), JSON.stringify(rec))
+            .run();
+
+        // Устройство с аккаунтом открывает встречу и показывает QR.
+        if (url.pathname === '/pair/offer' && request.method === 'POST') {
+          const { pairId, pubA } = await request.json();
+          if (!pairId || !pubA || !/^[A-Za-z0-9_-]{8,64}$/.test(pairId)) {
+            return json({ error: 'bad request' }, 400, origin);
+          }
+          await writePair(pairId, { pubA, exp: Date.now() + PAIR_TTL_MS });
+          return json({ ok: true }, 200, origin);
+        }
+
+        // Второе устройство отвечает своим одноразовым ключом. Первый ответ
+        // побеждает: иначе кто-то, подсмотревший QR, мог бы перебить чужой
+        // ответ и встать на место второго телефона.
+        if (url.pathname === '/pair/answer' && request.method === 'POST') {
+          const { pairId, pubB } = await request.json();
+          const rec = await readPair(pairId);
+          if (!rec) return json({ error: 'expired' }, 404, origin);
+          if (rec.pubB) return json({ error: 'taken' }, 409, origin);
+          if (!pubB) return json({ error: 'bad request' }, 400, origin);
+          await writePair(pairId, { ...rec, pubB });
+          return json({ ok: true, pubA: rec.pubA }, 200, origin);
+        }
+
+        // Первое устройство узнаёт, что ответ пришёл, и кладёт секреты,
+        // зашифрованные общим секретом встречи.
+        if (url.pathname === '/pair/state' && request.method === 'GET') {
+          const rec = await readPair(url.searchParams.get('pairId'));
+          if (!rec) return json({ error: 'expired' }, 404, origin);
+          return json({ pubB: rec.pubB ?? null, sealed: Boolean(rec.sealed) }, 200, origin);
+        }
+
+        if (url.pathname === '/pair/seal' && request.method === 'POST') {
+          const { pairId, sealed } = await request.json();
+          const rec = await readPair(pairId);
+          if (!rec) return json({ error: 'expired' }, 404, origin);
+          if (!sealed) return json({ error: 'bad request' }, 400, origin);
+          await writePair(pairId, { ...rec, sealed });
+          return json({ ok: true }, 200, origin);
+        }
+
+        // Второе устройство забирает конверт — и запись исчезает.
+        if (url.pathname === '/pair/claim' && request.method === 'GET') {
+          const pairId = url.searchParams.get('pairId');
+          const rec = await readPair(pairId);
+          if (!rec?.sealed) return json({ sealed: null }, 200, origin);
+          await env.DB.prepare('DELETE FROM app_meta WHERE k = ?').bind(pairKey(pairId)).run();
+          return json({ sealed: rec.sealed }, 200, origin);
+        }
+
+        return json({ error: 'not found' }, 404, origin);
+      }
+
       if (url.pathname === '/sync/push' && request.method === 'POST') {
         const accountId = await authAccount(request, env);
         if (!accountId) return json({ error: 'unauthorized' }, 401, origin);

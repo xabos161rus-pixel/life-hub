@@ -12,7 +12,7 @@ import {
 import { Sheet } from '../../../components/ui/Sheet';
 import { Button } from '../../../components/ui/Button';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
-import { getPairingCode, connectSync, runSync } from '../../../lib/sync';
+import { getBackupCode, startPairing, awaitPairing, connectSync, runSync } from '../../../lib/sync';
 import { t } from '../../../lib/i18n';
 import { ICON } from '../../../components/ui/icons';
 
@@ -32,9 +32,13 @@ const SCAN_TABS = [
  *  подключиться к существующему аккаунту сканом/вводом (mode='connect'). */
 export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
   // --- show ---
+  // code — код ВСТРЕЧИ для QR (секретов не содержит), backupCode — пакет
+  // доступа целиком, он же резервная копия: уходит только в файл по кнопке.
   const [code, setCode] = useState('');
+  const [backupCode, setBackupCode] = useState('');
   const [qrUrl, setQrUrl] = useState('');
   const [copied, setCopied] = useState(false);
+  const [paired, setPaired] = useState(false);
   // --- connect ---
   const [tab, setTab] = useState<'scan' | 'paste'>('scan');
   const [pasteVal, setPasteVal] = useState('');
@@ -66,14 +70,31 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
     };
   });
 
-  // show: получить код и нарисовать QR
+  // show: открыть встречу, нарисовать QR и дождаться второго устройства.
+  //
+  // Ожидание идёт само, пока экран открыт: человек показывает QR, сканирует на
+  // втором телефоне и видит здесь галочку. Нажимать ничего не нужно — порядок
+  // действий ровно тот же, что был с прежним кодом.
   useEffect(() => {
     if (!(open && mode === 'show')) return;
-    void getPairingCode().then(async (c) => {
-      if (!c) return;
-      setCode(c);
-      setQrUrl(await QRCode.toDataURL(c, { margin: 1, width: 260 }));
+    const signal = { aborted: false };
+    // Сброс отметки — внутри цепочки, а не синхронно в теле эффекта: иначе
+    // линтер справедливо ругается на каскад перерисовок.
+    void getBackupCode().then((c) => {
+      if (signal.aborted) return;
+      setPaired(false);
+      setBackupCode(c ?? '');
     });
+    void startPairing().then(async (meet) => {
+      if (!meet || signal.aborted) return;
+      setCode(meet.code);
+      setQrUrl(await QRCode.toDataURL(meet.code, { margin: 1, width: 260 }));
+      const ok = await awaitPairing(meet.pairId, meet.priv, signal);
+      if (!signal.aborted && ok) setPaired(true);
+    });
+    return () => {
+      signal.aborted = true;
+    };
   }, [open, mode]);
 
   // connect/scan: запустить камеру и искать QR в кадрах
@@ -139,7 +160,10 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
   }
 
   function saveKeyFile() {
-    const file = new File([code], 'life-hub-sync-key.txt', { type: 'text/plain' });
+    // В файл уходит именно пакет доступа, а не код встречи: файл сохраняют на
+    // случай потери телефона, и по коду встречи, который гаснет через четверть
+    // часа, потом ничего не восстановить.
+    const file = new File([backupCode], 'life-hub-sync-key.txt', { type: 'text/plain' });
     const url = URL.createObjectURL(file);
     const a = document.createElement('a');
     a.href = url;
@@ -157,6 +181,14 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
           <p className="text-sm text-muted">
             {t('Отсканируйте этот QR на втором устройстве (Настройки → Синхронизация → Подключить).')}
           </p>
+          {paired ? (
+            <p className="flex items-center justify-center gap-2 text-sm font-semibold text-success">
+              <Check size={ICON.base} />
+              {t('Устройство подключено')}
+            </p>
+          ) : (
+            <p className="text-center text-xs text-muted">{t('Код действует 15 минут и только один раз')}</p>
+          )}
           {qrUrl && (
             <div className="flex justify-center">
               <img src={qrUrl} alt={t('QR-код сопряжения')} className="rounded-2xl bg-white p-3" width={260} height={260} />
@@ -175,7 +207,7 @@ export function PairingSheet({ open, mode, onClose, onConnected }: Props) {
           <div className="flex gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning">
             <TriangleAlert size={ICON.base} className="mt-0.5 shrink-0" />
             <span>
-              {t('Любой, у кого есть этот код, получит доступ к данным и сможет их расшифровать. Не передавайте его и сохраните резервную копию — без ключа облачные данные не восстановить.')}
+              {t('Файл с ключом открывает все ваши данные — храните его как ключ от квартиры. Но сохранить его нужно обязательно: без ключа облачные данные не восстановить.')}
             </span>
           </div>
         </div>

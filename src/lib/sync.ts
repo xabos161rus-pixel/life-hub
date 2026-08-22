@@ -16,7 +16,18 @@ import {
   randomToken,
   encodePairing,
   decodePairing,
+  encodeMeet,
+  decodeMeet,
+  generateBoxKeyPair,
+  exportBoxPublic,
+  exportBoxPrivate,
+  importBoxPublic,
+  importBoxPrivate,
+  sealFor,
+  openFrom,
+  type PairingData,
 } from './crypto';
+import { t } from './i18n';
 import { getSyncConfig, patchSyncConfig, saveSyncConfig, clearSyncConfig } from './syncState';
 
 // Экспорт: адрес воркера переиспользует клиент AI-прокси (lib/ai/aiClient.ts).
@@ -511,9 +522,47 @@ export async function createSyncAccount(): Promise<void> {
   });
 }
 
-/** Подключить это устройство к существующему аккаунту по пакету сопряжения. */
+/**
+ * Принимающая сторона встречи: ответить своим одноразовым ключом и забрать
+ * конверт с секретами аккаунта.
+ *
+ * Первый ответ побеждает — сервер второго не примет. Это и есть защита от
+ * того, кто подсмотрел QR: чтобы влезть, ему нужно успеть ответить раньше
+ * настоящего второго устройства, стоя рядом в те же минуты, а не когда-нибудь
+ * потом со скриншотом.
+ */
+async function claimPairing(meet: { pairId: string; pub: string }): Promise<PairingData> {
+  const pair = await generateBoxKeyPair();
+  const res = await fetch(`${WORKER_URL}/pair/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pairId: meet.pairId, pubB: await exportBoxPublic(pair.publicKey) }),
+  });
+  if (res.status === 409) throw new Error(t('Этот код уже использован. Покажите новый на первом устройстве.'));
+  if (res.status === 404) throw new Error(t('Код устарел. Покажите новый на первом устройстве.'));
+  if (!res.ok) throw new Error(t('Не удалось подключиться. Проверьте связь и попробуйте снова.'));
+
+  // Ждём, пока первое устройство положит конверт: ему нужно заметить ответ.
+  const theirPub = await importBoxPublic(meet.pub);
+  for (let i = 0; i < 60; i++) {
+    const cl = await fetch(`${WORKER_URL}/pair/claim?pairId=${encodeURIComponent(meet.pairId)}`).catch(() => null);
+    if (cl?.ok) {
+      const { sealed } = (await cl.json()) as { sealed: string | null };
+      if (sealed) return openFrom<PairingData>(theirPub, pair.privateKey, sealed);
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  throw new Error(t('Первое устройство не ответило. Попробуйте ещё раз.'));
+}
+
+/** Подключить это устройство к существующему аккаунту: по коду встречи или по
+ *  сохранённой резервной копии доступа. */
 export async function connectSync(code: string): Promise<void> {
-  const p = decodePairing(code);
+  // Код встречи (v:3) — не секрет: отвечаем своим одноразовым ключом и ждём
+  // конверт с секретами. Старый пакет (v:1) остаётся рабочим: это резервная
+  // копия доступа, сохранённая файлом, и восстановление по ней ломать нельзя.
+  const meet = decodeMeet(code);
+  const p = meet ? await claimPairing(meet) : decodePairing(code);
   const key = await importKeyRaw(p.key);
   await saveSyncConfig({
     id: 'config',
@@ -527,11 +576,84 @@ export async function connectSync(code: string): Promise<void> {
   });
 }
 
-/** Код сопряжения для переноса на другое устройство (QR / резервная копия). */
-export async function getPairingCode(): Promise<string | null> {
+/** Пакет доступа целиком — РЕЗЕРВНАЯ КОПИЯ, которую человек сохраняет файлом
+ *  на случай потери телефона. Секретен так же, как сам ключ, и не истекает. */
+export async function getBackupCode(): Promise<string | null> {
   const c = await getSyncConfig();
   if (!c) return null;
   return encodePairing({ v: 1, accountId: c.accountId, authToken: c.authToken, key: await exportKeyRaw(c.key) });
+}
+
+/**
+ * Открыть встречу для соседнего устройства и вернуть код для QR.
+ *
+ * В коде НЕТ секретов: номер встречи и одноразовый публичный ключ. Раньше на
+ * этом месте показывался пакет доступа целиком — то есть ключ шифрования всех
+ * данных, живущий вечно: скриншот QR в галерее или код, отправленный себе в
+ * мессенджер, открывали аккаунт кому угодно и когда угодно. Теперь
+ * подсмотренный код бесполезен: секреты уедут отдельно, зашифрованные общим
+ * секретом встречи, а сама встреча гаснет через пятнадцать минут и после
+ * первого же получения.
+ *
+ * Для человека порядок действий тот же: показать QR, отсканировать на втором
+ * устройстве. Ждать и нажимать ничего не нужно.
+ */
+export async function startPairing(): Promise<{ code: string; pairId: string; priv: string } | null> {
+  const c = await getSyncConfig();
+  if (!c) return null;
+  const pair = await generateBoxKeyPair();
+  const pub = await exportBoxPublic(pair.publicKey);
+  const priv = await exportBoxPrivate(pair.privateKey);
+  const pairId = randomToken(12);
+  const res = await fetch(`${WORKER_URL}/pair/offer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pairId, pubA: pub }),
+  });
+  if (!res.ok) return null;
+  return { code: encodeMeet({ v: 3, pairId, pub }), pairId, priv };
+}
+
+/**
+ * Показывающая сторона: дождаться ответа второго устройства и передать ему
+ * секреты, зашифрованные общим секретом встречи. Возвращает true, когда
+ * конверт положен (то есть сопряжение состоялось).
+ *
+ * Опрос, а не сокет: встреча длится минуты, соединение ради неё держать
+ * незачем, а лишний путь в вебсокетах — лишний источник поломок.
+ */
+export async function awaitPairing(
+  pairId: string,
+  priv: string,
+  signal?: { aborted: boolean },
+): Promise<boolean> {
+  const c = await getSyncConfig();
+  if (!c) return false;
+  for (let i = 0; i < 150 && !signal?.aborted; i++) {
+    const res = await fetch(`${WORKER_URL}/pair/state?pairId=${encodeURIComponent(pairId)}`).catch(() => null);
+    if (!res) {
+      await new Promise((r) => setTimeout(r, 2000));
+      continue;
+    }
+    if (res.status === 404) return false; // встреча истекла
+    const { pubB } = (await res.json()) as { pubB: string | null };
+    if (pubB) {
+      const sealed = await sealFor(await importBoxPublic(pubB), await importBoxPrivate(priv), {
+        v: 1,
+        accountId: c.accountId,
+        authToken: c.authToken,
+        key: await exportKeyRaw(c.key),
+      });
+      const put = await fetch(`${WORKER_URL}/pair/seal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pairId, sealed }),
+      });
+      return put.ok;
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  return false;
 }
 
 /** Полностью отключить синхронизацию на этом устройстве (локальные данные целы). */
