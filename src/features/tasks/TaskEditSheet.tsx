@@ -27,6 +27,7 @@ import { addDaysKey, todayKey, WEEKDAY_LABELS } from '../../lib/dates';
 import { PRESET_COLORS } from '../../lib/colors';
 import { cancelReminder, scheduleReminder } from '../../lib/push';
 import { compressImage } from '../../lib/image';
+import { syncTaskPhotos } from '../../lib/taskPhotos';
 import { t } from '../../lib/i18n';
 import { usePomodoro } from '../focus/pomodoro';
 import { ICON } from '../../components/ui/icons';
@@ -261,6 +262,11 @@ function TaskEditForm({ onClose, task, defaults }: TaskEditProps) {
         const created = await create(db.tasks, { ...data, completedAt: null, sortOrder: Date.now() });
         savedId = created.id;
       }
+      // Снимки раскладываем кусками в свою таблицу — параллельно тому, что они
+      // остались в строке задачи. Пока второе устройство может быть на старой
+      // версии, поле photos убирать нельзя: применяя такую задачу, оно затёрло
+      // бы ею свои фотографии. Строку эта запись не трогает.
+      void syncTaskPhotos(savedId, photos);
       // Поставить/обновить пуш-напоминание (внутри само снимет, если срок/время убраны).
       void scheduleReminder({
         id: savedId,

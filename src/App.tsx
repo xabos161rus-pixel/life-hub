@@ -10,6 +10,7 @@ import { InstallBanner } from './components/layout/InstallBanner';
 import { ReloadPrompt } from './components/layout/ReloadPrompt';
 import { SyncRunner } from './components/SyncRunner';
 import { BackupRunner } from './components/BackupRunner';
+import { PhotoMigrationRunner } from './components/PhotoMigrationRunner';
 import { FamilyRunner } from './components/FamilyRunner';
 import { CallRunner } from './components/CallRunner';
 import { SwNavBridge } from './components/SwNavBridge';
@@ -137,6 +138,7 @@ export default function App() {
         <ScrollReset />
         <SyncRunner />
         <BackupRunner />
+        <PhotoMigrationRunner />
         <FamilyRunner />
         <CallRunner />
         <SwNavBridge />
